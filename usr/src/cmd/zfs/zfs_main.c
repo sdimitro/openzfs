@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #include <assert.h>
@@ -6021,12 +6022,18 @@ manual_mount(int argc, char **argv)
 	int c;
 	int flags = 0;
 	char *dataset, *path;
+	boolean_t ignoremp = B_FALSE;
 
 	/* check options */
 	while ((c = getopt(argc, argv, ":mo:O")) != -1) {
 		switch (c) {
 		case 'o':
-			(void) strlcpy(mntopts, optarg, sizeof (mntopts));
+			if (strcmp(optarg, "ignoremountpoint") == 0) {
+				ignoremp = B_TRUE;
+			} else {
+				(void) strlcpy(mntopts, optarg,
+				    sizeof (mntopts));
+			}
 			break;
 		case 'O':
 			flags |= MS_OVERLAY;
@@ -6075,9 +6082,12 @@ manual_mount(int argc, char **argv)
 	(void) zfs_prop_get(zhp, ZFS_PROP_MOUNTPOINT, mountpoint,
 	    sizeof (mountpoint), NULL, NULL, 0, B_FALSE);
 
-	/* check for legacy mountpoint and complain appropriately */
+	/*
+	 * Unless we're explicitly forced by the user, check for legacy
+	 * mountpoint and complain appropriately.
+	 */
 	ret = 0;
-	if (strcmp(mountpoint, ZFS_MOUNTPOINT_LEGACY) == 0) {
+	if (ignoremp || strcmp(mountpoint, ZFS_MOUNTPOINT_LEGACY) == 0) {
 		if (mount(dataset, path, MS_OPTIONSTR | flags, MNTTYPE_ZFS,
 		    NULL, 0, mntopts, sizeof (mntopts)) != 0) {
 			(void) fprintf(stderr, gettext("mount failed: %s\n"),
@@ -6090,7 +6100,9 @@ manual_mount(int argc, char **argv)
 		(void) fprintf(stderr, gettext("Use 'zfs set mountpoint=%s' "
 		    "instead.\n"), path);
 		(void) fprintf(stderr, gettext("If you must use 'mount -F zfs' "
-		    "or /etc/vfstab, use 'zfs set mountpoint=legacy'.\n"));
+		    "or /etc/vfstab, use 'zfs set mountpoint=legacy'\n"));
+		(void) fprintf(stderr, gettext("or specify '-o "
+		    "ignoremountpoint'.\n"));
 		(void) fprintf(stderr, gettext("See zfs(1M) for more "
 		    "information.\n"));
 		ret = 1;

@@ -18,6 +18,7 @@
 # CDDL HEADER END
 #
 # Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 # The /etc/inittab file controls the configuration of init(1M); for more
 # information refer to init(1M) and inittab(4).  It is no longer
@@ -36,5 +37,6 @@
 #
 ap::sysinit:/sbin/autopush -f /etc/iu.ap
 sp::sysinit:/sbin/soconfig -d /etc/sock2path.d
-smf::sysinit:/lib/svc/bin/svc.startd	>/dev/msglog 2<>/dev/msglog </dev/console
+dlpx::sysinit:/lib/delphix/dxosinit >/dev/msglog 2<>/dev/msglog </dev/console
+smf::sysinit:/lib/svc/bin/svc.startd >/dev/msglog 2<>/dev/msglog </dev/console
 p3:s1234:powerfail:/usr/sbin/shutdown -y -i5 -g0 >/dev/msglog 2<>/dev/msglog

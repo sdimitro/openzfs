@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -296,6 +297,7 @@ do_logging_queue(logging_data *lq)
 
 	while (lq) {
 		if (lq->ld_host == NULL) {
+			clnames = NULL;
 			DTRACE_PROBE(mountd, name_by_lazy);
 			if (getclientsnames_lazy(lq->ld_netid,
 			    &lq->ld_nb, &clnames) != 0)
@@ -734,7 +736,8 @@ getclientsnames_common(struct netconfig *nconf, struct netbuf **nbuf,
 	 * Use the this API instead of the netdir_getbyaddr()
 	 * to avoid service lookup.
 	 */
-	if (__netdir_getbyaddr_nosrv(nconf, serv, *nbuf) != 0) {
+	if (__netdir_getbyaddr_nosrv(nconf, serv, *nbuf) != 0 ||
+	    *serv == NULL) {
 		if (strcmp(nconf->nc_protofmly, NC_INET) == 0) {
 			struct sockaddr_in *sa;
 

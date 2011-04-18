@@ -20,6 +20,7 @@
 # CDDL HEADER END
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
 IPFILTER_FMRI="svc:/network/ipfilter:default"
@@ -85,9 +86,9 @@ SERVINFO=/usr/lib/servinfo
 #
 # Get value(s) for given property from either firewall_config_default or
 # firewall_config_override property groups.
-# 
+#
 # global_get_prop_value pg_name propname
-#   pg_name - FW_CONFIG_DEF_PG or FW_CONFIG_OVR_PG 
+#   pg_name - FW_CONFIG_DEF_PG or FW_CONFIG_OVR_PG
 #   propname - property name
 #
 global_get_prop_value()
@@ -143,7 +144,7 @@ global_init()
 }
 
 #
-# Given a service, gets its config pg name 
+# Given a service, gets its config pg name
 #
 get_config_pg()
 {
@@ -221,8 +222,8 @@ service_is_enabled()
 #
 # Args: fmri state
 # Return:
-#  0 - desired state is service's current state  
-#  1 - desired state is not service's current state  
+#  0 - desired state is service's current state
+#  1 - desired state is not service's current state
 #
 service_check_state()
 {
@@ -230,9 +231,10 @@ service_check_state()
 	# Make sure we're done with ongoing state transition
 	#
 	while [ "`svcprop -p restarter/next_state $1`" != "$SMF_NONE" ]; do
+		echo "Waiting for service $1 to come online"
 		sleep 1
 	done
-	
+
 	[ "`svcprop -p restarter/state $1`" = "$2" ] && return 0 || return 1
 }
 
@@ -470,8 +472,8 @@ custom_set_symlink()
 #
 replace_file()
 {
-	orig=$1	
-	new=$2	
+	orig=$1
+	new=$2
 
 	#
 	# IPFILCONF may be a symlink, remove it if that's the case
@@ -523,7 +525,7 @@ process_server_svc()
 	# Bail if iana_name isn't defined. Services with static rules
 	# like nis/client don't need to generate rules using
 	# iana name and protocol information.
-	# 
+	#
 	[ -z "$iana_name" ] && return 1
 
 	#
@@ -532,7 +534,7 @@ process_server_svc()
 	if [ "$isrpc" = "true" ]; then
 		tports=`$SERVINFO -R -p -t -s $iana_name 2>/dev/null`
 		if [ -n "$tports" ]; then
-			for tport in $tports; do 
+			for tport in $tports; do
 				generate_rules $service $policy "tcp" \
 				    $ip $tport $file
 			done
@@ -540,7 +542,7 @@ process_server_svc()
 
 		uports=`$SERVINFO -R -p -u -s $iana_name 2>/dev/null`
 		if [ -n "$uports" ]; then
-			for uport in $uports; do 
+			for uport in $uports; do
 				generate_rules $service $policy "udp" \
 				    $ip $uport $file
 			done
@@ -575,7 +577,7 @@ process_server_svc()
 # ordered as:
 #
 # - make exceptions to policy for those in "exceptions" list
-# - apply policy to those specified in "apply_to" list 
+# - apply policy to those specified in "apply_to" list
 # - policy rule
 #
 generate_rules()
@@ -673,7 +675,6 @@ process_service()
 	if [ -n "$method" -a "$method" != '""' ]; then
 		( exec $method $1 >/dev/null )
 	else
-		svcprop -p $FW_CONFIG_PG $1 >/dev/null 2>&1 || return 1
 		process_server_svc $1 || return 1
 	fi
 	return 0
@@ -751,7 +752,7 @@ create_global_rules()
 		replace_file ${IPFILCONF} ${TEMP}
 		return $?
 		;;
-	
+
 	'deny')
 		ecmd="pass"
 		acmd="block"
@@ -771,7 +772,7 @@ create_global_rules()
 
 		ifc=`get_interface $name`
 		if [ $? -eq 0 -a -n "$ifc" ]; then
-			echo "${ecmd} in log quick on ${ifc} all" >>${TEMP} 
+			echo "${ecmd} in log quick on ${ifc} all" >>${TEMP}
 			continue
 		fi
 
@@ -799,7 +800,7 @@ create_global_rules()
 
 	if [ "$GLOBAL_POLICY" = "allow" ]; then
 		#
-		# Allow DHCP traffic if running as a DHCP client 
+		# Allow DHCP traffic if running as a DHCP client
 		#
 		/sbin/netstrategy | grep dhcp >/dev/null 2>&1
 		if [ $? -eq 0 ]; then
@@ -831,7 +832,7 @@ create_global_ovr_rules()
 	#
 	# Simply empty override file if global policy is 'custom'
 	#
-	if [ "$GLOBAL_POLICY" = "custom" ]; then 
+	if [ "$GLOBAL_POLICY" = "custom" ]; then
 		echo "# 'custom' global policy" >$IPFILOVRCONF
 		return 0
 	fi
@@ -840,7 +841,7 @@ create_global_ovr_rules()
 	# Get and process override policy
 	#
 	ovr_policy=`global_get_prop_value $FW_CONFIG_OVR_PG $POLICY_PROP`
-	if [ "$ovr_policy" = "none" ]; then 
+	if [ "$ovr_policy" = "none" ]; then
 		echo "# global override policy is 'none'" >$IPFILOVRCONF
 		return 0
 	fi
@@ -920,9 +921,13 @@ create_services_rules()
 	    2>/dev/null | sed -n 's,^\(svc:.*\)/:properties/.* true$,\1,p' | sort -u`
 
 	#
-	# Process enabled services 
+	# Process enabled services
 	#
 	for s in $allsvcs; do
+		svcprop -p $FW_CONFIG_PG $s >/dev/null 2>&1; found_config=$?
+		svcprop -p $FW_CONTEXT_PG $s >/dev/null 2>&1; found_context=$?
+		[ $found_config -ne 0 -a $found_context -ne 0 ] && continue
+
 		service_is_enabled $s || continue
 		process_service $s || continue
 
@@ -1053,6 +1058,6 @@ service_update()
 
 #
 # Initialize global configuration
-# 
+#
 global_init
 

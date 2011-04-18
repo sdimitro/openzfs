@@ -21,6 +21,7 @@
 #
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
 # Start/stop processes required for server NFS
@@ -49,12 +50,11 @@ configure_ipfilter()
 
         #
 	# Nothing to do if:
-        # - ipfilter isn't online 
+        # - ipfilter isn't online
 	# - global policy is 'custom'
 	# - service's policy is 'use_global'
         #
         service_check_state $IPF_FMRI $SMF_ONLINE || return 0
-        [ "`get_global_def_policy`" = "custom" ] && return 0
 	[ "`get_policy $SMF_FMRI`" = "use_global" ] && return 0
 
 	svcadm restart $IPF_FMRI

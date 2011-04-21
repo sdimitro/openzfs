@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 /*
@@ -2027,8 +2028,20 @@ arc_reclaim_needed(void)
 	 * heap is allocated.  (Or, in the calculation, if less than 1/4th is
 	 * free)
 	 */
-	if (btop(vmem_size(heap_arena, VMEM_FREE)) <
-	    (btop(vmem_size(heap_arena, VMEM_FREE | VMEM_ALLOC)) >> 2))
+	if (vmem_size(heap_arena, VMEM_FREE) <
+	    (vmem_size(heap_arena, VMEM_FREE | VMEM_ALLOC) >> 2))
+		return (1);
+#endif
+
+#ifdef _KERNEL
+	/*
+	 * If zio data pages are being allocated out of a separate heap segment,
+	 * then enforce that the size of available vmem for this area remains
+	 * above about 1/16th free.
+	 */
+	if (zio_arena != NULL &&
+	    vmem_size(zio_arena, VMEM_FREE) <
+	    (vmem_size(zio_arena, VMEM_ALLOC) >> 4))
 		return (1);
 #endif
 
@@ -2215,18 +2228,6 @@ arc_evict_needed(arc_buf_contents_t type)
 {
 	if (type == ARC_BUFC_METADATA && arc_meta_used >= arc_meta_limit)
 		return (1);
-
-#ifdef _KERNEL
-	/*
-	 * If zio data pages are being allocated out of a separate heap segment,
-	 * then enforce that the size of available vmem for this area remains
-	 * above about 1/32nd free.
-	 */
-	if (type == ARC_BUFC_DATA && zio_arena != NULL &&
-	    vmem_size(zio_arena, VMEM_FREE) <
-	    (vmem_size(zio_arena, VMEM_ALLOC) >> 5))
-		return (1);
-#endif
 
 	if (arc_reclaim_needed())
 		return (1);

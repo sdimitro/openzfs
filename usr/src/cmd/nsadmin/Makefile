@@ -21,10 +21,11 @@
 #
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
 PROG= profile .login ksh.kshrc system
-PROGSKEL= local.login local.profile local.cshrc .profile
+PROGSKEL= local.login local.profile local.cshrc .profile .bashrc
 PROGROOT= .profile .bashrc
 
 include ../Makefile.cmd
@@ -38,7 +39,7 @@ FILEMODE= 0644
 CLOBBERFILES = profile .bashrc .profile .login
 
 .login: login.csh
-	$(RM) .login; 
+	$(RM) .login;
 	$(CP) login.csh .login
 
 profile: etc-profile.sh

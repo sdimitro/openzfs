@@ -20,6 +20,7 @@
 #
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
 TXTS= nsswitch.conf netconfig hosts services
@@ -29,7 +30,7 @@ include ../Makefile.cmd
 
 FILES= hosts services
 ETCFILES= netconfig nsswitch.conf nsswitch.files nsswitch.nis \
-		nsswitch.dns nsswitch.ldap nsswitch.ad
+		nsswitch.dns nsswitch.mdns nsswitch.ldap nsswitch.ad
 
 ROOTNET=    $(ROOTETC)/net
 TICLTS=     $(ROOTNET)/ticlts

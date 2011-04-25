@@ -21,6 +21,7 @@
 
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2010 Nexenta Systems, Inc.  All rights reserved.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 
 <include SUNWcs.man1.inc>
 <include SUNWcs.man1m.inc>
@@ -441,6 +442,7 @@ file path=etc/nsswitch.conf group=sys preserve=true
 file path=etc/nsswitch.dns group=sys
 file path=etc/nsswitch.files group=sys
 file path=etc/nsswitch.ldap group=sys
+file path=etc/nsswitch.mdns group=sys
 file path=etc/pam.conf group=sys preserve=true
 file path=etc/passwd group=sys preserve=true
 file path=etc/profile group=sys preserve=true

@@ -20,11 +20,10 @@
 #
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
-# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
 #
-# /etc/nsswitch.dns:
+# /etc/nsswitch.mdns:
 #
 # An example file that could be copied over to /etc/nsswitch.conf; it uses
 # DNS for hosts lookups, otherwise it does not use any other naming service.
@@ -39,12 +38,13 @@ passwd:     files
 group:      files
 
 # You must also set up the /etc/resolv.conf file for DNS name
-# server lookup.  See resolv.conf(4).
-hosts:      files dns
+# server lookup.  See resolv.conf(4). For lookup via mdns
+# svc:/network/dns/multicast:default must also be enabled. See mdnsd(1M)
+hosts:      files dns mdns
 
 # Note that IPv4 addresses are searched for in all of the ipnodes databases
 # before searching the hosts databases.
-ipnodes:   files dns
+ipnodes:   files dns mdns
 
 networks:   files
 protocols:  files

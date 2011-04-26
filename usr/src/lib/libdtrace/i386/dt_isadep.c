@@ -22,6 +22,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #include <stdlib.h>
@@ -481,7 +482,8 @@ dt_instr_size(uchar_t *instr, dtrace_hdl_t *dtp, pid_t pid, uintptr_t addr,
 	 * another debugger attached to this process. The original instruction
 	 * can't be recovered so this must fail.
 	 */
-	if (x86dis.d86_len == 1 && instr[0] == FASTTRAP_INSTR)
+	if (x86dis.d86_len == 1 &&
+	    (uchar_t)x86dis.d86_bytes[0] == FASTTRAP_INSTR)
 		return (-1);
 
 	return (x86dis.d86_len);

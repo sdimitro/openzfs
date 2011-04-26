@@ -21,6 +21,7 @@
 #
 #
 # Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
 . /lib/svc/share/smf_include.sh
@@ -84,21 +85,25 @@ if [ -n "$vlist" ]; then
 	fi
 fi
 
-# Mount all ZFS filesystems.
-
+#
+# Mount all ZFS filesystems, except for those in rpool which we mount earlier
+# in boot, before SMF starts.
+#
 if [ -x /usr/sbin/zfs ]; then
-	/usr/sbin/zfs mount -va >/dev/msglog 2>&1
-	rc=$?
-	if [ $rc -ne 0 ]; then
-		msg="WARNING: /usr/sbin/zfs mount -a failed: exit status $rc"
-		echo $msg
-		echo "$SMF_FMRI:" $msg >/dev/msglog
-		result=$SMF_EXIT_ERR_FATAL
+	pools=$(/usr/sbin/zpool list -Ho name | grep -v '^rpool$')
+	if [ "x$pools" != "x" ]; then
+		/usr/sbin/zfs mount -vr $pools >/dev/msglog 2>&1
+		rc=$?
+		if [ $rc -ne 0 ]; then
+			msg="WARNING: zfs mount -r $pools failed: status $rc"
+			echo $msg
+			echo "$SMF_FMRI:" $msg >/dev/msglog
+			result=$SMF_EXIT_ERR_FATAL
+		fi
 	fi
 fi
 
-if [ $result = $SMF_EXIT_OK -a $mntretry -eq 1 ]
-then
+if [ $result = $SMF_EXIT_OK -a $mntretry -eq 1 ]; then
 	cd /; /sbin/mountall -l >/dev/msglog
 	rc=$?
 	if [ $rc -ne 0 ]; then

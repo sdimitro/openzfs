@@ -90,16 +90,24 @@ fi
 # in boot, before SMF starts.
 #
 if [ -x /usr/sbin/zfs ]; then
+	rds=$(mount | awk '/^\/ /{ print $3 }')
 	pools=$(/usr/sbin/zpool list -Ho name | grep -v '^rpool$')
-	if [ "x$pools" != "x" ]; then
-		/usr/sbin/zfs mount -vr $pools >/dev/msglog 2>&1
-		rc=$?
-		if [ $rc -ne 0 ]; then
-			msg="WARNING: zfs mount -r $pools failed: status $rc"
-			echo $msg
-			echo "$SMF_FMRI:" $msg >/dev/msglog
-			result=$SMF_EXIT_ERR_FATAL
-		fi
+	if [ "x$rds" = "xrpool/ROOT/rootfs" ]; then
+		cmd="/usr/sbin/zfs mount -va"
+	elif [ "x$pools" != "x" ]; then
+		cmd="/usr/sbin/zfs mount -vr $pools"
+	else
+		cmd=true
+	fi
+
+	$cmd >/dev/msglog 2>&1
+	rc=$?
+
+	if [ $rc -ne 0 ]; then
+		msg="WARNING: $cmd failed: status $rc"
+		echo $msg
+		echo "$SMF_FMRI:" $msg >/dev/msglog
+		result=$SMF_EXIT_ERR_FATAL
 	fi
 fi
 

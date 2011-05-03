@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -2127,9 +2128,13 @@ zio_dva_allocate(zio_t *zio)
 	ASSERT3U(zio->io_size, ==, BP_GET_PSIZE(bp));
 
 	error = metaslab_alloc(spa, mc, zio->io_size, bp,
-	    zio->io_prop.zp_copies, zio->io_txg, NULL, 0);
+	    zio->io_prop.zp_copies, zio->io_txg, NULL,
+	    (zio->io_flags & ZIO_FLAG_GANG_CHILD) ? METASLAB_GANG_CHILD : 0);
 
 	if (error) {
+		spa_dbgmsg(spa, "%s: metaslab allocation failure: zio %p, "
+		    "size %llu, error %d", spa_name(spa), zio, zio->io_size,
+		    error);
 		if (error == ENOSPC && zio->io_size > SPA_MINBLOCKSIZE)
 			return (zio_write_gang_block(zio));
 		zio->io_error = error;

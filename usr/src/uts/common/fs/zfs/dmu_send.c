@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 /*
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
@@ -1497,7 +1498,7 @@ dmu_recv_existing_end(dmu_recv_cookie_t *drc)
 {
 	struct recvendsyncarg resa;
 	dsl_dataset_t *ds = drc->drc_logical_ds;
-	int err;
+	int err, myerr;
 
 	/*
 	 * XXX hack; seems the ds is still dirty and dsl_pool_zil_clean()
@@ -1535,7 +1536,8 @@ out:
 	if (err == 0 && drc->drc_guid_to_ds_map != NULL)
 		(void) add_ds_to_guidmap(drc->drc_guid_to_ds_map, ds);
 	dsl_dataset_disown(ds, dmu_recv_tag);
-	(void) dsl_dataset_destroy(drc->drc_real_ds, dmu_recv_tag, B_FALSE);
+	myerr = dsl_dataset_destroy(drc->drc_real_ds, dmu_recv_tag, B_FALSE);
+	ASSERT3U(myerr, ==, 0);
 	return (err);
 }
 

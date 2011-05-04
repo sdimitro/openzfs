@@ -1,6 +1,7 @@
 #
 # Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 #
 # CDDL HEADER START
 #
@@ -22,7 +23,6 @@
 #
 # CDDL HEADER END
 #
-#ident	"%Z%%M%	%I%	%E% SMI"
 #
 # This file is /etc/default/init.  /etc/TIMEZONE is a symlink to this file.
 # This file looks like a shell script, but it is not.  To maintain
@@ -33,5 +33,6 @@
 # TZ, LANG, CMASK, or any of the LC_* environment variables.  value may
 # be enclosed in double quotes (") or single quotes (').
 #
-TZ=PST8PDT
+TZ=UTC
+LANG=C
 CMASK=022

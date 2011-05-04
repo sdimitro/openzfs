@@ -39,7 +39,7 @@
 
 . /lib/svc/share/smf_include.sh
 
-DELPHIX_SCREEN=/opt/delphix/smf/bin/delphix_startup_screen.py
+DELPHIX_SCREEN=/opt/delphix/server/bin/delphix_startup_screen.py
 
 if [ "$1" != "default" ]; then
 	if smf_dont_configure_vt; then

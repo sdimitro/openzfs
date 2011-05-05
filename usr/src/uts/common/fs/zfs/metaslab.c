@@ -858,7 +858,7 @@ metaslab_prefetch(metaslab_group_t *mg)
 }
 
 static int
-metaslab_activate(metaslab_t *msp, uint64_t activation_weight, uint64_t size)
+metaslab_activate(metaslab_t *msp, uint64_t activation_weight)
 {
 	metaslab_group_t *mg = msp->ms_group;
 	space_map_t *sm = &msp->ms_map;
@@ -1244,7 +1244,7 @@ metaslab_group_alloc(metaslab_group_t *mg, uint64_t psize, uint64_t asize,
 			continue;
 		}
 
-		if (metaslab_activate(msp, activation_weight, asize) != 0) {
+		if (metaslab_activate(msp, activation_weight) != 0) {
 			mutex_exit(&msp->ms_lock);
 			continue;
 		}
@@ -1533,7 +1533,7 @@ metaslab_claim_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 	mutex_enter(&msp->ms_lock);
 
 	if ((txg != 0 && spa_writeable(spa)) || !msp->ms_map.sm_loaded)
-		error = metaslab_activate(msp, METASLAB_WEIGHT_SECONDARY, 0);
+		error = metaslab_activate(msp, METASLAB_WEIGHT_SECONDARY);
 
 	if (error == 0 && !space_map_contains(&msp->ms_map, offset, size))
 		error = ENOENT;

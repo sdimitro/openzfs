@@ -2145,7 +2145,7 @@ dsl_dataset_sync(dsl_dataset_t *ds, zio_t *zio, dmu_tx_t *tx)
 void
 dsl_dataset_stats(dsl_dataset_t *ds, nvlist_t *nv)
 {
-	uint64_t refd, avail, uobjs, aobjs;
+	uint64_t refd, avail, uobjs, aobjs, ratio;
 
 	dsl_dir_stats(ds->ds_dir, nv);
 
@@ -2172,6 +2172,11 @@ dsl_dataset_stats(dsl_dataset_t *ds, nvlist_t *nv)
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_DEFER_DESTROY,
 	    DS_IS_DEFER_DESTROY(ds) ? 1 : 0);
 
+	ratio = ds->ds_phys->ds_compressed_bytes == 0 ? 100 :
+	    (ds->ds_phys->ds_uncompressed_bytes * 100 /
+	    ds->ds_phys->ds_compressed_bytes);
+	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_REFRATIO, ratio);
+
 	if (ds->ds_phys->ds_next_snap_obj) {
 		/*
 		 * This is a snapshot; override the dd's space used with
@@ -2179,10 +2184,7 @@ dsl_dataset_stats(dsl_dataset_t *ds, nvlist_t *nv)
 		 */
 		dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_USED,
 		    ds->ds_phys->ds_unique_bytes);
-		dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_COMPRESSRATIO,
-		    ds->ds_phys->ds_compressed_bytes == 0 ? 100 :
-		    (ds->ds_phys->ds_uncompressed_bytes * 100 /
-		    ds->ds_phys->ds_compressed_bytes));
+		dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_COMPRESSRATIO, ratio);
 	}
 }
 

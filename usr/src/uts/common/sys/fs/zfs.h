@@ -122,6 +122,7 @@ typedef enum {
 	ZFS_PROP_DEDUP,
 	ZFS_PROP_MLSLABEL,
 	ZFS_PROP_SYNC,
+	ZFS_PROP_REFRATIO,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 

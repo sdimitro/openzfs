@@ -26,10 +26,10 @@
 
 include			../../../../../Makefile.lp
 
-CHARFILES =		12 14 34 Fi Fl L1 LH Lb		\
+CHARFILES =		12 14 34 Fi Fl L1 NEW_LH Lb		\
 			OLD_LH Sl bx ci ff lc lf lh	\
 			ob rc rf rh sq
-MAPFILES =		L1.map LH.map Lb.map OLD_LH.map
+MAPFILES =		L1.map NEW_LH.map Lb.map OLD_LH.map
 TXTS =			BRACKETS_NOTE README
 FILES =			$(CHARFILES) $(MAPFILES) $(TXTS)
 

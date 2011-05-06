@@ -17,4 +17,4 @@
  * is provided ``as is'' without express or implied warranty.
  */
 
-static char Version[] = VERSIONNAME": libldap.a 4.0";
+static char Version[] = "  libldap.a v%VERSION% (%WHEN%)\n\t%WHOANDWHERE%\n";

@@ -42,7 +42,7 @@ LDAPOBJS=	abandon.o             getentry.o            referral.o \
 		extensions.o          unbind.o 	            extop.o    \
 		url.o         \
 		free.o   modify.o              utils.o \
-		friendly.o            modrdn.o    notif.o    Version.o \
+		friendly.o            modrdn.o    notif.o    version.o \
 		getattr.o             open.o                \
 		getdn.o               option.o \
 		getdxbyname.o         os-ip.o               sortctrl.o \

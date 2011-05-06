@@ -30,8 +30,8 @@
 include			../../../../Makefile.lp
 
 FONTFILES =		AB AI AR AX BI CB CI CO	\
-			CW CX GR HB HI HX Hb Hi	\
-			Hr Hx KB KI KR KX NB NI	\
+			CW CX GR HB HI HX WB WI	\
+			W  WX KB KI KR KX NB NI	\
 			NR NX PA PB PI PX S1 VB	\
 			VI VR VX ZD ZI B  H  I	\
 			R  S	

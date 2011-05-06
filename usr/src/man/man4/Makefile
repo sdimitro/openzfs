@@ -191,7 +191,7 @@ COMMON_MANFILES = 	Intro.4				\
 		 	system.4			\
 		 	term.4				\
 		 	terminfo.4			\
-		 	timezone.4			\
+		 	timezone_db.4			\
 		 	tnf_kernel_probes.4		\
 		 	ts_dptbl.4			\
 		 	ttydefs.4			\

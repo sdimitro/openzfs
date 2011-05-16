@@ -49,6 +49,7 @@ extern void metaslab_sync_reassess(metaslab_group_t *mg);
 #define	METASLAB_HINTBP_AVOID	0x1
 #define	METASLAB_GANG_HEADER	0x2
 #define	METASLAB_GANG_CHILD	0x4
+#define	METASLAB_GANG_AVOID	0x8
 
 extern int metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     blkptr_t *bp, int ncopies, uint64_t txg, blkptr_t *hintbp, int flags);

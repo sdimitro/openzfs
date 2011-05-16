@@ -32,10 +32,16 @@
 #include <sys/zio.h>
 
 /*
- * Allocations of gang blocks are indicated by the flags passed
- * into the metaslab routines.
+ * Allow allocations to switch to gang blocks quickly. We do this to
+ * avoid having to load lots of space_maps in a given txg. There are,
+ * however, some cases where we want to avoid "fast" ganging and instead
+ * we want to do an exhaustive search of all metaslabs on this device.
+ * Currently we don't allow any gang or dump device related allocations
+ * to "fast" gang.
  */
-#define	IS_GANG(flags) ((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER))
+#define	CAN_FASTGANG(flags) \
+    (!((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER | \
+    METASLAB_GANG_AVOID)))
 
 uint64_t metaslab_aliquot = 512ULL << 10;
 uint64_t metaslab_gang_bang = SPA_MAXBLOCKSIZE + 1;	/* force gang blocks */
@@ -45,7 +51,7 @@ uint64_t metaslab_gang_bang = SPA_MAXBLOCKSIZE + 1;	/* force gang blocks */
  * If a device reaches this threshold in a given txg then we consider skipping
  * allocations on that device.
  */
-int zfs_mg_alloc_failures = 3;
+int zfs_mg_alloc_failures;
 
 /*
  * Metaslab debugging: when set, keeps all space maps in core to verify frees.
@@ -1205,13 +1211,13 @@ metaslab_group_alloc(metaslab_group_t *mg, uint64_t psize, uint64_t asize,
 		/*
 		 * If we've already reached the allowable number of failed
 		 * allocation attempts on this metaslab group then we
-		 * consider skipping it. We skip it only if we're not
-		 * currently ganging, the physical size is larger than
+		 * consider skipping it. We skip it only if we're allowed
+		 * to "fast" gang, the physical size is larger than
 		 * a gang block, and we're attempting to allocate from
 		 * the primary metaslab.
 		 */
 		if (mg->mg_alloc_failures > zfs_mg_alloc_failures &&
-		    !(IS_GANG(flags)) && psize > SPA_GANGBLOCKSIZE &&
+		    CAN_FASTGANG(flags) && psize > SPA_GANGBLOCKSIZE &&
 		    activation_weight == METASLAB_WEIGHT_PRIMARY) {
 			spa_dbgmsg(spa, "%s: skipping metaslab group: "
 			    "vdev %llu, txg %llu, mg %p, psize %llu, "

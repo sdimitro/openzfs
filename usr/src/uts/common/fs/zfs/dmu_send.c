@@ -499,6 +499,85 @@ dmu_sendbackup(objset_t *tosnap, objset_t *fromsnap, boolean_t fromorigin,
 	return (0);
 }
 
+int
+dmu_send_estimate(objset_t *tosnap, objset_t *fromsnap, boolean_t fromorigin,
+    uint64_t *sizep)
+{
+	dsl_dataset_t *ds = tosnap->os_dsl_dataset;
+	dsl_dataset_t *fromds = fromsnap ? fromsnap->os_dsl_dataset : NULL;
+	dsl_pool_t *dp = ds->ds_dir->dd_pool;
+	int err;
+	uint64_t size;
+
+	/* tosnap must be a snapshot */
+	if (ds->ds_phys->ds_next_snap_obj == 0)
+		return (EINVAL);
+
+	/* fromsnap must be an earlier snapshot from the same fs as tosnap */
+	if (fromds && (ds->ds_dir != fromds->ds_dir ||
+	    fromds->ds_phys->ds_creation_txg >= ds->ds_phys->ds_creation_txg))
+		return (EXDEV);
+
+	if (fromorigin) {
+		if (fromsnap)
+			return (EINVAL);
+
+		if (dsl_dir_is_clone(ds->ds_dir)) {
+			rw_enter(&dp->dp_config_rwlock, RW_READER);
+			err = dsl_dataset_hold_obj(dp,
+			    ds->ds_dir->dd_phys->dd_origin_obj, FTAG, &fromds);
+			rw_exit(&dp->dp_config_rwlock);
+			if (err)
+				return (err);
+		} else {
+			fromorigin = B_FALSE;
+		}
+	}
+
+	/* Get uncompressed size estimate of changed data. */
+	if (fromds == NULL) {
+		size = ds->ds_phys->ds_uncompressed_bytes;
+	} else {
+		uint64_t used, comp;
+		err = dsl_dataset_space_written(fromds, ds,
+		    &used, &comp, &size);
+		if (err)
+			return (err);
+	}
+
+	/*
+	 * Assume that space (both on-disk and in-stream) is dominated by
+	 * data.  We will adjust for indirect blocks and the copies property,
+	 * but ignore per-object space used (eg, dnodes and DRR_OBJECT records).
+	 */
+
+	/*
+	 * Subtract out approximate space used by indirect blocks.
+	 * Assume most space is used by data blocks (non-indirect, non-dnode).
+	 * Assume all blocks are recordsize.  Assume ditto blocks and
+	 * internal fragmentation counter out compression.
+	 *
+	 * Therefore, space used by indirect blocks is sizeof(blkptr_t) per
+	 * block, which we observe in practice.
+	 */
+	uint64_t recordsize;
+	rw_enter(&dp->dp_config_rwlock, RW_READER);
+	err = dsl_prop_get_ds(ds, "recordsize",
+	    sizeof (recordsize), 1, &recordsize, NULL);
+	if (err) {
+		rw_exit(&dp->dp_config_rwlock);
+		return (err);
+	}
+	size -= size / recordsize * sizeof (blkptr_t);
+
+	/* Add in the space for the record associated with each block. */
+	size += size / recordsize * sizeof (dmu_replay_record_t);
+
+	*sizep = size;
+
+	return (0);
+}
+
 struct recvbeginsyncarg {
 	const char *tofs;
 	const char *tosnap;

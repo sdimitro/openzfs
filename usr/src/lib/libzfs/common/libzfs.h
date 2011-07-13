@@ -533,28 +533,28 @@ extern int zfs_rename(zfs_handle_t *, const char *, boolean_t);
 
 typedef struct sendflags {
 	/* print informational messages (ie, -v was specified) */
-	int verbose : 1;
+	boolean_t verbose;
 
 	/* recursive send  (ie, -R) */
-	int replicate : 1;
+	boolean_t replicate;
 
 	/* for incrementals, do all intermediate snapshots */
-	int doall : 1; /* (ie, -I) */
+	boolean_t doall;
 
 	/* if dataset is a clone, do incremental from its origin */
-	int fromorigin : 1;
+	boolean_t fromorigin;
 
 	/* do deduplication */
-	int dedup : 1;
+	boolean_t dedup;
 
 	/* send properties (ie, -p) */
-	int props : 1;
+	boolean_t props;
 
 	/* do not send (no-op, ie. -n) */
-	int noop : 1;
+	boolean_t noop;
 
 	/* parsable verbose output (ie. -P) */
-	int parsable : 1;
+	boolean_t parsable;
 } sendflags_t;
 
 typedef boolean_t (snapfilter_cb_t)(zfs_handle_t *, void *);
@@ -581,31 +581,31 @@ extern int zfs_set_fsacl(zfs_handle_t *, boolean_t, nvlist_t *);
 
 typedef struct recvflags {
 	/* print informational messages (ie, -v was specified) */
-	int verbose : 1;
+	boolean_t verbose;
 
 	/* the destination is a prefix, not the exact fs (ie, -d) */
-	int isprefix : 1;
+	boolean_t isprefix;
 
 	/*
 	 * Only the tail of the sent snapshot path is appended to the
 	 * destination to determine the received snapshot name (ie, -e).
 	 */
-	int istail : 1;
+	boolean_t istail;
 
 	/* do not actually do the recv, just check if it would work (ie, -n) */
-	int dryrun : 1;
+	boolean_t dryrun;
 
 	/* rollback/destroy filesystems as necessary (eg, -F) */
-	int force : 1;
+	boolean_t force;
 
 	/* set "canmount=off" on all modified filesystems */
-	int canmountoff : 1;
+	boolean_t canmountoff;
 
 	/* byteswap flag is used internally; callers need not specify */
-	int byteswap : 1;
+	boolean_t byteswap;
 
 	/* do not mount file systems as they are extracted (private) */
-	int nomount : 1;
+	boolean_t nomount;
 } recvflags_t;
 
 extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t,

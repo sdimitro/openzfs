@@ -1976,7 +1976,6 @@ nvlist_t *
 zfs_get_clones_nvl(zfs_handle_t *zhp)
 {
 	nvlist_t *nv, *value;
-	int err = 0;
 
 	if (nvlist_lookup_nvlist(zhp->zfs_props,
 	    zfs_prop_to_name(ZFS_PROP_CLONES), &nv) != 0) {

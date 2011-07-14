@@ -3458,7 +3458,7 @@ zfs_do_send(int argc, char **argv)
 			flags.dedup = B_TRUE;
 			break;
 		case 'n':
-			flags.noop = B_TRUE;
+			flags.dryrun = B_TRUE;
 			break;
 		case ':':
 			(void) fprintf(stderr, gettext("missing argument for "
@@ -3539,7 +3539,7 @@ zfs_do_send(int argc, char **argv)
 	if (flags.replicate && fromname == NULL)
 		flags.doall = B_TRUE;
 
-	err = zfs_send(zhp, fromname, toname, flags, STDOUT_FILENO, NULL, 0,
+	err = zfs_send(zhp, fromname, toname, &flags, STDOUT_FILENO, NULL, 0,
 	    extraverbose ? &dbgnv : NULL);
 
 	if (extraverbose && dbgnv != NULL) {
@@ -3623,7 +3623,7 @@ zfs_do_receive(int argc, char **argv)
 		return (1);
 	}
 
-	err = zfs_receive(g_zfs, argv[0], flags, STDIN_FILENO, NULL);
+	err = zfs_receive(g_zfs, argv[0], &flags, STDIN_FILENO, NULL);
 
 	return (err != 0);
 }

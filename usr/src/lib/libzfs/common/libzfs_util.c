@@ -345,6 +345,7 @@ zfs_standard_error_fmt(libzfs_handle_t *hdl, int error, const char *fmt, ...)
 	switch (error) {
 	case ENXIO:
 	case ENODEV:
+	case EPIPE:
 		zfs_verror(hdl, EZFS_IO, fmt, ap);
 		break;
 

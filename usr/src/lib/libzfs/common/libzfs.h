@@ -551,7 +551,7 @@ typedef struct sendflags {
 	boolean_t props;
 
 	/* do not send (no-op, ie. -n) */
-	boolean_t noop;
+	boolean_t dryrun;
 
 	/* parsable verbose output (ie. -P) */
 	boolean_t parsable;
@@ -559,9 +559,8 @@ typedef struct sendflags {
 
 typedef boolean_t (snapfilter_cb_t)(zfs_handle_t *, void *);
 
-extern int zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
-    sendflags_t flags, int outfd, snapfilter_cb_t filter_func,
-    void *cb_arg, nvlist_t **debugnvp);
+extern int zfs_send(zfs_handle_t *, const char *, const char *,
+    sendflags_t *, int, snapfilter_cb_t, void *, nvlist_t **);
 
 extern int zfs_promote(zfs_handle_t *);
 extern int zfs_hold(zfs_handle_t *, const char *, const char *, boolean_t,
@@ -608,7 +607,7 @@ typedef struct recvflags {
 	boolean_t nomount;
 } recvflags_t;
 
-extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t,
+extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t *,
     int, avl_tree_t *);
 
 typedef enum diff_flags {

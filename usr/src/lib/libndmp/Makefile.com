@@ -1,6 +1,5 @@
 #
-# Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
-# Use is subject to license terms.
+# Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
 #
 
 #
@@ -11,10 +10,10 @@
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-# 	- Redistributions of source code must retain the above copyright
+#	- Redistributions of source code must retain the above copyright
 #	  notice, this list of conditions and the following disclaimer.
 #
-# 	- Redistributions in binary form must reproduce the above copyright
+#	- Redistributions in binary form must reproduce the above copyright
 #	  notice, this list of conditions and the following disclaimer in
 #	  the documentation and/or other materials provided with the
 #	  distribution.
@@ -36,29 +35,75 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
+
+#
+# Copyright (c) 2011 by Delphix. All rights reserved.
+#
+
 LIBRARY= libndmp.a
 VERS= .1
-OBJECTS= libndmp.o libndmp_error.o libndmp_door_data.o libndmp_prop.o libndmp_base64.o
+
+NDMP_OBJ = \
+	ndmp_client.o \
+	ndmp_comm.o \
+	ndmp_config.o \
+	ndmp_connect.o \
+	ndmp_data.o \
+	ndmp_handler.o \
+	ndmp_log.o \
+	ndmp_mover.o \
+	ndmp_notify.o \
+	ndmp_prop.o \
+	ndmp_scsi.o \
+	ndmp_server.o \
+	ndmp_session.o \
+	ndmp_tape.o \
+	ndmp_util.o
+
+TLM_OBJ = \
+	tlm_buffers.o \
+	tlm_info.o \
+	tlm_init.o \
+	tlm_lib.o
+
+XDR_OBJ = ndmp_xdr.o
+
+XDR_SRC = \
+	ndmp.h \
+	ndmp_xdr.c
+
+OBJECTS= $(NDMP_OBJ) $(TLM_OBJ) $(XDR_OBJ)
 
 include ../../Makefile.lib
 
-SRCDIR =	../common
-INCS += -I$(SRCDIR)
-INCS += -I$(SRC)/cmd/ndmpd/include
+LIBS=		$(DYNLIB)
+C99MODE=	$(C99_ENABLE)
 
-C99MODE=	-xc99=%all
-C99LMODE=	-Xc99=%all
-LIBS=	$(DYNLIB) $(LINTLIB)
-LDLIBS +=	-lc -lscf
-CPPFLAGS +=	$(INCS) -D_REENTRANT
+SRCDIR=		../common
 
-SRCS=	$(OBJECTS:%.o=$(SRCDIR)/%.c)
-$(LINTLIB) := SRCS=	$(SRCDIR)/$(LINTSRC)
+INCS +=		-I$(SRCDIR)
+
+CPPFLAGS +=	$(INCS) -D_LARGEFILE64_SOURCE=1 -D_REENTRANT
+
+LDLIBS   += -lsocket -lnsl -lmd5 -lumem -lc
+
+SRCS= $(NDMP_OBJ:%.o=$(SRCDIR)/%.c) $(TLM_OBJ:%.o=$(SRCDIR)/%.c)
+XDR_GEN= $(XDR_SRC:%=$(SRCDIR)/%)
+
+CLEANFILES += $(XDR_GEN)
 
 .KEEP_STATE:
 
 all: $(LIBS)
 
 lint: lintcheck
+
+$(PICS): $(XDR_GEN)
+
+$(SRCDIR)/ndmp.h: $(SRCDIR)/ndmp.x
+	rpcgen -C -h -o $(SRCDIR)/ndmp.h $(SRCDIR)/ndmp.x
+
+$(SRCDIR)/ndmp_xdr.c: $(SRCDIR)/ndmp.x
+	rpcgen -c -o $(SRCDIR)/ndmp_xdr.c $(SRCDIR)/ndmp.x
 
 include ../../Makefile.targ

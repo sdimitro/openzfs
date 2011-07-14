@@ -20,6 +20,7 @@
 #
 
 # Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011 by Delphix. All rights reserved.
 
 # include global definitions
 include Makefile.master
@@ -209,9 +210,6 @@ COMMON_SUBDIRS = \
 	cmd/msgid \
 	cmd/mt \
 	cmd/mv \
-	cmd/ndmpadm \
-	cmd/ndmpd \
-	cmd/ndmpstat \
 	cmd/newform \
 	cmd/newgrp \
 	cmd/newtask \

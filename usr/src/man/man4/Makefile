@@ -10,6 +10,7 @@
 #
 
 # Copyright 2011, Richard Lowe
+# Copyright (c) 2011 by Delphix. All rights reserved.
 
 include ../../Makefile.master
 
@@ -116,7 +117,6 @@ COMMON_MANFILES = 	Intro.4				\
 		 	ncakmod.conf.4			\
 		 	ncalogd.conf.4			\
 		 	ncaport.conf.4			\
-		 	ndmp.4				\
 		 	ndpd.conf.4			\
 		 	netconfig.4			\
 		 	netgroup.4			\

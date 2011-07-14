@@ -1447,9 +1447,14 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 		 * dump_filesystems() modifies fss to mark which have been
 		 * visited, so save & restore the original fss.
 		 */
-		err = nvlist_dup(fss, &sdd.fss, 0);
-		if (err != 0)
-			goto free;
+		if (fss != NULL) {
+			err = nvlist_dup(fss, &sdd.fss, 0);
+			if (err != 0) {
+				assert(err == ENOMEM);
+				(void) no_memory(zhp->zfs_hdl);
+				goto free;
+			}
+		}
 		sdd.noop = B_TRUE;
 		err = dump_filesystems(zhp, &sdd);
 		sdd.noop = flags->dryrun;

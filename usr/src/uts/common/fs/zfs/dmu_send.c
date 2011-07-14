@@ -564,10 +564,9 @@ dmu_send_estimate(objset_t *tosnap, objset_t *fromsnap, boolean_t fromorigin,
 	rw_enter(&dp->dp_config_rwlock, RW_READER);
 	err = dsl_prop_get_ds(ds, "recordsize",
 	    sizeof (recordsize), 1, &recordsize, NULL);
-	if (err) {
-		rw_exit(&dp->dp_config_rwlock);
+	rw_exit(&dp->dp_config_rwlock);
+	if (err)
 		return (err);
-	}
 	size -= size / recordsize * sizeof (blkptr_t);
 
 	/* Add in the space for the record associated with each block. */

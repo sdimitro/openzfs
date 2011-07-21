@@ -1710,29 +1710,46 @@ recv_destroy(libzfs_handle_t *hdl, const char *name, int baselen,
 typedef struct guid_to_name_data {
 	uint64_t guid;
 	char *name;
+	char *skip;
 } guid_to_name_data_t;
 
 static int
 guid_to_name_cb(zfs_handle_t *zhp, void *arg)
 {
 	guid_to_name_data_t *gtnd = arg;
+	const char *slash;
 	int err;
+
+	if (gtnd->skip != NULL &&
+	    (slash = strrchr(zhp->zfs_name, '/')) != NULL &&
+	    strcmp(slash + 1, gtnd->skip) == 0) {
+		return (0);
+	}
 
 	if (zhp->zfs_dmustats.dds_guid == gtnd->guid) {
 		(void) strcpy(gtnd->name, zhp->zfs_name);
 		zfs_close(zhp);
 		return (EEXIST);
 	}
+
 	err = zfs_iter_children(zhp, guid_to_name_cb, gtnd);
 	zfs_close(zhp);
 	return (err);
 }
 
+/*
+ * Attempt to find the local dataset associated with this guid.  In the case of
+ * multiple matches, we attempt to find the "best" match by searching
+ * progressively larger portions of the hierarchy.  This allows one to send a
+ * tree of datasets individually and guarantee that we will find the source
+ * guid within that hierarchy, even if there are multiple matches elsewhere.
+ */
 static int
 guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
     char *name)
 {
 	/* exhaustive search all local snapshots */
+	char pname[ZFS_MAXNAMELEN];
 	guid_to_name_data_t gtnd;
 	int err = 0;
 	zfs_handle_t *zhp;
@@ -1740,31 +1757,38 @@ guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
 
 	gtnd.guid = guid;
 	gtnd.name = name;
+	gtnd.skip = NULL;
 
-	if (strchr(parent, '@') == NULL) {
-		zhp = make_dataset_handle(hdl, parent);
-		if (zhp != NULL) {
-			err = zfs_iter_children(zhp, guid_to_name_cb, &gtnd);
-			zfs_close(zhp);
-			if (err == EEXIST)
-				return (0);
-		}
-	}
+	(void) strlcpy(pname, parent, sizeof (pname));
 
-	cp = strchr(parent, '/');
-	if (cp)
+	/*
+	 * Search progressively larger portions of the hierarchy.  This will
+	 * select the "most local" version of the origin snapshot in the case
+	 * that there are multiple matching snapshots in the system.
+	 */
+	while ((cp = strrchr(pname, '/')) != NULL) {
+
+		/* Chop off the last component and open the parent */
 		*cp = '\0';
-	zhp = make_dataset_handle(hdl, parent);
-	if (cp)
-		*cp = '/';
+		zhp = make_dataset_handle(hdl, pname);
 
-	if (zhp) {
+		if (zhp == NULL)
+			continue;
+
 		err = zfs_iter_children(zhp, guid_to_name_cb, &gtnd);
 		zfs_close(zhp);
+		if (err == EEXIST)
+			return (0);
+
+		/*
+		 * Remember the last portion of the dataset so we skip it next
+		 * time through (as we've already searched that portion of the
+		 * hierarchy).
+		 */
+		gtnd.skip = strrchr(pname, '/') + 1;
 	}
 
-	return (err == EEXIST ? 0 : ENOENT);
-
+	return (ENOENT);
 }
 
 /*
@@ -2541,7 +2565,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 	 * Determine the name of the origin snapshot, store in zc_string.
 	 */
 	if (drrb->drr_flags & DRR_FLAG_CLONE) {
-		if (guid_to_name(hdl, tosnap,
+		if (guid_to_name(hdl, zc.zc_value,
 		    drrb->drr_fromguid, zc.zc_string) != 0) {
 			zcmd_free_nvlists(&zc);
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
@@ -2572,7 +2596,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 		    !zfs_dataset_exists(hdl, zc.zc_name, ZFS_TYPE_DATASET)) {
 			char suffix[ZFS_MAXNAMELEN];
 			(void) strcpy(suffix, strrchr(zc.zc_value, '/'));
-			if (guid_to_name(hdl, tosnap, parent_snapguid,
+			if (guid_to_name(hdl, zc.zc_name, parent_snapguid,
 			    zc.zc_value) == 0) {
 				*strchr(zc.zc_value, '@') = '\0';
 				(void) strcat(zc.zc_value, suffix);
@@ -2599,7 +2623,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 		    !zfs_dataset_exists(hdl, zc.zc_name, ZFS_TYPE_DATASET)) {
 			char snap[ZFS_MAXNAMELEN];
 			(void) strcpy(snap, strchr(zc.zc_value, '@'));
-			if (guid_to_name(hdl, tosnap, drrb->drr_fromguid,
+			if (guid_to_name(hdl, zc.zc_name, drrb->drr_fromguid,
 			    zc.zc_value) == 0) {
 				*strchr(zc.zc_value, '@') = '\0';
 				(void) strcat(zc.zc_value, snap);

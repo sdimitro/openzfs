@@ -541,6 +541,8 @@ dmu_send_estimate(objset_t *tosnap, objset_t *fromsnap, boolean_t fromorigin,
 		uint64_t used, comp;
 		err = dsl_dataset_space_written(fromds, ds,
 		    &used, &comp, &size);
+		if (fromorigin)
+			dsl_dataset_rele(fromds, FTAG);
 		if (err)
 			return (err);
 	}

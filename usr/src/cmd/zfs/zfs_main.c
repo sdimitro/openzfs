@@ -3485,7 +3485,7 @@ zfs_do_send(int argc, char **argv)
 		usage(B_FALSE);
 	}
 
-	if (isatty(STDOUT_FILENO)) {
+	if (!flags.dryrun && isatty(STDOUT_FILENO)) {
 		(void) fprintf(stderr,
 		    gettext("Error: Stream can not be written to a terminal.\n"
 		    "You must redirect standard output.\n"));

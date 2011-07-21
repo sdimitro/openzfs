@@ -943,6 +943,9 @@ hold_for_send(zfs_handle_t *zhp, send_dump_data_t *sdd)
 
 	assert(zhp->zfs_type == ZFS_TYPE_SNAPSHOT);
 
+	if (sdd->noop)
+		return (0);
+
 	/*
 	 * zfs_send() only opens a cleanup_fd for sends that need it,
 	 * e.g. replication and doall.
@@ -1205,11 +1208,12 @@ again:
 	needagain = progress = B_FALSE;
 	for (fspair = nvlist_next_nvpair(sdd->fss, NULL); fspair;
 	    fspair = nvlist_next_nvpair(sdd->fss, fspair)) {
-		nvlist_t *fslist;
+		nvlist_t *fslist, *parent_nv;
 		char *fsname;
 		zfs_handle_t *zhp;
 		int err;
 		uint64_t origin_guid = 0;
+		uint64_t parent_guid = 0;
 
 		VERIFY(nvpair_value_nvlist(fspair, &fslist) == 0);
 		if (nvlist_lookup_boolean(fslist, "sent") == 0)
@@ -1217,13 +1221,21 @@ again:
 
 		VERIFY(nvlist_lookup_string(fslist, "name", &fsname) == 0);
 		(void) nvlist_lookup_uint64(fslist, "origin", &origin_guid);
+		(void) nvlist_lookup_uint64(fslist, "parentfromsnap",
+			&parent_guid);
+
+		parent_nv = fsavl_find(sdd->fsavl, parent_guid, NULL);
+		if (!nvlist_exists(parent_nv, "sent")) {
+			/* parent has not yet been sent; skip this one */
+			needagain = B_TRUE;
+			continue;
+		}
 
 		if (origin_guid != 0) {
 			nvlist_t *origin_nv = fsavl_find(sdd->fsavl,
 			    origin_guid, NULL);
 			if (origin_nv != NULL &&
-			    nvlist_lookup_boolean(origin_nv,
-			    "sent") == ENOENT) {
+			    !nvlist_exists(origin_nv, "sent")) {
 				/*
 				 * origin has not been sent yet;
 				 * skip this clone.
@@ -1247,6 +1259,16 @@ again:
 		assert(progress);
 		goto again;
 	}
+
+	/* clean out the sent flags in case we reuse this fss */
+	for (fspair = nvlist_next_nvpair(sdd->fss, NULL); fspair;
+	    fspair = nvlist_next_nvpair(sdd->fss, fspair)) {
+		nvlist_t *fslist;
+
+		VERIFY(nvpair_value_nvlist(fspair, &fslist) == 0);
+		(void) nvlist_remove_all(fslist, "sent");
+	}
+
 	return (0);
 }
 
@@ -1443,24 +1465,11 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 		 * Do a verbose no-op dry run to get all the verbose output
 		 * before generating any data.  Then do a non-verbose real
 		 * run to generate the streams.
-		 *
-		 * dump_filesystems() modifies fss to mark which have been
-		 * visited, so save & restore the original fss.
 		 */
-		if (fss != NULL) {
-			err = nvlist_dup(fss, &sdd.fss, 0);
-			if (err != 0) {
-				assert(err == ENOMEM);
-				(void) no_memory(zhp->zfs_hdl);
-				goto free;
-			}
-		}
 		sdd.noop = B_TRUE;
 		err = dump_filesystems(zhp, &sdd);
 		sdd.noop = flags->dryrun;
 		sdd.verbose = B_FALSE;
-		nvlist_free(sdd.fss);
-		sdd.fss = fss;
 		if (flags->parsable) {
 			(void) fprintf(stderr, "size\t%llu\n",
 			    (longlong_t) sdd.size);

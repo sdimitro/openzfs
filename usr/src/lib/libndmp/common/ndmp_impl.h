@@ -65,11 +65,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/mnttab.h>
 #include <sys/mntent.h>
 #include <sys/mntio.h>
 #include <sys/mtio.h>
+#include <sys/queue.h>
 #include <sys/scsi/scsi.h>
 #include <sys/scsi/impl/uscsi.h>
 #include <sys/socket.h>
@@ -85,7 +87,6 @@
 
 #include "ndmp.h"
 #include "libndmp.h"
-#include "tlm.h"
 
 #define	MAX_RECORD_SIZE		(126*512)
 #define	REMOTE_RECORD_SIZE	(60*KILOBYTE)
@@ -142,6 +143,97 @@ typedef void *(*funct_t)(void *);
 
 #define	INT_MAXCMD	12
 
+typedef struct scsi_device {
+	struct scsi_device	*sd_next;
+	unsigned int		sd_sid;
+	unsigned int		sd_lun;
+	unsigned int		sd_requested_max_active;
+	unsigned int		sd_granted_max_active;
+	unsigned int		sd_n_active;
+	unsigned int		sd_type; /* SCSI device type */
+	char			sd_name[256];
+	char			sd_vendor[8 + 1];
+	char			sd_id[16 + 1];
+	char			sd_rev[4 + 1];
+	char			sd_serial[16 + 1];
+	char			sd_wwn[32 + 1];
+} scsi_device_t;
+
+/* buffers */
+
+#define	NDMP_TAPE_BUFFERS	10	/* number of rotating tape buffers */
+#define	NDMP_LINE_SIZE		128	/* size of text messages */
+
+#define	NDMP_BACKUP_RUN		0x00000001
+#define	NDMP_RESTORE_RUN		0x00000002
+#define	NDMP_STOP		0x00000009	/* graceful stop */
+#define	NDMP_ABORT		0x99999999	/* abandon the run */
+
+/*
+ * Synchronization flags used when launching the buffer threads.
+ */
+#define	NDMP_TAPE_READER		0x00000001
+#define	NDMP_TAPE_WRITER		0x00000002
+#define	NDMP_SOCK_READER		0x00000004
+#define	NDMP_SOCK_WRITER		0x00000008
+
+#define	NDMP_MAX_SELECTIONS	64
+
+typedef struct	ndmp_buffer {
+	char	*nb_buffer_data;	/* area to be used for I/O */
+	long	nb_buffer_size;	/* number of valid bytes in the buffer */
+	long	nb_buffer_spot;	/* current location in the I/O buffer */
+	longlong_t nb_seek_spot;	/* for BACKUP */
+				/* where in the file this buffer stops. */
+				/* this is used for the Multi Volume */
+				/* Header record. */
+	longlong_t nb_file_size;	/* for BACKUP */
+					/* how much of the file is left. */
+	int	nb_full	: 1,
+		nb_eot	: 1,
+		nb_eof	: 1;
+	int	nb_errno;	/* I/O error values */
+} ndmp_buffer_t;
+
+/*
+ * Flags for ndmp_buffers.
+ */
+#define	NDMP_BUF_IN_READY	0x00000001
+#define	NDMP_BUF_OUT_READY	0x00000002
+
+typedef struct	ndmp_buffers {
+	int	nbs_ref;	/* number of threads using this */
+	short	nbs_buffer_in;	/* buffer to be filled */
+	short	nbs_buffer_out;	/* buffer to be emptied */
+				/* these are indexes into ndmp_buffers */
+	mutex_t	nbs_mtx;
+	cond_t	nbs_in_cv;
+	cond_t	nbs_out_cv;
+	uint32_t	nbs_flags;
+	long	nbs_data_transfer_size;	/* max size of read/write buffer */
+	longlong_t nbs_offset;
+	ndmp_buffer_t nbs_buffer[NDMP_TAPE_BUFFERS];
+} ndmp_buffers_t;
+
+typedef struct	ndmp_cmd {
+	int	tc_ref;			/* number of threads using this */
+	mutex_t	tc_mtx;
+	cond_t	tc_cv;
+	uint32_t	tc_flags;
+	int	tc_reader;		/* writer to reader */
+	int	tc_writer;		/* reader to writer */
+	ndmp_buffers_t *tc_buffers; /* reader-writer speedup buffers */
+} ndmp_cmd_t;
+
+typedef struct	ndmp_commands {
+	int	tcs_reader;	/* commands to all readers */
+	int	tcs_writer;	/* commands to all writers */
+	int	tcs_reader_count;	/* number of active readers */
+	int	tcs_writer_count;	/* number of active writers */
+	int	tcs_error;	/* worker errors */
+	char	tcs_message[NDMP_LINE_SIZE]; /* worker message back to user */
+	ndmp_cmd_t *tcs_command;	/* IPC area between read-write */
+} ndmp_commands_t;
 
 /* Connection data structure. */
 typedef struct ndmp_msg {
@@ -237,7 +329,7 @@ typedef struct ndmp_session_tape_desc {
 typedef struct ndmp_session_mover_desc {
 	ndmp_mover_state md_state;	/* current state */
 	ndmp_mover_mode md_mode;	/* current mode */
-	tlm_commands_t md_cmds;		/* TLM commands */
+	ndmp_commands_t md_cmds;		/* buffer commands */
 	ndmp_mover_pause_reason md_pause_reason;	/* current reason */
 	ndmp_mover_halt_reason md_halt_reason;	/* current reason */
 	u_longlong_t md_data_written;	/* total written to tape */
@@ -389,6 +481,8 @@ typedef struct ndmp_server {
 	const char *ns_props[NDMP_MAXALL]; /* server properties */
 	boolean_t ns_shutdown;		/* shutdown requested */
 	boolean_t ns_running;		/* backup or restore running */
+	mutex_t ns_ndmp_lock;		/* tape/SCSI lock */
+	scsi_device_t *ns_scsi_devices;	/* scsi devices */
 } ndmp_server_t;
 
 typedef struct ndmp_client {
@@ -404,11 +498,30 @@ extern const char *ndmp_get_prop(ndmp_session_t *, ndmp_prop_t);
 extern int ndmp_get_prop_int(ndmp_session_t *, ndmp_prop_t);
 extern boolean_t ndmp_get_prop_boolean(ndmp_session_t *, ndmp_prop_t);
 
-/*
- * Function prototypes.
- */
+extern ndmp_buffers_t *ndmp_allocate_buffers(struct ndmp_session *session,
+    boolean_t, long);
+extern ndmp_buffer_t *ndmp_buffer_advance_in_idx(ndmp_buffers_t *);
+extern ndmp_buffer_t *ndmp_buffer_advance_out_idx(ndmp_buffers_t *);
+extern ndmp_buffer_t *ndmp_buffer_in_buf(ndmp_buffers_t *, int *);
+extern ndmp_buffer_t *ndmp_buffer_out_buf(ndmp_buffers_t *, int *);
+extern void ndmp_buffer_mark_empty(ndmp_buffer_t *);
+extern void ndmp_buffer_release_in_buf(ndmp_buffers_t *);
+extern void ndmp_buffer_release_out_buf(ndmp_buffers_t *);
+extern void ndmp_buffer_in_buf_wait(ndmp_buffers_t *);
+extern void ndmp_buffer_out_buf_wait(ndmp_buffers_t *);
+extern void ndmp_buffer_in_buf_timed_wait(ndmp_buffers_t *, unsigned);
+extern void ndmp_buffer_out_buf_timed_wait(ndmp_buffers_t *, unsigned);
+extern char *ndmp_get_write_buffer(long, long *, ndmp_buffers_t *, int);
+extern char *ndmp_get_read_buffer(int, int *, ndmp_buffers_t *, int *);
+extern void ndmp_unget_read_buffer(ndmp_buffers_t *, int);
+extern void ndmp_unget_write_buffer(ndmp_buffers_t *, int);
+extern void ndmp_release_buffers(ndmp_buffers_t *);
+extern ndmp_cmd_t *ndmp_create_reader_writer_ipc(struct ndmp_session *,
+    boolean_t, long);
+extern void ndmp_release_reader_writer_ipc(ndmp_cmd_t *);
 
-
+extern void ndmp_cmd_wait(ndmp_cmd_t *, uint32_t);
+extern void ndmp_cmd_signal(ndmp_cmd_t *, uint32_t);
 
 /*
  * NDMP request handler functions.
@@ -587,7 +700,7 @@ extern void ndmp_set_socket_rcv_buf(ndmp_session_t *, int, int);
 
 extern long ndmp_buffer_get_size(ndmp_session_t *);
 
-extern boolean_t is_buffer_erroneous(ndmp_session_t *, tlm_buffer_t *);
+extern boolean_t is_buffer_erroneous(ndmp_session_t *, ndmp_buffer_t *);
 extern void ndmp_execute_cdb(ndmp_session_t *, char *,
     int, int, ndmp_execute_cdb_request *);
 
@@ -608,7 +721,7 @@ extern char *ndmp_mk_temp(char *);
 extern char *ndmp_make_bk_dir_path(char *, char *);
 extern char **ndmp_make_exc_list(void);
 extern void ndmp_sort_nlist_v3(ndmp_session_t *);
-extern int ndmp_write_utf8magic(tlm_cmd_t *);
+extern int ndmp_write_utf8magic(ndmp_cmd_t *);
 extern ndmp_error ndmp_save_nlist_v3(ndmp_session_t *, ndmp_name_v3 *,
     ulong_t);
 extern void ndmp_free_nlist_v3(ndmp_session_t *);
@@ -618,7 +731,7 @@ extern void ndmp_copy_addr_v3(ndmp_addr_v3 *, ndmp_addr_v3 *);
 extern int ndmp_copy_addr_v4(ndmp_session_t *, ndmp_addr_v4 *, ndmp_addr_v4 *);
 extern char *ndmp_addr2str_v3(ndmp_addr_type);
 extern boolean_t ndmp_valid_v3addr_type(ndmp_addr_type);
-extern boolean_t ndmp_check_utf8magic(tlm_cmd_t *);
+extern boolean_t ndmp_check_utf8magic(ndmp_cmd_t *);
 extern char *ndmp_get_relative_path(char *, char *);
 
 extern boolean_t ndmp_fhinode;
@@ -628,11 +741,13 @@ extern int tape_open(char *, int);
 
 void ndmp_get_file_entry_type(int, ndmp_file_type *);
 
-extern int tlm_init(ndmp_session_t *);
+extern int ndmp_device_init(ndmp_server_t *);
+extern void ndmp_device_fini(ndmp_server_t *);
 
-extern void scsi_find_sid_lun();
-extern int scsi_dev_exists(char *, int, int);
-extern int scsi_get_devtype(char *, int, int);
+extern void scsi_find_sid_lun(ndmp_session_t *, char *devname, int *sid,
+    int *lid);
+extern boolean_t scsi_dev_exists(ndmp_session_t *, int, int);
+extern int scsi_get_devtype(ndmp_session_t *, int, int);
 extern boolean_t ndmp_open_list_exists(char *, int, int);
 
 extern void *ndmp_malloc(ndmp_session_t *, size_t);

@@ -52,14 +52,14 @@ static int tape_write(ndmp_session_t *session, char *data, ssize_t length);
 static int tape_read(ndmp_session_t *session, char *data);
 static int change_tape(ndmp_session_t *session);
 static int discard_data(ndmp_session_t *session, ulong_t length);
-static int mover_tape_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf);
+static int mover_tape_read_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf);
 static int mover_socket_write_one_buf(ndmp_session_t *session,
-    tlm_buffer_t *buf);
+    ndmp_buffer_t *buf);
 static int start_mover_for_restore(ndmp_session_t *session);
 static int mover_socket_read_one_buf(ndmp_session_t *session,
-    tlm_buffer_t *buf, long read_size);
+    ndmp_buffer_t *buf, long read_size);
 static int mover_tape_write_one_buf(ndmp_session_t *session,
-    tlm_buffer_t *buf);
+    ndmp_buffer_t *buf);
 static int start_mover_for_backup(ndmp_session_t *session);
 static boolean_t is_writer_running_v3(ndmp_session_t *session);
 static int mover_pause_v3(ndmp_session_t *session,
@@ -2000,11 +2000,11 @@ discard_data(ndmp_session_t *session, ulong_t length)
  * Read one buffer from the tape. This is used by mover_tape_reader
  */
 static int
-mover_tape_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
+mover_tape_read_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf)
 {
 	int n;
 
-	tlm_buffer_mark_empty(buf);
+	ndmp_buffer_mark_empty(buf);
 
 	/*
 	 * If the end of the mover window has been reached,
@@ -2035,11 +2035,11 @@ mover_tape_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
 			ndmp_mover_error(session,
 			    NDMP_MOVER_HALT_INTERNAL_ERROR);
 		}
-		buf->tb_errno = EIO;
+		buf->nb_errno = EIO;
 		return (TAPE_READ_ERR);
 	}
 
-	n = tape_read(session, buf->tb_buffer_data);
+	n = tape_read(session, buf->nb_buffer_data);
 
 	ndmp_debug(session, "read %d bytes from tape", n);
 
@@ -2051,8 +2051,8 @@ mover_tape_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
 		return (TAPE_READ_ERR);
 	}
 
-	buf->tb_full = B_TRUE;
-	buf->tb_buffer_size = session->ns_mover.md_record_size;
+	buf->nb_full = B_TRUE;
+	buf->nb_buffer_size = session->ns_mover.md_record_size;
 
 	/*
 	 * Discard data if the current data stream position is
@@ -2078,10 +2078,10 @@ mover_tape_reader(ndmp_session_t *session)
 {
 	int bidx;	/* buffer index */
 	int rv;
-	tlm_buffer_t *buf;
-	tlm_buffers_t *bufs;
-	tlm_cmd_t *lcmd;	/* Local command */
-	tlm_commands_t *cmds;	/* Commands structure */
+	ndmp_buffer_t *buf;
+	ndmp_buffers_t *bufs;
+	ndmp_cmd_t *lcmd;	/* Local command */
+	ndmp_commands_t *cmds;	/* Commands structure */
 
 	cmds = &session->ns_mover.md_cmds;
 	lcmd = cmds->tcs_command;
@@ -2093,20 +2093,20 @@ mover_tape_reader(ndmp_session_t *session)
 	/*
 	 * Let our parent thread know that we are running.
 	 */
-	tlm_cmd_signal(cmds->tcs_command, TLM_TAPE_READER);
+	ndmp_cmd_signal(cmds->tcs_command, NDMP_TAPE_READER);
 
-	buf = tlm_buffer_in_buf(bufs, &bidx);
-	while (cmds->tcs_reader == TLM_RESTORE_RUN &&
-	    lcmd->tc_reader == TLM_RESTORE_RUN) {
-		buf = tlm_buffer_in_buf(bufs, NULL);
+	buf = ndmp_buffer_in_buf(bufs, &bidx);
+	while (cmds->tcs_reader == NDMP_RESTORE_RUN &&
+	    lcmd->tc_reader == NDMP_RESTORE_RUN) {
+		buf = ndmp_buffer_in_buf(bufs, NULL);
 
-		if (buf->tb_full) {
+		if (buf->nb_full) {
 			ndmp_debug(session, "R%d", bidx);
 			/*
 			 * The buffer is still full, wait for the consumer
 			 * thread to use it.
 			 */
-			tlm_buffer_out_buf_timed_wait(bufs, 100);
+			ndmp_buffer_out_buf_timed_wait(bufs, 100);
 
 		} else {
 			ndmp_debug(session, "r%d", bidx);
@@ -2127,25 +2127,25 @@ mover_tape_reader(ndmp_session_t *session)
 			if (is_buffer_erroneous(session, buf)) {
 				ndmp_debug(session, "Exiting, errno: %d, "
 				    "eot: %d, eof: %d",
-				    buf->tb_errno, buf->tb_eot, buf->tb_eof);
+				    buf->nb_errno, buf->nb_eot, buf->nb_eof);
 				break;
 			}
 
-			(void) tlm_buffer_advance_in_idx(bufs);
-			tlm_buffer_release_in_buf(bufs);
-			bidx = bufs->tbs_buffer_in;
+			(void) ndmp_buffer_advance_in_idx(bufs);
+			ndmp_buffer_release_in_buf(bufs);
+			bidx = bufs->nbs_buffer_in;
 		}
 	}
 
 	/* If the consumer is waiting for us, wake it up. */
-	tlm_buffer_release_in_buf(bufs);
+	ndmp_buffer_release_in_buf(bufs);
 
 	/*
 	 * Clean up.
 	 */
 	cmds->tcs_reader_count--;
 	lcmd->tc_ref--;
-	lcmd->tc_writer = TLM_STOP;
+	lcmd->tc_writer = NDMP_STOP;
 	return (0);
 }
 
@@ -2154,17 +2154,17 @@ mover_tape_reader(ndmp_session_t *session)
  * Write one buffer to the network socket. This is used by mover_socket_writer
  */
 static int
-mover_socket_write_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
+mover_socket_write_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf)
 {
 	int n;
 
 	/* Write the data to the data session. */
 	errno = 0;
-	n = write(session->ns_mover.md_sock, buf->tb_buffer_data,
-	    buf->tb_buffer_size);
+	n = write(session->ns_mover.md_sock, buf->nb_buffer_data,
+	    buf->nb_buffer_size);
 
 	ndmp_debug(session, "socket write: n: %d, len: %ld", n,
-	    buf->tb_buffer_size);
+	    buf->nb_buffer_size);
 
 	if (n < 0) {
 		ndmp_mover_error(session, NDMP_MOVER_HALT_CONNECT_CLOSED);
@@ -2173,7 +2173,7 @@ mover_socket_write_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
 
 	session->ns_mover.md_position += n;
 	session->ns_mover.md_bytes_left_to_read -= n;
-	tlm_buffer_mark_empty(buf);
+	ndmp_buffer_mark_empty(buf);
 
 	/*
 	 * If the read limit has been reached,
@@ -2201,10 +2201,10 @@ int
 mover_socket_writer(ndmp_session_t *session)
 {
 	int bidx;	/* buffer index */
-	tlm_buffer_t *buf;
-	tlm_buffers_t *bufs;
-	tlm_cmd_t *lcmd;	/* Local command */
-	tlm_commands_t *cmds;	/* Commands structure */
+	ndmp_buffer_t *buf;
+	ndmp_buffers_t *bufs;
+	ndmp_cmd_t *lcmd;	/* Local command */
+	ndmp_commands_t *cmds;	/* Commands structure */
 
 	cmds = &session->ns_mover.md_cmds;
 	lcmd = cmds->tcs_command;
@@ -2216,14 +2216,14 @@ mover_socket_writer(ndmp_session_t *session)
 	/*
 	 * Let our parent thread know that we are running.
 	 */
-	tlm_cmd_signal(cmds->tcs_command, TLM_SOCK_WRITER);
+	ndmp_cmd_signal(cmds->tcs_command, NDMP_SOCK_WRITER);
 
-	bidx = bufs->tbs_buffer_out;
-	while (cmds->tcs_writer != (int)TLM_ABORT &&
-	    lcmd->tc_writer != (int)TLM_ABORT) {
-		buf = &bufs->tbs_buffer[bidx];
+	bidx = bufs->nbs_buffer_out;
+	while (cmds->tcs_writer != (int)NDMP_ABORT &&
+	    lcmd->tc_writer != (int)NDMP_ABORT) {
+		buf = &bufs->nbs_buffer[bidx];
 
-		if (buf->tb_full) {
+		if (buf->nb_full) {
 			ndmp_debug(session, "w%d", bidx);
 
 			if (mover_socket_write_one_buf(session, buf) < 0) {
@@ -2232,11 +2232,11 @@ mover_socket_writer(ndmp_session_t *session)
 				break;
 			}
 
-			(void) tlm_buffer_advance_out_idx(bufs);
-			tlm_buffer_release_out_buf(bufs);
-			bidx = bufs->tbs_buffer_out;
+			(void) ndmp_buffer_advance_out_idx(bufs);
+			ndmp_buffer_release_out_buf(bufs);
+			bidx = bufs->nbs_buffer_out;
 		} else {
-			if (lcmd->tc_writer != TLM_RESTORE_RUN) {
+			if (lcmd->tc_writer != NDMP_RESTORE_RUN) {
 				/* No more data is coming, time to exit */
 				ndmp_debug(session, "Time to exit");
 				break;
@@ -2246,24 +2246,24 @@ mover_socket_writer(ndmp_session_t *session)
 			 * The buffer is not full, wait for the producer
 			 * thread to fill it.
 			 */
-			tlm_buffer_in_buf_timed_wait(bufs, 100);
+			ndmp_buffer_in_buf_timed_wait(bufs, 100);
 		}
 	}
 
-	if (cmds->tcs_writer == (int)TLM_ABORT)
-		ndmp_debug(session, "cmds->tcs_writer == (int)TLM_ABORT");
-	if (lcmd->tc_writer == (int)TLM_ABORT)
-		ndmp_debug(session, "lcmd->tc_writer == TLM_ABORT");
+	if (cmds->tcs_writer == (int)NDMP_ABORT)
+		ndmp_debug(session, "cmds->tcs_writer == (int)NDMP_ABORT");
+	if (lcmd->tc_writer == (int)NDMP_ABORT)
+		ndmp_debug(session, "lcmd->tc_writer == NDMP_ABORT");
 
 	/* If the producer is waiting for us, wake it up. */
-	tlm_buffer_release_out_buf(bufs);
+	ndmp_buffer_release_out_buf(bufs);
 
 	/*
 	 * Clean up.
 	 */
 	cmds->tcs_writer_count--;
 	lcmd->tc_ref--;
-	lcmd->tc_reader = TLM_STOP;
+	lcmd->tc_reader = NDMP_STOP;
 	return (0);
 }
 
@@ -2275,21 +2275,21 @@ mover_socket_writer(ndmp_session_t *session)
 static int
 start_mover_for_restore(ndmp_session_t *session)
 {
-	tlm_commands_t *cmds;
+	ndmp_commands_t *cmds;
 	long xfer_size;
 	int rc;
 
 	cmds = &session->ns_mover.md_cmds;
 	(void) memset(cmds, 0, sizeof (*cmds));
-	cmds->tcs_reader = cmds->tcs_writer = TLM_RESTORE_RUN;
+	cmds->tcs_reader = cmds->tcs_writer = NDMP_RESTORE_RUN;
 	xfer_size = ndmp_buffer_get_size(session);
-	cmds->tcs_command = tlm_create_reader_writer_ipc(session, B_FALSE,
+	cmds->tcs_command = ndmp_create_reader_writer_ipc(session, B_FALSE,
 	    xfer_size);
 	if (cmds->tcs_command == NULL)
 		return (-1);
 
-	cmds->tcs_command->tc_reader = TLM_RESTORE_RUN;
-	cmds->tcs_command->tc_writer = TLM_RESTORE_RUN;
+	cmds->tcs_command->tc_reader = NDMP_RESTORE_RUN;
+	cmds->tcs_command->tc_writer = NDMP_RESTORE_RUN;
 
 	/*
 	 * We intentionally don't wait for the threads to start since the
@@ -2299,7 +2299,7 @@ start_mover_for_restore(ndmp_session_t *session)
 	 */
 	rc = pthread_create(NULL, NULL, (funct_t)mover_tape_reader, session);
 	if (rc == 0) {
-		tlm_cmd_wait(cmds->tcs_command, TLM_TAPE_READER);
+		ndmp_cmd_wait(cmds->tcs_command, NDMP_TAPE_READER);
 	} else {
 		ndmp_log(session, LOG_ERR, "failed to start tape reader: %s",
 		    strerror(rc));
@@ -2308,14 +2308,14 @@ start_mover_for_restore(ndmp_session_t *session)
 
 	rc = pthread_create(NULL, NULL, (funct_t)mover_socket_writer, session);
 	if (rc == 0) {
-		tlm_cmd_wait(cmds->tcs_command, TLM_SOCK_WRITER);
+		ndmp_cmd_wait(cmds->tcs_command, NDMP_SOCK_WRITER);
 	} else {
 		ndmp_log(session, LOG_ERR, "failed to start socket writer: %s",
 		    strerror(rc));
 		return (-1);
 	}
 
-	tlm_release_reader_writer_ipc(cmds->tcs_command);
+	ndmp_release_reader_writer_ipc(cmds->tcs_command);
 	return (0);
 }
 
@@ -2325,19 +2325,19 @@ start_mover_for_restore(ndmp_session_t *session)
  * by mover_socket_reader
  */
 static int
-mover_socket_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf,
+mover_socket_read_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf,
     long read_size)
 {
 	int n, index;
 	long toread;
 
-	tlm_buffer_mark_empty(buf);
+	ndmp_buffer_mark_empty(buf);
 	for (index = 0, toread = read_size; toread > 0; ) {
 		errno = 0;
 		ndmp_debug(session, "socket read index: %d, toread: %ld",
 		    index, toread);
 
-		n = read(session->ns_mover.md_sock, &buf->tb_buffer_data[index],
+		n = read(session->ns_mover.md_sock, &buf->nb_buffer_data[index],
 		    toread);
 		ndmp_debug(session, "n = %d", n);
 		if (n == 0) {
@@ -2346,9 +2346,9 @@ mover_socket_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf,
 			index += n;
 			toread -= n;
 		} else {
-			buf->tb_eof = B_TRUE;
-			buf->tb_errno = errno;
-			buf->tb_buffer_size = 0;
+			buf->nb_eof = B_TRUE;
+			buf->nb_errno = errno;
+			buf->nb_buffer_size = 0;
 			ndmp_log(session, LOG_ERR,
 			    "failed to read from mover socket: %s",
 			    strerror(errno));
@@ -2357,20 +2357,20 @@ mover_socket_read_one_buf(ndmp_session_t *session, tlm_buffer_t *buf,
 	}
 
 	if (index > 0) {
-		buf->tb_full = B_TRUE;
-		buf->tb_buffer_size = read_size;
+		buf->nb_full = B_TRUE;
+		buf->nb_buffer_size = read_size;
 		if (read_size > 0)
-			(void) memset(&buf->tb_buffer_data[index], 0,
+			(void) memset(&buf->nb_buffer_data[index], 0,
 			    read_size - index);
 	} else {
-		buf->tb_eof = B_TRUE;
-		buf->tb_buffer_size = 0;
+		buf->nb_eof = B_TRUE;
+		buf->nb_buffer_size = 0;
 	}
 
 	ndmp_debug(session, "read full: %d, eot: %d, eof: %d,"
 	    " errno: %d, size: %ld, data: 0x%x",
-	    buf->tb_full, buf->tb_eot, buf->tb_eof, buf->tb_errno,
-	    buf->tb_buffer_size, buf->tb_buffer_data);
+	    buf->nb_full, buf->nb_eot, buf->nb_eof, buf->nb_errno,
+	    buf->nb_buffer_size, buf->nb_buffer_data);
 
 	return (0);
 }
@@ -2385,10 +2385,10 @@ int
 mover_socket_reader(ndmp_session_t *session)
 {
 	int bidx;	/* buffer index */
-	tlm_buffer_t *buf;
-	tlm_buffers_t *bufs;
-	tlm_cmd_t *lcmd;	/* Local command */
-	tlm_commands_t *cmds;	/* Commands structure */
+	ndmp_buffer_t *buf;
+	ndmp_buffers_t *bufs;
+	ndmp_cmd_t *lcmd;	/* Local command */
+	ndmp_commands_t *cmds;	/* Commands structure */
 
 	cmds = &session->ns_mover.md_cmds;
 	lcmd = cmds->tcs_command;
@@ -2400,22 +2400,22 @@ mover_socket_reader(ndmp_session_t *session)
 	/*
 	 * Let our parent thread know that we are running.
 	 */
-	tlm_cmd_signal(cmds->tcs_command, TLM_SOCK_READER);
+	ndmp_cmd_signal(cmds->tcs_command, NDMP_SOCK_READER);
 
-	bidx = bufs->tbs_buffer_in;
-	while (cmds->tcs_reader == TLM_BACKUP_RUN &&
-	    lcmd->tc_reader == TLM_BACKUP_RUN) {
-		buf = &bufs->tbs_buffer[bidx];
+	bidx = bufs->nbs_buffer_in;
+	while (cmds->tcs_reader == NDMP_BACKUP_RUN &&
+	    lcmd->tc_reader == NDMP_BACKUP_RUN) {
+		buf = &bufs->nbs_buffer[bidx];
 
-		if (buf->tb_full) {
+		if (buf->nb_full) {
 			/*
 			 * The buffer is still full, wait for the consumer
 			 * thread to use it.
 			 */
-			tlm_buffer_out_buf_timed_wait(bufs, 100);
+			ndmp_buffer_out_buf_timed_wait(bufs, 100);
 		} else {
 			(void) mover_socket_read_one_buf(session, buf,
-			    bufs->tbs_data_transfer_size);
+			    bufs->nbs_data_transfer_size);
 
 			/*
 			 * Can we do more buffering?
@@ -2423,25 +2423,25 @@ mover_socket_reader(ndmp_session_t *session)
 			if (is_buffer_erroneous(session, buf)) {
 				ndmp_debug(session,
 				    "Exiting, errno: %d, eot: %d, eof: %d",
-				    buf->tb_errno, buf->tb_eot, buf->tb_eof);
+				    buf->nb_errno, buf->nb_eot, buf->nb_eof);
 				break;
 			}
 
-			(void) tlm_buffer_advance_in_idx(bufs);
-			tlm_buffer_release_in_buf(bufs);
-			bidx = bufs->tbs_buffer_in;
+			(void) ndmp_buffer_advance_in_idx(bufs);
+			ndmp_buffer_release_in_buf(bufs);
+			bidx = bufs->nbs_buffer_in;
 		}
 	}
 
 	/* If the consumer is waiting for us, wake it up. */
-	tlm_buffer_release_in_buf(bufs);
+	ndmp_buffer_release_in_buf(bufs);
 
 	/*
 	 * Clean up.
 	 */
 	cmds->tcs_reader_count--;
 	lcmd->tc_ref--;
-	lcmd->tc_writer = TLM_STOP;
+	lcmd->tc_writer = NDMP_STOP;
 	return (0);
 }
 
@@ -2450,16 +2450,16 @@ mover_socket_reader(ndmp_session_t *session)
  * used by mover_tape_writer thread.
  */
 static int
-mover_tape_write_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
+mover_tape_write_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf)
 {
 	int n;
 
 	ndmp_debug(session, "write full: %d, eot: %d, eof: %d,"
 	    " errno: %d, size: %d, data: 0x%x",
-	    buf->tb_full, buf->tb_eot, buf->tb_eof, buf->tb_errno,
-	    buf->tb_buffer_size, buf->tb_buffer_data);
+	    buf->nb_full, buf->nb_eot, buf->nb_eof, buf->nb_errno,
+	    buf->nb_buffer_size, buf->nb_buffer_data);
 
-	n = tape_write(session, buf->tb_buffer_data, buf->tb_buffer_size);
+	n = tape_write(session, buf->nb_buffer_data, buf->nb_buffer_size);
 
 	ndmp_debug(session, "n: %d", n);
 
@@ -2472,7 +2472,7 @@ mover_tape_write_one_buf(ndmp_session_t *session, tlm_buffer_t *buf)
 	session->ns_mover.md_data_written += n;
 	session->ns_mover.md_record_num++;
 
-	tlm_buffer_mark_empty(buf);
+	ndmp_buffer_mark_empty(buf);
 
 	return (0);
 }
@@ -2486,10 +2486,10 @@ int
 mover_tape_writer(ndmp_session_t *session)
 {
 	int bidx;
-	tlm_buffer_t *buf;
-	tlm_buffers_t *bufs;
-	tlm_cmd_t *lcmd;
-	tlm_commands_t *cmds;
+	ndmp_buffer_t *buf;
+	ndmp_buffers_t *bufs;
+	ndmp_cmd_t *lcmd;
+	ndmp_commands_t *cmds;
 	static int nw = 0;
 
 	cmds = &session->ns_mover.md_cmds;
@@ -2502,24 +2502,24 @@ mover_tape_writer(ndmp_session_t *session)
 	/*
 	 * Let our parent thread know that we are running.
 	 */
-	tlm_cmd_signal(cmds->tcs_command, TLM_TAPE_WRITER);
+	ndmp_cmd_signal(cmds->tcs_command, NDMP_TAPE_WRITER);
 
-	bidx = bufs->tbs_buffer_out;
-	buf = &bufs->tbs_buffer[bidx];
-	while (cmds->tcs_writer != (int)TLM_ABORT &&
-	    lcmd->tc_writer != (int)TLM_ABORT) {
-		if (buf->tb_full) {
+	bidx = bufs->nbs_buffer_out;
+	buf = &bufs->nbs_buffer[bidx];
+	while (cmds->tcs_writer != (int)NDMP_ABORT &&
+	    lcmd->tc_writer != (int)NDMP_ABORT) {
+		if (buf->nb_full) {
 			ndmp_debug(session, "w%d, nw: %d", bidx, ++nw);
 
 			if (mover_tape_write_one_buf(session, buf) < 0)
 				break;
 
-			(void) tlm_buffer_advance_out_idx(bufs);
-			tlm_buffer_release_out_buf(bufs);
-			bidx = bufs->tbs_buffer_out;
-			buf = &bufs->tbs_buffer[bidx];
+			(void) ndmp_buffer_advance_out_idx(bufs);
+			ndmp_buffer_release_out_buf(bufs);
+			bidx = bufs->nbs_buffer_out;
+			buf = &bufs->nbs_buffer[bidx];
 		} else {
-			if (lcmd->tc_writer != TLM_BACKUP_RUN) {
+			if (lcmd->tc_writer != NDMP_BACKUP_RUN) {
 				/* No more data is coming, time to exit */
 				break;
 			}
@@ -2528,26 +2528,26 @@ mover_tape_writer(ndmp_session_t *session)
 			 * The buffer is not full, wait for the producer
 			 * thread to fill it.
 			 */
-			tlm_buffer_in_buf_timed_wait(bufs, 100);
+			ndmp_buffer_in_buf_timed_wait(bufs, 100);
 		}
 	}
 
-	if (buf->tb_errno == 0) {
+	if (buf->nb_errno == 0) {
 		ndmp_mover_error(session, NDMP_MOVER_HALT_CONNECT_CLOSED);
 	} else {
-		ndmp_debug(session, "buf->tb_errno: %d", buf->tb_errno);
+		ndmp_debug(session, "buf->nb_errno: %d", buf->nb_errno);
 		ndmp_mover_error(session, NDMP_MOVER_HALT_INTERNAL_ERROR);
 	}
 
 	/* If the producer is waiting for us, wake it up. */
-	tlm_buffer_release_out_buf(bufs);
+	ndmp_buffer_release_out_buf(bufs);
 
 	/*
 	 * Clean up.
 	 */
 	cmds->tcs_writer_count--;
 	lcmd->tc_ref--;
-	lcmd->tc_reader = TLM_STOP;
+	lcmd->tc_reader = NDMP_STOP;
 	return (0);
 }
 
@@ -2559,19 +2559,19 @@ mover_tape_writer(ndmp_session_t *session)
 static int
 start_mover_for_backup(ndmp_session_t *session)
 {
-	tlm_commands_t *cmds;
+	ndmp_commands_t *cmds;
 	int rc;
 
 	cmds = &session->ns_mover.md_cmds;
 	(void) memset(cmds, 0, sizeof (*cmds));
-	cmds->tcs_reader = cmds->tcs_writer = TLM_BACKUP_RUN;
-	cmds->tcs_command = tlm_create_reader_writer_ipc(session, B_TRUE,
+	cmds->tcs_reader = cmds->tcs_writer = NDMP_BACKUP_RUN;
+	cmds->tcs_command = ndmp_create_reader_writer_ipc(session, B_TRUE,
 	    session->ns_mover.md_record_size);
 	if (cmds->tcs_command == NULL)
 		return (-1);
 
-	cmds->tcs_command->tc_reader = TLM_BACKUP_RUN;
-	cmds->tcs_command->tc_writer = TLM_BACKUP_RUN;
+	cmds->tcs_command->tc_reader = NDMP_BACKUP_RUN;
+	cmds->tcs_command->tc_writer = NDMP_BACKUP_RUN;
 
 	/*
 	 * We intentionally don't wait for the threads to start since the
@@ -2581,7 +2581,7 @@ start_mover_for_backup(ndmp_session_t *session)
 	 */
 	rc = pthread_create(NULL, NULL, (funct_t)mover_socket_reader, session);
 	if (rc == 0) {
-		tlm_cmd_wait(cmds->tcs_command, TLM_SOCK_READER);
+		ndmp_cmd_wait(cmds->tcs_command, NDMP_SOCK_READER);
 	} else {
 		ndmp_log(session, LOG_ERR, "failed to create mover reader: %s",
 		    strerror(errno));
@@ -2590,14 +2590,14 @@ start_mover_for_backup(ndmp_session_t *session)
 
 	rc = pthread_create(NULL, NULL, (funct_t)mover_tape_writer, session);
 	if (rc == 0) {
-		tlm_cmd_wait(cmds->tcs_command, TLM_TAPE_WRITER);
+		ndmp_cmd_wait(cmds->tcs_command, NDMP_TAPE_WRITER);
 	} else {
 		ndmp_log(session, LOG_ERR, "failed to create mover writer: %s",
 		    strerror(errno));
 		return (-1);
 	}
 
-	tlm_release_reader_writer_ipc(cmds->tcs_command);
+	ndmp_release_reader_writer_ipc(cmds->tcs_command);
 	return (0);
 }
 

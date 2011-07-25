@@ -300,78 +300,71 @@ ndmp_config_get_fs_info_v3(ndmp_session_t *session, void *body)
 }
 
 /*
- * Return information about local tape drives.   This will return an error if
- * the server isn't currently configured to allow local tape requests.
+ * Common function shared by GET_SCSI_INFO and GET_TAPE_INFO.
  */
-/*ARGSUSED*/
-void
-ndmp_config_get_tape_info_v3(ndmp_session_t *session, void *body)
+static void
+ndmp_common_scsi_info(ndmp_session_t *session, int type)
 {
-	ndmp_config_get_tape_info_reply_v3 reply = { 0 };
-	ndmp_device_info_v3 *tip, *tip_base = NULL; /* tape info pointer */
+	ndmp_config_get_scsi_info_reply_v3 reply = { 0 };
+	ndmp_device_info_v3 *sip, *sip_base;
 	ndmp_device_capability_v3 *dcp;
-	int i, n, max;
-	sasd_drive_t *sd;
-	scsi_link_t *sl;
+	int count;
+	scsi_device_t *sdp;
 	ndmp_pval *envp;
 	ndmp_pval *envp_head;
 
-	/*
-	 * Really we shouldn't receive this request at all, but some clients
-	 * insist on asking for this information, so we simply pretend as if we
-	 * have no devices rather than reporting a fatal error.
-	 */
-	if (!ndmp_get_prop_boolean(session, NDMP_LOCAL_TAPE))
-		max = 0;
-	else
-		max = sasd_dev_count();
+	for (sdp = session->ns_server->ns_scsi_devices, count = 0;
+	    sdp != NULL; sdp = sdp->sd_next, count++)
+		continue;
 
-	if (max != 0) {
-		tip_base = tip = alloca(sizeof (ndmp_device_info_v3) * max);
-		dcp = alloca(sizeof (ndmp_device_capability_v3) * max);
-		envp = alloca(sizeof (ndmp_pval) * max * 3);
-	}
-
-	for (i = n = 0; i < max; i++) {
-		sl = sasd_dev_slink(i);
-		sd = sasd_drive(i);
-		if (sl == NULL || sd == NULL)
-			continue;
-		if (sl->sl_type != DTYPE_SEQUENTIAL)
-			continue;
-		/*
-		 * Don't report dead links.
-		 */
-		if ((access(sd->sd_name, F_OK) == -1) && (errno == ENOENT))
-			continue;
-
-		ndmp_debug(session, "found tape model \"%s\" dev \"%s\"",
-		    sd->sd_id, sd->sd_name);
-
-		envp_head = envp;
-		NDMP_SETENV(envp, "EXECUTE_CDB", "b");
-		NDMP_SETENV(envp, "SERIAL_NUMBER", sd->sd_serial);
-		NDMP_SETENV(envp, "WORLD_WIDE_NAME", sd->sd_wwn);
-
-		tip->model = sd->sd_id; /* like "DLT7000	 " */
-		tip->caplist.caplist_len = 1;
-		tip->caplist.caplist_val = dcp;
-		dcp->device = sd->sd_name; /* like "isp1t060" */
-		dcp->attr = 0;
-		dcp->capability.capability_len = 3;
-		dcp->capability.capability_val = envp_head;
-		tip++;
-		dcp++;
-		n++;
-	}
-
-	if (n == 0) {
-		reply.error = NDMP_NO_DEVICE_ERR;
+	if (!ndmp_get_prop_boolean(session, NDMP_LOCAL_TAPE) || count == 0) {
+		reply.scsi_info.scsi_info_len = 0;
+		ndmp_send_reply(session, &reply);
 		return;
 	}
 
-	reply.tape_info.tape_info_len = n;
-	reply.tape_info.tape_info_val = tip_base;
+	sip_base = sip = alloca(sizeof (ndmp_device_info_v3) * count);
+	dcp = alloca(sizeof (ndmp_device_capability_v3) * count);
+	envp = alloca(sizeof (ndmp_pval) * count * 3);
+
+	for (sdp = session->ns_server->ns_scsi_devices, count = 0;
+	    sdp != NULL; sdp = sdp->sd_next) {
+
+		if (sdp->sd_type != type)
+			continue;
+
+		/*
+		 * Don't report dead links.
+		 */
+		if ((access(sdp->sd_name, F_OK) == -1) && (errno == ENOENT))
+			continue;
+
+		count++;
+
+		ndmp_debug(session, "model \"%s\" dev \"%s\"", sdp->sd_id,
+		    sdp->sd_name);
+
+		envp_head = envp;
+		NDMP_SETENV(envp, "SERIAL_NUMBER", sdp->sd_serial);
+		NDMP_SETENV(envp, "WORLD_WIDE_NAME", sdp->sd_wwn);
+		if (type == DTYPE_SEQUENTIAL)
+			NDMP_SETENV(envp, "EXECUTE_CDB", "b");
+
+		sip->model = sdp->sd_id;
+		sip->caplist.caplist_len = 1;
+		sip->caplist.caplist_val = dcp;
+		dcp->device = sdp->sd_name;
+
+		dcp->attr = 0;
+		dcp->capability.capability_len =
+		    (type == DTYPE_SEQUENTIAL) ? 3 : 2;
+		dcp->capability.capability_val = envp_head;
+		sip++;
+		dcp++;
+	}
+
+	reply.scsi_info.scsi_info_len = count;
+	reply.scsi_info.scsi_info_val = sip_base;
 
 	ndmp_send_reply(session, &reply);
 }
@@ -383,61 +376,17 @@ ndmp_config_get_tape_info_v3(ndmp_session_t *session, void *body)
 void
 ndmp_config_get_scsi_info_v3(ndmp_session_t *session, void *body)
 {
-	ndmp_config_get_scsi_info_reply_v3 reply = { 0 };
-	ndmp_device_info_v3 *sip, *sip_base;
-	ndmp_device_capability_v3 *dcp;
-	int i, n, max;
-	sasd_drive_t *sd;
-	scsi_link_t *sl;
-	ndmp_pval *envp;
-	ndmp_pval *envp_head;
+	ndmp_common_scsi_info(session, DTYPE_CHANGER);
+}
 
-	if (!ndmp_get_prop_boolean(session, NDMP_LOCAL_TAPE))
-		max = 0;
-	else
-		max = sasd_dev_count();
-
-	sip_base = sip = alloca(sizeof (ndmp_device_info_v3) * max);
-	dcp = alloca(sizeof (ndmp_device_capability_v3) * max);
-	envp = alloca(sizeof (ndmp_pval) * max * 2);
-
-	for (i = n = 0; i < max; i++) {
-		sl = sasd_dev_slink(i);
-		sd = sasd_drive(i);
-		if (sl == NULL || sd == NULL)
-			continue;
-		if (sl->sl_type != DTYPE_CHANGER)
-			continue;
-		/*
-		 * Don't report dead links.
-		 */
-		if ((access(sd->sd_name, F_OK) == -1) && (errno == ENOENT))
-			continue;
-
-		ndmp_debug(session, "model \"%s\" dev \"%s\"", sd->sd_id,
-		    sd->sd_name);
-
-		envp_head = envp;
-		NDMP_SETENV(envp, "SERIAL_NUMBER", sd->sd_serial);
-		NDMP_SETENV(envp, "WORLD_WIDE_NAME", sd->sd_wwn);
-
-		sip->model = sd->sd_id; /* like "Powerstor L200  " */
-		sip->caplist.caplist_len = 1;
-		sip->caplist.caplist_val = dcp;
-		dcp->device = sd->sd_name; /* like "isp1m000" */
-
-		dcp->attr = 0;
-		dcp->capability.capability_len = 2;
-		dcp->capability.capability_val = envp_head;
-		sip++;
-		dcp++;
-		n++;
-	}
-
-	reply.scsi_info.scsi_info_len = n;
-	reply.scsi_info.scsi_info_val = sip_base;
-
-	ndmp_send_reply(session, &reply);
+/*
+ * Return information about local tape devices.
+ */
+/*ARGSUSED*/
+void
+ndmp_config_get_tape_info_v3(ndmp_session_t *session, void *body)
+{
+	ndmp_common_scsi_info(session, DTYPE_SEQUENTIAL);
 }
 
 /*

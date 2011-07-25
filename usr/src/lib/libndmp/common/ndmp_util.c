@@ -731,19 +731,19 @@ ndmp_buffer_get_size(ndmp_session_t *session)
  * Run a sanity check on the buffer
  */
 boolean_t
-is_buffer_erroneous(ndmp_session_t *session, tlm_buffer_t *buf)
+is_buffer_erroneous(ndmp_session_t *session, ndmp_buffer_t *buf)
 {
 	boolean_t rv;
 
-	rv = (buf == NULL || buf->tb_eot || buf->tb_eof ||
-	    buf->tb_errno != 0);
+	rv = (buf == NULL || buf->nb_eot || buf->nb_eof ||
+	    buf->nb_errno != 0);
 	if (rv) {
 		if (buf == NULL) {
 			ndmp_debug(session, "erroneous buffer: NULL");
 		} else {
 			ndmp_debug(session, "erroneous buffer: "
 			    "eot: %u, eof: %u, errno: %d",
-			    buf->tb_eot, buf->tb_eof, buf->tb_errno);
+			    buf->nb_eot, buf->nb_eof, buf->nb_errno);
 		}
 	}
 
@@ -1010,14 +1010,14 @@ ndmp_open_list_release(ndmp_session_t *session)
 void
 ndmp_stop_buffer_worker(ndmp_session_t *session)
 {
-	tlm_commands_t *cmds;
+	ndmp_commands_t *cmds;
 
 	session->ns_tape.td_pos = 0;
 	cmds = &session->ns_mover.md_cmds;
 	if (cmds->tcs_command != NULL) {
-		cmds->tcs_reader = cmds->tcs_writer = TLM_ABORT;
-		cmds->tcs_command->tc_reader = TLM_ABORT;
-		cmds->tcs_command->tc_writer = TLM_ABORT;
+		cmds->tcs_reader = cmds->tcs_writer = NDMP_ABORT;
+		cmds->tcs_command->tc_reader = NDMP_ABORT;
+		cmds->tcs_command->tc_writer = NDMP_ABORT;
 		while (cmds->tcs_reader_count > 0 ||
 		    cmds->tcs_writer_count > 0) {
 			ndmp_debug(session, "trying to stop buffer worker");
@@ -1032,14 +1032,14 @@ ndmp_stop_buffer_worker(ndmp_session_t *session)
 void
 ndmp_stop_reader_thread(ndmp_session_t *session)
 {
-	tlm_commands_t *cmds;
+	ndmp_commands_t *cmds;
 
 	cmds = &session->ns_mover.md_cmds;
 	if (cmds->tcs_command == NULL) {
 		ndmp_debug(session, "cmds->tcs_command == NULL");
 	} else {
-		cmds->tcs_reader = TLM_ABORT;
-		cmds->tcs_command->tc_reader = TLM_ABORT;
+		cmds->tcs_reader = NDMP_ABORT;
+		cmds->tcs_command->tc_reader = NDMP_ABORT;
 		while (cmds->tcs_reader_count > 0) {
 			ndmp_debug(session, "trying to stop reader thread");
 			(void) sleep(1);
@@ -1053,14 +1053,14 @@ ndmp_stop_reader_thread(ndmp_session_t *session)
 void
 ndmp_stop_writer_thread(ndmp_session_t *session)
 {
-	tlm_commands_t *cmds;
+	ndmp_commands_t *cmds;
 
 	cmds = &session->ns_mover.md_cmds;
 	if (cmds->tcs_command == NULL) {
 		ndmp_debug(session, "cmds->tcs_command == NULL");
 	} else {
-		cmds->tcs_writer = TLM_ABORT;
-		cmds->tcs_command->tc_writer = TLM_ABORT;
+		cmds->tcs_writer = NDMP_ABORT;
+		cmds->tcs_command->tc_writer = NDMP_ABORT;
 		while (cmds->tcs_writer_count > 0) {
 			ndmp_debug(session, "trying to stop writer thread");
 			(void) sleep(1);
@@ -1075,13 +1075,13 @@ ndmp_stop_writer_thread(ndmp_session_t *session)
 void
 ndmp_free_reader_writer_ipc(ndmp_session_t *session)
 {
-	tlm_commands_t *cmds;
+	ndmp_commands_t *cmds;
 
 	cmds = &session->ns_mover.md_cmds;
 	if (cmds->tcs_command != NULL) {
 		ndmp_debug(session, "cmds->tcs_command->tc_ref: %d",
 		    cmds->tcs_command->tc_ref);
-		tlm_release_reader_writer_ipc(cmds->tcs_command);
+		ndmp_release_reader_writer_ipc(cmds->tcs_command);
 	}
 }
 
@@ -1318,6 +1318,7 @@ is_tape_unit_ready(ndmp_session_t *session, char *adptnm, int dev_id)
 	} else {
 		fd = dev_id;
 	}
+
 	do {
 		if (scsi_test_unit_ready(session, fd) >= 0) {
 			ndmp_debug(session, "tape unit is ready");

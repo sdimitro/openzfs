@@ -44,10 +44,12 @@ LIBRARY= libndmp.a
 VERS= .1
 
 NDMP_OBJ = \
+	ndmp_buffers.o \
 	ndmp_client.o \
 	ndmp_comm.o \
 	ndmp_config.o \
 	ndmp_connect.o \
+	ndmp_device.o \
 	ndmp_data.o \
 	ndmp_handler.o \
 	ndmp_log.o \
@@ -60,19 +62,13 @@ NDMP_OBJ = \
 	ndmp_tape.o \
 	ndmp_util.o
 
-TLM_OBJ = \
-	tlm_buffers.o \
-	tlm_info.o \
-	tlm_init.o \
-	tlm_lib.o
-
 XDR_OBJ = ndmp_xdr.o
 
 XDR_SRC = \
 	ndmp.h \
 	ndmp_xdr.c
 
-OBJECTS= $(NDMP_OBJ) $(TLM_OBJ) $(XDR_OBJ)
+OBJECTS= $(NDMP_OBJ) $(XDR_OBJ)
 
 include ../../Makefile.lib
 
@@ -87,7 +83,7 @@ CPPFLAGS +=	$(INCS) -D_LARGEFILE64_SOURCE=1 -D_REENTRANT
 
 LDLIBS   += -lsocket -lnsl -lmd5 -lumem -lc
 
-SRCS= $(NDMP_OBJ:%.o=$(SRCDIR)/%.c) $(TLM_OBJ:%.o=$(SRCDIR)/%.c)
+SRCS= $(NDMP_OBJ:%.o=$(SRCDIR)/%.c)
 XDR_GEN= $(XDR_SRC:%=$(SRCDIR)/%)
 
 CLEANFILES += $(XDR_GEN)

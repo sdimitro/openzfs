@@ -74,7 +74,6 @@ ndmp_tape_open_v2(ndmp_session_t *session, void *body)
 	int mode;
 	int sid, lun;
 	int err;
-	scsi_adapter_t *sa;
 	int devid;
 
 	err = NDMP_NO_ERR;
@@ -89,31 +88,25 @@ ndmp_tape_open_v2(ndmp_session_t *session, void *body)
 		err = NDMP_ILLEGAL_ARGS_ERR;
 	}
 
-	if ((sa = scsi_get_adapter(0)) != NULL) {
-		ndmp_debug(session, "adapter device opened: %s",
-		    request->device.name);
-		(void) strlcpy(adptnm, request->device.name, SCSI_MAX_NAME-2);
-		adptnm[SCSI_MAX_NAME-1] = '\0';
-		sid = lun = -1;
-	}
+	ndmp_debug(session, "device opened: %s", request->device.name);
+	(void) strlcpy(adptnm, request->device.name, SCSI_MAX_NAME-2);
+	adptnm[SCSI_MAX_NAME-1] = '\0';
+	sid = lun = -1;
+
 	/* try to get the scsi id etc.... */
-	if (sa) {
-		scsi_find_sid_lun(sa, request->device.name, &sid, &lun);
-		if (!ndmp_open_list_exists(request->device.name, sid, lun) &&
-		    (devid = tape_open(request->device.name,
+	scsi_find_sid_lun(session, request->device.name, &sid, &lun);
+	if (!ndmp_open_list_exists(request->device.name, sid, lun)) {
+		if ((devid = tape_open(request->device.name,
 		    O_RDWR | O_NDELAY)) < 0) {
 			ndmp_log(session, LOG_ERR,
 			    "failed to open device %s: %s",
 			    request->device.name, strerror(errno));
 			err = NDMP_NO_DEVICE_ERR;
-		}
-		else
+		} else {
 			(void) close(devid);
-	} else {
-		ndmp_log(session, LOG_ERR, "no such tape device %s",
-		    request->device.name);
-		err = NDMP_NO_DEVICE_ERR;
+		}
 	}
+
 	if (err != NDMP_NO_ERR) {
 		tape_open_send_reply(session, err);
 		return;
@@ -903,6 +896,7 @@ ndmp_tape_get_state_v4(ndmp_session_t *session, void *body)
 	reply.error = NDMP_NO_ERR;
 	ndmp_send_reply(session, &reply);
 }
+
 /*
  * This handler (v4) closes the currently open tape device.
  */
@@ -925,7 +919,6 @@ ndmp_tape_close_v4(ndmp_session_t *session, void *body)
 	 */
 	if (session->ns_mover.md_state == NDMP_MOVER_STATE_LISTEN ||
 	    session->ns_mover.md_state == NDMP_MOVER_STATE_ACTIVE) {
-
 		reply.error = NDMP_DEVICE_BUSY_ERR;
 		ndmp_send_reply(session, &reply);
 		return;
@@ -1033,7 +1026,6 @@ common_tape_open(ndmp_session_t *session, char *devname, int ndmpmode)
 	int err;
 	int mode;
 	int sid, lun;
-	scsi_adapter_t *sa;
 	int devid;
 
 	err = NDMP_NO_ERR;
@@ -1042,18 +1034,18 @@ common_tape_open(ndmp_session_t *session, char *devname, int ndmpmode)
 		ndmp_log(session, LOG_ERR,
 		    "session already has a tape or scsi device open");
 		err = NDMP_DEVICE_OPENED_ERR;
-	} else if (!validmode(ndmpmode))
+	} else if (!validmode(ndmpmode)) {
 		err = NDMP_ILLEGAL_ARGS_ERR;
-	if ((sa = scsi_get_adapter(0)) != NULL) {
-		ndmp_debug(session, "Adapter device opened: %s", devname);
-		(void) strlcpy(adptnm, devname, SCSI_MAX_NAME-2);
-		adptnm[SCSI_MAX_NAME-1] = '\0';
-		sid = lun = -1;
 	}
-	if (sa) {
-		scsi_find_sid_lun(sa, devname, &sid, &lun);
-		if (!ndmp_open_list_exists(devname, sid, lun) &&
-		    (devid = open(devname, O_RDWR | O_NDELAY)) < 0) {
+
+	ndmp_debug(session, "Adapter device opened: %s", devname);
+	(void) strlcpy(adptnm, devname, SCSI_MAX_NAME-2);
+	adptnm[SCSI_MAX_NAME-1] = '\0';
+	sid = lun = -1;
+
+	scsi_find_sid_lun(session, devname, &sid, &lun);
+	if (!ndmp_open_list_exists(devname, sid, lun)) {
+		if ((devid = open(devname, O_RDWR | O_NDELAY)) < 0) {
 			ndmp_log(session, LOG_ERR,
 			    "failed to open device %s: %s", devname,
 			    strerror(errno));
@@ -1061,9 +1053,6 @@ common_tape_open(ndmp_session_t *session, char *devname, int ndmpmode)
 		} else {
 			(void) close(devid);
 		}
-	} else {
-		ndmp_log(session, LOG_ERR, "no such tape device %s", devname);
-		err = NDMP_NO_DEVICE_ERR;
 	}
 
 	if (err != NDMP_NO_ERR) {
@@ -1096,6 +1085,7 @@ common_tape_open(ndmp_session_t *session, char *devname, int ndmpmode)
 		ndmpmode = NDMP_TAPE_READ_MODE;
 		session->ns_tape.td_fd = open(devname, O_RDONLY);
 	}
+
 	if (session->ns_tape.td_fd < 0) {
 		ndmp_log(session, LOG_ERR, "failed to open tape device %s: %s",
 		    devname, strerror(errno));
@@ -1182,14 +1172,17 @@ common_tape_close(ndmp_session_t *session)
 int
 tape_open(char *path, int flags)
 {
-	int fd;
-	int i = 0;
+	int fd, i;
 
-	while ((fd = open(path, flags)) == -1 &&
-	    i++ < ndmp_tape_open_retries) {
+	for (i = 0; i < ndmp_tape_open_retries; i++) {
+		if ((fd = open(path, flags)) != -1)
+			break;
+
 		if (errno != EBUSY)
 			break;
+
 		(void) usleep(ndmp_tape_open_delay);
 	}
+
 	return (fd);
 }

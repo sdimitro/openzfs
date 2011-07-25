@@ -90,6 +90,7 @@ void
 ndmp_server_destroy(ndmp_server_t *server)
 {
 	ndmp_server_stop(server);
+	ndmp_device_fini(server);
 	free(server);
 }
 
@@ -109,8 +110,8 @@ ndmp_server_start(ndmp_server_t *server)
 	 * devices and the method by which we interact with them is global to
 	 * the server, not specific to any paritcular session.
 	 */
-	if (tlm_init(session) == -1) {
-		ndmp_log(session, LOG_ERR, "failed to initialize tape manager");
+	if (ndmp_device_init(server) == -1) {
+		ndmp_log(session, LOG_ERR, "failed to initialize device list");
 		return (-1);
 	}
 

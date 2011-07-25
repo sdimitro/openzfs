@@ -282,7 +282,6 @@ common_open(ndmp_session_t *session, char *devname)
 	char adptnm[SCSI_MAX_NAME];
 	int sid, lun;
 	int err;
-	scsi_adapter_t *sa;
 	int devid;
 
 	err = NDMP_NO_ERR;
@@ -291,13 +290,13 @@ common_open(ndmp_session_t *session, char *devname)
 		ndmp_log(session, LOG_ERR,
 		    "session already has a tape or SCSI device open");
 		err = NDMP_DEVICE_OPENED_ERR;
-	} else if ((sa = scsi_get_adapter(0)) != NULL) {
+	} else {
 		ndmp_debug(session, "Adapter device found: %s", devname);
 		(void) strlcpy(adptnm, devname, SCSI_MAX_NAME-2);
 		adptnm[SCSI_MAX_NAME-1] = '\0';
 		sid = lun = -1;
 
-		scsi_find_sid_lun(sa, devname, &sid, &lun);
+		scsi_find_sid_lun(session, devname, &sid, &lun);
 		if (!ndmp_open_list_exists(devname, sid, lun) &&
 		    (devid = open(devname, O_RDWR | O_NDELAY)) < 0) {
 			ndmp_log(session, LOG_ERR,
@@ -305,10 +304,6 @@ common_open(ndmp_session_t *session, char *devname)
 			    devname, strerror(errno));
 			err = NDMP_NO_DEVICE_ERR;
 		}
-	} else {
-		ndmp_log(session, LOG_ERR, "no such SCSI adapter for %s",
-		    devname);
-		err = NDMP_NO_DEVICE_ERR;
 	}
 
 	if (err != NDMP_NO_ERR) {
@@ -329,6 +324,7 @@ common_open(ndmp_session_t *session, char *devname)
 	default:
 		err = NDMP_IO_ERR;
 	}
+
 	if (err != NDMP_NO_ERR) {
 		scsi_open_send_reply(session, err);
 		return;
@@ -364,14 +360,12 @@ common_set_target(ndmp_session_t *session, char *device,
 
 	if (session->ns_scsi.sd_is_open == -1) {
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
-	} else if (!scsi_dev_exists(session->ns_scsi.sd_adapter_name, sid,
-	    lun)) {
+	} else if (!scsi_dev_exists(session, sid, lun)) {
 		ndmp_log(session, LOG_ERR,
 		    "no such SCSI device: target %d, LUN %d", sid, lun);
 		reply.error = NDMP_NO_DEVICE_ERR;
 	} else {
-		type = scsi_get_devtype(session->ns_scsi.sd_adapter_name, sid,
-		    lun);
+		type = scsi_get_devtype(session, sid, lun);
 		if (type != DTYPE_SEQUENTIAL && type != DTYPE_CHANGER) {
 			ndmp_log(session, LOG_ERR,
 			    "not a tape or robot device: target %d, LUN %d.",
@@ -423,17 +417,15 @@ common_set_target(ndmp_session_t *session, char *device,
  * gets the adapter, and returns the sid and lun number
  */
 void
-scsi_find_sid_lun(scsi_adapter_t *sa, char *devname, int *sid, int *lun)
+scsi_find_sid_lun(ndmp_session_t *session, char *devname, int *sid, int *lun)
 {
-	scsi_link_t *sl;
-	char *name;
+	scsi_device_t *sdp;
 
-	for (sl = sa->sa_link_head.sl_next; sl && sl != &sa->sa_link_head;
-	    sl = sl->sl_next) {
-		name = sasd_slink_name(sl);
-		if (strcmp(devname, name) == 0) {
-			*sid = sl->sl_sid;
-			*lun = sl->sl_lun;
+	for (sdp = session->ns_server->ns_scsi_devices; sdp != NULL;
+	    sdp = sdp->sd_next) {
+		if (strcmp(devname, sdp->sd_name) == 0) {
+			*sid = sdp->sd_sid;
+			*lun = sdp->sd_lun;
 			return;
 		}
 	}

@@ -46,8 +46,6 @@
  */
 #define	MAX_MOVER_RECSIZE	(512*KILOBYTE)
 
-static int create_listen_socket_v2(ndmp_session_t *session, ulong_t *addr,
-    ushort_t *port);
 static int tape_write(ndmp_session_t *session, char *data, ssize_t length);
 static int tape_read(ndmp_session_t *session, char *data);
 static int change_tape(ndmp_session_t *session);
@@ -55,12 +53,10 @@ static int discard_data(ndmp_session_t *session, ulong_t length);
 static int mover_tape_read_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf);
 static int mover_socket_write_one_buf(ndmp_session_t *session,
     ndmp_buffer_t *buf);
-static int start_mover_for_restore(ndmp_session_t *session);
 static int mover_socket_read_one_buf(ndmp_session_t *session,
     ndmp_buffer_t *buf, long read_size);
 static int mover_tape_write_one_buf(ndmp_session_t *session,
     ndmp_buffer_t *buf);
-static int start_mover_for_backup(ndmp_session_t *session);
 static boolean_t is_writer_running_v3(ndmp_session_t *session);
 static int mover_pause_v3(ndmp_session_t *session,
     ndmp_mover_pause_reason reason);
@@ -71,7 +67,6 @@ static int mover_tape_read_v3(ndmp_session_t *session, char *data);
 static int create_listen_socket_v3(ndmp_session_t *session, ulong_t *addr,
     ushort_t *port);
 static void mover_data_read_v3(ndmp_session_t *session, int fd, ulong_t mode);
-static void accept_session(ndmp_session_t *session, int fd, ulong_t mode);
 static void mover_data_write_v3(ndmp_session_t *session, int fd, ulong_t mode);
 static void accept_connection_v3(ndmp_session_t *session, int fd, ulong_t mode);
 static ndmp_error mover_connect_sock_v3(ndmp_session_t *session,
@@ -85,137 +80,11 @@ int ndmp_max_mover_recsize = MAX_MOVER_RECSIZE; /* patchable */
 #define	TAPE_NO_WRITER_ERR	-2
 
 /*
- * This handler handles the mover_get_state request.  Status information for
- * the mover state machine is returned.
- */
-/*ARGSUSED*/
-void
-ndmp_mover_get_state_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_get_state_reply_v2 reply;
-
-	reply.state = session->ns_mover.md_state;
-	reply.pause_reason = session->ns_mover.md_pause_reason;
-	reply.halt_reason = session->ns_mover.md_halt_reason;
-	reply.record_size = session->ns_mover.md_record_size;
-	reply.record_num = session->ns_mover.md_record_num;
-	reply.data_written =
-	    long_long_to_quad(session->ns_mover.md_data_written);
-	reply.seek_position =
-	    long_long_to_quad(session->ns_mover.md_seek_position);
-	reply.bytes_left_to_read =
-	    long_long_to_quad(session->ns_mover.md_bytes_left_to_read);
-	reply.window_offset =
-	    long_long_to_quad(session->ns_mover.md_window_offset);
-	reply.window_length =
-	    long_long_to_quad(session->ns_mover.md_window_length);
-
-	ndmp_send_reply(session, &reply);
-}
-
-
-/*
- * This handler handles mover_listen requests.
- */
-void
-ndmp_mover_listen_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_listen_request_v2 *request = body;
-	ndmp_mover_listen_reply_v2 reply = { 0 };
-	ulong_t addr;
-	ushort_t port;
-
-	if (session->ns_mover.md_state != NDMP_MOVER_STATE_IDLE ||
-	    session->ns_data.dd_state != NDMP_DATA_STATE_IDLE) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid mover state for listen command");
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-	session->ns_mover.md_mode = request->mode;
-
-	if (request->addr_type == NDMP_ADDR_LOCAL) {
-		reply.mover.addr_type = NDMP_ADDR_LOCAL;
-	} else {
-		if (create_listen_socket_v2(session, &addr, &port) < 0) {
-			reply.error = NDMP_IO_ERR;
-			ndmp_send_reply(session, &reply);
-			return;
-		}
-		reply.mover.addr_type = NDMP_ADDR_TCP;
-		reply.mover.ndmp_mover_addr_u.addr.ip_addr = addr;
-		reply.mover.ndmp_mover_addr_u.addr.port = port;
-	}
-
-	session->ns_mover.md_state = NDMP_MOVER_STATE_LISTEN;
-
-	/*
-	 * ndmp window should always set by client during restore
-	 */
-
-	/* Set the default window. */
-	session->ns_mover.md_window_offset = 0;
-	session->ns_mover.md_window_length = MAX_WINDOW_SIZE;
-	session->ns_mover.md_position = 0;
-
-	ndmp_send_reply(session, &reply);
-}
-
-/*
- * This handler handles mover_continue requests.
- */
-/*ARGSUSED*/
-void
-ndmp_mover_continue_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_continue_reply reply = { 0 };
-
-	if (session->ns_mover.md_state != NDMP_MOVER_STATE_PAUSED) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid mover state for continue command");
-
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-	session->ns_mover.md_state = NDMP_MOVER_STATE_ACTIVE;
-	session->ns_mover.md_pause_reason = NDMP_MOVER_PAUSE_NA;
-	ndmp_send_reply(session, &reply);
-}
-
-/*
- * This handler handles mover_abort requests.
- */
-/*ARGSUSED*/
-void
-ndmp_mover_abort_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_abort_reply reply = { 0 };
-
-	if (session->ns_mover.md_state == NDMP_MOVER_STATE_IDLE ||
-	    session->ns_mover.md_state == NDMP_MOVER_STATE_HALTED) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid mover state for abort command");
-
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-
-	ndmp_send_reply(session, &reply);
-
-	ndmp_mover_error(session, NDMP_MOVER_HALT_ABORTED);
-
-	ndmp_stop_buffer_worker(session);
-}
-
-/*
  * This handler handles mover_stop requests.
  */
 /*ARGSUSED*/
 void
-ndmp_mover_stop_v2(ndmp_session_t *session, void *body)
+ndmp_mover_stop_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_mover_stop_reply reply = { 0 };
 
@@ -236,111 +105,11 @@ ndmp_mover_stop_v2(ndmp_session_t *session, void *body)
 }
 
 /*
- * This handler handles mover_set_window requests.
- */
-void
-ndmp_mover_set_window_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_set_window_request *request;
-	ndmp_mover_set_window_reply reply = { 0 };
-
-	request = (ndmp_mover_set_window_request *) body;
-
-	/*
-	 * The NDMPv2 specification states that "a window can be set only
-	 * when in the listen or paused state."
-	 *
-	 * See the comment in ndmp_mover_set_window_v3 regarding the reason for
-	 * disallowing it in the idle state as well.
-	 */
-	if (session->ns_mover.md_state != NDMP_MOVER_STATE_IDLE &&
-	    session->ns_mover.md_state != NDMP_MOVER_STATE_PAUSED &&
-	    session->ns_mover.md_state != NDMP_MOVER_STATE_LISTEN) {
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_log(session, LOG_ERR, "invalid mover state for "
-		    "set window command", session->ns_mover.md_state);
-	} else {
-		if (quad_to_long_long(request->length) == 0) {
-			reply.error = NDMP_ILLEGAL_ARGS_ERR;
-			ndmp_log(session, LOG_ERR,
-			    "invalid window size %lld",
-			    quad_to_long_long(request->length));
-		} else {
-			session->ns_mover.md_window_offset =
-			    quad_to_long_long(request->offset);
-			session->ns_mover.md_window_length =
-			    quad_to_long_long(request->length);
-			session->ns_mover.md_position =
-			    session->ns_mover.md_window_offset;
-		}
-	}
-
-	ndmp_send_reply(session, &reply);
-}
-
-/*
- * This handler handles mover_read requests. If the requested offset is
- * outside of the current window, the mover is paused and a notify_mover_paused
- * request is sent notifying the client that a seek is required. If the
- * requested offest is within the window but not within the current record,
- * then the tape is positioned to the record containing the requested offest.
- * The requested amount of data is then read from the tape device and written
- * to the data session.
- */
-void
-ndmp_mover_read_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_read_request *request = (ndmp_mover_read_request *) body;
-	ndmp_mover_read_reply reply = { 0 };
-	int err;
-
-	if (session->ns_mover.md_state != NDMP_MOVER_STATE_ACTIVE ||
-	    session->ns_mover.md_bytes_left_to_read != 0 ||
-	    session->ns_mover.md_mode != NDMP_MOVER_MODE_WRITE) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid mover state for read command");
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-
-	if (session->ns_tape.td_fd == -1) {
-		ndmp_log(session, LOG_ERR,
-		    "tape device is not currently open");
-		reply.error = NDMP_DEV_NOT_OPEN_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-
-	ndmp_send_reply(session, &reply);
-
-	err = ndmp_mover_seek(session, quad_to_long_long(request->offset),
-	    quad_to_long_long(request->length));
-	if (err < 0) {
-		ndmp_mover_error(session, NDMP_MOVER_HALT_INTERNAL_ERROR);
-		return;
-	}
-	/*
-	 * Just return if we are waiting for the NDMP client to
-	 * complete the seek.
-	 */
-	if (err == 1)
-		return;
-
-	/*
-	 * Start the mover for restore in the 3-way backups.
-	 */
-	if (start_mover_for_restore(session) < 0)
-		ndmp_mover_error(session, NDMP_MOVER_HALT_INTERNAL_ERROR);
-}
-
-
-/*
  * This handler handles mover_close requests.
  */
 /*ARGSUSED*/
 void
-ndmp_mover_close_v2(ndmp_session_t *session, void *body)
+ndmp_mover_close_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_mover_close_reply reply = { 0 };
 
@@ -358,30 +127,6 @@ ndmp_mover_close_v2(ndmp_session_t *session, void *body)
 
 	ndmp_mover_error(session, NDMP_MOVER_HALT_CONNECT_CLOSED);
 }
-
-/*
- * This handler handles mover_set_record_size requests.
- */
-void
-ndmp_mover_set_record_size_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_mover_set_record_size_request *request;
-	ndmp_mover_set_record_size_reply reply = { 0 };
-
-	request = (ndmp_mover_set_record_size_request *) body;
-
-	session->ns_mover.md_record_size = request->len;
-	session->ns_mover.md_buf = ndmp_realloc(session,
-	    session->ns_mover.md_buf, request->len);
-
-	ndmp_send_reply(session, &reply);
-}
-
-/*
- * ************************************************************************
- * NDMP V3 HANDLERS
- * ************************************************************************
- */
 
 /*
  * This handler handles the ndmp_mover_get_state_request.  Status information
@@ -861,12 +606,6 @@ ndmp_mover_connect_v3(ndmp_session_t *session, void *body)
 }
 
 /*
- * ************************************************************************
- * NDMP V4 HANDLERS
- * ************************************************************************
- */
-
-/*
  * This handler handles the ndmp_mover_get_state_request.  Status information
  * for the mover state machine is returned.
  */
@@ -1014,12 +753,6 @@ ndmp_mover_connect_v4(ndmp_session_t *session, void *body)
 
 	ndmp_send_reply(session, &reply);
 }
-
-/*
- * ************************************************************************
- * LOCALS
- * ************************************************************************
- */
 
 /*
  * Write end-of-media magic string.  This is called after hitting the LEOT.
@@ -1709,93 +1442,6 @@ ndmp_mover_seek(ndmp_session_t *session, u_longlong_t offset,
 	return (0);
 }
 
-
-/* ** static functions ************************************************** */
-
-/*
- * Creates a socket for listening for accepting data sessions.
- */
-static int
-create_listen_socket_v2(ndmp_session_t *session, ulong_t *addr, ushort_t *port)
-{
-	session->ns_mover.md_listen_sock = ndmp_create_socket(session, addr,
-	    port);
-	if (session->ns_mover.md_listen_sock < 0)
-		return (-1);
-
-	/*
-	 * Add a file handler for the listen socket.  ndmp_select will call
-	 * accept_session when a connection is ready to be accepted.
-	 */
-	if (ndmp_add_file_handler(session, session,
-	    session->ns_mover.md_listen_sock, NDMPD_SELECT_MODE_READ, HC_MOVER,
-	    accept_session) < 0) {
-		(void) close(session->ns_mover.md_listen_sock);
-		session->ns_mover.md_listen_sock = -1;
-		return (-1);
-	}
-
-	ndmp_debug(session, "created listen socket on port: %d", *port);
-	return (0);
-}
-
-/*
- * Accept a data connection from a data server.  Called by ndmp_select when a
- * connection is pending on the mover listen socket.
- */
-/*ARGSUSED*/
-static void
-accept_session(ndmp_session_t *session, int fd, ulong_t mode)
-{
-	struct sockaddr_in from;
-	int from_len;
-	int flag = 1;
-
-	from_len = sizeof (from);
-	session->ns_mover.md_sock = accept(fd, (struct sockaddr *)&from,
-	    &from_len);
-
-	(void) ndmp_remove_file_handler(session, fd);
-	(void) close(session->ns_mover.md_listen_sock);
-	session->ns_mover.md_listen_sock = -1;
-
-	if (session->ns_mover.md_sock < 0) {
-		ndmp_log(session, LOG_ERR,
-		    "failed to accept session: %s", strerror(errno));
-		ndmp_mover_error(session, NDMP_MOVER_HALT_CONNECT_ERROR);
-		return;
-	}
-
-	(void) setsockopt(session->ns_mover.md_sock, SOL_SOCKET, SO_KEEPALIVE,
-	    &flag, sizeof (flag));
-	ndmp_set_socket_nodelay(session->ns_mover.md_sock);
-	ndmp_set_socket_rcv_buf(session, session->ns_mover.md_sock,
-	    60 * KILOBYTE);
-	ndmp_set_socket_snd_buf(session, session->ns_mover.md_sock,
-	    60 * KILOBYTE);
-
-	ndmp_debug(session, "mover sock fd: %d", session->ns_mover.md_sock);
-
-	if (session->ns_mover.md_mode == NDMP_MOVER_MODE_READ) {
-		if (start_mover_for_backup(session) < 0) {
-			ndmp_mover_error(session,
-			    NDMP_MOVER_HALT_INTERNAL_ERROR);
-			return;
-		}
-		ndmp_log(session, LOG_INFO,
-		    "backup connection established with %s:%d",
-		    inet_ntoa(IN_ADDR(from.sin_addr.s_addr)),
-		    ntohs(from.sin_port));
-	} else {
-		ndmp_log(session, LOG_INFO,
-		    "restore connection established with %s:%d",
-		    inet_ntoa(IN_ADDR(from.sin_addr.s_addr)),
-		    ntohs(from.sin_port));
-	}
-
-	session->ns_mover.md_state = NDMP_MOVER_STATE_ACTIVE;
-}
-
 /*
  * Writes a data record to tape. Detects and handles EOT conditions.  Returns
  * the number of bytes written, -1 on error, or 0 if the operation was aborted
@@ -1933,10 +1579,9 @@ tape_read(ndmp_session_t *session, char *data)
 }
 
 /*
- * Send a notify_pause request (protocol version 1) or notify_mover_pause
- * request (protocol version 2) to the NDMP client to inform the client that a
- * tape volume change is required.  Process messages until the data/mover
- * operation is either aborted or continued.
+ * Send a notify_mover_pause request to the NDMP client to inform the client
+ * that a tape volume change is required.  Process messages until the
+ * data/mover operation is either aborted or continued.
  */
 static int
 change_tape(ndmp_session_t *session)
@@ -2267,59 +1912,6 @@ mover_socket_writer(ndmp_session_t *session)
 	return (0);
 }
 
-
-/*
- * Creates the mover tape reader and network writer threads for
- * the mover to perform the 3-way restore.
- */
-static int
-start_mover_for_restore(ndmp_session_t *session)
-{
-	ndmp_commands_t *cmds;
-	long xfer_size;
-	int rc;
-
-	cmds = &session->ns_mover.md_cmds;
-	(void) memset(cmds, 0, sizeof (*cmds));
-	cmds->tcs_reader = cmds->tcs_writer = NDMP_RESTORE_RUN;
-	xfer_size = ndmp_buffer_get_size(session);
-	cmds->tcs_command = ndmp_create_reader_writer_ipc(session, B_FALSE,
-	    xfer_size);
-	if (cmds->tcs_command == NULL)
-		return (-1);
-
-	cmds->tcs_command->tc_reader = NDMP_RESTORE_RUN;
-	cmds->tcs_command->tc_writer = NDMP_RESTORE_RUN;
-
-	/*
-	 * We intentionally don't wait for the threads to start since the
-	 * reply of the request (which resulted in calling this function)
-	 * must be sent to the client before probable errors are sent
-	 * to the client.
-	 */
-	rc = pthread_create(NULL, NULL, (funct_t)mover_tape_reader, session);
-	if (rc == 0) {
-		ndmp_cmd_wait(cmds->tcs_command, NDMP_TAPE_READER);
-	} else {
-		ndmp_log(session, LOG_ERR, "failed to start tape reader: %s",
-		    strerror(rc));
-		return (-1);
-	}
-
-	rc = pthread_create(NULL, NULL, (funct_t)mover_socket_writer, session);
-	if (rc == 0) {
-		ndmp_cmd_wait(cmds->tcs_command, NDMP_SOCK_WRITER);
-	} else {
-		ndmp_log(session, LOG_ERR, "failed to start socket writer: %s",
-		    strerror(rc));
-		return (-1);
-	}
-
-	ndmp_release_reader_writer_ipc(cmds->tcs_command);
-	return (0);
-}
-
-
 /*
  * Read one buffer from the network socket for the mover. This is used
  * by mover_socket_reader
@@ -2374,8 +1966,6 @@ mover_socket_read_one_buf(ndmp_session_t *session, ndmp_buffer_t *buf,
 
 	return (0);
 }
-
-
 
 /*
  * Mover socket reader thread. This is used when reading data from the
@@ -2551,56 +2141,6 @@ mover_tape_writer(ndmp_session_t *session)
 	return (0);
 }
 
-
-/*
- * Starts a remote backup by running socket reader and tape writer threads. The
- * mover runs a remote backup in a 3-way backup configuration.
- */
-static int
-start_mover_for_backup(ndmp_session_t *session)
-{
-	ndmp_commands_t *cmds;
-	int rc;
-
-	cmds = &session->ns_mover.md_cmds;
-	(void) memset(cmds, 0, sizeof (*cmds));
-	cmds->tcs_reader = cmds->tcs_writer = NDMP_BACKUP_RUN;
-	cmds->tcs_command = ndmp_create_reader_writer_ipc(session, B_TRUE,
-	    session->ns_mover.md_record_size);
-	if (cmds->tcs_command == NULL)
-		return (-1);
-
-	cmds->tcs_command->tc_reader = NDMP_BACKUP_RUN;
-	cmds->tcs_command->tc_writer = NDMP_BACKUP_RUN;
-
-	/*
-	 * We intentionally don't wait for the threads to start since the
-	 * reply of the request (which resulted in calling this function)
-	 * must be sent to the client before probable errors are sent
-	 * to the client.
-	 */
-	rc = pthread_create(NULL, NULL, (funct_t)mover_socket_reader, session);
-	if (rc == 0) {
-		ndmp_cmd_wait(cmds->tcs_command, NDMP_SOCK_READER);
-	} else {
-		ndmp_log(session, LOG_ERR, "failed to create mover reader: %s",
-		    strerror(errno));
-		return (-1);
-	}
-
-	rc = pthread_create(NULL, NULL, (funct_t)mover_tape_writer, session);
-	if (rc == 0) {
-		ndmp_cmd_wait(cmds->tcs_command, NDMP_TAPE_WRITER);
-	} else {
-		ndmp_log(session, LOG_ERR, "failed to create mover writer: %s",
-		    strerror(errno));
-		return (-1);
-	}
-
-	ndmp_release_reader_writer_ipc(cmds->tcs_command);
-	return (0);
-}
-
 /*
  * Find out if the writer thread has started or not.
  */
@@ -2686,8 +2226,7 @@ void
 ndmp_mover_error(ndmp_session_t *session, ndmp_mover_halt_reason reason)
 {
 	if (session->ns_mover.md_state == NDMP_MOVER_STATE_HALTED ||
-	    (session->ns_version > NDMPV2 &&
-	    session->ns_mover.md_state == NDMP_MOVER_STATE_IDLE))
+	    session->ns_mover.md_state == NDMP_MOVER_STATE_IDLE)
 		return;
 
 	if (session->ns_version == NDMPV4) {
@@ -3356,7 +2895,7 @@ create_listen_socket_v3(ndmp_session_t *session, ulong_t *addr, ushort_t *port)
 
 	/*
 	 * Add a file handler for the listen socket.  ndmp_select will call
-	 * accept_session when a connection is ready to be accepted.
+	 * accept_session_v3 when a connection is ready to be accepted.
 	 */
 	if (ndmp_add_file_handler(session, session,
 	    session->ns_mover.md_listen_sock, NDMPD_SELECT_MODE_READ, HC_MOVER,

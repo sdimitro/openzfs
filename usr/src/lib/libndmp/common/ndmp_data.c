@@ -144,33 +144,6 @@ create_listen_socket_v3(ndmp_session_t *session, ulong_t *addr, ushort_t *port)
 }
 
 
-/*
- * Request handler. Returns current data state.
- */
-/*ARGSUSED*/
-void
-ndmp_data_get_state_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_data_get_state_reply_v2 reply;
-
-	reply.error = NDMP_NO_ERR;
-	reply.operation = session->ns_data.dd_operation;
-	reply.state = session->ns_data.dd_state;
-	reply.halt_reason = session->ns_data.dd_halt_reason;
-
-	reply.est_time_remain = 0;
-	reply.est_bytes_remain = long_long_to_quad(0LL);
-
-	reply.bytes_processed =
-	    long_long_to_quad(session->ns_data.dd_bytes_processed);
-
-	reply.mover = session->ns_data.dd_mover;
-	reply.read_offset = long_long_to_quad(session->ns_data.dd_read_offset);
-	reply.read_length = long_long_to_quad(session->ns_data.dd_read_length);
-
-	ndmp_send_reply(session, &reply);
-}
-
 static const char *
 ndmp_butype_valid(ndmp_session_t *session, const char *type)
 {
@@ -186,159 +159,13 @@ ndmp_butype_valid(ndmp_session_t *session, const char *type)
 }
 
 /*
- * Request handler. Starts a backup.
- */
-void
-ndmp_data_start_backup_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_data_start_backup_request_v2 *request = body;
-	ndmp_data_start_backup_reply_v2 reply;
-	ndmp_server_conf_t *conf = session->ns_server->ns_conf;
-	const char *type;
-
-	reply.error = NDMP_NO_ERR;
-	session->ns_data.dd_mover = request->mover;
-
-	if (session->ns_data.dd_state != NDMP_DATA_STATE_IDLE) {
-		ndmp_log(session, LOG_ERR, "invalid state for backup command");
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		goto error;
-	}
-
-	if ((type = ndmp_butype_valid(session, request->bu_type)) == NULL) {
-		ndmp_log(session, LOG_ERR, "invalid backup type '%s'",
-		    request->bu_type);
-		reply.error = NDMP_ILLEGAL_ARGS_ERR;
-		goto error;
-	}
-
-	reply.error = ndmp_save_env(session, request->env.env_val,
-	    request->env.env_len);
-
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-
-	reply.error = ndmp_mover_connect(session, NDMP_MOVER_MODE_READ);
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-
-	session->ns_data.dd_state = NDMP_DATA_STATE_ACTIVE;
-	session->ns_data.dd_operation = NDMP_DATA_OP_BACKUP;
-
-	assert(!session->ns_server->ns_running);
-	reply.error = conf->ns_start_backup(session, type);
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-	session->ns_server->ns_running = B_TRUE;
-
-	reply.error = NDMP_NO_ERR;
-	if (ndmp_send_response(session, NDMP_NO_ERR,
-	    &reply) < 0) {
-		if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP) {
-			/*
-			 * ndmpcopy: we use the same socket for the mover,
-			 * so expect to close when mover is done!
-			 */
-			if (session->ns_data.dd_sock !=
-			    session->ns_mover.md_sock)
-				(void) close(session->ns_data.dd_sock);
-
-			session->ns_data.dd_sock = -1;
-		} else {
-			ndmp_mover_error(session,
-			    NDMP_MOVER_HALT_CONNECT_CLOSED);
-		}
-	}
-	return;
-
-error:
-	assert(reply.error != NDMP_NO_ERR);
-	ndmp_send_reply(session, &reply);
-	ndmp_data_cleanup(session);
-}
-
-/*
- * Request handler. Starts a restore.
- */
-void
-ndmp_data_start_recover_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_data_start_recover_request_v2 *request = body;
-	ndmp_data_start_recover_reply_v2 reply;
-	ndmp_server_conf_t *conf = session->ns_server->ns_conf;
-	const char *type;
-
-	session->ns_data.dd_mover = request->mover;
-
-	if (session->ns_data.dd_state != NDMP_DATA_STATE_IDLE) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid state for recover command");
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		goto error;
-	}
-
-	if ((type = ndmp_butype_valid(session, request->bu_type)) == NULL) {
-		ndmp_log(session, LOG_ERR, "invalid backup type '%s'",
-		    request->bu_type);
-		reply.error = NDMP_ILLEGAL_ARGS_ERR;
-		goto error;
-	}
-
-	reply.error = ndmp_save_env(session, request->env.env_val,
-	    request->env.env_len);
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-
-	reply.error = ndmp_save_nlist_v2(session, request->nlist.nlist_val,
-	    request->nlist.nlist_len);
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-
-	reply.error = ndmp_mover_connect(session, NDMP_MOVER_MODE_WRITE);
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-
-	session->ns_data.dd_state = NDMP_DATA_STATE_ACTIVE;
-	session->ns_data.dd_operation = NDMP_DATA_OP_RECOVER;
-
-	assert(!session->ns_server->ns_running);
-	reply.error = conf->ns_start_recover(session, type);
-	if (reply.error != NDMP_NO_ERR)
-		goto error;
-	session->ns_server->ns_running = B_TRUE;
-
-	if (ndmp_send_response(session, NDMP_NO_ERR, &reply) < 0) {
-		if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP) {
-			/*
-			 * ndmpcopy: we use the same socket for the mover,
-			 * so expect to close when mover is done!
-			 */
-			if (session->ns_data.dd_sock !=
-			    session->ns_mover.md_sock)
-				(void) close(session->ns_data.dd_sock);
-
-			session->ns_data.dd_sock = -1;
-		} else {
-			ndmp_mover_error(session,
-			    NDMP_MOVER_HALT_CONNECT_CLOSED);
-		}
-	}
-	return;
-
-error:
-	assert(reply.error != NDMP_NO_ERR);
-	ndmp_send_reply(session, &reply);
-	ndmp_data_cleanup(session);
-}
-
-/*
  * Request handler. Returns the environment variable array sent with the backup
  * request. This request may only be sent with a backup operation is in
  * progress.
  */
 /*ARGSUSED*/
 void
-ndmp_data_get_env_v2(ndmp_session_t *session, void *body)
+ndmp_data_get_env_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_data_get_env_reply reply = { 0 };
 
@@ -351,64 +178,6 @@ ndmp_data_get_env_v2(ndmp_session_t *session, void *body)
 		reply.env.env_val = session->ns_data.dd_env;
 	}
 
-	ndmp_send_reply(session, &reply);
-}
-
-/*
- * Request handler. Stops the current data operation.
- */
-/*ARGSUSED*/
-void
-ndmp_data_stop_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_data_stop_reply reply = { 0 };
-
-	if (session->ns_data.dd_state != NDMP_DATA_STATE_HALTED) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid data state for stop command");
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-
-	ndmp_session_data_stop(session);
-	ndmp_data_cleanup(session);
-
-	/* prepare for another data operation */
-	ndmp_data_init(session);
-
-	reply.error = NDMP_NO_ERR;
-	ndmp_send_reply(session, &reply);
-}
-
-/*
- * Request handler. Aborts the current backup/restore. The operation
- * state is not changed to the halted state until after the operation
- * has actually been aborted and the notify_halt request has been sent.
- */
-/*ARGSUSED*/
-void
-ndmp_data_abort_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_data_abort_reply reply = { 0 };
-
-	if (session->ns_data.dd_state == NDMP_DATA_STATE_IDLE ||
-	    session->ns_data.dd_state == NDMP_DATA_STATE_HALTED) {
-		ndmp_log(session, LOG_ERR,
-		    "invalid data state for abort command");
-		reply.error = NDMP_ILLEGAL_STATE_ERR;
-		ndmp_send_reply(session, &reply);
-		return;
-	}
-
-	/*
-	 * Don't go to the HALTED state yet, just notify the data operation
-	 * we're aborting, which will cause it to call the done method with the
-	 * appropriate error.
-	 */
-	ndmp_session_data_stop(session);
-
-	reply.error = NDMP_NO_ERR;
 	ndmp_send_reply(session, &reply);
 }
 
@@ -983,14 +752,7 @@ ndmp_data_error(ndmp_session_t *session, ndmp_data_halt_reason reason)
 		if (session->ns_data.dd_sock != -1) {
 			(void) ndmp_remove_file_handler(session,
 			    session->ns_data.dd_sock);
-			/*
-			 * ndmpcopy: we use the same socket for the mover,
-			 * so expect to close when mover is done!
-			 */
-			if (session->ns_data.dd_sock !=
-			    session->ns_mover.md_sock)
-				(void) close(session->ns_data.dd_sock);
-
+			(void) close(session->ns_data.dd_sock);
 			session->ns_data.dd_sock = -1;
 		}
 		if (session->ns_data.dd_listen_sock != -1) {
@@ -1194,14 +956,7 @@ ndmp_data_cleanup(ndmp_session_t *session)
 	if (session->ns_data.dd_sock != -1) {
 		ndmp_debug(session, "closing data socket: %d",
 		    session->ns_data.dd_sock);
-
-		/*
-		 * ndmpcopy: we use the same socket for the mover,
-		 * so expect to close when mover is done!
-		 */
-		if (session->ns_data.dd_sock != session->ns_mover.md_sock)
-			(void) close(session->ns_data.dd_sock);
-
+		(void) close(session->ns_data.dd_sock);
 		session->ns_data.dd_sock = -1;
 	}
 

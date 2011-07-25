@@ -406,70 +406,6 @@ ndmp_free_env(ndmp_session_t *session)
 }
 
 /*
- * Save a copy of list of file names to be restored.
- */
-ndmp_error
-ndmp_save_nlist_v2(ndmp_session_t *session, ndmp_name *nlist,
-    ulong_t nlistlen)
-{
-	ulong_t i;
-	char *namebuf;
-	char *destbuf;
-
-	if (nlistlen == 0)
-		return (NDMP_NO_ERR);
-
-	session->ns_data.dd_nlist_len = 0;
-	session->ns_data.dd_nlist = ndmp_malloc(session,
-	    sizeof (ndmp_name)*nlistlen);
-	if (session->ns_data.dd_nlist == NULL)
-		return (NDMP_NO_MEM_ERR);
-
-	for (i = 0; i < nlistlen; i++) {
-		namebuf = ndmp_malloc(session, strlen(nlist[i].name) + 1);
-		if (namebuf == NULL)
-			return (NDMP_NO_MEM_ERR);
-
-		destbuf = ndmp_malloc(session, strlen(nlist[i].dest) + 1);
-		if (destbuf == NULL) {
-			free(namebuf);
-			return (NDMP_NO_MEM_ERR);
-		}
-		(void) strlcpy(namebuf, nlist[i].name,
-		    strlen(nlist[i].name) + 1);
-		(void) strlcpy(destbuf, nlist[i].dest,
-		    strlen(nlist[i].dest) + 1);
-
-		session->ns_data.dd_nlist[i].name = namebuf;
-		session->ns_data.dd_nlist[i].dest = destbuf;
-		session->ns_data.dd_nlist[i].ssid = nlist[i].ssid;
-		session->ns_data.dd_nlist[i].fh_info = nlist[i].fh_info;
-		session->ns_data.dd_nlist_len++;
-	}
-
-	return (NDMP_NO_ERR);
-}
-
-/*
- * Free a list created by ndmp_save_nlist_v2.
- */
-void
-ndmp_free_nlist_v2(ndmp_session_t *session)
-{
-	ulong_t i;
-
-	for (i = 0; i < session->ns_data.dd_nlist_len; i++) {
-		free(session->ns_data.dd_nlist[i].name);
-		free(session->ns_data.dd_nlist[i].dest);
-	}
-
-	if (session->ns_data.dd_nlist != NULL)
-		free((char *)session->ns_data.dd_nlist);
-	session->ns_data.dd_nlist = 0;
-	session->ns_data.dd_nlist_len = 0;
-}
-
-/*
  * Free a list created by ndmp_save_nlist_v3.
  */
 void
@@ -563,17 +499,7 @@ ndmp_save_nlist_v3(ndmp_session_t *session, ndmp_name_v3 *nlist,
 void
 ndmp_free_nlist(ndmp_session_t *session)
 {
-	switch (session->ns_version) {
-	case NDMPV3:
-	case NDMPV4:
-		ndmp_free_nlist_v3(session);
-		break;
-
-	default:
-		assert(session->ns_version == NDMPV2);
-		ndmp_free_nlist_v2(session);
-		break;
-	}
+	ndmp_free_nlist_v3(session);
 }
 
 /*
@@ -859,9 +785,7 @@ ndmp_execute_cdb(ndmp_session_t *session, char *adapter_name, int sid, int lun,
 }
 
 /*
- * Find a specific device in the open list.  This is not thread-safe, but is
- * not used as part of the current implementation (which doesn't support SCSI
- * or tape devices).
+ * Find a specific device in the open list.
  */
 static struct open_list *
 ndmp_open_list_find(char *dev, int sid, int lun)
@@ -1136,7 +1060,7 @@ ndmp_valid_v3addr_type(ndmp_addr_type type)
 }
 
 /*
- * Copy NDMP address from source to destination (V2 and V3 only)
+ * Copy NDMP address from source to destination (V3 only)
  */
 void
 ndmp_copy_addr_v3(ndmp_addr_v3 *dst, ndmp_addr_v3 *src)

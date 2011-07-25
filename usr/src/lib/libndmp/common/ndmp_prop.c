@@ -56,8 +56,8 @@ ndmp_prop_def_t ndmp_propdef_table[] =
 {
 	{"dar-support",			"true" },
 	{"token-maxseq",		"9" },
-	{"max-version",			"4" },
-	{"min-version",			"2" },
+	{"max-version",			NDMP_VMAX_STR },
+	{"min-version",			NDMP_VMIN_STR },
 	{"socket-css",			"65" },
 	{"socket-crs",			"80" },
 	{"mover-recordsize",		"60" },

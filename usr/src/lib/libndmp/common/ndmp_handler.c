@@ -142,7 +142,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				{
 					HANDL_NULL,
 					HANDL_NULL,
-					HANDL_NULL,
 				}
 			}
 		}
@@ -155,16 +154,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_HOST_INFO),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(config_get_host_info, 2, 2),
-					HANDL_RS(config_get_host_info, 2, 3),
-					HANDL_RS(config_get_host_info, 2, 4),
+					HANDL_RS(config_get_host_info, 3, 3),
+					HANDL_RS(config_get_host_info, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_CONFIG_GET_BUTYPE_ATTR),
 				AUTH_NOT_REQUIRED,
 				{
-					HANDL(config_get_butype_attr, 2, 2),
 					HANDL_NULL,
 					HANDL_NULL,
 				}
@@ -173,7 +170,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_CONNECTION_TYPE),
 				AUTH_REQUIRED,
 				{
-				    HANDL_RS(config_get_mover_type, 2, 2),
 				    HANDL_RS(config_get_connection_type, 3, 3),
 				    HANDL_RS(config_get_connection_type, 3, 4),
 				}
@@ -182,16 +178,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_AUTH_ATTR),
 				AUTH_NOT_REQUIRED,
 				{
-					HANDL(config_get_auth_attr, 2, 2),
-					HANDL(config_get_auth_attr, 2, 3),
-					HANDL(config_get_auth_attr, 2, 4),
+					HANDL(config_get_auth_attr, 3, 3),
+					HANDL(config_get_auth_attr, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_CONFIG_GET_BUTYPE_INFO),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_RS(config_get_butype_info, 3, 3),
 					HANDL_RS(config_get_butype_info, 3, 4),
 				}
@@ -200,7 +194,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_FS_INFO),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_RS(config_get_fs_info, 3, 3),
 					HANDL_RS(config_get_fs_info, 3, 4),
 				}
@@ -209,7 +202,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_TAPE_INFO),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_RS(config_get_tape_info, 3, 3),
 					HANDL_RS(config_get_tape_info, 3, 4),
 				}
@@ -218,7 +210,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_SCSI_INFO),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_RS(config_get_scsi_info, 3, 3),
 					HANDL_RS(config_get_scsi_info, 3, 4),
 				}
@@ -227,7 +218,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_SERVER_INFO),
 				AUTH_NOT_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_RS(config_get_server_info, 3, 3),
 					HANDL_RS(config_get_server_info, 3, 4),
 				}
@@ -237,7 +227,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				AUTH_REQUIRED,
 				{
 					HANDL_NULL,
-					HANDL_NULL,
 					HANDL(config_set_ext_list, 4, 4),
 				}
 			},
@@ -245,7 +234,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONFIG_GET_EXT_LIST),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_NULL,
 					HANDL_RS(config_get_ext_list, 4, 4),
 				}
@@ -260,7 +248,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_SCSI_OPEN),
 				AUTH_REQUIRED,
 				{
-					HANDL(scsi_open, 2, 2),
 					HANDL(scsi_open, 3, 3),
 					HANDL(scsi_open, 3, 4),
 				}
@@ -269,25 +256,22 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_SCSI_CLOSE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(scsi_close, 2, 2),
-					HANDL_RS(scsi_close, 2, 3),
-					HANDL_RS(scsi_close, 2, 4),
+					HANDL_RS(scsi_close, 3, 3),
+					HANDL_RS(scsi_close, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_SCSI_GET_STATE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(scsi_get_state, 2, 2),
-					HANDL_RS(scsi_get_state, 2, 3),
-					HANDL_RS(scsi_get_state, 2, 4),
+					HANDL_RS(scsi_get_state, 3, 3),
+					HANDL_RS(scsi_get_state, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_SCSI_SET_TARGET),
 				AUTH_REQUIRED,
 				{
-					HANDL(scsi_set_target, 2, 2),
 					HANDL(scsi_set_target, 3, 3),
 					HANDL_NULL,
 				}
@@ -296,17 +280,15 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_SCSI_RESET_DEVICE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(scsi_reset_device, 2, 2),
-					HANDL_RS(scsi_reset_device, 2, 3),
-					HANDL_RS(scsi_reset_device, 2, 4),
+					HANDL_RS(scsi_reset_device, 3, 3),
+					HANDL_RS(scsi_reset_device, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_SCSI_RESET_BUS),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(scsi_reset_bus, 2, 2),
-					HANDL_RS(scsi_reset_bus, 2, 3),
+					HANDL_RS(scsi_reset_bus, 3, 3),
 					HANDL_NULL,
 				}
 			},
@@ -314,9 +296,8 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_SCSI_EXECUTE_CDB),
 				AUTH_REQUIRED,
 				{
-					HANDL(scsi_execute_cdb, 2, 2),
-					HANDL(scsi_execute_cdb, 2, 3),
-					HANDL(scsi_execute_cdb, 2, 4),
+					HANDL(scsi_execute_cdb, 3, 3),
+					HANDL(scsi_execute_cdb, 3, 4),
 				}
 			}
 		}
@@ -329,7 +310,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_TAPE_OPEN),
 				AUTH_REQUIRED,
 				{
-					HANDL(tape_open, 2, 2),
 					HANDL(tape_open, 3, 3),
 					HANDL(tape_open, 3, 4),
 				}
@@ -338,8 +318,7 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_TAPE_CLOSE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(tape_close, 2, 2),
-					HANDL_RS(tape_close, 2, 3),
+					HANDL_RS(tape_close, 3, 3),
 					HANDL_RS(tape_close, 4, 4),
 				}
 			},
@@ -347,7 +326,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_TAPE_GET_STATE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(tape_get_state, 2, 2),
 					HANDL_RS(tape_get_state, 3, 3),
 					HANDL_RS(tape_get_state, 3, 4),
 				}
@@ -356,16 +334,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_TAPE_MTIO),
 				AUTH_REQUIRED,
 				{
-					HANDL(tape_mtio, 2, 2),
-					HANDL(tape_mtio, 2, 3),
-					HANDL(tape_mtio, 2, 4),
+					HANDL(tape_mtio, 3, 3),
+					HANDL(tape_mtio, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_TAPE_WRITE),
 				AUTH_REQUIRED,
 				{
-					HANDL(tape_write, 2, 2),
 					HANDL(tape_write, 3, 3),
 					HANDL(tape_write, 3, 4),
 				}
@@ -374,7 +350,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_TAPE_READ),
 				AUTH_REQUIRED,
 				{
-					HANDL(tape_read, 2, 2),
 					HANDL(tape_read, 3, 3),
 					HANDL(tape_read, 3, 4),
 				}
@@ -385,16 +360,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				{
 					HANDL_NULL,
 					HANDL_NULL,
-					HANDL_NULL,
 				}
 			},
 			{
 				HANDL_MSG(NDMP_TAPE_EXECUTE_CDB),
 				AUTH_REQUIRED,
 				{
-					HANDL(tape_execute_cdb, 2, 2),
-					HANDL(tape_execute_cdb, 2, 3),
-					HANDL(tape_execute_cdb, 2, 4),
+					HANDL(tape_execute_cdb, 3, 3),
+					HANDL(tape_execute_cdb, 3, 4),
 				}
 			}
 		}
@@ -407,7 +380,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_GET_STATE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(data_get_state, 2, 2),
 					HANDL_RS(data_get_state, 3, 3),
 					HANDL_RS(data_get_state, 4, 4),
 				}
@@ -416,7 +388,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_START_BACKUP),
 				AUTH_REQUIRED,
 				{
-					HANDL(data_start_backup, 2, 2),
 					HANDL(data_start_backup, 3, 3),
 					HANDL(data_start_backup, 3, 4),
 				}
@@ -425,7 +396,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_START_RECOVER),
 				AUTH_REQUIRED,
 				{
-					HANDL(data_start_recover, 2, 2),
 					HANDL(data_start_recover, 3, 3),
 					HANDL(data_start_recover, 3, 4),
 				}
@@ -434,7 +404,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_ABORT),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(data_abort, 2, 2),
 					HANDL_RS(data_abort, 3, 3),
 					HANDL_RS(data_abort, 3, 4),
 				}
@@ -443,8 +412,7 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_GET_ENV),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(data_get_env, 2, 2),
-					HANDL_RS(data_get_env, 2, 3),
+					HANDL_RS(data_get_env, 3, 3),
 					HANDL_RS(data_get_env, 4, 4),
 				}
 			},
@@ -452,7 +420,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_RESVD1),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_NULL,
 					HANDL_NULL,
 				}
@@ -463,7 +430,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				{
 					HANDL_NULL,
 					HANDL_NULL,
-					HANDL_NULL,
 				}
 			},
 
@@ -471,7 +437,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_STOP),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(data_stop, 2, 2),
 					HANDL_RS(data_stop, 3, 3),
 					HANDL_RS(data_stop, 3, 4),
 				}
@@ -482,14 +447,12 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				{
 					HANDL_NULL,
 					HANDL_NULL,
-					HANDL_NULL,
 				}
 			},
 			{
 				HANDL_MSG(NDMP_DATA_LISTEN),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL(data_listen, 3, 3),
 					HANDL(data_listen, 4, 4),
 				}
@@ -498,7 +461,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_CONNECT),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL(data_connect, 3, 3),
 					HANDL(data_connect, 4, 4),
 				}
@@ -507,7 +469,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_DATA_START_RECOVER_FILEHIST),
 				AUTH_REQUIRED,
 				{
-				    HANDL_NULL,
 				    HANDL_NULL,
 				    HANDL_NULL,	/* not supported */
 				}
@@ -524,7 +485,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				{
 					HANDL_NULL,
 					HANDL_NULL,
-					HANDL_NULL,
 				}
 			},
 
@@ -532,8 +492,7 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_NOTIFY_DATA_HALTED),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(notify_data_halted, 2, 2),
-					HANDL_RQ(notify_data_halted, 2, 3),
+					HANDL_RQ(notify_data_halted, 3, 3),
 					HANDL_RQ(notify_data_halted, 4, 4),
 				}
 			},
@@ -541,17 +500,15 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_NOTIFY_CONNECTION_STATUS),
 				AUTH_NOT_REQUIRED,
 				{
-				    HANDL_RQ(notify_connection_status, 2, 2),
-				    HANDL_RQ(notify_connection_status, 2, 3),
-				    HANDL_RQ(notify_connection_status, 2, 4),
+				    HANDL_RQ(notify_connection_status, 3, 3),
+				    HANDL_RQ(notify_connection_status, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_NOTIFY_MOVER_HALTED),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(notify_mover_halted, 2, 2),
-					HANDL_RQ(notify_mover_halted, 2, 3),
+					HANDL_RQ(notify_mover_halted, 3, 3),
 					HANDL_RQ(notify_mover_halted, 4, 4),
 				}
 			},
@@ -559,18 +516,16 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_NOTIFY_MOVER_PAUSED),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(notify_mover_paused, 2, 2),
-					HANDL_RQ(notify_mover_paused, 2, 3),
-					HANDL_RQ(notify_mover_paused, 2, 4),
+					HANDL_RQ(notify_mover_paused, 3, 3),
+					HANDL_RQ(notify_mover_paused, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_NOTIFY_DATA_READ),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(notify_data_read, 2, 2),
-					HANDL_RQ(notify_data_read, 2, 3),
-					HANDL_RQ(notify_data_read, 2, 4),
+					HANDL_RQ(notify_data_read, 3, 3),
+					HANDL_RQ(notify_data_read, 3, 4),
 				}
 			}
 		}
@@ -583,7 +538,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(_NDMP_LOG_LOG),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(log_log, 2, 2),
 					HANDL_NULL,
 					HANDL_NULL,
 				}
@@ -592,7 +546,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(_NDMP_LOG_DEBUG),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(log_debug, 2, 2),
 					HANDL_NULL,
 					HANDL_NULL,
 				}
@@ -601,16 +554,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_LOG_FILE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RQ(log_file, 2, 2),
-					HANDL_RQ(log_file, 2, 3),
-					HANDL_RQ(log_file, 2, 4),
+					HANDL_RQ(log_file, 3, 3),
+					HANDL_RQ(log_file, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_LOG_MESSAGE),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_RQ(log_message, 3, 3),
 					HANDL_RQ(log_message, 4, 4),
 				}
@@ -625,7 +576,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_FH_ADD_UNIX_PATH),
 				AUTH_REQUIRED,
 				{
-					RQ_ONLY(fh_add_unix_path, 2),
 					RQ_ONLY(fh_add_unix_path, 3),
 					HANDL_NULL,
 				}
@@ -634,7 +584,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_FH_ADD_UNIX_DIR),
 				AUTH_REQUIRED,
 				{
-					RQ_ONLY(fh_add_unix_dir, 2),
 					RQ_ONLY(fh_add_unix_dir, 3),
 					HANDL_NULL,
 				}
@@ -643,7 +592,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_FH_ADD_UNIX_NODE),
 				AUTH_REQUIRED,
 				{
-					RQ_ONLY(fh_add_unix_node, 2),
 					RQ_ONLY(fh_add_unix_node, 3),
 					HANDL_NULL,
 				}
@@ -652,7 +600,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_FH_ADD_FILE),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					RQ_ONLY(fh_add_file, 3),
 					RQ_ONLY(fh_add_file, 4),
 				}
@@ -661,7 +608,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_FH_ADD_DIR),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					RQ_ONLY(fh_add_dir, 3),
 					RQ_ONLY(fh_add_dir, 4),
 				}
@@ -670,7 +616,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_FH_ADD_NODE),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					RQ_ONLY(fh_add_node, 3),
 					RQ_ONLY(fh_add_node, 4),
 				}
@@ -689,16 +634,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONNECT_OPEN),
 				AUTH_NOT_REQUIRED,
 				{
-					HANDL(connect_open, 2, 2),
-					HANDL(connect_open, 2, 3),
-					HANDL(connect_open, 2, 4),
+					HANDL(connect_open, 3, 3),
+					HANDL(connect_open, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_CONNECT_AUTH),
 				AUTH_NOT_REQUIRED,
 				{
-					HANDL(connect_client_auth, 3, 2),
 					HANDL(connect_client_auth, 3, 3),
 					HANDL(connect_client_auth, 3, 4),
 				}
@@ -707,7 +650,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONNECT_CLOSE),
 				AUTH_NOT_REQUIRED,
 				{
-					HANDL_NONE(connect_close, 2),
 					HANDL_NONE(connect_close, 3),
 					HANDL_NONE(connect_close, 3),
 				}
@@ -716,7 +658,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_CONNECT_SERVER_AUTH),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL_NULL,
 					HANDL_NULL,
 				}
@@ -731,7 +672,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_GET_STATE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(mover_get_state, 2, 2),
 					HANDL_RS(mover_get_state, 3, 3),
 					HANDL_RS(mover_get_state, 4, 4),
 				}
@@ -740,7 +680,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_LISTEN),
 				AUTH_REQUIRED,
 				{
-					HANDL(mover_listen, 2, 2),
 					HANDL(mover_listen, 3, 3),
 					HANDL(mover_listen, 4, 4),
 				}
@@ -749,7 +688,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_CONTINUE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(mover_continue, 2, 2),
 					HANDL_RS(mover_continue, 3, 3),
 					HANDL_RS(mover_continue, 3, 4),
 				}
@@ -758,7 +696,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_ABORT),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(mover_abort, 2, 2),
 					HANDL_RS(mover_abort, 3, 3),
 					HANDL_RS(mover_abort, 3, 4),
 				}
@@ -767,16 +704,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_STOP),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(mover_stop, 2, 2),
-					HANDL_RS(mover_stop, 2, 3),
-					HANDL_RS(mover_stop, 2, 4),
+					HANDL_RS(mover_stop, 3, 3),
+					HANDL_RS(mover_stop, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_MOVER_SET_WINDOW),
 				AUTH_REQUIRED,
 				{
-					HANDL(mover_set_window, 2, 2),
 					HANDL(mover_set_window, 3, 3),
 					HANDL(mover_set_window, 3, 4),
 				}
@@ -785,7 +720,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_READ),
 				AUTH_REQUIRED,
 				{
-					HANDL(mover_read, 2, 2),
 					HANDL(mover_read, 3, 3),
 					HANDL(mover_read, 3, 4),
 				}
@@ -794,16 +728,14 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_CLOSE),
 				AUTH_REQUIRED,
 				{
-					HANDL_RS(mover_close, 2, 2),
-					HANDL_RS(mover_close, 2, 3),
-					HANDL_RS(mover_close, 2, 4),
+					HANDL_RS(mover_close, 3, 3),
+					HANDL_RS(mover_close, 3, 4),
 				}
 			},
 			{
 				HANDL_MSG(NDMP_MOVER_SET_RECORD_SIZE),
 				AUTH_REQUIRED,
 				{
-					HANDL(mover_set_record_size, 2, 2),
 					HANDL(mover_set_record_size, 3, 3),
 					HANDL(mover_set_record_size, 3, 4),
 				}
@@ -812,7 +744,6 @@ ndmp_handler_t ndmp_msghdl_tab[] = {
 				HANDL_MSG(NDMP_MOVER_CONNECT),
 				AUTH_REQUIRED,
 				{
-					HANDL_NULL,
 					HANDL(mover_connect, 3, 3),
 					HANDL(mover_connect, 4, 4),
 				}

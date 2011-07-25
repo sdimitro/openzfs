@@ -88,6 +88,11 @@
 #include "ndmp.h"
 #include "libndmp.h"
 
+#define	NDMP_VMIN		NDMPV3
+#define	NDMP_VMIN_STR		"3"
+#define	NDMP_VMAX		NDMPV4
+#define	NDMP_VMAX_STR		"4"
+
 #define	MAX_RECORD_SIZE		(126*512)
 #define	REMOTE_RECORD_SIZE	(60*KILOBYTE)
 #define	SCSI_MAX_NAME		32
@@ -274,7 +279,7 @@ typedef struct ndmp_handler {
 		ndmp_message hm_message;
 		const char *hm_messagestr;
 		boolean_t hm_auth_required;
-		ndmp_msg_handler_t hm_msg_v[3];
+		ndmp_msg_handler_t hm_msg_v[NDMP_VMAX - NDMP_VMIN + 1];
 	} hd_msgs[INT_MAXCMD];
 } ndmp_handler_t;
 
@@ -346,18 +351,8 @@ typedef struct ndmp_session_mover_desc {
 	ulong_t md_r_index;		/* buffer read  index */
 	ulong_t md_w_index;		/* buffer write index */
 	char *md_buf;		/* data buffer */
-	/*
-	 * V2 fields.
-	 */
 	ulong_t md_discard_length;	/* bytes to discard */
-
-	/*
-	 * V3 fields.
-	 */
 	ndmp_addr_v3 md_data_addr;
-	/*
-	 * V4 fields.
-	 */
 	ndmp_addr_v4 md_data_addr_v4;
 } ndmp_session_mover_desc_t;
 
@@ -381,14 +376,8 @@ typedef struct ndmp_session_data_desc {
 
 	ndmp_data_state dd_state;	/* current state */
 	ndmp_data_halt_reason dd_halt_reason;		/* current reason */
-	/*
-	 * V2 fields.
-	 */
 	ndmp_name *dd_nlist;	/* recover file list */
 	ndmp_mover_addr dd_mover;	/* mover address */
-	/*
-	 * V3 fields.
-	 */
 	mem_ndmp_name_v3_t *dd_nlist_v3;
 	ndmp_addr_v3 dd_data_addr;
 	int dd_listen_sock;	/* socket for listening for remote */
@@ -396,9 +385,6 @@ typedef struct ndmp_session_data_desc {
 	u_longlong_t dd_bytes_left_to_read;
 	u_longlong_t dd_position;
 	u_longlong_t dd_discard_length;
-	/*
-	 * V4 fields.
-	 */
 	ndmp_addr_v4 dd_data_addr_v4;
 } ndmp_session_data_desc_t;
 
@@ -528,12 +514,7 @@ extern void ndmp_cmd_signal(ndmp_cmd_t *, uint32_t);
  */
 
 /* Config */
-#define	ndmp_config_get_mover_type_v2 ndmp_config_get_connection_type_v3
-ndmp_msg_handler_func_t ndmp_config_get_host_info_v2;
-ndmp_msg_handler_func_t ndmp_config_get_butype_attr_v2;
-ndmp_msg_handler_func_t ndmp_config_get_mover_type_v2;
-ndmp_msg_handler_func_t ndmp_config_get_auth_attr_v2;
-
+ndmp_msg_handler_func_t ndmp_config_get_host_info_v3;
 ndmp_msg_handler_func_t ndmp_config_get_butype_info_v3;
 ndmp_msg_handler_func_t ndmp_config_get_connection_type_v3;
 ndmp_msg_handler_func_t ndmp_config_get_auth_attr_v3;
@@ -547,26 +528,18 @@ ndmp_msg_handler_func_t ndmp_config_get_ext_list_v4;
 ndmp_msg_handler_func_t ndmp_config_set_ext_list_v4;
 
 /* Scsi */
-ndmp_msg_handler_func_t ndmp_scsi_open_v2;
-ndmp_msg_handler_func_t ndmp_scsi_close_v2;
-ndmp_msg_handler_func_t ndmp_scsi_get_state_v2;
-ndmp_msg_handler_func_t ndmp_scsi_set_target_v2;
-ndmp_msg_handler_func_t ndmp_scsi_reset_device_v2;
-ndmp_msg_handler_func_t ndmp_scsi_reset_bus_v2;
-ndmp_msg_handler_func_t ndmp_scsi_execute_cdb_v2;
-
+ndmp_msg_handler_func_t ndmp_scsi_close_v3;
+ndmp_msg_handler_func_t ndmp_scsi_get_state_v3;
+ndmp_msg_handler_func_t ndmp_scsi_reset_device_v3;
+ndmp_msg_handler_func_t ndmp_scsi_reset_bus_v3;
+ndmp_msg_handler_func_t ndmp_scsi_execute_cdb_v3;
 ndmp_msg_handler_func_t ndmp_scsi_open_v3;
 ndmp_msg_handler_func_t ndmp_scsi_set_target_v3;
 
 /* Tape */
-ndmp_msg_handler_func_t ndmp_tape_open_v2;
-ndmp_msg_handler_func_t ndmp_tape_close_v2;
-ndmp_msg_handler_func_t ndmp_tape_get_state_v2;
-ndmp_msg_handler_func_t ndmp_tape_mtio_v2;
-ndmp_msg_handler_func_t ndmp_tape_write_v2;
-ndmp_msg_handler_func_t ndmp_tape_read_v2;
-ndmp_msg_handler_func_t ndmp_tape_execute_cdb_v2;
-
+ndmp_msg_handler_func_t ndmp_tape_close_v3;
+ndmp_msg_handler_func_t ndmp_tape_mtio_v3;
+ndmp_msg_handler_func_t ndmp_tape_execute_cdb_v3;
 ndmp_msg_handler_func_t ndmp_tape_open_v3;
 ndmp_msg_handler_func_t ndmp_tape_get_state_v3;
 ndmp_msg_handler_func_t ndmp_tape_write_v3;
@@ -575,13 +548,7 @@ ndmp_msg_handler_func_t ndmp_tape_read_v3;
 ndmp_msg_handler_func_t ndmp_tape_close_v4;
 
 /* Data */
-ndmp_msg_handler_func_t ndmp_data_get_state_v2;
-ndmp_msg_handler_func_t ndmp_data_start_backup_v2;
-ndmp_msg_handler_func_t ndmp_data_start_recover_v2;
-ndmp_msg_handler_func_t ndmp_data_get_env_v2;
-ndmp_msg_handler_func_t ndmp_data_stop_v2;
-ndmp_msg_handler_func_t ndmp_data_abort_v2;
-
+ndmp_msg_handler_func_t ndmp_data_get_env_v3;
 ndmp_msg_handler_func_t ndmp_data_get_state_v3;
 ndmp_msg_handler_func_t ndmp_data_connect_v3;
 ndmp_msg_handler_func_t ndmp_data_listen_v3;
@@ -596,23 +563,13 @@ ndmp_msg_handler_func_t ndmp_data_connect_v4;
 ndmp_msg_handler_func_t ndmp_data_listen_v4;
 
 /* Connect */
-ndmp_msg_handler_func_t ndmp_connect_open_v2;
-ndmp_msg_handler_func_t ndmp_connect_close_v2;
-
+ndmp_msg_handler_func_t ndmp_connect_open_v3;
 ndmp_msg_handler_func_t ndmp_connect_client_auth_v3;
 ndmp_msg_handler_func_t ndmp_connect_close_v3;
 
 /* Mover */
-ndmp_msg_handler_func_t ndmp_mover_get_state_v2;
-ndmp_msg_handler_func_t ndmp_mover_listen_v2;
-ndmp_msg_handler_func_t ndmp_mover_continue_v2;
-ndmp_msg_handler_func_t ndmp_mover_abort_v2;
-ndmp_msg_handler_func_t ndmp_mover_stop_v2;
-ndmp_msg_handler_func_t ndmp_mover_set_window_v2;
-ndmp_msg_handler_func_t ndmp_mover_read_v2;
-ndmp_msg_handler_func_t ndmp_mover_close_v2;
-ndmp_msg_handler_func_t ndmp_mover_set_record_size_v2;
-
+ndmp_msg_handler_func_t ndmp_mover_stop_v3;
+ndmp_msg_handler_func_t ndmp_mover_close_v3;
 ndmp_msg_handler_func_t ndmp_mover_get_state_v3;
 ndmp_msg_handler_func_t ndmp_mover_listen_v3;
 ndmp_msg_handler_func_t ndmp_mover_continue_v3;
@@ -627,18 +584,16 @@ ndmp_msg_handler_func_t ndmp_mover_listen_v4;
 ndmp_msg_handler_func_t ndmp_mover_connect_v4;
 
 /* Notify */
-ndmp_msg_handler_func_t ndmp_notify_data_halted_v2;
+ndmp_msg_handler_func_t ndmp_notify_data_halted_v3;
 ndmp_msg_handler_func_t ndmp_notify_data_halted_v4;
-ndmp_msg_handler_func_t ndmp_notify_connection_status_v2;
-ndmp_msg_handler_func_t ndmp_notify_mover_halted_v2;
+ndmp_msg_handler_func_t ndmp_notify_connection_status_v3;
+ndmp_msg_handler_func_t ndmp_notify_mover_halted_v3;
 ndmp_msg_handler_func_t ndmp_notify_mover_halted_v4;
-ndmp_msg_handler_func_t ndmp_notify_mover_paused_v2;
-ndmp_msg_handler_func_t ndmp_notify_data_read_v2;
+ndmp_msg_handler_func_t ndmp_notify_mover_paused_v3;
+ndmp_msg_handler_func_t ndmp_notify_data_read_v3;
 
 /* Log */
-ndmp_msg_handler_func_t ndmp_log_log_v2;
-ndmp_msg_handler_func_t ndmp_log_debug_v2;
-ndmp_msg_handler_func_t ndmp_log_file_v2;
+ndmp_msg_handler_func_t ndmp_log_file_v3;
 ndmp_msg_handler_func_t ndmp_log_message_v3;
 ndmp_msg_handler_func_t ndmp_log_message_v4;
 
@@ -681,8 +636,6 @@ extern int ndmp_select(ndmp_session_t *, boolean_t, ulong_t);
 extern ndmp_error ndmp_save_env(ndmp_session_t *, ndmp_pval *,
     ulong_t);
 extern void ndmp_free_env(ndmp_session_t *);
-extern ndmp_error ndmp_save_nlist_v2(ndmp_session_t *,
-    ndmp_name *, ulong_t);
 extern void ndmp_free_nlist(ndmp_session_t *);
 extern int ndmp_add_file_handler(ndmp_session_t *,
     void *, int, ulong_t, ulong_t, ndmp_file_handler_func_t *);

@@ -52,10 +52,9 @@
  */
 /*ARGSUSED*/
 void
-ndmp_config_get_host_info_v2(ndmp_session_t *session, void *body)
+ndmp_config_get_host_info_v3(ndmp_session_t *session, void *body)
 {
-	ndmp_config_get_host_info_reply_v2 reply = { 0 };
-	ndmp_auth_type auth_types[2];
+	ndmp_config_get_host_info_reply_v3 reply = { 0 };
 	char buf[HOSTNAMELEN + 1];
 	struct utsname uts;
 	char hostidstr[16];
@@ -83,60 +82,7 @@ ndmp_config_get_host_info_v2(ndmp_session_t *session, void *body)
 	(void) snprintf(hostidstr, sizeof (hostidstr), "%lx", hostid);
 	reply.hostid = hostidstr;
 
-	/*
-	 * This handler is shared with all revisions.  The core reply is the
-	 * same, but V2 exposes the supported authorizations through this
-	 * command (in lieu of GET SERVER INFO).  Setting these here is
-	 * harmless; the protocol-specific XDR encoding routine will ignore
-	 * them.
-	 */
-	auth_types[0] = NDMP_AUTH_TEXT;
-	reply.auth_type.auth_type_len = 1;
-	reply.auth_type.auth_type_val = auth_types;
-
 	ndmp_send_reply(session, &reply);
-}
-
-/*
- * Get attributes for a given backup type.
- */
-void
-ndmp_config_get_butype_attr_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_config_get_butype_attr_request *request;
-	ndmp_config_get_butype_attr_reply reply = { 0 };
-	ndmp_server_conf_t *conf = session->ns_server->ns_conf;
-	int i;
-
-	request = (ndmp_config_get_butype_attr_request *)body;
-
-	for (i = 0; conf->ns_types[i] != NULL; i++) {
-		if (strcmp(request->name, conf->ns_types[i]) == 0)
-			break;
-	}
-
-	if (conf->ns_types[i] == NULL) {
-		ndmp_log(session, LOG_ERR, "invalid backup type '%s'",
-		    request->name);
-		reply.error = NDMP_ILLEGAL_ARGS_ERR;
-	} else {
-		/*
-		 * Convert from V3/V4 attributes to V2 attributes.
-		 */
-		ulong_t attrs = conf->ns_get_backup_attrs(request->name);
-		if (!(attrs & NDMP_BUTYPE_BACKUP_FILELIST))
-			reply.attrs |= NDMP_NO_BACKUP_FILELIST;
-		if (!(attrs & NDMP_BUTYPE_BACKUP_DIRECT))
-			reply.attrs |= NDMP_NO_BACKUP_FHINFO;
-		if (!(attrs & NDMP_BUTYPE_RECOVER_FILELIST))
-			reply.attrs |= NDMP_NO_RECOVER_FILELIST;
-		if (!(attrs & NDMP_BUTYPE_RECOVER_DIRECT))
-			reply.attrs |= NDMP_NO_RECOVER_FHINFO;
-		if (!(attrs & NDMP_BUTYPE_RECOVER_INCREMENTAL))
-			reply.attrs |= NDMP_NO_RECOVER_INC_ONLY;
-
-		ndmp_send_reply(session, &reply);
-	}
 }
 
 /*
@@ -144,7 +90,7 @@ ndmp_config_get_butype_attr_v2(ndmp_session_t *session, void *body)
  * to just returning the MD5 challenge information.
  */
 void
-ndmp_config_get_auth_attr_v2(ndmp_session_t *session, void *body)
+ndmp_config_get_auth_attr_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_config_get_auth_attr_request *request;
 	ndmp_config_get_auth_attr_reply reply = { 0 };
@@ -233,9 +179,7 @@ ndmp_config_get_butype_info_v3(ndmp_session_t *session, void *body)
  * Returns a list of supported data connection types.  If the server has been
  * configured with local tape support, then we support both TCP and LOCAL
  * addresses.  Otherwise, we just support TCP connection types.  We don't
- * support IPC addresses.  In NDMPv2, this was called GET MOVER TYPE, and there
- * is a different reply definition in ndmp.h, but the structure is the same so
- * we use the same handler.
+ * support IPC addresses.
  */
 /*ARGSUSED*/
 void

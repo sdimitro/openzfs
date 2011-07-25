@@ -125,7 +125,7 @@ ndmp_get_handler(ndmp_session_t *session, ndmp_message message,
 		}
 	}
 
-	handler = &ni->hd_msgs[message & 0xff].hm_msg_v[ver - 2];
+	handler = &ni->hd_msgs[message & 0xff].hm_msg_v[ver - NDMPV3];
 	*messagestr = ni->hd_msgs[message & 0xff].hm_messagestr;
 
 	return (handler);

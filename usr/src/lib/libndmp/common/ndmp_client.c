@@ -337,11 +337,8 @@ ndmp_client_auth_md5(ndmp_session_t *session, const char *user,
 {
 	ndmp_config_get_auth_attr_request attr_request = { 0 };
 	ndmp_config_get_auth_attr_reply *attr_reply;
-	ndmp_connect_client_auth_request_v2 requestv2;
-	ndmp_auth_md5 *auth_md5_v2;
-	ndmp_connect_client_auth_request_v3 requestv3;
-	ndmp_auth_md5_v3 *auth_md5_v3;
-	void *request;
+	ndmp_connect_client_auth_request_v3 request;
+	ndmp_auth_md5_v3 *auth_md5;
 	ndmp_msg_t msg;
 	ndmp_connect_client_auth_reply *reply;
 	int err;
@@ -366,31 +363,18 @@ ndmp_client_auth_md5(ndmp_session_t *session, const char *user,
 	}
 
 	/* generate the digest using the server challenge */
-	if (session->ns_version == NDMPV2) {
-		requestv2.auth_data.auth_type = NDMP_AUTH_MD5;
-		auth_md5_v2 = &requestv2.auth_data.ndmp_auth_data_u.auth_md5;
-		auth_md5_v2->user = (char *)user;
-		ndmp_create_md5_digest((unsigned char *)
-		    auth_md5_v2->auth_digest,
-		    password, (unsigned char *)
-		    attr_reply->server_attr.ndmp_auth_attr_u.challenge);
-		request = &requestv2;
-	} else {
-		requestv3.auth_data.auth_type = NDMP_AUTH_MD5;
-		auth_md5_v3 = &requestv3.auth_data.ndmp_auth_data_v3_u.auth_md5;
-		auth_md5_v3->auth_id = (char *)user;
-		ndmp_create_md5_digest((unsigned char *)
-		    auth_md5_v3->auth_digest,
-		    password, (unsigned char *)
-		    attr_reply->server_attr.ndmp_auth_attr_u.challenge);
-		request = &requestv3;
-	}
+	request.auth_data.auth_type = NDMP_AUTH_MD5;
+	auth_md5 = &request.auth_data.ndmp_auth_data_v3_u.auth_md5;
+	auth_md5->auth_id = (char *)user;
+	ndmp_create_md5_digest((unsigned char *)auth_md5->auth_digest,
+	    password, (unsigned char *)
+	    attr_reply->server_attr.ndmp_auth_attr_u.challenge);
 
 	ndmp_free_message(session, &msg);
 
 	/* now send the request */
 	if ((err = ndmp_send_request(session, NDMP_CONNECT_CLIENT_AUTH,
-	    request, &msg)) < 0)
+	    &request, &msg)) < 0)
 		return (-1);
 
 	reply = msg.mi_body;
@@ -419,32 +403,19 @@ static int
 ndmp_client_auth_text(ndmp_session_t *session, const char *user,
     const char *password)
 {
-	ndmp_connect_client_auth_request_v2 requestv2;
-	ndmp_auth_text *auth_text_v2;
-	ndmp_connect_client_auth_request_v3 requestv3;
-	ndmp_auth_text_v3 *auth_text_v3;
+	ndmp_connect_client_auth_request_v3 request;
+	ndmp_auth_text_v3 *auth_text;
 	ndmp_connect_client_auth_reply *reply;
-	void *request;
 	ndmp_msg_t msg;
 	int ret;
 
-	if (session->ns_version == NDMPV2) {
-		requestv2.auth_data.auth_type = NDMP_AUTH_TEXT;
-		auth_text_v2 = &requestv2.auth_data.ndmp_auth_data_u.auth_text;
-		auth_text_v2->user = (char *)user;
-		auth_text_v2->password = (char *)password;
-		request = &requestv2;
-	} else {
-		requestv3.auth_data.auth_type = NDMP_AUTH_TEXT;
-		auth_text_v3 =
-		    &requestv3.auth_data.ndmp_auth_data_v3_u.auth_text;
-		auth_text_v3->auth_id = (char *)user;
-		auth_text_v3->auth_password = (char *)password;
-		request = &requestv3;
-	}
+	request.auth_data.auth_type = NDMP_AUTH_TEXT;
+	auth_text = &request.auth_data.ndmp_auth_data_v3_u.auth_text;
+	auth_text->auth_id = (char *)user;
+	auth_text->auth_password = (char *)password;
 
 	if ((ret = ndmp_send_request(session, NDMP_CONNECT_CLIENT_AUTH,
-	    request, &msg)) < 0)
+	    &request, &msg)) < 0)
 		return (-1);
 
 	reply = msg.mi_body;
@@ -530,12 +501,6 @@ ndmp_client_data_listen(ndmp_session_t *session)
 	void *ret;
 	int err;
 
-	if (session->ns_version < NDMPV3) {
-		ndmp_log(session, LOG_ERR, "data listen request is not "
-		    "supported by current protocol version");
-		return (NULL);
-	}
-
 	request.addr_type = NDMP_ADDR_TCP;
 
 	if ((err = ndmp_send_request(session, NDMP_DATA_LISTEN, &request,
@@ -599,12 +564,6 @@ ndmp_client_data_connect(ndmp_session_t *session, ndmp_addr_t *addr)
 	ndmp_msg_t msg;
 	int err;
 
-	if (session->ns_version < NDMPV3) {
-		ndmp_log(session, LOG_ERR, "data connect request is not "
-		    "supported by current protocol version");
-		return (-1);
-	}
-
 	if (session->ns_version == NDMPV3) {
 		ndmp_copy_addr_v3(&request_v3.addr, addr);
 		request = &request_v3;
@@ -664,16 +623,6 @@ ndmp_client_butypes_get(ndmp_session_t *session)
 	ndmp_msg_t *msg;
 	int err;
 
-	/*
-	 * We don't currently support this information for V2, though we could
-	 * fake it up by using the old-style requests.
-	 */
-	if (session->ns_version < NDMPV3) {
-		ndmp_log(session, LOG_ERR, "backup type info is not supported "
-		    "for current protocol version");
-		return (NULL);
-	}
-
 	if ((msg = ndmp_malloc(session, sizeof (ndmp_msg_t))) == NULL)
 		return (NULL);
 
@@ -727,12 +676,6 @@ ndmp_client_start_backup(ndmp_session_t *session, const char *butype,
 	int err;
 	ndmp_msg_t msg;
 
-	if (session->ns_version < NDMPV3) {
-		ndmp_log(session, LOG_ERR, "start backup is not supported "
-		    "for current protocol version");
-		return (-1);
-	}
-
 	request.bu_type = (char *)butype;
 	request.env.env_len = envsize;
 	request.env.env_val = env;
@@ -769,12 +712,6 @@ ndmp_client_start_recover(ndmp_session_t *session, const char *butype,
 	int err;
 	ndmp_msg_t msg;
 
-	if (session->ns_version < NDMPV3) {
-		ndmp_log(session, LOG_ERR, "start recover is not supported "
-		    "for current protocol version");
-		return (NULL);
-	}
-
 	request.bu_type = (char *)butype;
 	request.env.env_len = envsize;
 	request.env.env_val = env;
@@ -809,12 +746,6 @@ ndmp_client_fs_list(ndmp_session_t *session)
 	ndmp_config_get_fs_info_reply_v3 *reply;
 	ndmp_msg_t *msg;
 	int err;
-
-	if (session->ns_version < NDMPV3) {
-		ndmp_log(session, LOG_ERR, "filesystem info is not supported "
-		    "for current protocol version");
-		return (NULL);
-	}
 
 	if ((msg = ndmp_malloc(session, sizeof (ndmp_msg_t))) == NULL)
 		return (NULL);

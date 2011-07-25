@@ -158,7 +158,7 @@ error:
  * Notification-specific handlers.
  */
 void
-ndmp_notify_data_halted_v2(ndmp_session_t *session, void *body)
+ndmp_notify_data_halted_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_notify_data_halted_request *request = body;
 
@@ -167,7 +167,7 @@ ndmp_notify_data_halted_v2(ndmp_session_t *session, void *body)
 }
 
 void
-ndmp_notify_connection_status_v2(ndmp_session_t *session, void *body)
+ndmp_notify_connection_status_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_notify_connected_request *request = body;
 
@@ -195,7 +195,7 @@ ndmp_notify_connection_status_v2(ndmp_session_t *session, void *body)
 }
 
 void
-ndmp_notify_mover_halted_v2(ndmp_session_t *session, void *body)
+ndmp_notify_mover_halted_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_notify_mover_halted_request *request = body;
 
@@ -204,7 +204,7 @@ ndmp_notify_mover_halted_v2(ndmp_session_t *session, void *body)
 }
 
 void
-ndmp_notify_mover_paused_v2(ndmp_session_t *session, void *body)
+ndmp_notify_mover_paused_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_notify_mover_paused_request *request = body;
 
@@ -214,7 +214,7 @@ ndmp_notify_mover_paused_v2(ndmp_session_t *session, void *body)
 }
 
 void
-ndmp_notify_data_read_v2(ndmp_session_t *session, void *body)
+ndmp_notify_data_read_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_notify_data_read_request *request = body;
 

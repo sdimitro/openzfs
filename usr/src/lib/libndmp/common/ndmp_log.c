@@ -33,25 +33,7 @@
  */
 
 void
-ndmp_log_log_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_log_log_request *request = body;
-	ndmp_client_conf_t *conf = session->ns_client->nc_conf;
-
-	conf->nc_log_remote(session, LOG_INFO, request->entry);
-}
-
-void
-ndmp_log_debug_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_log_debug_request *request = body;
-	ndmp_client_conf_t *conf = session->ns_client->nc_conf;
-
-	conf->nc_log_remote(session, LOG_DEBUG, request->message);
-}
-
-void
-ndmp_log_file_v2(ndmp_session_t *session, void *body)
+ndmp_log_file_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_log_file_request *request = body;
 	ndmp_client_conf_t *conf = session->ns_client->nc_conf;

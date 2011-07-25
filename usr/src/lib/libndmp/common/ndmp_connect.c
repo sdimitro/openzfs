@@ -52,7 +52,7 @@
  * NOTIFY_CONNECTION_STATUS request.
  */
 void
-ndmp_connect_open_v2(ndmp_session_t *session, void *body)
+ndmp_connect_open_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_connect_open_request *request = (ndmp_connect_open_request *)body;
 	ndmp_connect_open_reply reply;
@@ -89,20 +89,7 @@ ndmp_connect_open_v2(ndmp_session_t *session, void *body)
 }
 
 /*
- * Close the current session.
- */
-/*ARGSUSED*/
-void
-ndmp_connect_close_v2(ndmp_session_t *session, void *body)
-{
-	(void) ndmp_session_close(session);
-}
-
-/*
- * This handler authorizes the NDMP client to the server.  Despite appearences
- * in ndmp.h, the request and response is actually the same for V2 and V3; they
- * just changed some of the field names.  We therefore use the same handler,
- * even though it's technically using V3-specific types.
+ * This handler authorizes the NDMP client to the server.
  */
 void
 ndmp_connect_client_auth_v3(ndmp_session_t *session, void *body)
@@ -152,8 +139,7 @@ ndmp_connect_client_auth_v3(ndmp_session_t *session, void *body)
 }
 
 /*
- * Close the session.  Unlike the V2 version, we send a conection status
- * notification indicating that we're shutting down.
+ * Close the session.
  */
 /*ARGSUSED*/
 void

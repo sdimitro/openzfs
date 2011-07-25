@@ -238,17 +238,6 @@ ndmp_server_done(ndmp_session_t *session, int reason)
  * Log a request to the remote client.
  */
 static void
-ndmp_log_v2(ndmp_session_t *session, const char *buf)
-{
-	ndmp_log_log_request request;
-
-	request.entry = (char *)buf;
-
-	(void) ndmp_send_request(session, _NDMP_LOG_LOG,
-	    &request, NULL);
-}
-
-static void
 ndmp_log_v3(ndmp_session_t *session, ndmp_log_type type, ulong_t msg_id,
     const char *buf)
 {
@@ -312,10 +301,6 @@ ndmp_log_buf(ndmp_session_t *session, int level, char *buf)
 	msgid = atomic_inc_32_nv(&session->ns_logid);
 
 	switch (session->ns_version) {
-	case NDMPV2:
-		ndmp_log_v2(session, buf);
-		break;
-
 	case NDMPV3:
 		ndmp_log_v3(session, type, msgid, buf);
 		break;
@@ -342,37 +327,15 @@ ndmp_server_log(ndmp_session_t *session, int level, const char *msg)
 	ndmp_log_buf(session, level, buf);
 }
 
-/*
- * Read data from either a local tape or a remote data source, depending on how
- * the DMA has setup the server.
- */
-static int
-ndmp_read_v2(ndmp_session_t *session, char *data, ulong_t length)
-{
-	if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP)
-		return (ndmp_remote_read(session, data, length));
-	else
-		return (ndmp_local_read(session, data, length));
-}
-
-static int
-ndmp_read_v3(ndmp_session_t *session, char *data, ulong_t length)
-{
-	if (session->ns_data.dd_data_addr.addr_type == NDMP_ADDR_LOCAL)
-		return (ndmp_local_read_v3(session, data, length));
-	else
-		return (ndmp_remote_read_v3(session, data, length));
-}
-
 int
 ndmp_server_read(ndmp_session_t *session, void *buf, ulong_t length)
 {
 	int ret;
 
-	if (session->ns_version == NDMPV2)
-		ret = ndmp_read_v2(session, buf, length);
+	if (session->ns_data.dd_data_addr.addr_type == NDMP_ADDR_LOCAL)
+		ret = ndmp_local_read_v3(session, buf, length);
 	else
-		ret = ndmp_read_v3(session, buf, length);
+		ret = ndmp_remote_read_v3(session, buf, length);
 
 	if (ret == 0)
 		session->ns_data.dd_bytes_processed += length;
@@ -435,36 +398,6 @@ ndmp_server_seek(ndmp_session_t *session, u_longlong_t offset,
 		err = 1;
 
 	return (err);
-}
-
-/*
- * Indicate that the given file has been recovered.
- */
-static int
-ndmp_file_recovered_v2(ndmp_session_t *session, char *name, int error)
-{
-	ndmp_log_file_request_v2 request;
-
-	request.name = name;
-	request.ssid = 0;
-
-	switch (error) {
-	case 0:
-		request.error = NDMP_NO_ERR;
-		break;
-	case ENOENT:
-		request.error = NDMP_FILE_NOT_FOUND_ERR;
-		break;
-	default:
-		request.error = NDMP_PERMISSION_ERR;
-	}
-
-	if (ndmp_send_request(session, NDMP_LOG_FILE,
-	    &request, NULL) < 0) {
-		return (-1);
-	}
-
-	return (0);
 }
 
 static int
@@ -534,52 +467,14 @@ ndmp_file_recovered_v4(ndmp_session_t *session, char *name, int error)
 int
 ndmp_server_file_recovered(ndmp_session_t *session, const char *name, int error)
 {
-	switch (session->ns_version) {
-	case NDMPV2:
-		return (ndmp_file_recovered_v2(session, (char *)name,
-		    error));
-
-	case NDMPV3:
+	if (session->ns_version == NDMPV3) {
 		return (ndmp_file_recovered_v3(session, (char *)name,
 		    error));
-
-	default:
+	} else {
 		assert(session->ns_version == NDMPV4);
 		return (ndmp_file_recovered_v4(session, (char *)name,
 		    error));
 	}
-}
-
-/*
- * Write data to the current data connection, either remote or local.
- */
-static int
-ndmp_write_v2(ndmp_session_t *session, char *data, ulong_t length)
-{
-	/*
-	 * Write the data to the data connection if the mover is remote.
-	 */
-	if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP)
-		return (ndmp_remote_write(session, data, length));
-	else
-		return (ndmp_local_write(session, data, length));
-}
-
-static int
-ndmp_write_v3(ndmp_session_t *session, char *data, ulong_t length)
-{
-	/*
-	 * Write the data to the tape if the mover is local, otherwise, write
-	 * the data to the data connection.
-	 *
-	 * The same write function for of v2 can be used in V3 for writing data
-	 * to the data connection to the mover.  So we don't need
-	 * ndmp_remote_write_v3().
-	 */
-	if (session->ns_data.dd_data_addr.addr_type == NDMP_ADDR_LOCAL)
-		return (ndmp_local_write_v3(session, data, length));
-	else
-		return (ndmp_remote_write(session, data, length));
 }
 
 int
@@ -587,10 +482,14 @@ ndmp_server_write(ndmp_session_t *session, const void *data, ulong_t length)
 {
 	int ret;
 
-	if (session->ns_version == NDMPV2)
-		ret = ndmp_write_v2(session, (char *)data, length);
+	/*
+	 * Write the data to the tape if the mover is local, otherwise, write
+	 * the data to the data connection.
+	 */
+	if (session->ns_data.dd_data_addr.addr_type == NDMP_ADDR_LOCAL)
+		ret = ndmp_local_write_v3(session, (void *)data, length);
 	else
-		ret = ndmp_write_v3(session, (char *)data, length);
+		ret = ndmp_remote_write(session, (void *)data, length);
 
 	if (ret == 0)
 		session->ns_data.dd_bytes_processed += length;

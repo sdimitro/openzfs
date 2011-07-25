@@ -47,30 +47,12 @@ static void common_open(ndmp_session_t *session, char *devname);
 static void common_set_target(ndmp_session_t *session, char *device,
     ushort_t controller, ushort_t sid, ushort_t lun);
 
-
-/*
- * ************************************************************************
- * NDMP V2 HANDLERS
- * ************************************************************************
- */
-
-/*
- * This handler opens the specified SCSI device.
- */
-void
-ndmp_scsi_open_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_scsi_open_request_v2 *request = (ndmp_scsi_open_request_v2 *)body;
-
-	common_open(session, request->device.name);
-}
-
 /*
  * This handler closes the currently open SCSI device.
  */
 /*ARGSUSED*/
 void
-ndmp_scsi_close_v2(ndmp_session_t *session, void *body)
+ndmp_scsi_close_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_scsi_close_reply reply;
 
@@ -107,7 +89,7 @@ ndmp_scsi_close_v2(ndmp_session_t *session, void *body)
  */
 /*ARGSUSED*/
 void
-ndmp_scsi_get_state_v2(ndmp_session_t *session, void *body)
+ndmp_scsi_get_state_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_scsi_get_state_reply reply;
 
@@ -129,32 +111,11 @@ ndmp_scsi_get_state_v2(ndmp_session_t *session, void *body)
 }
 
 /*
- * This handler sets the SCSI target of the SCSI device.  It is only valid to
- * use this request if the opened SCSI device is capable of talking to multiple
- * SCSI targets.  Since the implementation only supports the opening of a
- * specific SCSI device, as opposed to a device that can talk to multiple SCSI
- * targets, this request is not supported. This request is only appropriate for
- * implementations that support device files that can target multiple
- * SCSI devices.
- */
-void
-ndmp_scsi_set_target_v2(ndmp_session_t *session, void *body)
-{
-	ndmp_scsi_set_target_request_v2 *request;
-
-	request = (ndmp_scsi_set_target_request_v2 *) body;
-
-	common_set_target(session, request->device.name,
-	    request->target_controller, request->target_id,
-	    request->target_lun);
-}
-
-/*
  * This handler resets the currently targeted SCSI device.
  */
 /*ARGSUSED*/
 void
-ndmp_scsi_reset_device_v2(ndmp_session_t *session, void *body)
+ndmp_scsi_reset_device_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_scsi_reset_device_reply reply;
 	struct uscsi_cmd  cmd;
@@ -181,7 +142,7 @@ ndmp_scsi_reset_device_v2(ndmp_session_t *session, void *body)
  */
 /*ARGSUSED*/
 void
-ndmp_scsi_reset_bus_v2(ndmp_session_t *session, void *body)
+ndmp_scsi_reset_bus_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_scsi_reset_bus_reply reply;
 
@@ -194,7 +155,7 @@ ndmp_scsi_reset_bus_v2(ndmp_session_t *session, void *body)
  * This handler sends the CDB to the currently targeted SCSI device.
  */
 void
-ndmp_scsi_execute_cdb_v2(ndmp_session_t *session, void *body)
+ndmp_scsi_execute_cdb_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_execute_cdb_request *request = (ndmp_execute_cdb_request *) body;
 	ndmp_execute_cdb_reply reply;
@@ -211,13 +172,6 @@ ndmp_scsi_execute_cdb_v2(ndmp_session_t *session, void *body)
 		    session->ns_scsi.sd_sid, session->ns_scsi.sd_lun, request);
 	}
 }
-
-
-/*
- * ************************************************************************
- * NDMP V3 HANDLERS
- * ************************************************************************
- */
 
 /*
  * This handler opens the specified SCSI device.
@@ -247,19 +201,6 @@ ndmp_scsi_set_target_v3(ndmp_session_t *session, void *body)
 	    request->target_controller, request->target_id,
 	    request->target_lun);
 }
-
-
-/*
- * ************************************************************************
- * NDMP V4 HANDLERS
- * ************************************************************************
- */
-
-/*
- * ************************************************************************
- * LOCALS
- * ************************************************************************
- */
 
 /*
  * Send a reply for SCSI open command

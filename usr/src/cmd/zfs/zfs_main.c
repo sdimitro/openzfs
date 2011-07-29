@@ -1074,6 +1074,8 @@ gather_snapshots(zfs_handle_t *zhp, void *arg)
 	int err = 0;
 
 	err = zfs_iter_snapspec(zhp, cb->cb_snapspec, snapshot_to_nvl_cb, cb);
+	if (err == ENOENT)
+		err = 0;
 	if (err != 0)
 		goto out;
 
@@ -1181,6 +1183,14 @@ zfs_do_destroy(int argc, char **argv)
 		cb.cb_snapspec = at + 1;
 		if (gather_snapshots(zfs_handle_dup(zhp), &cb) != 0 ||
 		    cb.cb_error) {
+			zfs_close(zhp);
+			nvlist_free(cb.cb_nvl);
+			return (1);
+		}
+
+		if (nvlist_empty(cb.cb_nvl)) {
+			(void) fprintf(stderr, gettext("could not find any "
+			    "snapshots to destroy; check snapshot names.\n"));
 			zfs_close(zhp);
 			nvlist_free(cb.cb_nvl);
 			return (1);

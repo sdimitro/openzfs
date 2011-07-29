@@ -291,6 +291,9 @@ snapspec_cb(zfs_handle_t *zhp, void *arg) {
  *      <snap>:         (range of snapshots, ending with last)
  *      :               (all snapshots)
  *      <snaps>[,...]   (comma separated list of the above)
+ *
+ * If a snapshot can not be opened, continue trying to open the others, but
+ * return ENOENT at the end.
  */
 int
 zfs_iter_snapspec(zfs_handle_t *fs_zhp, const char *spec_orig,
@@ -299,6 +302,7 @@ zfs_iter_snapspec(zfs_handle_t *fs_zhp, const char *spec_orig,
 	char buf[ZFS_MAXNAMELEN];
 	char *comma_separated, *cp;
 	int err = 0;
+	int ret = 0;
 
 	(void) strlcpy(buf, spec_orig, sizeof (buf));
 	cp = buf;
@@ -316,24 +320,49 @@ zfs_iter_snapspec(zfs_handle_t *fs_zhp, const char *spec_orig,
 				ssa.ssa_first = comma_separated;
 			*colon = '\0';
 			ssa.ssa_last = colon + 1;
-			err |= zfs_iter_snapshots_sorted(fs_zhp,
+
+			/*
+			 * If there is a lastname specified, make sure it
+			 * exists.
+			 */
+			if (ssa.ssa_last[0] != '\0') {
+				char snapname[ZFS_MAXNAMELEN];
+				(void) snprintf(snapname, sizeof (snapname),
+				    "%s@%s", zfs_get_name(fs_zhp),
+				    ssa.ssa_last);
+				if (!zfs_dataset_exists(fs_zhp->zfs_hdl,
+				    snapname, ZFS_TYPE_SNAPSHOT)) {
+					ret = ENOENT;
+					continue;
+				}
+			}
+
+			err = zfs_iter_snapshots_sorted(fs_zhp,
 			    snapspec_cb, &ssa);
+			if (ret == 0)
+				ret = err;
+			if (ret == 0 && (!ssa.ssa_seenfirst ||
+			    (ssa.ssa_last[0] != '\0' && !ssa.ssa_seenlast))) {
+				ret = ENOENT;
+			}
 		} else {
 			char snapname[ZFS_MAXNAMELEN];
 			zfs_handle_t *snap_zhp;
 			(void) snprintf(snapname, sizeof (snapname), "%s@%s",
 			    zfs_get_name(fs_zhp), comma_separated);
-			snap_zhp = zfs_open(fs_zhp->zfs_hdl, snapname,
-			    ZFS_TYPE_SNAPSHOT);
+			snap_zhp = make_dataset_handle(fs_zhp->zfs_hdl,
+			    snapname);
 			if (snap_zhp == NULL) {
-				err |= ENOENT;
+				ret = ENOENT;
 				continue;
 			}
-			err |= func(snap_zhp, arg);
+			err = func(snap_zhp, arg);
+			if (ret == 0)
+				ret = err;
 		}
 	}
 
-	return (err);
+	return (ret);
 }
 
 /*

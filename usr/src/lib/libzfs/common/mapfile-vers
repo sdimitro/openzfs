@@ -128,11 +128,13 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_prop_written;
 	zfs_prune_proplist;
 	zfs_receive;
+	zfs_receive_new;
 	zfs_refresh_properties;
 	zfs_release;
 	zfs_rename;
 	zfs_rollback;
 	zfs_send;
+	zfs_send_new;
 	zfs_share;
 	zfs_shareall;
 	zfs_share_nfs;

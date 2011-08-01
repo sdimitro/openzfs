@@ -1272,6 +1272,25 @@ again:
 	return (0);
 }
 
+int
+zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
+    oldsendflags_t oldflags, int outfd, snapfilter_cb_t filter_func,
+    void *cb_arg, nvlist_t **debugnvp) {
+	sendflags_t flags;
+
+	flags.verbose = oldflags.verbose;
+	flags.replicate = oldflags.replicate;
+	flags.doall = oldflags.doall;
+	flags.fromorigin = oldflags.fromorigin;
+	flags.dedup = oldflags.dedup;
+	flags.props = oldflags.props;
+	flags.dryrun = B_FALSE;
+	flags.parsable = B_FALSE;
+
+	return (zfs_send_new(zhp, fromsnap, tosnap, &flags, outfd, filter_func,
+	    cb_arg, debugnvp));
+}
+
 /*
  * Generate a send stream for the dataset identified by the argument zhp.
  *
@@ -1289,7 +1308,7 @@ again:
  * case too. If "props" is set, send properties.
  */
 int
-zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
+zfs_send_new(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
     sendflags_t *flags, int outfd, snapfilter_cb_t filter_func,
     void *cb_arg, nvlist_t **debugnvp)
 {
@@ -3069,6 +3088,24 @@ zfs_receive_impl(libzfs_handle_t *hdl, const char *tosnap, recvflags_t *flags,
 	}
 }
 
+int
+zfs_receive(libzfs_handle_t *hdl, const char *tosnap, oldrecvflags_t oldflags,
+    int infd, avl_tree_t *stream_avl)
+{
+	recvflags_t flags;
+
+	flags.verbose = oldflags.verbose;
+	flags.isprefix = oldflags.isprefix;
+	flags.istail = oldflags.istail;
+	flags.dryrun = oldflags.dryrun;
+	flags.force = oldflags.force;
+	flags.canmountoff = oldflags.canmountoff;
+	flags.byteswap = oldflags.byteswap;
+	flags.nomount = oldflags.nomount;
+
+	return (zfs_receive_new(hdl, tosnap, &flags, infd, stream_avl));
+}
+
 /*
  * Restores a backup of tosnap from the file descriptor specified by infd.
  * Return 0 on total success, -2 if some things couldn't be
@@ -3076,7 +3113,7 @@ zfs_receive_impl(libzfs_handle_t *hdl, const char *tosnap, recvflags_t *flags,
  * (-1 will override -2).
  */
 int
-zfs_receive(libzfs_handle_t *hdl, const char *tosnap, recvflags_t *flags,
+zfs_receive_new(libzfs_handle_t *hdl, const char *tosnap, recvflags_t *flags,
     int infd, avl_tree_t *stream_avl)
 {
 	char *top_zfs = NULL;

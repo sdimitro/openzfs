@@ -1052,9 +1052,9 @@ snapshot_to_nvl_cb(zfs_handle_t *zhp, void *arg)
 	int err = 0;
 
 	/* Check for clones. */
-	cb->cb_target = zhp;
-	cb->cb_first = B_TRUE;
 	if (!cb->cb_doclones) {
+		cb->cb_target = zhp;
+		cb->cb_first = B_TRUE;
 		err = zfs_iter_dependents(zhp, B_TRUE,
 		    destroy_check_dependent, cb);
 	}
@@ -1085,28 +1085,41 @@ gather_snapshots(zfs_handle_t *zhp, void *arg)
 			goto out;
 	}
 
-	if (cb->cb_recurse) {
+	if (cb->cb_recurse)
 		err = zfs_iter_filesystems(zhp, gather_snapshots, cb);
-		if (err != 0)
-			goto out;
-	}
-
-	if (!cb->cb_noop && cb->cb_doclones) {
-		boolean_t defer = cb->cb_defer_destroy;
-		/*
-		 * We can't defer destroy non-snapshots, so set it to false
-		 * while destroying the clones.
-		 */
-		cb->cb_defer_destroy = B_FALSE;
-		err = zfs_iter_dependents(zhp, B_FALSE, destroy_callback, cb);
-		if (err != 0)
-			goto out;
-		cb->cb_defer_destroy = defer;
-	}
 
 out:
 	zfs_close(zhp);
 	return (err);
+}
+
+static int
+destroy_clones(destroy_cbdata_t *cb)
+{
+	nvpair_t *pair;
+	for (pair = nvlist_next_nvpair(cb->cb_nvl, NULL);
+	    pair != NULL;
+	    pair = nvlist_next_nvpair(cb->cb_nvl, pair)) {
+		zfs_handle_t *zhp = zfs_open(g_zfs, nvpair_name(pair),
+		    ZFS_TYPE_SNAPSHOT);
+		if (zhp != NULL) {
+			boolean_t defer = cb->cb_defer_destroy;
+			int err;
+
+			/*
+			 * We can't defer destroy non-snapshots, so set it to
+			 * false while destroying the clones.
+			 */
+			cb->cb_defer_destroy = B_FALSE;
+			err = zfs_iter_dependents(zhp, B_FALSE,
+			    destroy_callback, cb);
+			cb->cb_defer_destroy = defer;
+			zfs_close(zhp);
+			if (err != 0)
+				return (err);
+		}
+	}
+	return (0);
 }
 
 static int
@@ -1212,8 +1225,12 @@ zfs_do_destroy(int argc, char **argv)
 		}
 
 		if (!cb.cb_noop) {
-			err = zfs_destroy_snaps_nvl(zhp, cb.cb_nvl,
-			    cb.cb_defer_destroy);
+			if (cb.cb_doclones)
+				err = destroy_clones(&cb);
+			if (err == 0) {
+				err = zfs_destroy_snaps_nvl(zhp, cb.cb_nvl,
+				    cb.cb_defer_destroy);
+			}
 		}
 
 		zfs_close(zhp);

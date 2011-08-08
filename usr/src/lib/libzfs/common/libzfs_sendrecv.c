@@ -2908,7 +2908,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 		case EDQUOT:
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "destination %s space quota exceeded"), zc.zc_name);
-			(void) zfs_error(hdl, EZFS_BADRESTORE, errbuf);
+			(void) zfs_error(hdl, EZFS_NOSPC, errbuf);
 			break;
 		default:
 			(void) zfs_standard_error(hdl, ioctl_errno, errbuf);

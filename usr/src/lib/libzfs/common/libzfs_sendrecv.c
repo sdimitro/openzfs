@@ -1224,11 +1224,13 @@ again:
 		(void) nvlist_lookup_uint64(fslist, "parentfromsnap",
 			&parent_guid);
 
-		parent_nv = fsavl_find(sdd->fsavl, parent_guid, NULL);
-		if (!nvlist_exists(parent_nv, "sent")) {
-			/* parent has not yet been sent; skip this one */
-			needagain = B_TRUE;
-			continue;
+		if (parent_guid != 0) {
+			parent_nv = fsavl_find(sdd->fsavl, parent_guid, NULL);
+			if (!nvlist_exists(parent_nv, "sent")) {
+				/* parent has not yet been sent; skip this one */
+				needagain = B_TRUE;
+				continue;
+			}
 		}
 
 		if (origin_guid != 0) {

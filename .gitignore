@@ -6,3 +6,6 @@
 # ignore Eclipse project files
 /.project
 /.cproject
+/usr/src/uts/.cproject
+/usr/src/uts/.project
+

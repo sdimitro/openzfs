@@ -2077,7 +2077,7 @@ ztest_zil_commit(ztest_ds_t *zd, uint64_t id)
 /*
  * This function is designed to simulate the operations that occur during a
  * mount/unmount operation.  We hold the dataset across these operations in an
- * attempt to expose any implicit assumptions about the creation
+ * attempt to expose any implicit assumptions about ZIL management.
  */
 /* ARGSUSED */
 void

@@ -48,8 +48,8 @@ dir path=usr/lib/mdb/raw/$(ARCH64) group=sys
 dir path=usr/sbin
 dir path=usr/sbin/$(ARCH32)
 dir path=usr/sbin/$(ARCH64)
-dir path=usr/share group=sys
-dir path=usr/share/lib group=sys
+dir path=usr/share
+dir path=usr/share/lib
 dir path=usr/share/lib/java group=sys
 dir path=usr/share/lib/java/javadoc group=other
 dir path=usr/share/lib/java/javadoc/dtrace group=other
@@ -325,6 +325,9 @@ file \
     path=usr/share/lib/java/javadoc/dtrace/api/org/opensolaris/os/dtrace/LogDistribution.html \
     group=other
 file \
+    path=usr/share/lib/java/javadoc/dtrace/api/org/opensolaris/os/dtrace/LogLinearDistribution.html \
+    group=other
+file \
     path=usr/share/lib/java/javadoc/dtrace/api/org/opensolaris/os/dtrace/MaxValue.html \
     group=other
 file \
@@ -509,6 +512,9 @@ file \
     group=other
 file \
     path=usr/share/lib/java/javadoc/dtrace/api/org/opensolaris/os/dtrace/class-use/LogDistribution.html \
+    group=other
+file \
+    path=usr/share/lib/java/javadoc/dtrace/api/org/opensolaris/os/dtrace/class-use/LogLinearDistribution.html \
     group=other
 file \
     path=usr/share/lib/java/javadoc/dtrace/api/org/opensolaris/os/dtrace/class-use/MaxValue.html \

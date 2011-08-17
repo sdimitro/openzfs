@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/file-system/smb@$(PKGVERS)
@@ -61,7 +62,7 @@ dir path=usr/share/man/man1m
 dir path=usr/share/man/man4
 dir path=usr/share/man/man5
 dir path=usr/share/man/man7fs
-driver name=nsmb devlink=type=ddi_pseudo;name=nsmb\t\D perms="* 0666 root sys"
+driver name=nsmb perms="* 0666 root sys"
 file path=lib/svc/manifest/network/smb/client.xml group=sys mode=0444
 file path=lib/svc/method/smb-client mode=0555
 file path=usr/bin/smbutil mode=0555
@@ -76,9 +77,12 @@ $(i386_ONLY)file path=usr/kernel/kmdb/nsmb group=sys mode=0555
 $(i386_ONLY)file path=usr/kernel/kmdb/smbfs group=sys mode=0555
 file path=usr/lib/$(ARCH64)/libsmbfs.so.1
 file path=usr/lib/fs/smbfs/$(ARCH64)/libshare_smbfs.so.1
+file path=usr/lib/fs/smbfs/dfshares mode=0555
 file path=usr/lib/fs/smbfs/libshare_smbfs.so.1
 file path=usr/lib/fs/smbfs/mount mode=4555
+file path=usr/lib/fs/smbfs/share mode=0555
 file path=usr/lib/fs/smbfs/umount mode=4555
+file path=usr/lib/fs/smbfs/unshare mode=0555
 file path=usr/lib/libsmbfs.so.1
 file path=usr/lib/mdb/kvm/$(ARCH64)/nsmb.so mode=0555
 file path=usr/lib/mdb/kvm/$(ARCH64)/smbfs.so mode=0555

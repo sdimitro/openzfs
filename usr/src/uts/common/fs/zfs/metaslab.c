@@ -40,8 +40,8 @@
  * to "fast" gang.
  */
 #define	CAN_FASTGANG(flags) \
-    (!((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER | \
-    METASLAB_GANG_AVOID)))
+	(!((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER | \
+	METASLAB_GANG_AVOID)))
 
 uint64_t metaslab_aliquot = 512ULL << 10;
 uint64_t metaslab_gang_bang = SPA_MAXBLOCKSIZE + 1;	/* force gang blocks */

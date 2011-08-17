@@ -20,6 +20,7 @@
 #
 
 #
+# Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
 #
 
@@ -30,13 +31,14 @@
 
 include $(SRC)/Makefile.master
 
-SUBDIRS_CATALOG=	smbutil mount umount
+SUBDIRS_CATALOG=	smbutil mount umount share
 SUBDIRS=		$(SUBDIRS_CATALOG) chacl lsacl \
-			smbiod smbiod-svc svc
+			smbiod smbiod-svc svc test
 
 # for messaging catalog files
 #
-POFILES=        smbutil/smbutil_all.po mount/mount.po umount/umount.po
+POFILES=        smbutil/smbutil_all.po mount/mount.po umount/umount.po \
+		share/share.po share/unshare.po
 POFILE=         smbclnt.po
 
 all:=		TARGET= all

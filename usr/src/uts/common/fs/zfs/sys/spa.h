@@ -699,7 +699,7 @@ _NOTE(CONSTCOND) } while (0)
 #endif
 
 extern boolean_t spa_debug_enabled(spa_t *spa);
-#define spa_dbgmsg(spa, ...)			\
+#define	spa_dbgmsg(spa, ...)			\
 {						\
 	if (spa_debug_enabled(spa))		\
 		zfs_dbgmsg(__VA_ARGS__);	\

@@ -910,7 +910,7 @@ Changing this property affects only newly-written data.
 .mk
 .na
 \fB\fBcompression\fR=\fBon\fR | \fBoff\fR | \fBlzjb\fR | \fBgzip\fR |
-\fBgzip-\fR\fIN\fR\fR
+\fBgzip-\fR\fIN\fR | \fBzle\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -921,7 +921,8 @@ algorithm. The \fBgzip\fR compression algorithm uses the same compression as
 the \fBgzip\fR(1) command. You can specify the \fBgzip\fR level by using the
 value \fBgzip-\fR\fIN\fR where \fIN\fR is an integer from 1 (fastest) to 9
 (best compression ratio). Currently, \fBgzip\fR is equivalent to \fBgzip-6\fR
-(which is also the default for \fBgzip\fR(1)).
+(which is also the default for \fBgzip\fR(1)). The \fBzle\fR compression
+algorithm compresses runs of zeros.
 .sp
 This property can also be referred to by its shortened column name
 \fBcompress\fR. Changing this property affects only newly-written data.
@@ -1336,6 +1337,27 @@ efficient use of resources.
 Controls whether the \fB\&.zfs\fR directory is hidden or visible in the root of
 the file system as discussed in the "Snapshots" section. The default value is
 \fBhidden\fR.
+.RE
+
+.sp
+.ne 2
+.mk
+.na
+\fB\fBsync\fR=\fBdefault\fR | \fBalways\fR | \fBdisabled\fR\fR
+.ad
+.sp .6
+.RS 4n
+Controls the behavior of synchronous requests (e.g. fsync, O_DSYNC).
+\fBdefault\fR is the POSIX specified behavior of ensuring all synchronous
+requests are written to stable storage and all devices are flushed to ensure
+data is not cached by device controllers (this is the default). \fBalways\fR
+causes every file system transaction to be written and flushed before its
+system call returns. This has a large performance penalty. \fBdisabled\fR
+disables synchronous requests. File system transactions are only committed to
+stable storage periodically. This option will give the highest performance.
+However, it is very dangerous as ZFS would be ignoring the synchronous
+transaction demands of applications such as databases or NFS.  Administrators
+should only use this option when the risks are understood.
 .RE
 
 .sp

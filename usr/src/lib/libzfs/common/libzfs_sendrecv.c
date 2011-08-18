@@ -1224,11 +1224,13 @@ again:
 		(void) nvlist_lookup_uint64(fslist, "parentfromsnap",
 			&parent_guid);
 
-		parent_nv = fsavl_find(sdd->fsavl, parent_guid, NULL);
-		if (!nvlist_exists(parent_nv, "sent")) {
-			/* parent has not yet been sent; skip this one */
-			needagain = B_TRUE;
-			continue;
+		if (parent_guid != 0) {
+			parent_nv = fsavl_find(sdd->fsavl, parent_guid, NULL);
+			if (!nvlist_exists(parent_nv, "sent")) {
+				/* parent has not yet been sent; skip this one */
+				needagain = B_TRUE;
+				continue;
+			}
 		}
 
 		if (origin_guid != 0) {
@@ -2908,7 +2910,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 		case EDQUOT:
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "destination %s space quota exceeded"), zc.zc_name);
-			(void) zfs_error(hdl, EZFS_BADRESTORE, errbuf);
+			(void) zfs_error(hdl, EZFS_NOSPC, errbuf);
 			break;
 		default:
 			(void) zfs_standard_error(hdl, ioctl_errno, errbuf);

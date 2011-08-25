@@ -477,6 +477,7 @@ extern	nat_t	*nat_lookupredir __P((natlookup_t *, ipf_stack_t *));
 extern	nat_t	*nat_icmperrorlookup __P((fr_info_t *, int));
 extern	nat_t	*nat_icmperror __P((fr_info_t *, u_int *, int));
 extern	int	nat_delete __P((struct nat *, int, ipf_stack_t *));
+extern  void	nat_ruledeleted __P((struct ipnat *, ipf_stack_t *));
 extern	int	nat_insert __P((nat_t *, int, ipf_stack_t *));
 
 extern	int	fr_checknatout __P((fr_info_t *, u_32_t *));

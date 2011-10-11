@@ -687,40 +687,6 @@ dpwrite(dev_t dev, struct uio *uiop, cred_t *credp)
 	return (error);
 }
 
-/*
- * A wrapper dpioctl uses when handling DP_POLL to wait for events
- * with a relative timeout. Previously dpioctl used cv_waituntil_sig
- * (which uses an absolute timeout), but this was resulting in spurios
- * wakeups of user space when the system time was changed.
- *
- * Returns:
- *      In order of precendence:
- *               0 if a signal was received
- *              -1 if a timeout occured
- *              >0 if awakened via cv_signal() or cv_broadcast(). If
- *                 timeout is true then the return value is the
- *                 time remaining, if timeout is false the
- *                 return value is opaque.
- */
-static clock_t
-dp_ioctl_poll_wait(kcondvar_t *cvp, kmutex_t *mp, boolean_t timeout,
-    clock_t delta)
-{
-	/*
-	 * If there is no timeout specified wait indefinitely for a
-	 * signal or a wakeup.
-	 */
-	if (!timeout) {
-		return (cv_wait_sig_swap(cvp, mp));
-	}
-
-	/*
-	 * cv_reltimedwait_sig will wait for the relative timeout
-	 * specified by delta.
-	 */
-	return (cv_reltimedwait_sig(cvp, mp, delta, TR_MILLISEC));
-}
-
 /*ARGSUSED*/
 static int
 dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
@@ -759,7 +725,8 @@ dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
 		nfds_t		nfds;
 		int		fdcnt = 0;
 		int		time_out;
-		clock_t		delta = -1;
+		clock_t		*deltap = NULL;
+		clock_t		delta;
 
 		STRUCT_INIT(dvpoll, mode);
 		error = copyin((caddr_t)arg, STRUCT_BUF(dvpoll),
@@ -772,7 +739,7 @@ dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
 		time_out = STRUCT_FGET(dvpoll, dp_timeout);
 		if (time_out > 0) {
 			/*
-			 * dp_ioctl_poll_wait operates at the tick
+			 * cv_relwaituntil_sig operates at the tick
 			 * granularity, which by default is 10 ms.
 			 * This results in rounding user specified
 			 * timeouts up but prevents the system
@@ -780,6 +747,7 @@ dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
 			 * resolution timers.
 			 */
 			delta = MSEC_TO_TICK_ROUNDUP(time_out);
+			deltap = &delta;
 		}
 
 		if ((nfds = STRUCT_FGET(dvpoll, dp_nfds)) == 0) {
@@ -792,11 +760,9 @@ dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
 			if (time_out == 0)
 				return (0);
 			mutex_enter(&curthread->t_delay_lock);
-			while ((delta = dp_ioctl_poll_wait(
-			    &curthread->t_delay_cv,
-			    &curthread->t_delay_lock,
-			    time_out > 0,
-			    delta)) > 0) {
+			while ((delta = cv_relwaituntil_sig(
+			    &curthread->t_delay_cv, &curthread->t_delay_lock,
+			    deltap, TR_MILLISEC)) > 0) {
 				continue;
 			}
 			mutex_exit(&curthread->t_delay_lock);
@@ -852,8 +818,8 @@ dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
 			if (time_out == 0)	/* immediate timeout */
 				break;
 
-			delta = dp_ioctl_poll_wait(&pcp->pc_cv, &pcp->pc_lock,
-			    time_out > 0, delta);
+			delta = cv_relwaituntil_sig(&pcp->pc_cv, &pcp->pc_lock,
+			    deltap, TR_MILLISEC);
 			/*
 			 * If we were awakened by a signal or timeout
 			 * then break the loop, else poll again.

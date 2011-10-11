@@ -95,6 +95,8 @@ extern	int	cv_wait_sig(kcondvar_t *, kmutex_t *);
 extern	clock_t	cv_timedwait_sig(kcondvar_t *, kmutex_t *, clock_t);
 extern	clock_t	cv_reltimedwait_sig(kcondvar_t *, kmutex_t *, clock_t,
     time_res_t);
+extern	clock_t	cv_relwaituntil_sig(kcondvar_t *, kmutex_t *, clock_t *,
+    time_res_t);
 extern	int	cv_wait_sig_swap(kcondvar_t *, kmutex_t *);
 extern	int	cv_wait_sig_swap_core(kcondvar_t *, kmutex_t *, int *);
 extern	void	cv_signal(kcondvar_t *);

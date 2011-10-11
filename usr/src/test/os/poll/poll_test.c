@@ -19,49 +19,54 @@
 #include <sys/devpoll.h>
 
 /*
- * devpoll_test.c --
+ * poll_test.c --
  *
- *	This file implements some simple tests to verify the behavior of the
- *	DP_POLL ioctl on /dev/poll.
+ *      This file implements some simple tests to verify the behavior of the
+ *      poll system call and the DP_POLL ioctl on /dev/poll.
  *
  * Background:
  *
- *	Several customers recently ran into an issue where threads in grizzly
- *	(java http server implementation) would randomly wake up from a java
- *	call to select against a java.nio.channels.Selector with no events ready
- *	but well before the specified timeout expired. The
- *	java.nio.channels.Selector select logic is implemented via /dev/poll.
- *	The selector opens /dev/poll, writes the file descriptors it wants to
- *	select on to the file descritpor, and then issues a DP_POLL ioctl to
- *	wait for events to be ready.
+ *      Several customers recently ran into an issue where threads in grizzly
+ *      (java http server implementation) would randomly wake up from a java
+ *      call to select against a java.nio.channels.Selector with no events ready
+ *      but well before the specified timeout expired. The
+ *      java.nio.channels.Selector select logic is implemented via /dev/poll.
+ *      The selector opens /dev/poll, writes the file descriptors it wants to
+ *      select on to the file descritpor, and then issues a DP_POLL ioctl to
+ *      wait for events to be ready.
  *
- *	The DP_POLL ioctl arguments include a relative timeout in milliseconds,
- *	according to man poll.7d the ioctl should block until events are ready,
- *	the timeout expires, or a signal was received. In this case we noticed
- *	that DP_POLL was returning before the timeout expired despite no events
- *	being ready and no signal being delivered.
+ *      The DP_POLL ioctl arguments include a relative timeout in milliseconds,
+ *      according to man poll.7d the ioctl should block until events are ready,
+ *      the timeout expires, or a signal was received. In this case we noticed
+ *      that DP_POLL was returning before the timeout expired despite no events
+ *      being ready and no signal being delivered.
  *
- *	Using dtrace we discovered that DP_POLL was returning in cases where the
- *	system time was changed and the thread calling DP_POLL was woken up as
- *	a result of the process forking. The DP_POLL logic was in a loop
- *	checking if events were ready and then calling cv_waituntil_sig to
- *	block. cv_waituntil_sig will return -1 if the system time has changed,
- *	causing the DP_POLL to complete prematurely.
+ *      Using dtrace we discovered that DP_POLL was returning in cases where the
+ *      system time was changed and the thread calling DP_POLL was woken up as
+ *      a result of the process forking. The DP_POLL logic was in a loop
+ *      checking if events were ready and then calling cv_waituntil_sig to
+ *      block. cv_waituntil_sig will return -1 if the system time has changed,
+ *      causing the DP_POLL to complete prematurely.
+ *
+ *      Looking at the code it turns out the same problem exists in
+ *      the implementation for poll.2 as well.
  *
  * Fix:
  *
- *	The fix changes dpioctl to use cv_relwait_sig rather then
- *	cv_waituntil_sig. cv_relwait_sig expects a relative timeout rather then
- *	an absolute timeout, so we avoid the problem.
+ *      The fix changes dpioctl and poll_common to use cv_relwaituntil_sig
+ *      rather then cv_waituntil_sig. cv_reltimedwait_sig expects a
+ *      relative timeout rather then an absolute timeout, so we avoid the
+ *      problem.
  *
  * Test:
  *
- *	The test verifies that changing the date does not wake up threads
- *	blocked processing a DP_POLL ioctl. The test spawns one thread that
- *	changes the date and forks (to force the threads to wakeup from
- *	cv_relwait_sig) every two seconds. The test spawns a second thread that
- *	issues a DP_IOCTL on an fd set that will never have events ready and
- *	verifies that it does not return until the specified timeout expires.
+ *      The test verifies that changing the date does not wake up threads
+ *      blocked processing a poll request or a DP_POLL ioctl. The test spawns
+ *      one thread that changes the date and forks (to force the threads to
+ *      wakeup from cv_reltimedwait_sig) every two seconds. The test spawns
+ *      a second thread that issues poll / DP_POLL on an fd set that will
+ *      never have events ready and verifies that it does not return until
+ *      the specified timeout expires.
  */
 
 /*
@@ -141,7 +146,25 @@ check_time(time_t elapsed, time_t expected)
 }
 
 static int
-dppoll(int pollFD, pollfd_t *fds, nfds_t nfds, int timeout, time_t *elapsed)
+poll_wrapper(pollfd_t *fds, nfds_t nfds, int timeout, time_t *elapsed)
+{
+	int		ret;
+	time_t		start = time(NULL);
+
+	debug_log("POLL start: (0x%p, %d, %d)\n", fds, nfds, timeout);
+
+	ret = poll(fds, nfds, timeout);
+
+	*elapsed = time(NULL) - start;
+
+	debug_log("POLL end: (0x%p, %d, %d) returns %d (elapse=%d)\n",
+	    fds, nfds, timeout, ret, (*elapsed));
+
+	return (ret);
+}
+
+static int
+dppoll(int pollfd, pollfd_t *fds, nfds_t nfds, int timeout, time_t *elapsed)
 {
 	struct dvpoll	arg;
 	int		ret;
@@ -153,7 +176,7 @@ dppoll(int pollFD, pollfd_t *fds, nfds_t nfds, int timeout, time_t *elapsed)
 
 	debug_log("DP_POLL start: (0x%p, %d, %d)\n", fds, nfds, timeout);
 
-	ret = ioctl(pollFD, DP_POLL, &arg);
+	ret = ioctl(pollfd, DP_POLL, &arg);
 
 	*elapsed = time(NULL) - start;
 
@@ -164,43 +187,103 @@ dppoll(int pollFD, pollfd_t *fds, nfds_t nfds, int timeout, time_t *elapsed)
 }
 
 static void
-clear_fd(const char *testName, int pollFD, int testFD)
+clear_fd(const char *testName, int pollfd, int testfd)
 {
 	int		ret;
 	pollfd_t	fd;
 
-	fd.fd = testFD;
+	fd.fd = testfd;
 	fd.events = POLLREMOVE;
 	fd.revents = 0;
 
-	ret = write(pollFD, &fd, sizeof (pollfd_t));
+	ret = write(pollfd, &fd, sizeof (pollfd_t));
 
 	if (ret != sizeof (pollfd_t)) {
 		if (ret < 0) {
 			test_failed(testName, "Failed to clear fd %d: %s",
-			    testFD, strerror(ret));
+			    testfd, strerror(ret));
 		}
 
 
-		test_failed(testName, "Failed to clear fd %d: %d", testFD, ret);
+		test_failed(testName, "Failed to clear fd %d: %d", testfd, ret);
 	}
 }
 
 /*
- * TEST poll-no-fd: DP_POLL with no FDs set, verify we wait the appropriate
- * amount of time.
+ * TEST: poll with no FDs set, verify we wait the appropriate amount of time.
  */
 static void
-poll_no_fd_test(int pollFD, int testFD)
+poll_no_fd_test(void)
 {
-	const char	*testName = "poll-no-fd";
+	const char	*testName = __FUNCTION__;
 	time_t		elapsed;
 	int		timeout = 10;
 	int		ret;
 
 	test_start(testName, "poll for %d sec with no fds\n", timeout);
 
-	ret = dppoll(pollFD, NULL, 0, timeout * 1000, &elapsed);
+	ret = poll_wrapper(NULL, 0, timeout * 1000, &elapsed);
+
+	if (ret != 0) {
+		test_failed(testName, "POLL returns %d (expected 0)\n", ret);
+	}
+
+	if (!check_time(elapsed, timeout)) {
+		test_failed(testName, "took %d (expected %d)\n",
+		    elapsed, timeout);
+	}
+
+	test_passed(testName);
+}
+
+/*
+ * TEST: POLL with a valid FD set, verify that we wait the appropriate amount
+ * of time.
+ */
+static void
+poll_with_fds_test(int testfd)
+{
+	const char	*testName = __FUNCTION__;
+	time_t		elapsed;
+	int		timeout = 10;
+	int		ret;
+	pollfd_t	fd;
+
+	fd.fd = testfd;
+	fd.events = 0;
+	fd.revents = 0;
+
+	test_start(testName, "poll for %d sec with fds\n", timeout);
+
+	ret = poll_wrapper(&fd, 1, timeout * 1000, &elapsed);
+
+	if (ret != 0) {
+		test_failed(testName, "POLL returns %d (expected 0)\n", ret);
+	}
+
+	if (!check_time(elapsed, timeout)) {
+		test_failed(testName, "took %d (expected %d)\n",
+		    elapsed, timeout);
+	}
+
+	test_passed(testName);
+}
+
+/*
+ * TEST: DP_POLL with no FDs set, verify we wait the appropriate
+ * amount of time.
+ */
+static void
+dev_poll_no_fd_test(int pollfd, int testfd)
+{
+	const char	*testName = __FUNCTION__;
+	time_t		elapsed;
+	int		timeout = 10;
+	int		ret;
+
+	test_start(testName, "poll for %d sec with no fds\n", timeout);
+
+	ret = dppoll(pollfd, NULL, 0, timeout * 1000, &elapsed);
 
 	if (ret != 0) {
 		test_failed(testName, "DP_POLL returns %d (expected 0)\n", ret);
@@ -215,13 +298,13 @@ poll_no_fd_test(int pollFD, int testFD)
 }
 
 /*
- * TEST poll-with-fds: DP_POLL with a valid FD set, verify that we wait
+ * TEST: DP_POLL with a valid FD set, verify that we wait
  * the appropriate amount of time.
  */
 static void
-poll_with_fds_test(int pollFD, int testFD)
+dev_poll_with_fds_test(int pollfd, int testfd)
 {
-	const char	*testName = "poll-with-fds";
+	const char	*testName = __FUNCTION__;
 	time_t		elapsed;
 	int		timeout = 10;
 	int		ret;
@@ -232,16 +315,16 @@ poll_with_fds_test(int pollFD, int testFD)
 	/*
 	 * Clear the FD in case it's already in the cached set
 	 */
-	clear_fd(testName, pollFD, testFD);
+	clear_fd(testName, pollfd, testfd);
 
 	/*
 	 * Add the FD with POLLIN
 	 */
-	fds[0].fd = testFD;
+	fds[0].fd = testfd;
 	fds[0].events = POLLIN;
 	fds[0].revents = 0;
 
-	ret = write(pollFD, fds, sizeof (pollfd_t));
+	ret = write(pollfd, fds, sizeof (pollfd_t));
 
 	if (ret != sizeof (pollfd_t)) {
 		if (ret < 0) {
@@ -252,7 +335,7 @@ poll_with_fds_test(int pollFD, int testFD)
 		test_failed(testName, "Failed to set fds: %d", ret);
 	}
 
-	ret = dppoll(pollFD, fds, 5, timeout * 1000, &elapsed);
+	ret = dppoll(pollfd, fds, 5, timeout * 1000, &elapsed);
 
 	if (ret != 0) {
 		test_failed(testName, "DP_POLL returns %d (expected 0)\n", ret);
@@ -263,7 +346,7 @@ poll_with_fds_test(int pollFD, int testFD)
 		    elapsed, timeout);
 	}
 
-	clear_fd(testName, pollFD, testFD);
+	clear_fd(testName, pollfd, testfd);
 
 	test_passed(testName);
 }
@@ -272,14 +355,14 @@ static void *
 poll_thread(void *data)
 {
 	int	err;
-	int	pollFD;
-	int	testFD;
+	int	pollfd;
+	int	testfd;
 	char	*file = tmpnam(NULL);
 	int	ret;
 
-	pollFD = open("/dev/poll", O_RDWR);
+	pollfd = open("/dev/poll", O_RDWR);
 
-	if (pollFD <  0) {
+	if (pollfd <  0) {
 		perror("Failed to open /dev/poll: ");
 		exit(-1);
 	}
@@ -287,13 +370,16 @@ poll_thread(void *data)
 	/*
 	 * Create a dummy FD that will never have POLLIN set
 	 */
-	testFD = socket(PF_INET, SOCK_STREAM, 0);
+	testfd = socket(PF_INET, SOCK_STREAM, 0);
 
-	poll_no_fd_test(pollFD, testFD);
-	poll_with_fds_test(pollFD, testFD);
+	poll_no_fd_test();
+	poll_with_fds_test(testfd);
 
-	close(testFD);
-	close(pollFD);
+	dev_poll_no_fd_test(pollfd, testfd);
+	dev_poll_with_fds_test(pollfd, testfd);
+
+	close(testfd);
+	close(pollfd);
 
 	pthread_exit(0);
 }

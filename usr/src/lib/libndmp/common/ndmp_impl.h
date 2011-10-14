@@ -420,6 +420,8 @@ typedef struct ndmp_session {
 	size_t ns_fsinfo_alloc;
 	size_t ns_fsinfo_count;
 
+	boolean_t ns_running;		/* backup or restore running */
+
 	/* connection properties */
 	int ns_sock;
 	XDR ns_xdrs;
@@ -466,7 +468,6 @@ typedef struct ndmp_server {
 	ndmp_session_t ns_global_session; /* session for callbacks */
 	const char *ns_props[NDMP_MAXALL]; /* server properties */
 	boolean_t ns_shutdown;		/* shutdown requested */
-	boolean_t ns_running;		/* backup or restore running */
 	mutex_t ns_ndmp_lock;		/* tape/SCSI lock */
 	scsi_device_t *ns_scsi_devices;	/* scsi devices */
 } ndmp_server_t;

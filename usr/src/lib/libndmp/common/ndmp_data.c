@@ -256,11 +256,11 @@ ndmp_data_start_backup_v3(ndmp_session_t *session, void *body)
 	session->ns_data.dd_state = NDMP_DATA_STATE_ACTIVE;
 	session->ns_data.dd_operation = NDMP_DATA_OP_BACKUP;
 
-	assert(!session->ns_server->ns_running);
+	assert(!session->ns_running);
 	reply.error = conf->ns_start_backup(session, type);
 	if (reply.error != NDMP_NO_ERR)
 		goto error;
-	session->ns_server->ns_running = B_TRUE;
+	session->ns_running = B_TRUE;
 
 	(void) ndmp_send_response(session, NDMP_NO_ERR,
 	    &reply);
@@ -308,11 +308,11 @@ ndmp_data_start_recover_v3(ndmp_session_t *session, void *body)
 	if (reply.error != NDMP_NO_ERR)
 		goto _error;
 
-	assert(!session->ns_server->ns_running);
+	assert(!session->ns_running);
 	reply.error = conf->ns_start_recover(session, type);
 	if (reply.error != NDMP_NO_ERR)
 		goto _error;
-	session->ns_server->ns_running = B_TRUE;
+	session->ns_running = B_TRUE;
 
 	if (ndmp_send_response(session, NDMP_NO_ERR,
 	    &reply) < 0) {

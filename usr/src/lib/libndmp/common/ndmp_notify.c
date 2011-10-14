@@ -78,7 +78,7 @@ ndmp_notify_wait(ndmp_session_t *session, uint_t mswait, int *error)
 			if (err == EINTR)
 				ndmp_session_failed(session, EINTR);
 			ndmp_debug(session, "notify listen failed: %s",
-			    strerror(errno));
+			    strerror(err));
 			return (NULL);
 		}
 	}

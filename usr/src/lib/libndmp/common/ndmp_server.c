@@ -230,7 +230,7 @@ ndmp_server_env_value(ndmp_session_t *session, int idx)
 void
 ndmp_server_done(ndmp_session_t *session, int reason)
 {
-	session->ns_server->ns_running = B_FALSE;
+	session->ns_running = B_FALSE;
 	ndmp_data_error(session, reason);
 }
 

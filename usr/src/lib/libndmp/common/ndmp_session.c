@@ -350,9 +350,9 @@ ndmp_session_worker(void *param)
 	 * client while there are outstanding connections.
 	 */
 	if (session->ns_server != NULL) {
-		if (session->ns_server->ns_running) {
+		if (session->ns_running) {
 			session->ns_server->ns_conf->ns_abort(session);
-			session->ns_server->ns_running = B_FALSE;
+			session->ns_running = B_FALSE;
 		}
 
 		session->ns_server->ns_conf->ns_session_unregister(session);
@@ -582,9 +582,9 @@ ndmp_session_data_stop(ndmp_session_t *session)
 		return;
 
 	session->ns_data.dd_abort = B_TRUE;
-	if (session->ns_server->ns_running) {
+	if (session->ns_running) {
 		session->ns_server->ns_conf->ns_abort(session);
-		session->ns_server->ns_running = B_FALSE;
+		session->ns_running = B_FALSE;
 	}
 }
 

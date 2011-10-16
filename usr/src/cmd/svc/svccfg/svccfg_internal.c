@@ -98,7 +98,7 @@ value_cmp(const void *a, const void *b, void *p)
 }
 
 void
-internal_init()
+internal_init(void)
 {
 	if ((entity_pool = uu_list_pool_create("entities", sizeof (entity_t),
 	    offsetof(entity_t, sc_node), entity_cmp, 0)) == NULL)
@@ -238,7 +238,7 @@ internal_dump(bundle_t *b)
 }
 
 bundle_t *
-internal_bundle_new()
+internal_bundle_new(void)
 {
 	bundle_t	*b;
 
@@ -386,7 +386,7 @@ internal_instance_free(entity_t *i)
 }
 
 pgroup_t *
-internal_pgroup_new()
+internal_pgroup_new(void)
 {
 	pgroup_t *p;
 
@@ -503,7 +503,7 @@ internal_pgroup_create_strict(entity_t *e, const char *name, const char *type)
 }
 
 property_t *
-internal_property_new()
+internal_property_new(void)
 {
 	property_t *p;
 
@@ -557,7 +557,7 @@ internal_property_find(pgroup_t *pg, const char *name)
 }
 
 value_t *
-internal_value_new()
+internal_value_new(void)
 {
 	value_t *v;
 

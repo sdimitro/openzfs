@@ -58,7 +58,7 @@ int g_verbose = 0;
 const char *fmri;
 
 static void
-usage()
+usage(void)
 {
 	(void) fprintf(stderr, gettext(
 	    "Usage:\tsvccfg [-v] [-s FMRI] [-f file]\n"

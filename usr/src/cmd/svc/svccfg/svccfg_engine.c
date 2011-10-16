@@ -300,7 +300,7 @@ CPL_MATCH_FN(complete)
 #endif	/* NATIVE_BUILD */
 
 int
-engine_interp()
+engine_interp(void)
 {
 #ifdef NATIVE_BUILD
 	uu_die("native build does not support interactive mode.");
@@ -476,9 +476,9 @@ fail:
  * SVCCFG_CONFIGD_PATH	Resolvable path to alternative svc.configd(1M) binary.
  */
 void
-engine_init()
+engine_init(void)
 {
-	const char *cp;
+	char *cp;
 
 	est = uu_zalloc(sizeof (engine_state_t));
 
@@ -486,10 +486,10 @@ engine_init()
 	est->sc_repo_pid = -1;
 
 	cp = getenv("SVCCFG_REPOSITORY");
-	est->sc_repo_filename = cp ? safe_strdup(cp) : NULL;
+	est->sc_repo_filename = cp != NULL ? safe_strdup(cp) : NULL;
 
 	cp = getenv("SVCCFG_DOOR_PATH");
-	est->sc_repo_doordir = cp ? cp : "/var/run";
+	est->sc_repo_doordir = cp != NULL ? cp : "/var/run";
 
 	cp = getenv("SVCCFG_DOOR");
 	if (cp != NULL) {
@@ -502,7 +502,7 @@ engine_init()
 	}
 
 	cp = getenv("SVCCFG_CONFIGD_PATH");
-	est->sc_repo_server = cp ? cp : "/lib/svc/bin/svc.configd";
+	est->sc_repo_server = cp != NULL ? cp : "/lib/svc/bin/svc.configd";
 
 	est->sc_miss_type = B_FALSE;
 	est->sc_in_emi = 0;
@@ -510,10 +510,17 @@ engine_init()
 	if ((cp != NULL) && (strcmp(cp, SCF_INSTANCE_EMI) == 0))
 		est->sc_in_emi = 1;
 
+	/*
+	 * If the filesystem/minimal service is online then we know that all
+	 * manifests are visible. Alternatively, we let the caller indicate
+	 * that all filesystems are mounted through an alternate means by
+	 * setting the SMF_FS_MINIMAL environment variable.
+	 */
 	cp = smf_get_state(SCF_INSTANCE_FS_MINIMAL);
-	if (cp && (strcmp(cp, SCF_STATE_STRING_ONLINE) == 0))
+	if ((cp != NULL && strcmp(cp, SCF_STATE_STRING_ONLINE) == 0) ||
+	    getenv("SMF_FS_MINIMAL") != NULL)
 		est->sc_fs_minimal = B_TRUE;
-	free((void *) cp);
+	free(cp);
 }
 
 static int

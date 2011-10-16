@@ -571,7 +571,7 @@ composed_prop_compare(const void *left, const void *right, void *unused)
 }
 
 static composed_pg_t *
-composed_pg_create()
+composed_pg_create(void)
 {
 	composed_pg_t *cpg;
 
@@ -3017,7 +3017,7 @@ tmpl_errors_destroy(tmpl_errors_t *te)
  * tmpl_errors_destroy().
  */
 static tmpl_errors_t *
-tmpl_errors_create()
+tmpl_errors_create(void)
 {
 	tmpl_errors_t *te;
 

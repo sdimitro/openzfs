@@ -557,20 +557,9 @@ typedef struct sendflags {
 	boolean_t parsable;
 } sendflags_t;
 
-typedef struct oldsendflags {
-	int verbose : 1;
-	int replicate : 1;
-	int doall : 1;
-	int fromorigin : 1;
-	int dedup : 1;
-	int props : 1;
-} oldsendflags_t;
-
 typedef boolean_t (snapfilter_cb_t)(zfs_handle_t *, void *);
 
 extern int zfs_send(zfs_handle_t *, const char *, const char *,
-    oldsendflags_t, int, snapfilter_cb_t, void *, nvlist_t **);
-extern int zfs_send_new(zfs_handle_t *, const char *, const char *,
     sendflags_t *, int, snapfilter_cb_t, void *, nvlist_t **);
 
 extern int zfs_promote(zfs_handle_t *);
@@ -618,20 +607,7 @@ typedef struct recvflags {
 	boolean_t nomount;
 } recvflags_t;
 
-typedef struct oldrecvflags {
-	int verbose : 1;
-	int isprefix : 1;
-	int istail : 1;
-	int dryrun : 1;
-	int force : 1;
-	int canmountoff : 1;
-	int byteswap : 1;
-	int nomount : 1;
-} oldrecvflags_t;
-
-extern int zfs_receive(libzfs_handle_t *, const char *, oldrecvflags_t,
-    int, avl_tree_t *);
-extern int zfs_receive_new(libzfs_handle_t *, const char *, recvflags_t *,
+extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t *,
     int, avl_tree_t *);
 
 typedef enum diff_flags {

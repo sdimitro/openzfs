@@ -200,46 +200,6 @@ typedef struct	ndmp_buffer {
 	int	nb_errno;	/* I/O error values */
 } ndmp_buffer_t;
 
-/*
- * Flags for ndmp_buffers.
- */
-#define	NDMP_BUF_IN_READY	0x00000001
-#define	NDMP_BUF_OUT_READY	0x00000002
-
-typedef struct	ndmp_buffers {
-	int	nbs_ref;	/* number of threads using this */
-	short	nbs_buffer_in;	/* buffer to be filled */
-	short	nbs_buffer_out;	/* buffer to be emptied */
-				/* these are indexes into ndmp_buffers */
-	mutex_t	nbs_mtx;
-	cond_t	nbs_in_cv;
-	cond_t	nbs_out_cv;
-	uint32_t	nbs_flags;
-	long	nbs_data_transfer_size;	/* max size of read/write buffer */
-	longlong_t nbs_offset;
-	ndmp_buffer_t nbs_buffer[NDMP_TAPE_BUFFERS];
-} ndmp_buffers_t;
-
-typedef struct	ndmp_cmd {
-	int	tc_ref;			/* number of threads using this */
-	mutex_t	tc_mtx;
-	cond_t	tc_cv;
-	uint32_t	tc_flags;
-	int	tc_reader;		/* writer to reader */
-	int	tc_writer;		/* reader to writer */
-	ndmp_buffers_t *tc_buffers; /* reader-writer speedup buffers */
-} ndmp_cmd_t;
-
-typedef struct	ndmp_commands {
-	int	tcs_reader;	/* commands to all readers */
-	int	tcs_writer;	/* commands to all writers */
-	int	tcs_reader_count;	/* number of active readers */
-	int	tcs_writer_count;	/* number of active writers */
-	int	tcs_error;	/* worker errors */
-	char	tcs_message[NDMP_LINE_SIZE]; /* worker message back to user */
-	ndmp_cmd_t *tcs_command;	/* IPC area between read-write */
-} ndmp_commands_t;
-
 /* Connection data structure. */
 typedef struct ndmp_msg {
 	ndmp_header mi_hdr;
@@ -334,7 +294,6 @@ typedef struct ndmp_session_tape_desc {
 typedef struct ndmp_session_mover_desc {
 	ndmp_mover_state md_state;	/* current state */
 	ndmp_mover_mode md_mode;	/* current mode */
-	ndmp_commands_t md_cmds;		/* buffer commands */
 	ndmp_mover_pause_reason md_pause_reason;	/* current reason */
 	ndmp_mover_halt_reason md_halt_reason;	/* current reason */
 	u_longlong_t md_data_written;	/* total written to tape */
@@ -457,6 +416,7 @@ typedef enum {
 	NDMP_TCP_PORT,
 	NDMP_DRIVE_TYPE,
 	NDMP_LOCAL_TAPE,
+	NDMP_TAPE_TEST,
 	NDMP_MAXALL
 } ndmp_prop_t;
 
@@ -484,31 +444,6 @@ extern int ndmp_load_prop(ndmp_session_t *);
 extern const char *ndmp_get_prop(ndmp_session_t *, ndmp_prop_t);
 extern int ndmp_get_prop_int(ndmp_session_t *, ndmp_prop_t);
 extern boolean_t ndmp_get_prop_boolean(ndmp_session_t *, ndmp_prop_t);
-
-extern ndmp_buffers_t *ndmp_allocate_buffers(struct ndmp_session *session,
-    boolean_t, long);
-extern ndmp_buffer_t *ndmp_buffer_advance_in_idx(ndmp_buffers_t *);
-extern ndmp_buffer_t *ndmp_buffer_advance_out_idx(ndmp_buffers_t *);
-extern ndmp_buffer_t *ndmp_buffer_in_buf(ndmp_buffers_t *, int *);
-extern ndmp_buffer_t *ndmp_buffer_out_buf(ndmp_buffers_t *, int *);
-extern void ndmp_buffer_mark_empty(ndmp_buffer_t *);
-extern void ndmp_buffer_release_in_buf(ndmp_buffers_t *);
-extern void ndmp_buffer_release_out_buf(ndmp_buffers_t *);
-extern void ndmp_buffer_in_buf_wait(ndmp_buffers_t *);
-extern void ndmp_buffer_out_buf_wait(ndmp_buffers_t *);
-extern void ndmp_buffer_in_buf_timed_wait(ndmp_buffers_t *, unsigned);
-extern void ndmp_buffer_out_buf_timed_wait(ndmp_buffers_t *, unsigned);
-extern char *ndmp_get_write_buffer(long, long *, ndmp_buffers_t *, int);
-extern char *ndmp_get_read_buffer(int, int *, ndmp_buffers_t *, int *);
-extern void ndmp_unget_read_buffer(ndmp_buffers_t *, int);
-extern void ndmp_unget_write_buffer(ndmp_buffers_t *, int);
-extern void ndmp_release_buffers(ndmp_buffers_t *);
-extern ndmp_cmd_t *ndmp_create_reader_writer_ipc(struct ndmp_session *,
-    boolean_t, long);
-extern void ndmp_release_reader_writer_ipc(ndmp_cmd_t *);
-
-extern void ndmp_cmd_wait(ndmp_cmd_t *, uint32_t);
-extern void ndmp_cmd_signal(ndmp_cmd_t *, uint32_t);
 
 /*
  * NDMP request handler functions.
@@ -612,10 +547,7 @@ extern void ndmp_mover_cleanup(ndmp_session_t *);
 extern ndmp_error ndmp_mover_connect(ndmp_session_t *, ndmp_mover_mode);
 extern void ndmp_mover_error(ndmp_session_t *, ndmp_mover_halt_reason);
 extern int ndmp_mover_seek(ndmp_session_t *, u_longlong_t, u_longlong_t);
-extern int ndmp_local_write(ndmp_session_t *, char *, ulong_t);
 extern int ndmp_remote_write(ndmp_session_t *, char *, ulong_t);
-extern int ndmp_local_read(ndmp_session_t *, char *, ulong_t);
-extern int ndmp_remote_read(ndmp_session_t *, char *, ulong_t);
 
 extern void ndmp_mover_shut_down(ndmp_session_t *);
 extern void ndmp_mover_error(ndmp_session_t *, ndmp_mover_halt_reason);
@@ -652,8 +584,6 @@ extern void ndmp_set_socket_nodelay(int);
 extern void ndmp_set_socket_snd_buf(ndmp_session_t *, int, int);
 extern void ndmp_set_socket_rcv_buf(ndmp_session_t *, int, int);
 
-extern long ndmp_buffer_get_size(ndmp_session_t *);
-
 extern boolean_t is_buffer_erroneous(ndmp_session_t *, ndmp_buffer_t *);
 extern void ndmp_execute_cdb(ndmp_session_t *, char *,
     int, int, ndmp_execute_cdb_request *);
@@ -664,18 +594,12 @@ extern int ndmp_open_list_add(ndmp_session_t *, char *, int, int, int);
 extern int ndmp_open_list_del(char *, int, int);
 extern void ndmp_open_list_release(ndmp_session_t *);
 
-extern void ndmp_stop_buffer_worker(ndmp_session_t *);
-extern void ndmp_stop_reader_thread(ndmp_session_t *);
-extern void ndmp_stop_writer_thread(ndmp_session_t *);
-extern void ndmp_free_reader_writer_ipc(ndmp_session_t *);
-
 extern char *cctime(time_t *);
 extern char *ndmp_new_job_name(char *);
 extern char *ndmp_mk_temp(char *);
 extern char *ndmp_make_bk_dir_path(char *, char *);
 extern char **ndmp_make_exc_list(void);
 extern void ndmp_sort_nlist_v3(ndmp_session_t *);
-extern int ndmp_write_utf8magic(ndmp_cmd_t *);
 extern ndmp_error ndmp_save_nlist_v3(ndmp_session_t *, ndmp_name_v3 *,
     ulong_t);
 extern void ndmp_free_nlist_v3(ndmp_session_t *);
@@ -685,7 +609,6 @@ extern void ndmp_copy_addr_v3(ndmp_addr_v3 *, ndmp_addr_v3 *);
 extern int ndmp_copy_addr_v4(ndmp_session_t *, ndmp_addr_v4 *, ndmp_addr_v4 *);
 extern char *ndmp_addr2str_v3(ndmp_addr_type);
 extern boolean_t ndmp_valid_v3addr_type(ndmp_addr_type);
-extern boolean_t ndmp_check_utf8magic(ndmp_cmd_t *);
 extern char *ndmp_get_relative_path(char *, char *);
 
 extern boolean_t ndmp_fhinode;
@@ -733,7 +656,7 @@ extern int ndmp_send_request(ndmp_session_t *,
 extern void ndmp_data_cleanup(ndmp_session_t *);
 extern void ndmp_data_init(ndmp_session_t *);
 extern void ndmp_data_error(ndmp_session_t *, ndmp_data_halt_reason);
-extern int ndmp_remote_read_v3(ndmp_session_t *, char *, ulong_t);
+extern int ndmp_remote_read_v3(ndmp_session_t *, char *, ssize_t);
 
 /* ndmp_notify.c */
 extern ndmp_notification_t *ndmp_notify_wait(ndmp_session_t *, uint_t,

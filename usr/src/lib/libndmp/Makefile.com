@@ -44,7 +44,6 @@ LIBRARY= libndmp.a
 VERS= .1
 
 NDMP_OBJ = \
-	ndmp_buffers.o \
 	ndmp_client.o \
 	ndmp_comm.o \
 	ndmp_config.o \

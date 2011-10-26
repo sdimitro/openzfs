@@ -64,6 +64,7 @@ ndmp_prop_def_t ndmp_propdef_table[] =
 	{"tcp-port",			"10000" },
 	{"drive-type",			"sysv" },
 	{"local-tape",			"true" },
+	{"tape-test",			"false" },
 };
 
 static const char **

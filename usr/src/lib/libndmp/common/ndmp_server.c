@@ -328,7 +328,7 @@ ndmp_server_log(ndmp_session_t *session, int level, const char *msg)
 }
 
 int
-ndmp_server_read(ndmp_session_t *session, void *buf, ulong_t length)
+ndmp_server_read(ndmp_session_t *session, void *buf, ssize_t length)
 {
 	int ret;
 
@@ -337,8 +337,8 @@ ndmp_server_read(ndmp_session_t *session, void *buf, ulong_t length)
 	else
 		ret = ndmp_remote_read_v3(session, buf, length);
 
-	if (ret == 0)
-		session->ns_data.dd_bytes_processed += length;
+	if (ret > 0)
+		session->ns_data.dd_bytes_processed += ret;
 
 	return (ret);
 }

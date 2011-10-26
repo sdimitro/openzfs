@@ -50,6 +50,10 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_destroy;
 	ndmp_client_fs_info;
 	ndmp_client_fs_list;
+	ndmp_client_mover_close;
+	ndmp_client_mover_connect;
+	ndmp_client_mover_listen;
+	ndmp_client_mover_set_record_size;
 	ndmp_client_msg_body;
 	ndmp_client_msg_error;
 	ndmp_client_msg_free;
@@ -58,6 +62,9 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_send;
 	ndmp_client_start_backup;
 	ndmp_client_start_recover;
+	ndmp_client_tape_open;
+	ndmp_client_tape_read;
+	ndmp_client_tape_write;
 	ndmp_client_wait_notify;
 
 	ndmp_server_add_fs;

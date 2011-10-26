@@ -114,7 +114,7 @@ extern void ndmp_server_destroy(struct ndmp_server *);
 /* Server callback support functions */
 extern void ndmp_server_done(struct ndmp_session *, int);
 extern void ndmp_server_log(struct ndmp_session *, int, const char *);
-extern int ndmp_server_read(struct ndmp_session *, void *, ulong_t);
+extern int ndmp_server_read(struct ndmp_session *, void *, ssize_t);
 extern int ndmp_server_write(struct ndmp_session *, const void *, ulong_t);
 extern int ndmp_server_seek(struct ndmp_session *, u_longlong_t, u_longlong_t);
 extern int ndmp_server_file_recovered(struct ndmp_session *, const char *, int);
@@ -169,10 +169,21 @@ typedef void ndmp_addr_t;
 extern ndmp_addr_t *ndmp_client_data_listen(struct ndmp_session *);
 extern int ndmp_client_data_connect(struct ndmp_session *, ndmp_addr_t *);
 extern void ndmp_client_addr_free(struct ndmp_session *, ndmp_addr_t *);
+extern int ndmp_client_mover_close(struct ndmp_session *);
+extern int ndmp_client_mover_set_record_size(struct ndmp_session *,
+    size_t);
+extern ndmp_addr_t *ndmp_client_mover_listen(struct ndmp_session *,
+    ndmp_mover_mode mode);
+extern int ndmp_client_mover_connect(struct ndmp_session *, ndmp_addr_t *,
+    ndmp_mover_mode mode);
 extern int ndmp_client_start_backup(struct ndmp_session *, const char *,
     int, ndmp_pval *);
 extern int ndmp_client_start_recover(struct ndmp_session *, const char *,
     int, ndmp_pval *, int, ndmp_name_v3 *);
+extern int ndmp_client_tape_open(struct ndmp_session *, const char *,
+    ndmp_tape_open_mode);
+extern int ndmp_client_tape_read(struct ndmp_session *, char *, size_t);
+extern int ndmp_client_tape_write(struct ndmp_session *, const char *, size_t);
 
 /* Notification handling */
 typedef struct ndmp_notification {

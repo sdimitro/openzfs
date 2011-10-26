@@ -160,6 +160,74 @@ ndmp_client_msg_free(ndmp_session_t *session, ndmp_msg_t *msg)
 	free(msg);
 }
 
+static char *ndmp_errstr[] = {
+	"no error",
+	"not supported",
+	"device busy",
+	"device opened",
+	"not authorized",
+	"permission denied",
+	"device not open",
+	"I/O error",
+	"timeout",
+	"illegal arguments",
+	"no tape loaded",
+	"write protected device",
+	"EOF encountered",
+	"EOM encountered",
+	"file not found",
+	"bad file",
+	"no such device",
+	"no such bus",
+	"XDR decode error",
+	"illegal state",
+	"undefined error",
+	"XDR encode error",
+	"out of memory",
+	"connect failed",
+	"invalid sequence number",
+	"read in progress",
+	"precondition not met",
+	"class not supported",
+	"version not supported",
+	"duplicate extension classes",
+	"illegal extension request"
+};
+
+#define	NDMP_MAX_ERR (sizeof (ndmp_errstr) / sizeof (ndmp_errstr[0]))
+
+/*
+ * NDMP has the annoying property that the request can fail, or the request
+ * can succeed but indicate failure in the reply.  This macro will
+ * conditionally check the reply error iff the request succeeded.
+ */
+#define	NDMP_GET_ERR(err, reply)	\
+	((err) == NDMP_NO_ERR ? (reply)->error : (err))
+
+/*
+ * Check to see if the request failed and log an appropriate error.  This
+ * includes the name of the request along with a human-readable version of
+ * the error.
+ */
+static int
+ndmp_check_reply(ndmp_session_t *session, const char *request,
+    ndmp_error err)
+{
+	const char *errstr;
+
+	if (err == NDMP_NO_ERR)
+		return (0);
+
+	if (err > NDMP_MAX_ERR || err < 0)
+		errstr = "unknown error";
+	else
+		errstr = ndmp_errstr[err];
+
+	ndmp_log(session, LOG_ERR, "%s request failed: %s", request, errstr);
+
+	return (-1);
+}
+
 /*
  * Open an NDMP connection to the target.  This must be the first function
  * called after establishing the connection.  We first wait for the NOTIFY
@@ -248,9 +316,8 @@ ndmp_client_open(ndmp_session_t *session)
 			break;
 
 		if (err != NDMP_ILLEGAL_ARGS_ERR) {
-			ndmp_log(session, LOG_ERR,
-			    "unexpected response 0x%x to connect open request",
-			    err);
+			(void) ndmp_check_reply(session,
+			    "connect open", err);
 			return (-1);
 		}
 	}
@@ -510,13 +577,9 @@ ndmp_client_data_listen(ndmp_session_t *session)
 	reply_v3 = msg.mi_body;
 	reply_v4 = msg.mi_body;
 
-	/* the error is still the same for both requests */
-	if (err == NDMP_NO_ERR)
-		err = reply_v3->error;
-
-	if (err != NDMP_NO_ERR) {
+	if (ndmp_check_reply(session, "data listen",
+	    NDMP_GET_ERR(err, reply_v3)) != 0) {
 		ndmp_free_message(session, &msg);
-		ndmp_log(session, LOG_ERR, "data listen request failed");
 		return (NULL);
 	}
 
@@ -579,21 +642,17 @@ ndmp_client_data_connect(ndmp_session_t *session, ndmp_addr_t *addr)
 	}
 
 	reply = msg.mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
 
-	if (err != NDMP_NO_ERR) {
-		ndmp_free_message(session, &msg);
-		free(request_v4.addr.tcp_addr_v4);
-		ndmp_log(session, LOG_ERR, "failed to setup data connection");
-		return (-1);
-	}
+	free(request_v4.addr.tcp_addr_v4);
 
-	dump_addr(session, "data connection address", addr);
+	err = ndmp_check_reply(session, "data connect",
+	    NDMP_GET_ERR(err, reply));
+
+	if (err == 0)
+		dump_addr(session, "data connection address", addr);
 
 	ndmp_free_message(session, &msg);
-
-	return (0);
+	return (err);
 }
 
 /*
@@ -633,11 +692,8 @@ ndmp_client_butypes_get(ndmp_session_t *session)
 	}
 
 	reply = msg->mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
-
-	if (err != NDMP_NO_ERR) {
-		ndmp_log(session, LOG_ERR, "failed to get backup type info");
+	if (ndmp_check_reply(session, "get backup types",
+	    NDMP_GET_ERR(err, reply)) != 0) {
 		ndmp_client_msg_free(session, msg);
 		return (NULL);
 	}
@@ -686,17 +742,13 @@ ndmp_client_start_backup(ndmp_session_t *session, const char *butype,
 	}
 
 	reply = msg.mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
+
+	err = ndmp_check_reply(session, "start backup",
+	    NDMP_GET_ERR(err, reply));
 
 	ndmp_free_message(session, &msg);
 
-	if (err != NDMP_NO_ERR) {
-		ndmp_log(session, LOG_ERR, "start backup request failed");
-		return (-1);
-	}
-
-	return (0);
+	return (err);
 }
 
 /*
@@ -724,17 +776,13 @@ ndmp_client_start_recover(ndmp_session_t *session, const char *butype,
 	}
 
 	reply = msg.mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
+
+	err = ndmp_check_reply(session, "start restore",
+	    NDMP_GET_ERR(err, reply));
 
 	ndmp_free_message(session, &msg);
 
-	if (err != NDMP_NO_ERR) {
-		ndmp_log(session, LOG_ERR, "start restore request failed");
-		return (-1);
-	}
-
-	return (0);
+	return (err);
 }
 
 /*
@@ -757,11 +805,9 @@ ndmp_client_fs_list(ndmp_session_t *session)
 	}
 
 	reply = msg->mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
 
-	if (err != NDMP_NO_ERR) {
-		ndmp_log(session, LOG_ERR, "failed to get filesystem info");
+	if (ndmp_check_reply(session, "get filesystem info",
+	    NDMP_GET_ERR(err, reply)) != 0) {
 		ndmp_client_msg_free(session, msg);
 		return (NULL);
 	}
@@ -780,4 +826,273 @@ ndmp_client_fs_info(ndmp_session_t *session, ndmp_msg_t *msg, int idx)
 		return (NULL);
 
 	return (&reply->fs_info.fs_info_val[idx]);
+}
+
+/*
+ * Send a NDMP TAPE OPEN command.
+ */
+int
+ndmp_client_tape_open(ndmp_session_t *session, const char *device,
+    ndmp_tape_open_mode mode)
+{
+	ndmp_tape_open_request_v3 request = { 0 };
+	ndmp_tape_open_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	request.device = (char *)device;
+	request.mode = mode;
+
+	if ((err = ndmp_send_request(session, NDMP_TAPE_OPEN,
+	    &request, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "tape open",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
+/*
+ * Send a NDMP TAPE READ command.  This will fill in the buffer provided by the
+ * caller, and return the number of bytes read, or -1 on error.
+ */
+int
+ndmp_client_tape_read(ndmp_session_t *session, char *buf, size_t buflen)
+{
+	ndmp_tape_read_request request = { 0 };
+	ndmp_tape_read_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	request.count = buflen;
+
+	if ((err = ndmp_send_request(session, NDMP_TAPE_READ,
+	    &request, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "tape read",
+	    NDMP_GET_ERR(err, reply));
+
+	if (err == 0) {
+		err = MIN(reply->data_in.data_in_len, buflen);
+		bcopy(reply->data_in.data_in_val, buf, err);
+	}
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
+/*
+ * Send a NDMP TAPE WRITE command.  This will write data from the given
+ * buffer, and return the number of bytes written, or -1 on error.
+ */
+int
+ndmp_client_tape_write(ndmp_session_t *session, const char *buf,
+    size_t buflen)
+{
+	ndmp_tape_write_request request = { 0 };
+	ndmp_tape_write_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	request.data_out.data_out_len = buflen;
+	request.data_out.data_out_val = (char *)buf;
+
+	if ((err = ndmp_send_request(session, NDMP_TAPE_WRITE,
+	    &request, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "tape write",
+	    NDMP_GET_ERR(err, reply));
+
+	if (err == 0)
+		err = MIN(reply->count, buflen);
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
+/*
+ * Send a NDMP MOVER SET RECORD SIZE command.
+ */
+int
+ndmp_client_mover_set_record_size(ndmp_session_t *session, size_t recordsize)
+{
+	ndmp_mover_set_record_size_request request = { 0 };
+	ndmp_mover_set_record_size_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	request.len = recordsize;
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_SET_RECORD_SIZE,
+	    &request, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	if (err == NDMP_NO_ERR)
+		err = reply->error;
+
+	ndmp_free_message(session, &msg);
+
+	if (err != NDMP_NO_ERR) {
+		ndmp_log(session, LOG_ERR,
+		    "mover set record size request failed");
+		return (-1);
+	}
+
+	return (0);
+}
+
+/*
+ * Send a NDMP MOVER LISTEN request to the server.  We only support TCP
+ * requests, returning the address as an opaque type to the caller.  This can
+ * later be used in ndmp_client_data_connect() to connect another NDMP server
+ * to the returned port.
+ */
+ndmp_addr_t *
+ndmp_client_mover_listen(ndmp_session_t *session, ndmp_mover_mode mode)
+{
+	ndmp_mover_listen_request_v3 request;
+	ndmp_mover_listen_reply_v3 *reply_v3;
+	ndmp_mover_listen_reply_v4 *reply_v4;
+	ndmp_msg_t msg;
+	void *ret;
+	int err;
+
+	request.addr_type = NDMP_ADDR_TCP;
+	request.mode = mode;
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_LISTEN, &request,
+	    &msg)) < 0)
+		return (NULL);
+
+	reply_v3 = msg.mi_body;
+	reply_v4 = msg.mi_body;
+
+	/* the error is still the same for both requests */
+	if (err == NDMP_NO_ERR)
+		err = reply_v3->error;
+
+	if (err != NDMP_NO_ERR) {
+		ndmp_free_message(session, &msg);
+		ndmp_log(session, LOG_ERR, "mover listen request failed");
+		return (NULL);
+	}
+
+	if (session->ns_version == NDMPV3) {
+		if ((ret = ndmp_malloc(session,
+		    sizeof (ndmp_addr_v3))) == NULL) {
+			ndmp_free_message(session, &msg);
+			return (NULL);
+		}
+
+		ndmp_copy_addr_v3(ret, &reply_v3->data_connection_addr);
+	} else {
+		if ((ret = ndmp_malloc(session,
+		    sizeof (ndmp_addr_v4))) == NULL) {
+			ndmp_free_message(session, &msg);
+			return (NULL);
+		}
+
+		if (ndmp_copy_addr_v4(session, ret,
+		    &reply_v4->connect_addr) != 0) {
+			free(ret);
+			ndmp_free_message(session, &msg);
+			return (NULL);
+		}
+	}
+
+	dump_addr(session, "remote mover address", ret);
+
+	ndmp_free_message(session, &msg);
+
+	return (ret);
+}
+
+/*
+ * Send a NDMP MOVER CLOSE command.
+ */
+int
+ndmp_client_mover_close(ndmp_session_t *session)
+{
+	ndmp_mover_close_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_CLOSE,
+	    NULL, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	if (err == NDMP_NO_ERR)
+		err = reply->error;
+
+	ndmp_free_message(session, &msg);
+
+	if (err != NDMP_NO_ERR) {
+		ndmp_log(session, LOG_ERR, "mover close request failed");
+		return (-1);
+	}
+
+	return (0);
+}
+
+/*
+ * Send a MOVER CONNECT request to the server.  We only support TCP addresses,
+ * and the address and port must be in network byte order.
+ */
+int
+ndmp_client_mover_connect(ndmp_session_t *session, ndmp_addr_t *addr,
+    ndmp_mover_mode mode)
+{
+	ndmp_mover_connect_request_v3 request_v3 = { 0 };
+	ndmp_mover_connect_request_v4 request_v4 = { 0 };
+	ndmp_mover_connect_reply_v3 *reply;
+	void *request;
+	ndmp_msg_t msg;
+	int err;
+
+	if (session->ns_version == NDMPV3) {
+		ndmp_copy_addr_v3(&request_v3.addr, addr);
+		request_v3.mode = mode;
+		request = &request_v3;
+	} else {
+		if (ndmp_copy_addr_v4(session, &request_v4.addr, addr) != 0)
+			return (-1);
+		request_v4.mode = mode;
+		request = &request_v4;
+	}
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_CONNECT, request,
+	    &msg)) < 0) {
+		free(request_v4.addr.tcp_addr_v4);
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+
+	free(request_v4.addr.tcp_addr_v4);
+
+	err = ndmp_check_reply(session, "mover connect",
+	    NDMP_GET_ERR(err, reply));
+
+	if (err == 0)
+		dump_addr(session, "mover connection address", addr);
+
+	ndmp_free_message(session, &msg);
+	return (err);
 }

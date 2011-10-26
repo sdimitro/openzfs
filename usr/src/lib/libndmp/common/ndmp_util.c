@@ -628,32 +628,6 @@ ndmp_set_socket_rcv_buf(ndmp_session_t *session, int sock, int size)
 }
 
 /*
- * Return the NDMP transfer buffer size
- */
-long
-ndmp_buffer_get_size(ndmp_session_t *session)
-{
-	long xfer_size;
-
-	if (session == NULL)
-		return (0);
-
-	if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP) {
-		xfer_size = ndmp_get_prop_int(session, NDMP_MOVER_RECSIZE);
-		if (xfer_size > 0)
-			xfer_size *= KILOBYTE;
-		else
-			xfer_size = REMOTE_RECORD_SIZE;
-	} else {
-		if ((xfer_size = session->ns_mover.md_record_size) == 0)
-			xfer_size = MAX_RECORD_SIZE;
-	}
-
-	ndmp_debug(session, "transfer size is %d", xfer_size);
-	return (xfer_size);
-}
-
-/*
  * Run a sanity check on the buffer
  */
 boolean_t
@@ -925,88 +899,6 @@ ndmp_open_list_release(ndmp_session_t *session)
 		olp = next;
 	}
 	(void) mutex_unlock(&ol_mutex);
-}
-
-
-/*
- * Stop all reader and writer threads for a specific buffer.
- */
-void
-ndmp_stop_buffer_worker(ndmp_session_t *session)
-{
-	ndmp_commands_t *cmds;
-
-	session->ns_tape.td_pos = 0;
-	cmds = &session->ns_mover.md_cmds;
-	if (cmds->tcs_command != NULL) {
-		cmds->tcs_reader = cmds->tcs_writer = NDMP_ABORT;
-		cmds->tcs_command->tc_reader = NDMP_ABORT;
-		cmds->tcs_command->tc_writer = NDMP_ABORT;
-		while (cmds->tcs_reader_count > 0 ||
-		    cmds->tcs_writer_count > 0) {
-			ndmp_debug(session, "trying to stop buffer worker");
-			(void) sleep(1);
-		}
-	}
-}
-
-/*
- * Stop only the reader threads of a specific buffer
- */
-void
-ndmp_stop_reader_thread(ndmp_session_t *session)
-{
-	ndmp_commands_t *cmds;
-
-	cmds = &session->ns_mover.md_cmds;
-	if (cmds->tcs_command == NULL) {
-		ndmp_debug(session, "cmds->tcs_command == NULL");
-	} else {
-		cmds->tcs_reader = NDMP_ABORT;
-		cmds->tcs_command->tc_reader = NDMP_ABORT;
-		while (cmds->tcs_reader_count > 0) {
-			ndmp_debug(session, "trying to stop reader thread");
-			(void) sleep(1);
-		}
-	}
-}
-
-/*
- * Stop only the writer threads of a specific buffer
- */
-void
-ndmp_stop_writer_thread(ndmp_session_t *session)
-{
-	ndmp_commands_t *cmds;
-
-	cmds = &session->ns_mover.md_cmds;
-	if (cmds->tcs_command == NULL) {
-		ndmp_debug(session, "cmds->tcs_command == NULL");
-	} else {
-		cmds->tcs_writer = NDMP_ABORT;
-		cmds->tcs_command->tc_writer = NDMP_ABORT;
-		while (cmds->tcs_writer_count > 0) {
-			ndmp_debug(session, "trying to stop writer thread");
-			(void) sleep(1);
-		}
-	}
-}
-
-/*
- * Free and release the reader/writer buffers and the IPC structure
- * for reader and writer threads.
- */
-void
-ndmp_free_reader_writer_ipc(ndmp_session_t *session)
-{
-	ndmp_commands_t *cmds;
-
-	cmds = &session->ns_mover.md_cmds;
-	if (cmds->tcs_command != NULL) {
-		ndmp_debug(session, "cmds->tcs_command->tc_ref: %d",
-		    cmds->tcs_command->tc_ref);
-		ndmp_release_reader_writer_ipc(cmds->tcs_command);
-	}
 }
 
 /*

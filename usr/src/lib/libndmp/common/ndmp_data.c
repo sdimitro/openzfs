@@ -793,16 +793,19 @@ discard_data_v3(ndmp_session_t *session, ulong_t length)
 }
 
 /*
- * Reads data from the remote mover.
+ * Reads data from the remote mover.  Returns the number of bytes read, or -1
+ * on error.
  */
 int
-ndmp_remote_read_v3(ndmp_session_t *session, char *data, ulong_t length)
+ndmp_remote_read_v3(ndmp_session_t *session, char *data, ssize_t length)
 {
-	ulong_t count;
-	ulong_t len;
+	int count;
+	int len;
 	ssize_t n;
 	ndmp_notify_data_read_request request;
 
+	ndmp_debug(session, "reading %lu bytes at offset %llu",
+	    length, session->ns_data.dd_position);
 	ndmp_debug(session, "ns_data.dd_xx: [%llu, %llu, %llu, %llu, %llu]",
 	    session->ns_data.dd_bytes_left_to_read,
 	    session->ns_data.dd_read_offset,
@@ -891,9 +894,8 @@ ndmp_remote_read_v3(ndmp_session_t *session, char *data, ulong_t length)
 
 		/* read returns 0 if the connection was closed */
 		if (n == 0) {
-			ndmp_log(session, LOG_ERR,
-			    "data connection closed unexpectedly");
-			return (-1);
+			ndmp_debug(session, "EOF seen when reading data");
+			break;
 		}
 
 		count += n;
@@ -901,7 +903,7 @@ ndmp_remote_read_v3(ndmp_session_t *session, char *data, ulong_t length)
 		session->ns_data.dd_position += n;
 	}
 
-	return (0);
+	return (count);
 }
 
 /*

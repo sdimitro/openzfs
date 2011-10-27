@@ -26,6 +26,7 @@
 
 /*
  * Copyright (c) 2011, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #ifndef	_DT_IMPL_H
@@ -225,6 +226,7 @@ struct dtrace_hdl {
 	uint_t dt_provbuckets;	/* number of provider hash buckets */
 	uint_t dt_nprovs;	/* number of providers in hash and list */
 	dt_proc_hash_t *dt_procs; /* hash table of grabbed process handles */
+	char **dt_proc_env;	/* additional environment variables */
 	dt_intdesc_t dt_ints[6]; /* cached integer type descriptions */
 	ctf_id_t dt_type_func;	/* cached CTF identifier for function type */
 	ctf_id_t dt_type_fptr;	/* cached CTF identifier for function pointer */

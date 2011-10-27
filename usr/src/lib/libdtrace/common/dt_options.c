@@ -24,7 +24,9 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2011 by Delphix. All rights reserved.
+ */
 
 #include <sys/resource.h>
 #include <sys/mman.h>
@@ -363,6 +365,61 @@ dt_opt_pgmax(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	dtp->dt_procs->dph_lrulim = n;
+	return (0);
+}
+
+static int
+dt_opt_setenv(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char **p;
+	char *var;
+	int i;
+
+	/*
+	 * We can't effectively set environment variables from #pragma lines
+	 * since the processes have already been spawned.
+	 */
+	if (dtp->dt_pcb != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (!option && strchr(arg, '=') != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	for (i = 1, p = dtp->dt_proc_env; *p != NULL; i++, p++)
+		continue;
+
+	for (p = dtp->dt_proc_env; *p != NULL; p++) {
+		var = strchr(*p, '=');
+		if (var == NULL)
+			var = *p + strlen(*p);
+		if (strncmp(*p, arg, var - *p) == 0) {
+			dt_free(dtp, *p);
+			*p = dtp->dt_proc_env[i - 1];
+			dtp->dt_proc_env[i - 1] = NULL;
+			i--;
+		}
+	}
+
+	if (option) {
+		if ((var = strdup(arg)) == NULL)
+			return (dt_set_errno(dtp, EDT_NOMEM));
+
+		if ((p = dt_alloc(dtp, sizeof (char *) * (i + 1))) == NULL) {
+			dt_free(dtp, var);
+			return (dt_set_errno(dtp, EDT_NOMEM));
+		}
+
+		bcopy(dtp->dt_proc_env, p, sizeof (char *) * i);
+		dt_free(dtp, dtp->dt_proc_env);
+		dtp->dt_proc_env = p;
+
+		dtp->dt_proc_env[i - 1] = var;
+		dtp->dt_proc_env[i] = NULL;
+	}
+
 	return (0);
 }
 
@@ -901,6 +958,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },
 	{ "pspec", dt_opt_cflags, DTRACE_C_PSPEC },
+	{ "setenv", dt_opt_setenv, 1 },
 	{ "stdc", dt_opt_stdc },
 	{ "strip", dt_opt_dflags, DTRACE_D_STRIP },
 	{ "syslibdir", dt_opt_syslibdir },
@@ -909,6 +967,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "udefs", dt_opt_invcflags, DTRACE_C_UNODEF },
 	{ "undef", dt_opt_cpp_opts, (uintptr_t)"-U" },
 	{ "unodefs", dt_opt_cflags, DTRACE_C_UNODEF },
+	{ "unsetenv", dt_opt_setenv, 0 },
 	{ "verbose", dt_opt_cflags, DTRACE_C_DIFV },
 	{ "version", dt_opt_version },
 	{ "zdefs", dt_opt_cflags, DTRACE_C_ZDEFS },

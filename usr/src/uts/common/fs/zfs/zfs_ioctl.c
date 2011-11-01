@@ -1758,9 +1758,12 @@ zfs_ioc_objset_stats_impl(zfs_cmd_t *zc, objset_t *os)
 		 * inconsistent.  So this is a bit of a workaround...
 		 * XXX reading with out owning
 		 */
-		if (!zc->zc_objset_stats.dds_inconsistent) {
-			if (dmu_objset_type(os) == DMU_OST_ZVOL)
-				VERIFY(zvol_get_stats(os, nv) == 0);
+		if (!zc->zc_objset_stats.dds_inconsistent &&
+		    dmu_objset_type(os) == DMU_OST_ZVOL) {
+			error = zvol_get_stats(os, nv);
+			if (error == EIO)
+				return (error);
+			VERIFY3S(error, ==, 0);
 		}
 		error = put_nvlist(zc, nv);
 		nvlist_free(nv);

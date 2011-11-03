@@ -169,11 +169,16 @@ typedef void ndmp_addr_t;
 extern ndmp_addr_t *ndmp_client_data_listen(struct ndmp_session *);
 extern int ndmp_client_data_connect(struct ndmp_session *, ndmp_addr_t *);
 extern void ndmp_client_addr_free(struct ndmp_session *, ndmp_addr_t *);
+extern int ndmp_client_mover_abort(struct ndmp_session *);
 extern int ndmp_client_mover_close(struct ndmp_session *);
 extern int ndmp_client_mover_set_record_size(struct ndmp_session *,
     size_t);
+extern int ndmp_client_mover_set_window(struct ndmp_session *,
+    u_longlong_t, u_longlong_t);
 extern ndmp_addr_t *ndmp_client_mover_listen(struct ndmp_session *,
     ndmp_mover_mode mode);
+extern int ndmp_client_mover_read(struct ndmp_session *,
+    u_longlong_t, u_longlong_t);
 extern int ndmp_client_mover_connect(struct ndmp_session *, ndmp_addr_t *,
     ndmp_mover_mode mode);
 extern int ndmp_client_start_backup(struct ndmp_session *, const char *,

@@ -924,6 +924,35 @@ ndmp_client_tape_write(ndmp_session_t *session, const char *buf,
 }
 
 /*
+ * Send a NDMP MOVER READ command.
+ */
+int
+ndmp_client_mover_read(ndmp_session_t *session, u_longlong_t offset,
+    u_longlong_t length)
+{
+	ndmp_mover_read_request request = { 0 };
+	ndmp_mover_read_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	request.offset = long_long_to_quad(offset);
+	request.length = long_long_to_quad(length);
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_READ,
+	    &request, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "mover read",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
+/*
  * Send a NDMP MOVER SET RECORD SIZE command.
  */
 int
@@ -942,18 +971,41 @@ ndmp_client_mover_set_record_size(ndmp_session_t *session, size_t recordsize)
 	}
 
 	reply = msg.mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
+	err = ndmp_check_reply(session, "mover set record size",
+	    NDMP_GET_ERR(err, reply));
 
 	ndmp_free_message(session, &msg);
 
-	if (err != NDMP_NO_ERR) {
-		ndmp_log(session, LOG_ERR,
-		    "mover set record size request failed");
+	return (err);
+}
+
+/*
+ * Send a NDMP MOVER SET WINDOW command.
+ */
+int
+ndmp_client_mover_set_window(ndmp_session_t *session, u_longlong_t offset,
+    u_longlong_t length)
+{
+	ndmp_mover_set_window_request request = { 0 };
+	ndmp_mover_set_window_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	request.offset = long_long_to_quad(offset);
+	request.length = long_long_to_quad(length);
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_SET_WINDOW,
+	    &request, &msg)) < 0) {
 		return (-1);
 	}
 
-	return (0);
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "mover set window",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
 }
 
 /*
@@ -982,13 +1034,9 @@ ndmp_client_mover_listen(ndmp_session_t *session, ndmp_mover_mode mode)
 	reply_v3 = msg.mi_body;
 	reply_v4 = msg.mi_body;
 
-	/* the error is still the same for both requests */
-	if (err == NDMP_NO_ERR)
-		err = reply_v3->error;
-
-	if (err != NDMP_NO_ERR) {
+	if (ndmp_check_reply(session, "mover listen",
+	    NDMP_GET_ERR(err, reply_v3)) != 0) {
 		ndmp_free_message(session, &msg);
-		ndmp_log(session, LOG_ERR, "mover listen request failed");
 		return (NULL);
 	}
 
@@ -1023,6 +1071,30 @@ ndmp_client_mover_listen(ndmp_session_t *session, ndmp_mover_mode mode)
 }
 
 /*
+ * Send a NDMP MOVER ABORT command.
+ */
+int
+ndmp_client_mover_abort(ndmp_session_t *session)
+{
+	ndmp_mover_abort_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_ABORT,
+	    NULL, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "mover abort",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
+/*
  * Send a NDMP MOVER CLOSE command.
  */
 int
@@ -1038,17 +1110,12 @@ ndmp_client_mover_close(ndmp_session_t *session)
 	}
 
 	reply = msg.mi_body;
-	if (err == NDMP_NO_ERR)
-		err = reply->error;
+	err = ndmp_check_reply(session, "mover close",
+	    NDMP_GET_ERR(err, reply));
 
 	ndmp_free_message(session, &msg);
 
-	if (err != NDMP_NO_ERR) {
-		ndmp_log(session, LOG_ERR, "mover close request failed");
-		return (-1);
-	}
-
-	return (0);
+	return (err);
 }
 
 /*

@@ -220,12 +220,11 @@ ndmp_tape_open_v3(ndmp_session_t *session, void *body)
 	char *devname = request->device;
 	int ndmpmode = request->mode;
 	char adptnm[SCSI_MAX_NAME];
-	int err;
+	int err = NDMP_NO_ERR;
 	int mode;
 	int sid, lun;
 	int devid;
-
-	err = NDMP_NO_ERR;
+	boolean_t tape_test = ndmp_get_prop_boolean(session, NDMP_TAPE_TEST);
 
 	if (session->ns_tape.td_fd != -1 || session->ns_scsi.sd_is_open != -1) {
 		ndmp_log(session, LOG_ERR,
@@ -242,7 +241,15 @@ ndmp_tape_open_v3(ndmp_session_t *session, void *body)
 
 	scsi_find_sid_lun(session, devname, &sid, &lun);
 	if (!ndmp_open_list_exists(devname, sid, lun)) {
-		if ((devid = open(devname, O_RDWR | O_NDELAY)) < 0) {
+		int mode = O_RDWR | O_NDELAY;
+		/*
+		 * If the tape test property is set, we allow opening of
+		 * regular files and hence include O_CREAT
+		 */
+		if (tape_test)
+			mode |= O_CREAT;
+
+		if ((devid = open(devname, mode)) < 0) {
 			ndmp_log(session, LOG_ERR,
 			    "failed to open device %s: %s", devname,
 			    strerror(errno));
@@ -263,13 +270,20 @@ ndmp_tape_open_v3(ndmp_session_t *session, void *body)
 	 */
 	if (ndmpmode != NDMP_TAPE_RAW1_MODE &&
 	    ndmpmode != NDMP_TAPE_RAW2_MODE &&
-	    !is_tape_unit_ready(session, adptnm, 0)) {
+	    !tape_test && !is_tape_unit_ready(session, adptnm, 0)) {
+		ndmp_log(session, LOG_ERR,
+		    "failed to open device %s: tape is not ready",
+		    devname);
 		tape_open_send_reply(session, NDMP_NO_TAPE_LOADED_ERR);
 		return;
 	}
 
 	mode = (ndmpmode == NDMP_TAPE_READ_MODE) ? O_RDONLY : O_RDWR;
 	mode |= O_NDELAY;
+	/*
+	 * We don't need to add O_CREAT here for tape test mode, as we already
+	 * know it's on the open list, or created above.
+	 */
 	session->ns_tape.td_fd = open(devname, mode);
 	if (session->ns_version == NDMPV4 &&
 	    session->ns_tape.td_fd < 0 &&

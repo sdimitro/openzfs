@@ -839,9 +839,7 @@ ndmp_open_list_add(ndmp_session_t *session, char *dev, int sid, int lun, int fd)
 			olp->ol_fd = fd;
 		else
 			olp->ol_fd = -1;
-		(void) mutex_lock(&ol_mutex);
 		LIST_INSERT_HEAD(olhp, olp, ol_q);
-		(void) mutex_unlock(&ol_mutex);
 	}
 	(void) mutex_unlock(&ol_mutex);
 

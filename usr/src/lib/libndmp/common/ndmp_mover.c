@@ -389,6 +389,10 @@ ndmp_mover_set_window_v3(ndmp_session_t *session, void *body)
 	session->ns_mover.md_window_offset = quad_to_long_long(request->offset);
 	session->ns_mover.md_window_length = quad_to_long_long(request->length);
 
+	ndmp_debug(session, "mover window = [%llu, %llu]",
+	    session->ns_mover.md_window_offset,
+	    session->ns_mover.md_window_length);
+
 	/*
 	 * We have to update the position for DAR. DAR needs this
 	 * information to position to the right index on tape,
@@ -1267,7 +1271,11 @@ mover_tape_write_v3(ndmp_session_t *session, char *data, ssize_t length)
 		if (session->ns_mover.md_position >=
 		    session->ns_mover.md_window_offset +
 		    session->ns_mover.md_window_length) {
-			ndmp_debug(session, "MOVER_PAUSE_EOW");
+			ndmp_debug(session, "MOVER_PAUSE_EOW, "
+			    "position = %llu, window = [%llu, %llu]",
+			    session->ns_mover.md_position,
+			    session->ns_mover.md_window_offset,
+			    session->ns_mover.md_window_length);
 
 			err = mover_pause_v3(session, NDMP_MOVER_PAUSE_EOW);
 			/* Operation aborted or connection terminated? */
@@ -1473,13 +1481,15 @@ mover_data_read_v3(ndmp_session_t *session, int fd, ulong_t mode)
 	n = read(fd, &session->ns_mover.md_buf[session->ns_mover.md_w_index],
 	    session->ns_mover.md_record_size - session->ns_mover.md_w_index);
 
+	ndmp_debug(session, "mover read = %d\n", n);
+
 	/*
 	 * Since this function is only called when select believes data
 	 * is available to be read, a return of zero indicates the
 	 * connection has been closed.
 	 */
 	if (n <= 0) {
-		ndmp_debug(session, "n %d errno %d", n, errno);
+		ndmp_debug(session, "read() errno = %d\n", errno);
 		if (n < 0 && errno == EWOULDBLOCK)
 			return;
 

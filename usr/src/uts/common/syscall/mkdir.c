@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -68,7 +69,7 @@ mkdirat(int fd, char *dname, int dmode)
 		audit_setfsat_path(1);
 
 	error = vn_createat(dname, UIO_USERSPACE, &vattr, EXCL, 0, &vp,
-	    CRMKDIR, 0, PTOU(curproc)->u_cmask, startvp);
+	    CRMKDIR, 0, PTOU(curproc)->u_cmask, startvp, CRED());
 	if (startvp != NULL)
 		VN_RELE(startvp);
 	if (error)

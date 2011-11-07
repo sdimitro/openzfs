@@ -18,10 +18,11 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
- *
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2011 Delphix. All rights reserved.
  */
 
 #include <sys/conf.h>
@@ -1497,8 +1498,14 @@ sbd_open_data_file(sbd_lu_t *sl, uint32_t *err_ret, int lu_size_valid,
 	} else {
 		flag = FREAD | FWRITE | FOFFMAX | FEXCL;
 	}
-	if ((ret = vn_open(sl->sl_data_filename, UIO_SYSSPACE, flag, 0,
-	    &sl->sl_data_vp, 0, 0)) != 0) {
+	/*
+	 * SYS_DEVICES is already required to manipulate LUs. This allows users
+	 * with SYS_DEVICES to manage LUs, otherwise ALL zone privs are
+	 * required.
+	 */
+	if ((ret = vn_openat(sl->sl_data_filename, UIO_SYSSPACE, flag, 0,
+	    &sl->sl_data_vp, 0, 0, NULL, -1, sbd_is_zvol(sl->sl_data_filename)
+	    ? kcred : CRED())) != 0) {
 		*err_ret = SBD_RET_DATA_FILE_OPEN_FAILED;
 		mutex_exit(&sl->sl_lock);
 		return (ret);

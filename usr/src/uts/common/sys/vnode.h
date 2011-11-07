@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -1239,13 +1240,14 @@ int	vn_open(char *pnamep, enum uio_seg seg, int filemode, int createmode,
 		struct vnode **vpp, enum create crwhy, mode_t umask);
 int	vn_openat(char *pnamep, enum uio_seg seg, int filemode, int createmode,
 		struct vnode **vpp, enum create crwhy,
-		mode_t umask, struct vnode *startvp, int fd);
+                mode_t umask, struct vnode *startvp, int fd, cred_t *cred);
 int	vn_create(char *pnamep, enum uio_seg seg, struct vattr *vap,
 		enum vcexcl excl, int mode, struct vnode **vpp,
 		enum create why, int flag, mode_t umask);
 int	vn_createat(char *pnamep, enum uio_seg seg, struct vattr *vap,
 		enum vcexcl excl, int mode, struct vnode **vpp,
-		enum create why, int flag, mode_t umask, struct vnode *startvp);
+		enum create why, int flag, mode_t umask, struct vnode *startvp,
+		cred_t *cred);
 int	vn_rdwr(enum uio_rw rw, struct vnode *vp, caddr_t base, ssize_t len,
 		offset_t offset, enum uio_seg seg, int ioflag, rlim64_t ulimit,
 		cred_t *cr, ssize_t *residp);

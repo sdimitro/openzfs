@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -99,7 +100,7 @@ mknodat(int fd, char *fname, mode_t fmode, dev_t dev)
 
 	why = ((fmode & S_IFMT) == S_IFDIR) ? CRMKDIR : CRMKNOD;
 	error = vn_createat(fname, UIO_USERSPACE, &vattr, EXCL, 0, &vp,
-	    why, 0,  PTOU(curproc)->u_cmask, startvp);
+	    why, 0,  PTOU(curproc)->u_cmask, startvp, CRED());
 	if (startvp != NULL)
 		VN_RELE(startvp);
 	if (error)

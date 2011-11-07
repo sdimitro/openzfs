@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -254,7 +255,7 @@ create_core_file(char *fp, enum core_types core_type, vnode_t **vpp)
 	}
 	error =  vn_openat(file, UIO_SYSSPACE,
 	    FWRITE | FTRUNC | FEXCL | FCREAT | FOFFMAX,
-	    perms, &vp, CRCREAT, PTOU(curproc)->u_cmask, dvp, -1);
+	    perms, &vp, CRCREAT, PTOU(curproc)->u_cmask, dvp, -1, CRED());
 	if (core_type != CORE_PROC) {
 		VN_RELE(dvp);
 		pn_free(&pn);

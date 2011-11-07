@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -82,7 +83,8 @@ vdev_file_open(vdev_t *vd, uint64_t *psize, uint64_t *ashift)
 	 */
 	ASSERT(vd->vdev_path != NULL && vd->vdev_path[0] == '/');
 	error = vn_openat(vd->vdev_path + 1, UIO_SYSSPACE,
-	    spa_mode(vd->vdev_spa) | FOFFMAX, 0, &vp, 0, 0, rootdir, -1);
+	    spa_mode(vd->vdev_spa) | FOFFMAX, 0, &vp, 0, 0,
+	    rootdir, -1, CRED());
 
 	if (error) {
 		vd->vdev_stat.vs_aux = VDEV_AUX_OPEN_FAILED;

@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -213,7 +214,7 @@ noxattr:
 			error = vn_openat(open_filename, seg, filemode,
 			    (int)(createmode & MODEMASK),
 			    &vp, CRCREAT, PTOU(curproc)->u_cmask,
-			    startvp, fd);
+			    startvp, fd, CRED());
 
 			if (startvp != NULL)
 				VN_RELE(startvp);

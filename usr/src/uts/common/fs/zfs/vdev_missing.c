@@ -40,7 +40,8 @@
 
 /* ARGSUSED */
 static int
-vdev_missing_open(vdev_t *vd, uint64_t *psize, uint64_t *ashift)
+vdev_missing_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
+    uint64_t *ashift)
 {
 	/*
 	 * Really this should just fail.  But then the root vdev will be in the
@@ -49,6 +50,7 @@ vdev_missing_open(vdev_t *vd, uint64_t *psize, uint64_t *ashift)
 	 * will fail the GUID sum check before ever trying to open the pool.
 	 */
 	*psize = 0;
+	*max_psize = 0;
 	*ashift = 0;
 	return (0);
 }

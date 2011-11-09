@@ -270,6 +270,7 @@ zpool_get_prop(zpool_handle_t *zhp, zpool_prop_t prop, char *buf, size_t len,
 		case ZPOOL_PROP_SIZE:
 		case ZPOOL_PROP_ALLOCATED:
 		case ZPOOL_PROP_FREE:
+		case ZPOOL_PROP_EXPANDSZ:
 			(void) zfs_nicenum(intval, buf, len);
 			break;
 
@@ -2963,6 +2964,26 @@ zpool_vdev_clear(zpool_handle_t *zhp, uint64_t guid)
 	if (ioctl(hdl->libzfs_fd, ZFS_IOC_CLEAR, &zc) == 0)
 		return (0);
 
+	return (zpool_standard_error(hdl, errno, msg));
+}
+
+/*
+ * Reopen the pool.
+ */
+int
+zpool_reopen(zpool_handle_t *zhp)
+{
+	zfs_cmd_t zc = { 0 };
+	char msg[1024];
+	libzfs_handle_t *hdl = zhp->zpool_hdl;
+
+	(void) snprintf(msg, sizeof (msg),
+	    dgettext(TEXT_DOMAIN, "cannot reopen '%s'"),
+	    zhp->zpool_name);
+
+	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
+	if (zfs_ioctl(hdl, ZFS_IOC_REOPEN, &zc) == 0)
+		return (0);
 	return (zpool_standard_error(hdl, errno, msg));
 }
 

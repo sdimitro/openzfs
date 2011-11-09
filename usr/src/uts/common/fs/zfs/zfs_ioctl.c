@@ -4014,6 +4014,22 @@ zfs_ioc_clear(zfs_cmd_t *zc)
 	return (error);
 }
 
+static int
+zfs_ioc_reopen(zfs_cmd_t *zc)
+{
+	spa_t *spa;
+	int error;
+
+	error = spa_open(zc->zc_name, &spa, FTAG);
+	if (error)
+		return (error);
+
+	spa_vdev_state_enter(spa, SCL_NONE);
+	vdev_reopen(spa->spa_root_vdev);
+	(void) spa_vdev_state_exit(spa, NULL, 0);
+	spa_close(spa, FTAG);
+	return (0);
+}
 /*
  * inputs:
  * zc_name	name of filesystem
@@ -4857,6 +4873,8 @@ static zfs_ioc_vec_t zfs_ioc_vec[] = {
 	    POOL_CHECK_SUSPENDED },
 	{ zfs_ioc_destroy_snaps_nvl, zfs_secpolicy_destroy_recursive,
 	    DATASET_NAME, B_TRUE, POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY },
+	{ zfs_ioc_reopen, zfs_secpolicy_config, POOL_NAME, B_TRUE,
+	    POOL_CHECK_SUSPENDED },
 };
 
 int

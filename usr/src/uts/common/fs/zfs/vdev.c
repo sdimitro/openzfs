@@ -106,7 +106,7 @@ vdev_get_min_asize(vdev_t *vd)
 	vdev_t *pvd = vd->vdev_parent;
 
 	/*
-	 * The our parent is NULL (inactive spare or cache) or is the root,
+	 * If our parent is NULL (inactive spare or cache) or is the root,
 	 * just return our own asize.
 	 */
 	if (pvd == NULL)
@@ -732,6 +732,7 @@ vdev_add_parent(vdev_t *cvd, vdev_ops_t *ops)
 
 	mvd->vdev_asize = cvd->vdev_asize;
 	mvd->vdev_min_asize = cvd->vdev_min_asize;
+	mvd->vdev_max_asize = cvd->vdev_max_asize;
 	mvd->vdev_ashift = cvd->vdev_ashift;
 	mvd->vdev_state = cvd->vdev_state;
 	mvd->vdev_crtxg = cvd->vdev_crtxg;
@@ -1103,7 +1104,8 @@ vdev_open(vdev_t *vd)
 	spa_t *spa = vd->vdev_spa;
 	int error;
 	uint64_t osize = 0;
-	uint64_t asize, psize;
+	uint64_t max_osize = 0;
+	uint64_t asize, max_asize, psize;
 	uint64_t ashift = 0;
 
 	ASSERT(vd->vdev_open_thread == curthread ||
@@ -1134,7 +1136,7 @@ vdev_open(vdev_t *vd)
 		return (ENXIO);
 	}
 
-	error = vd->vdev_ops->vdev_op_open(vd, &osize, &ashift);
+	error = vd->vdev_ops->vdev_op_open(vd, &osize, &max_osize, &ashift);
 
 	/*
 	 * Reset the vdev_reopening flag so that we actually close
@@ -1192,6 +1194,7 @@ vdev_open(vdev_t *vd)
 	}
 
 	osize = P2ALIGN(osize, (uint64_t)sizeof (vdev_label_t));
+	max_osize = P2ALIGN(max_osize, (uint64_t)sizeof (vdev_label_t));
 
 	if (vd->vdev_children == 0) {
 		if (osize < SPA_MINDEVSIZE) {
@@ -1201,6 +1204,8 @@ vdev_open(vdev_t *vd)
 		}
 		psize = osize;
 		asize = osize - (VDEV_LABEL_START_SIZE + VDEV_LABEL_END_SIZE);
+		max_asize = max_osize - (VDEV_LABEL_START_SIZE +
+		    VDEV_LABEL_END_SIZE);
 	} else {
 		if (vd->vdev_parent != NULL && osize < SPA_MINDEVSIZE -
 		    (VDEV_LABEL_START_SIZE + VDEV_LABEL_END_SIZE)) {
@@ -1210,6 +1215,7 @@ vdev_open(vdev_t *vd)
 		}
 		psize = 0;
 		asize = osize;
+		max_asize = max_osize;
 	}
 
 	vd->vdev_psize = psize;
@@ -1229,6 +1235,7 @@ vdev_open(vdev_t *vd)
 		 * For testing purposes, a higher ashift can be requested.
 		 */
 		vd->vdev_asize = asize;
+		vd->vdev_max_asize = max_asize;
 		vd->vdev_ashift = MAX(ashift, vd->vdev_ashift);
 	} else {
 		/*
@@ -1239,6 +1246,7 @@ vdev_open(vdev_t *vd)
 			    VDEV_AUX_BAD_LABEL);
 			return (EINVAL);
 		}
+		vd->vdev_max_asize = max_asize;
 	}
 
 	/*
@@ -2456,6 +2464,7 @@ vdev_get_stats(vdev_t *vd, vdev_stat_t *vs)
 	vs->vs_rsize = vdev_get_min_asize(vd);
 	if (vd->vdev_ops->vdev_op_leaf)
 		vs->vs_rsize += VDEV_LABEL_START_SIZE + VDEV_LABEL_END_SIZE;
+	vs->vs_esize = vd->vdev_max_asize - vd->vdev_asize;
 	mutex_exit(&vd->vdev_stat_lock);
 
 	/*

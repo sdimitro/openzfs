@@ -207,6 +207,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zpool_prop_values;
 	zpool_read_label;
 	zpool_refresh_stats;
+	zpool_reopen;
 	zpool_scan;
 	zpool_search_import;
 	zpool_set_history_str;
@@ -229,6 +230,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zprop_get_list;
 	zprop_iter;
 	zprop_print_one_property;
+	zprop_width;
 	zvol_check_dump_config;
 	zvol_volsize_to_reservation;
     local:

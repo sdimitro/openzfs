@@ -1240,7 +1240,7 @@ int	vn_open(char *pnamep, enum uio_seg seg, int filemode, int createmode,
 		struct vnode **vpp, enum create crwhy, mode_t umask);
 int	vn_openat(char *pnamep, enum uio_seg seg, int filemode, int createmode,
 		struct vnode **vpp, enum create crwhy,
-                mode_t umask, struct vnode *startvp, int fd, cred_t *cred);
+		mode_t umask, struct vnode *startvp, int fd, cred_t *cred);
 int	vn_create(char *pnamep, enum uio_seg seg, struct vattr *vap,
 		enum vcexcl excl, int mode, struct vnode **vpp,
 		enum create why, int flag, mode_t umask);

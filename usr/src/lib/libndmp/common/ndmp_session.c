@@ -194,6 +194,8 @@ ndmp_session_destroy(ndmp_session_t *session)
 		ndmp_mover_cleanup(session);
 	}
 
+	ndmp_free_env(session);
+
 	xdr_destroy(&session->ns_xdrs);
 
 	if (session->ns_server != NULL) {
@@ -351,7 +353,8 @@ ndmp_session_worker(void *param)
 	 */
 	if (session->ns_server != NULL) {
 		if (session->ns_running) {
-			session->ns_server->ns_conf->ns_abort(session);
+			ndmp_debug(session, "aborting session");
+			session->ns_server->ns_conf->ns_abort(session, B_FALSE);
 			session->ns_running = B_FALSE;
 		}
 
@@ -548,7 +551,11 @@ error:
 void
 ndmp_session_failed(ndmp_session_t *session, int err)
 {
-	ndmp_debug(session, "session failed with error %d", err);
+	if (err == ESHUTDOWN) {
+		ndmp_debug(session, "session shutdown", err);
+	} else if (err != 0) {
+		ndmp_debug(session, "session failed with error %d", err);
+	}
 
 	/*
 	 * We should only ever receive EINTR in the case that we're aborting an
@@ -583,7 +590,7 @@ ndmp_session_data_stop(ndmp_session_t *session)
 
 	session->ns_data.dd_abort = B_TRUE;
 	if (session->ns_running) {
-		session->ns_server->ns_conf->ns_abort(session);
+		session->ns_server->ns_conf->ns_abort(session, B_TRUE);
 		session->ns_running = B_FALSE;
 	}
 }

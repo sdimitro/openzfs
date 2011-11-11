@@ -1163,3 +1163,53 @@ ndmp_client_mover_connect(ndmp_session_t *session, ndmp_addr_t *addr,
 	ndmp_free_message(session, &msg);
 	return (err);
 }
+
+/*
+ * Refresh the current client environment via DATA GET ENV.  This will populate
+ * the session data so that consumers can use ndmp_client_env_{name,value} to
+ * fetch the contents.  We hijack the data environment for this use rather
+ * than creating a separate client environment.
+ */
+int
+ndmp_client_env_refresh(ndmp_session_t *session)
+{
+	ndmp_data_get_env_reply *reply;
+	ndmp_msg_t msg;
+	int err;
+
+	if ((err = ndmp_send_request(session, NDMP_DATA_GET_ENV, NULL,
+	    &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+
+	err = ndmp_check_reply(session, "data get env",
+	    NDMP_GET_ERR(err, reply));
+
+	if (err == 0 && ndmp_save_env(session, reply->env.env_val,
+	    reply->env.env_len) != 0) {
+		err = -1;
+	}
+
+	ndmp_free_message(session, &msg);
+	return (err);
+}
+
+const char *
+ndmp_client_env_name(ndmp_session_t *session, int idx)
+{
+	if (idx >= session->ns_data.dd_env_len)
+		return (NULL);
+
+	return (session->ns_data.dd_env[idx].name);
+}
+
+const char *
+ndmp_client_env_value(ndmp_session_t *session, int idx)
+{
+	if (idx >= session->ns_data.dd_env_len)
+		return (NULL);
+
+	return (session->ns_data.dd_env[idx].value);
+}

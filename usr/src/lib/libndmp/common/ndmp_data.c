@@ -169,6 +169,8 @@ ndmp_data_get_env_v3(ndmp_session_t *session, void *body)
 {
 	ndmp_data_get_env_reply reply = { 0 };
 
+	(void) mutex_lock(&session->ns_data.dd_env_lock);
+
 	if (session->ns_data.dd_operation != NDMP_DATA_OP_BACKUP) {
 		ndmp_log(session, LOG_ERR, "backup operation not active");
 		reply.error = NDMP_ILLEGAL_STATE_ERR;
@@ -179,6 +181,8 @@ ndmp_data_get_env_v3(ndmp_session_t *session, void *body)
 	}
 
 	ndmp_send_reply(session, &reply);
+
+	(void) mutex_unlock(&session->ns_data.dd_env_lock);
 }
 
 /*
@@ -962,6 +966,5 @@ ndmp_data_cleanup(ndmp_session_t *session)
 		session->ns_data.dd_sock = -1;
 	}
 
-	ndmp_free_env(session);
 	ndmp_free_nlist(session);
 }

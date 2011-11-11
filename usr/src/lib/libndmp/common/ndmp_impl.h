@@ -323,6 +323,7 @@ typedef struct ndmp_session_data_desc {
 	boolean_t dd_abort;		/* abort operation flag */
 	boolean_t dd_io_ready;		/* mover sock read for I/O */
 	ndmp_pval *dd_env;	/* environment from backup or recover request */
+	mutex_t dd_env_lock;	/* environment lock */
 	ulong_t dd_env_len;		/* environment length */
 	ulong_t dd_nlist_len;	/* recover file list length */
 	int dd_sock;		/* listen and data socket */

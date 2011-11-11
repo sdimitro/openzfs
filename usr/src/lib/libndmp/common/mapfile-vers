@@ -48,6 +48,9 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_disconnect;
 	ndmp_client_create;
 	ndmp_client_destroy;
+	ndmp_client_env_name;
+	ndmp_client_env_refresh;
+	ndmp_client_env_value;
 	ndmp_client_fs_info;
 	ndmp_client_fs_list;
 	ndmp_client_mover_abort;
@@ -71,10 +74,12 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_wait_notify;
 
 	ndmp_server_add_fs;
+	ndmp_server_bytes_processed;
 	ndmp_server_create;
 	ndmp_server_destroy;
 	ndmp_server_done;
 	ndmp_server_env_name;
+	ndmp_server_env_set;
 	ndmp_server_env_value;
 	ndmp_server_file_recovered;
 	ndmp_server_get_name;

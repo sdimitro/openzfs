@@ -211,6 +211,70 @@ ndmp_server_env_name(ndmp_session_t *session, int idx)
 }
 
 /*
+ * Set the given environment variable in the data environment.  This can be
+ * used during backup to populate the environment that is retrieved when the
+ * backup is complete.
+ */
+int
+ndmp_server_env_set(ndmp_session_t *session, const char *name,
+    const char *value)
+{
+	int i;
+	char *namestr, *valuestr;
+	ndmp_session_data_desc_t *dd = &session->ns_data;
+	ndmp_pval *env;
+
+	/*
+	 * Technically, a GET ENV request could come in during a data backup
+	 * operation that might be modifying the environment, so we have to
+	 * lock the environment during this operation.
+	 */
+	(void) mutex_lock(&dd->dd_env_lock);
+
+	/* Check to see if we should overwrite the value first */
+	for (i = 0; i < dd->dd_env_len; i++) {
+		if (strcmp(name, dd->dd_env[i].name) == 0) {
+			valuestr = ndmp_strdup(session, value);
+			if (valuestr == NULL) {
+				(void) mutex_unlock(&dd->dd_env_lock);
+				return (-1);
+			}
+
+			free(dd->dd_env[i].value);
+			dd->dd_env[i].value = valuestr;
+			(void) mutex_unlock(&dd->dd_env_lock);
+			return (0);
+		}
+	}
+
+	/* No such value, allocate a new one */
+	namestr = ndmp_strdup(session, name);
+	valuestr = ndmp_strdup(session, value);
+	env = ndmp_malloc(session, sizeof (ndmp_pval) *
+	    (dd->dd_env_len + 1));
+
+	if (namestr == NULL || valuestr == NULL || env == NULL) {
+		free(env);
+		free(valuestr);
+		free(namestr);
+		(void) mutex_unlock(&dd->dd_env_lock);
+		return (-1);
+	}
+
+	bcopy(dd->dd_env, env, sizeof (ndmp_pval) * dd->dd_env_len);
+	env[dd->dd_env_len].name = namestr;
+	env[dd->dd_env_len].value = valuestr;
+
+	free(dd->dd_env);
+	dd->dd_env = env;
+	dd->dd_env_len++;
+
+	(void) mutex_unlock(&dd->dd_env_lock);
+
+	return (0);
+}
+
+/*
  * Return the environment variable variable at the given index.  If the index
  * exceeds the number of available environment entries, NULL is returned.
  */
@@ -587,4 +651,10 @@ nomem:
 	free(fsip->fs_logical_device);
 
 	return (-1);
+}
+
+u_longlong_t
+ndmp_server_bytes_processed(ndmp_session_t *session)
+{
+	return (session->ns_data.dd_bytes_processed);
 }

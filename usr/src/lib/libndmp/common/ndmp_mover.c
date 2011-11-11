@@ -1697,8 +1697,6 @@ mover_data_write_v3(ndmp_session_t *session, int fd, ulong_t mode)
 	else
 		wlen = session->ns_mover.md_bytes_left_to_read;
 
-	ndmp_debug(session, "wlen window restrictions: %llu", wlen);
-
 	/*
 	 * Now limit the length to the amount of data in the buffer.
 	 */
@@ -1707,8 +1705,6 @@ mover_data_write_v3(ndmp_session_t *session, int fd, ulong_t mode)
 		    session->ns_mover.md_r_index;
 
 	len = wlen & 0xffffffff;
-	ndmp_debug(session, "buffer restrictions: wlen %llu len %lu", wlen,
-	    len);
 
 	/*
 	 * Write the data to the data session.

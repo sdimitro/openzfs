@@ -349,6 +349,18 @@ ndmp_tape_open_v3(ndmp_session_t *session, void *body)
 
 	ndmp_debug(session, "Tape is opened fd: %d", session->ns_tape.td_fd);
 
+	/*
+	 * Normally, the DMA is responsible for positioning the tape via
+	 * tunneled SCSI requests.  This won't work for "tape test" mode with
+	 * regular files, so there is no way for the test framework to seek
+	 * or otherwise manipulate state.  If desired, consumers can register
+	 * this callback to be notified when the tape is opened such that
+	 * is can be manipulated as necessary.
+	 */
+	if (session->ns_server->ns_conf->ns_tape_opened != NULL)
+		session->ns_server->ns_conf->ns_tape_opened(session,
+		    session->ns_tape.td_fd);
+
 	tape_open_send_reply(session, NDMP_NO_ERR);
 }
 
@@ -467,6 +479,8 @@ ndmp_tape_write_v3(ndmp_session_t *session, void *body)
 	    (session->ns_mover.md_state == NDMP_MOVER_STATE_LISTEN ||
 	    session->ns_mover.md_state == NDMP_MOVER_STATE_ACTIVE)) {
 
+		ndmp_log(session, LOG_ERR,
+		    "mover not in correct state for TAPE WRITE command");
 		reply.error = NDMP_DEVICE_BUSY_ERR;
 		ndmp_send_reply(session, &reply);
 		return;

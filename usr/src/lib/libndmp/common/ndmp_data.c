@@ -52,7 +52,7 @@ data_connect_sock_v3(ndmp_session_t *session, ulong_t addr, ushort_t port)
 
 	session->ns_data.dd_sock = sock;
 	session->ns_data.dd_data_addr.addr_type = NDMP_ADDR_TCP;
-	session->ns_data.dd_data_addr.tcp_ip_v3 = addr;
+	session->ns_data.dd_data_addr.tcp_ip_v3 = ntohl(addr);
 	session->ns_data.dd_data_addr.tcp_port_v3 = port;
 
 	return (NDMP_NO_ERR);
@@ -436,8 +436,8 @@ ndmp_data_listen_v3(ndmp_session_t *session, void *body)
 		}
 
 		reply.data_connection_addr.addr_type = request->addr_type;
-		reply.data_connection_addr.tcp_ip_v3 = addr;
-		reply.data_connection_addr.tcp_port_v3 = port;
+		reply.data_connection_addr.tcp_ip_v3 = htonl(addr);
+		reply.data_connection_addr.tcp_port_v3 = htons(port);
 		session->ns_data.dd_data_addr.addr_type = NDMP_ADDR_TCP;
 		session->ns_data.dd_data_addr.tcp_ip_v3 = addr;
 		session->ns_data.dd_data_addr.tcp_port_v3 = port;
@@ -670,8 +670,8 @@ ndmp_data_listen_v4(ndmp_session_t *session, void *body)
 		bzero(reply.connect_addr.tcp_addr_v4,
 		    sizeof (ndmp_tcp_addr_v4));
 
-		reply.connect_addr.tcp_ip_v4(0) = addr;
-		reply.connect_addr.tcp_port_v4(0) = port;
+		reply.connect_addr.tcp_ip_v4(0) = htonl(addr);
+		reply.connect_addr.tcp_port_v4(0) = htons(port);
 		reply.connect_addr.tcp_len_v4 = 1;
 
 		session->ns_data.dd_data_addr_v4.addr_type = NDMP_ADDR_TCP;

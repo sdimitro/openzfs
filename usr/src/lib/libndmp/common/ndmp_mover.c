@@ -223,11 +223,11 @@ ndmp_mover_listen_v3(ndmp_session_t *session, void *body)
 			goto error;
 		}
 		reply.data_connection_addr.addr_type = NDMP_ADDR_TCP;
-		reply.data_connection_addr.tcp_ip_v3 = addr;
-		reply.data_connection_addr.tcp_port_v3 = port;
+		reply.data_connection_addr.tcp_ip_v3 = htonl(addr);
+		reply.data_connection_addr.tcp_port_v3 = htons(port);
 		session->ns_mover.md_data_addr.addr_type = NDMP_ADDR_TCP;
 		session->ns_mover.md_data_addr.tcp_ip_v3 = addr;
-		session->ns_mover.md_data_addr.tcp_port_v3 = port;
+		session->ns_mover.md_data_addr.tcp_port_v3 = ntohs(port);
 		ndmp_debug(session, "mover listening on socket %d",
 		    session->ns_mover.md_listen_sock);
 	}
@@ -673,7 +673,7 @@ ndmp_mover_listen_v4(ndmp_session_t *session, void *body)
 		    ndmp_malloc(session, sizeof (ndmp_tcp_addr_v4));
 
 		session->ns_mover.md_data_addr_v4.tcp_ip_v4(0) = addr;
-		session->ns_mover.md_data_addr_v4.tcp_port_v4(0) = port;
+		session->ns_mover.md_data_addr_v4.tcp_port_v4(0) = ntohs(port);
 
 		if (ndmp_copy_addr_v4(session, &reply.connect_addr,
 		    &session->ns_mover.md_data_addr_v4) != 0) {
@@ -683,7 +683,7 @@ ndmp_mover_listen_v4(ndmp_session_t *session, void *body)
 		/* For compatibility with V3 */
 		session->ns_mover.md_data_addr.addr_type = NDMP_ADDR_TCP;
 		session->ns_mover.md_data_addr.tcp_ip_v3 = addr;
-		session->ns_mover.md_data_addr.tcp_port_v3 = port;
+		session->ns_mover.md_data_addr.tcp_port_v3 = ntohs(port);
 		ndmp_debug(session, "listen socket: %d",
 		    session->ns_mover.md_listen_sock);
 	}

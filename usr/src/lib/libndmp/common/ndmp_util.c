@@ -961,7 +961,7 @@ ndmp_copy_addr_v3(ndmp_addr_v3 *dst, ndmp_addr_v3 *src)
 		/* nothing */
 		break;
 	case NDMP_ADDR_TCP:
-		dst->tcp_ip_v3 = src->tcp_ip_v3;
+		dst->tcp_ip_v3 = htonl(src->tcp_ip_v3);
 		dst->tcp_port_v3 = src->tcp_port_v3;
 		break;
 	case NDMP_ADDR_FC:
@@ -993,7 +993,7 @@ ndmp_copy_addr_v4(ndmp_session_t *session, ndmp_addr_v4 *dst, ndmp_addr_v4 *src)
 			return (-1);
 
 		for (i = 0; i < src->tcp_len_v4; i++) {
-			dst->tcp_ip_v4(i) = src->tcp_ip_v4(i);
+			dst->tcp_ip_v4(i) = htonl(src->tcp_ip_v4(i));
 			dst->tcp_port_v4(i) = src->tcp_port_v4(i);
 			dst->tcp_env_v4(i).addr_env_len = 0;
 			dst->tcp_env_v4(i).addr_env_val = 0;
@@ -1009,9 +1009,7 @@ ndmp_copy_addr_v4(ndmp_session_t *session, ndmp_addr_v4 *dst, ndmp_addr_v4 *src)
 }
 
 /*
- * Creates a socket and connects to the specified address/port.  The address
- * and port should already be in network byte order, as these fields come
- * straight from the network packets.
+ * Creates a socket and connects to the specified address/port.
  */
 int
 ndmp_connect_sock_v3(ndmp_session_t *session, ulong_t addr, ushort_t port)
@@ -1019,9 +1017,6 @@ ndmp_connect_sock_v3(ndmp_session_t *session, ulong_t addr, ushort_t port)
 	int sock;
 	struct sockaddr_in sin;
 	int flag = 1;
-
-	ndmp_debug(session, "connecting to %s:%d", inet_ntoa(IN_ADDR(addr)),
-	    ntohs(port));
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -1032,8 +1027,12 @@ ndmp_connect_sock_v3(ndmp_session_t *session, ulong_t addr, ushort_t port)
 
 	(void) memset(&sin, 0, sizeof (sin));
 	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = addr;
-	sin.sin_port = port;
+	sin.sin_addr.s_addr = htonl(addr);
+	sin.sin_port = htons(port);
+
+	ndmp_debug(session, "connecting to %s:%d", inet_ntoa(sin.sin_addr),
+	    port);
+
 	if (connect(sock, (struct sockaddr *)&sin, sizeof (sin)) < 0) {
 		ndmp_log(session, LOG_ERR,
 		    "failed to connect to remote host: %s", strerror(errno));

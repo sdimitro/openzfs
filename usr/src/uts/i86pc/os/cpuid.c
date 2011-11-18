@@ -29,7 +29,9 @@
 /*
  * Portions Copyright 2009 Advanced Micro Devices, Inc.
  */
-
+/*
+ * Copyright (c) 2011, Joyent, Inc. All rights reserved.
+ */
 /*
  * Various routines to handle identification
  * and classification of x86 processors.
@@ -156,7 +158,10 @@ static char *x86_feature_names[NUM_X86_FEATURES] = {
 	"aes",
 	"pclmulqdq",
 	"xsave",
-	"avx" };
+	"avx",
+	"vmx",
+	"svm"
+};
 
 boolean_t
 is_x86_feature(void *featureset, uint_t feature)
@@ -1268,8 +1273,12 @@ cpuid_pass1(cpu_t *cpu, uchar_t *featureset)
 	}
 #endif	/* __xpv */
 
+	if (cp->cp_ecx & CPUID_INTC_ECX_VMX) {
+		add_x86_feature(featureset, X86FSET_VMX);
+	}
+
 	/*
-	 * Only need it first time, rest of the cpus would follow suite.
+	 * Only need it first time, rest of the cpus would follow suit.
 	 * we only capture this for the bootcpu.
 	 */
 	if (cp->cp_edx & CPUID_INTC_EDX_CLFSH) {
@@ -1425,6 +1434,10 @@ cpuid_pass1(cpu_t *cpu, uchar_t *featureset)
 #endif
 			if (cp->cp_edx & CPUID_AMD_EDX_TSCP) {
 				add_x86_feature(featureset, X86FSET_TSCP);
+			}
+
+			if (cp->cp_ecx & CPUID_AMD_ECX_SVM) {
+				add_x86_feature(featureset, X86FSET_SVM);
 			}
 			break;
 		default:
@@ -2571,6 +2584,8 @@ cpuid_pass4(cpu_t *cpu)
 			    (*ecx & CPUID_INTC_ECX_OSXSAVE))
 				hwcap_flags |= AV_386_XSAVE;
 		}
+		if (*ecx & CPUID_INTC_ECX_VMX)
+			hwcap_flags |= AV_386_VMX;
 		if (*ecx & CPUID_INTC_ECX_POPCNT)
 			hwcap_flags |= AV_386_POPCNT;
 		if (*edx & CPUID_INTC_EDX_FPU)
@@ -2658,6 +2673,8 @@ cpuid_pass4(cpu_t *cpu)
 			hwcap_flags |= AV_386_AMD_3DNow;
 		if (*edx & CPUID_AMD_EDX_3DNowx)
 			hwcap_flags |= AV_386_AMD_3DNowx;
+		if (*ecx & CPUID_AMD_ECX_SVM)
+			hwcap_flags |= AV_386_AMD_SVM;
 
 		switch (cpi->cpi_vendor) {
 		case X86_VENDOR_AMD:

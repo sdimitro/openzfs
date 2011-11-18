@@ -924,11 +924,10 @@ zfs_valid_proplist(libzfs_handle_t *hdl, zfs_type_t type, nvlist_t *nvl,
 			}
 			continue;
 		} else if (prop == ZPROP_INVAL && zfs_prop_written(propname)) {
-			zfs_error_aux(hdl,
-				dgettext(TEXT_DOMAIN, "'%s' is readonly"),
-				propname);
-			(void) zfs_error(hdl, EZFS_PROPREADONLY,
-				errbuf);
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "'%s' is readonly"),
+			    propname);
+			(void) zfs_error(hdl, EZFS_PROPREADONLY, errbuf);
 			goto error;
 		}
 
@@ -2524,7 +2523,7 @@ zfs_prop_get_userquota_common(zfs_handle_t *zhp, const char *propname,
 	int err;
 	zfs_cmd_t zc = { 0 };
 
-	(void) strncpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
+	(void) strlcpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
 
 	err = userquota_propname_decode(propname,
 	    zfs_prop_get_int(zhp, ZFS_PROP_ZONED),
@@ -2584,16 +2583,16 @@ zfs_prop_get_written_int(zfs_handle_t *zhp, const char *propname,
 	zfs_cmd_t zc = { 0 };
 	const char *snapname;
 
-	(void) strncpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
+	(void) strlcpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
 
 	snapname = strchr(propname, '@') + 1;
 	if (strchr(snapname, '@')) {
-		(void) strncpy(zc.zc_value, snapname, sizeof (zc.zc_value));
+		(void) strlcpy(zc.zc_value, snapname, sizeof (zc.zc_value));
 	} else {
 		/* snapname is the short name, append it to zhp's fsname */
 		char *cp;
 
-		(void) strncpy(zc.zc_value, zhp->zfs_name,
+		(void) strlcpy(zc.zc_value, zhp->zfs_name,
 		    sizeof (zc.zc_value));
 		cp = strchr(zc.zc_value, '@');
 		if (cp != NULL)
@@ -2637,8 +2636,8 @@ zfs_get_snapused_int(zfs_handle_t *firstsnap, zfs_handle_t *lastsnap,
 	int err;
 	zfs_cmd_t zc = { 0 };
 
-	(void) strncpy(zc.zc_name, lastsnap->zfs_name, sizeof (zc.zc_name));
-	(void) strncpy(zc.zc_value, firstsnap->zfs_name, sizeof (zc.zc_value));
+	(void) strlcpy(zc.zc_name, lastsnap->zfs_name, sizeof (zc.zc_name));
+	(void) strlcpy(zc.zc_value, firstsnap->zfs_name, sizeof (zc.zc_value));
 
 	err = ioctl(lastsnap->zfs_hdl->libzfs_fd, ZFS_IOC_SPACE_SNAPS, &zc);
 	if (err)
@@ -2690,18 +2689,19 @@ is_descendant(const char *ds1, const char *ds2)
 
 /*
  * Given a complete name, return just the portion that refers to the parent.
- * Can return NULL if this is a pool.
+ * Will return -1 if there is no parent (path is just the name of the
+ * pool).
  */
 static int
 parent_name(const char *path, char *buf, size_t buflen)
 {
-	char *loc;
+	char *slashp;
 
-	if ((loc = strrchr(path, '/')) == NULL)
+	(void) strlcpy(buf, path, buflen);
+
+	if ((slashp = strrchr(buf, '/')) == NULL)
 		return (-1);
-
-	(void) strncpy(buf, path, MIN(buflen, loc - path));
-	buf[loc - path] = '\0';
+	*slashp = '\0';
 
 	return (0);
 }
@@ -3991,7 +3991,7 @@ zfs_userspace(zfs_handle_t *zhp, zfs_userquota_prop_t type,
 	int error;
 	zfs_useracct_t buf[100];
 
-	(void) strncpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
+	(void) strlcpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
 
 	zc.zc_objset_type = type;
 	zc.zc_nvlist_dst = (uintptr_t)buf;

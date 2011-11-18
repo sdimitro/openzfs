@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* Copyright (c) 2011 by Delphix. All rights reserved. */
+
 #include <sys/thread.h>
 #include <sys/proc.h>
 #include <sys/debug.h>

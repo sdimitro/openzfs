@@ -259,12 +259,13 @@ typedef struct {
 static int
 snapspec_cb(zfs_handle_t *zhp, void *arg) {
 	snapspec_arg_t *ssa = arg;
-	const char *shortsnapname;
+	char *shortsnapname;
 	int err = 0;
 
 	if (ssa->ssa_seenlast)
 		return (0);
-	shortsnapname = strchr(zfs_get_name(zhp), '@') + 1;
+	shortsnapname = zfs_strdup(zhp->zfs_hdl,
+	    strchr(zfs_get_name(zhp), '@') + 1);
 
 	if (!ssa->ssa_seenfirst && strcmp(shortsnapname, ssa->ssa_first) == 0)
 		ssa->ssa_seenfirst = B_TRUE;
@@ -277,19 +278,20 @@ snapspec_cb(zfs_handle_t *zhp, void *arg) {
 
 	if (strcmp(shortsnapname, ssa->ssa_last) == 0)
 		ssa->ssa_seenlast = B_TRUE;
+	free(shortsnapname);
 
 	return (err);
 }
 
 /*
- * spec is a string like "A,B:C,D"
+ * spec is a string like "A,B%C,D"
  *
  * <snaps>, where <snaps> can be:
  *      <snap>          (single snapshot)
- *      <snap>:<snap>   (range of snapshots, inclusive)
- *      :<snap>         (range of snapshots, starting with earliest)
- *      <snap>:         (range of snapshots, ending with last)
- *      :               (all snapshots)
+ *      <snap>%<snap>   (range of snapshots, inclusive)
+ *      %<snap>         (range of snapshots, starting with earliest)
+ *      <snap>%         (range of snapshots, ending with last)
+ *      %               (all snapshots)
  *      <snaps>[,...]   (comma separated list of the above)
  *
  * If a snapshot can not be opened, continue trying to open the others, but
@@ -308,18 +310,18 @@ zfs_iter_snapspec(zfs_handle_t *fs_zhp, const char *spec_orig,
 	cp = buf;
 
 	while ((comma_separated = strsep(&cp, ",")) != NULL) {
-		char *colon = strchr(comma_separated, ':');
-		if (colon != NULL) {
+		char *pct = strchr(comma_separated, '%');
+		if (pct != NULL) {
 			snapspec_arg_t ssa = { 0 };
 			ssa.ssa_func = func;
 			ssa.ssa_arg = arg;
 
-			if (colon == comma_separated)
+			if (pct == comma_separated)
 				ssa.ssa_seenfirst = B_TRUE;
 			else
 				ssa.ssa_first = comma_separated;
-			*colon = '\0';
-			ssa.ssa_last = colon + 1;
+			*pct = '\0';
+			ssa.ssa_last = pct + 1;
 
 			/*
 			 * If there is a lastname specified, make sure it

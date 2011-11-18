@@ -20,6 +20,8 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Portions Copyright 2011 Martin Matuska
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
@@ -1462,6 +1464,20 @@ zfs_ioc_pool_get_history(zfs_cmd_t *zc)
 }
 
 static int
+zfs_ioc_pool_reguid(zfs_cmd_t *zc)
+{
+	spa_t *spa;
+	int error;
+
+	error = spa_open(zc->zc_name, &spa, FTAG);
+	if (error == 0) {
+		error = spa_change_guid(spa);
+		spa_close(spa, FTAG);
+	}
+	return (error);
+}
+
+static int
 zfs_ioc_dsobj_to_dsname(zfs_cmd_t *zc)
 {
 	int error;
@@ -1960,8 +1976,10 @@ top:
 		uint64_t cookie = 0;
 		int len = sizeof (zc->zc_name) - (p - zc->zc_name);
 
-		while (dmu_dir_list_next(os, len, p, NULL, &cookie) == 0)
-			(void) dmu_objset_prefetch(p, NULL);
+		while (dmu_dir_list_next(os, len, p, NULL, &cookie) == 0) {
+			if (!dataset_name_hidden(zc->zc_name))
+				(void) dmu_objset_prefetch(zc->zc_name, NULL);
+		}
 	}
 
 	do {
@@ -4873,6 +4891,8 @@ static zfs_ioc_vec_t zfs_ioc_vec[] = {
 	    POOL_CHECK_SUSPENDED },
 	{ zfs_ioc_destroy_snaps_nvl, zfs_secpolicy_destroy_recursive,
 	    DATASET_NAME, B_TRUE, POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY },
+	{ zfs_ioc_pool_reguid, zfs_secpolicy_config, POOL_NAME, B_TRUE,
+	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY },
 	{ zfs_ioc_reopen, zfs_secpolicy_config, POOL_NAME, B_TRUE,
 	    POOL_CHECK_SUSPENDED },
 };

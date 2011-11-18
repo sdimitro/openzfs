@@ -23,7 +23,9 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2011 Delphix. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright 2011 Bayard G. Bell <buffer.g.overflow@gmail.com>.
+ * All rights reserved. Use is subject to license terms.
  */
 
 /*
@@ -1446,6 +1448,20 @@ depends_on(struct module *mp)
 		return (NULL);
 
 	q = (char *)sp->st_value;
+
+#ifdef KOBJ_DEBUG
+	/*
+	 * _depends_on is a deprecated interface, so we warn about its use
+	 * irrespective of subsequent processing errors. How else are we going
+	 * to be able to deco this interface completely?
+	 * Changes initially limited to DEBUG because third-party modules
+	 * should be flagged to developers before general use base.
+	 */
+	_kobj_printf(ops,
+	    "Warning: %s uses deprecated _depends_on interface.\n",
+	    mp->filename);
+	_kobj_printf(ops, "Please notify module developer or vendor.\n");
+#endif
 
 	/*
 	 * Idiot checks. Make sure it's

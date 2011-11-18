@@ -214,7 +214,7 @@ get_usage(zfs_help_t idx)
 	case HELP_DESTROY:
 		return (gettext("\tdestroy [-fnpRrv] <filesystem|volume>\n"
 		    "\tdestroy [-dnpRrv] "
-		    "<filesystem|volume>@<snap>[:<snap>][,...]\n"));
+		    "<filesystem|volume>@<snap>[%<snap>][,...]\n"));
 	case HELP_GET:
 		return (gettext("\tget [-rHp] [-d max] "
 		    "[-o \"all\" | field[,...]] [-s source[,...]]\n"
@@ -884,7 +884,7 @@ typedef struct destroy_cbdata {
 	boolean_t	cb_defer_destroy;
 	boolean_t	cb_verbose;
 	boolean_t	cb_parsable;
-	boolean_t	cb_noop;
+	boolean_t	cb_dryrun;
 	nvlist_t	*cb_nvl;
 
 	/* first snap in contiguous run */
@@ -944,7 +944,7 @@ destroy_check_dependent(zfs_handle_t *zhp, void *data)
 			    "the following datasets:\n"));
 			cbp->cb_first = B_FALSE;
 			cbp->cb_error = B_TRUE;
-			cbp->cb_noop = B_TRUE;
+			cbp->cb_dryrun = B_TRUE;
 		}
 
 		(void) fprintf(stderr, "%s\n", zfs_get_name(zhp));
@@ -958,7 +958,20 @@ out:
 static int
 destroy_callback(zfs_handle_t *zhp, void *data)
 {
-	destroy_cbdata_t *cbp = data;
+	destroy_cbdata_t *cb = data;
+	const char *name = zfs_get_name(zhp);
+
+	if (cb->cb_verbose) {
+		if (cb->cb_parsable) {
+			(void) printf("destroy\t%s\n", name);
+		} else if (cb->cb_dryrun) {
+			(void) printf(gettext("would destroy %s\n"),
+			    name);
+		} else {
+			(void) printf(gettext("will destroy %s\n"),
+			    name);
+		}
+	}
 
 	/*
 	 * Ignore pools (which we've already flagged as an error before getting
@@ -970,13 +983,12 @@ destroy_callback(zfs_handle_t *zhp, void *data)
 		return (0);
 	}
 
-	/*
-	 * Bail out on the first error.
-	 */
-	if (zfs_unmount(zhp, NULL, cbp->cb_force ? MS_FORCE : 0) != 0 ||
-	    zfs_destroy(zhp, cbp->cb_defer_destroy) != 0) {
-		zfs_close(zhp);
-		return (-1);
+	if (!cb->cb_dryrun) {
+		if (zfs_unmount(zhp, NULL, cb->cb_force ? MS_FORCE : 0) != 0 ||
+		    zfs_destroy(zhp, cb->cb_defer_destroy) != 0) {
+			zfs_close(zhp);
+			return (-1);
+		}
 	}
 
 	zfs_close(zhp);
@@ -1000,7 +1012,7 @@ destroy_print_cb(zfs_handle_t *zhp, void *arg)
 		if (cb->cb_verbose) {
 			if (cb->cb_parsable) {
 				(void) printf("destroy\t%s\n", name);
-			} else if (cb->cb_noop) {
+			} else if (cb->cb_dryrun) {
 				(void) printf(gettext("would destroy %s\n"),
 				    name);
 			} else {
@@ -1142,7 +1154,7 @@ zfs_do_destroy(int argc, char **argv)
 			cb.cb_parsable = B_TRUE;
 			break;
 		case 'n':
-			cb.cb_noop = B_TRUE;
+			cb.cb_dryrun = B_TRUE;
 			break;
 		case 'd':
 			cb.cb_defer_destroy = B_TRUE;
@@ -1215,7 +1227,7 @@ zfs_do_destroy(int argc, char **argv)
 			if (cb.cb_parsable) {
 				(void) printf("reclaim\t%llu\n",
 				    cb.cb_snapused);
-			} else if (cb.cb_noop) {
+			} else if (cb.cb_dryrun) {
 				(void) printf(gettext("would reclaim %s\n"),
 				    buf);
 			} else {
@@ -1224,7 +1236,7 @@ zfs_do_destroy(int argc, char **argv)
 			}
 		}
 
-		if (!cb.cb_noop) {
+		if (!cb.cb_dryrun) {
 			if (cb.cb_doclones)
 				err = destroy_clones(&cb);
 			if (err == 0) {
@@ -1277,20 +1289,18 @@ zfs_do_destroy(int argc, char **argv)
 			return (1);
 		}
 
-		if (!cb.cb_noop) {
-			if (zfs_iter_dependents(zhp, B_FALSE, destroy_callback,
-			    &cb) != 0) {
-				zfs_close(zhp);
-				return (1);
-			}
-
-			/*
-			 * Do the real thing.  The callback will close the
-			 * handle regardless of whether it succeeds or not.
-			 */
-			if (destroy_callback(zhp, &cb) != 0)
-				return (1);
+		if (zfs_iter_dependents(zhp, B_FALSE, destroy_callback,
+		    &cb) != 0) {
+			zfs_close(zhp);
+			return (1);
 		}
+
+		/*
+		 * Do the real thing.  The callback will close the
+		 * handle regardless of whether it succeeds or not.
+		 */
+		if (destroy_callback(zhp, &cb) != 0)
+			return (1);
 	}
 
 	return (0);
@@ -3566,8 +3576,8 @@ zfs_do_send(int argc, char **argv)
 	if (flags.replicate && fromname == NULL)
 		flags.doall = B_TRUE;
 
-	err = zfs_send(zhp, fromname, toname, &flags, STDOUT_FILENO, NULL,
-	    0, extraverbose ? &dbgnv : NULL);
+	err = zfs_send(zhp, fromname, toname, &flags, STDOUT_FILENO, NULL, 0,
+	    extraverbose ? &dbgnv : NULL);
 
 	if (extraverbose && dbgnv != NULL) {
 		/*

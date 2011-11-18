@@ -924,8 +924,7 @@ posix_spawn_pipe_np(pid_t *pidp, int *fdp,
 		stdio = STDOUT_FILENO;
 	}
 
-	if (error == 0)
-		error = posix_spawn_file_actions_addclose(fact, myside);
+	error = posix_spawn_file_actions_addclose(fact, myside);
 	if (yourside != stdio) {
 		if (error == 0) {
 			error = posix_spawn_file_actions_adddup2(fact,

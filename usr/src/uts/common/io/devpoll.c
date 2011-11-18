@@ -23,6 +23,7 @@
  * Use is subject to license terms.
  */
 
+/* Copyright (c) 2011 by Delphix. All rights reserved. */
 
 #include <sys/types.h>
 #include <sys/devops.h>

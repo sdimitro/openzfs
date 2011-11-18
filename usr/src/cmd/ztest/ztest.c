@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -325,6 +326,7 @@ ztest_func_t ztest_vdev_LUN_growth;
 ztest_func_t ztest_vdev_add_remove;
 ztest_func_t ztest_vdev_aux_add_remove;
 ztest_func_t ztest_split_pool;
+ztest_func_t ztest_reguid;
 
 uint64_t zopt_always = 0ULL * NANOSEC;		/* all the time */
 uint64_t zopt_incessant = 1ULL * NANOSEC / 10;	/* every 1/10 second */
@@ -355,6 +357,7 @@ ztest_info_t ztest_info[] = {
 	{ ztest_fault_inject,			1,	&zopt_sometimes	},
 	{ ztest_ddt_repair,			1,	&zopt_sometimes	},
 	{ ztest_dmu_snapshot_hold,		1,	&zopt_sometimes	},
+	{ ztest_reguid,				1,	&zopt_sometimes },
 	{ ztest_spa_rename,			1,	&zopt_rarely	},
 	{ ztest_scrub,				1,	&zopt_rarely	},
 	{ ztest_dsl_dataset_promote_busy,	1,	&zopt_rarely	},
@@ -392,6 +395,7 @@ typedef struct ztest_shared {
 	uint64_t	zs_vdev_aux;
 	uint64_t	zs_alloc;
 	uint64_t	zs_space;
+	uint64_t	zs_guid;
 	uint64_t	zs_splits;
 	uint64_t	zs_mirrors;
 	uint64_t	zs_metaslab_sz;
@@ -4741,6 +4745,7 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 void
 ztest_ddt_repair(ztest_ds_t *zd, uint64_t id)
 {
+	ztest_shared_t *zs = ztest_shared;
 	spa_t *spa = ztest_spa;
 	objset_t *os = zd->zd_os;
 	ztest_od_t od[1];
@@ -4776,7 +4781,7 @@ ztest_ddt_repair(ztest_ds_t *zd, uint64_t id)
 
 	object = od[0].od_object;
 	blocksize = od[0].od_blocksize;
-	pattern = spa_guid(spa) ^ dmu_objset_fsid_guid(os);
+	pattern = zs->zs_guid ^ dmu_objset_fsid_guid(os);
 
 	ASSERT(object != 0);
 
@@ -4843,6 +4848,30 @@ ztest_scrub(ztest_ds_t *zd, uint64_t id)
 	(void) spa_scan(spa, POOL_SCAN_SCRUB);
 	(void) poll(NULL, 0, 100); /* wait a moment, then force a restart */
 	(void) spa_scan(spa, POOL_SCAN_SCRUB);
+}
+
+/*
+ * Change the guid for the pool.
+ */
+/* ARGSUSED */
+void
+ztest_reguid(ztest_ds_t *zd, uint64_t id)
+{
+	spa_t *spa = ztest_spa;
+	uint64_t orig, load;
+
+	orig = spa_guid(spa);
+	load = spa_load_guid(spa);
+	if (spa_change_guid(spa) != 0)
+		return;
+
+	if (ztest_opts.zo_verbose >= 3) {
+		(void) printf("Changed guid old %llu -> %llu\n",
+		    (u_longlong_t)orig, (u_longlong_t)spa_guid(spa));
+	}
+
+	VERIFY3U(orig, !=, spa_guid(spa));
+	VERIFY3U(load, ==, spa_load_guid(spa));
 }
 
 /*

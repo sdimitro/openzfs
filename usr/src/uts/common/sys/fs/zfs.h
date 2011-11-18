@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -165,9 +166,13 @@ typedef enum {
 	ZPOOL_PROP_FREE,
 	ZPOOL_PROP_ALLOCATED,
 	ZPOOL_PROP_READONLY,
+	ZPOOL_PROP_COMMENT,
 	ZPOOL_PROP_EXPANDSZ,
 	ZPOOL_NUM_PROPS
 } zpool_prop_t;
+
+/* Small enough to not hog a whole line of printout in zpool(1M). */
+#define	ZPROP_MAX_COMMENT	32
 
 #define	ZPROP_CONT		-2
 #define	ZPROP_INVAL		-1
@@ -494,6 +499,7 @@ typedef struct zpool_rewind_policy {
 #define	ZPOOL_CONFIG_SPLIT_LIST		"guid_list"
 #define	ZPOOL_CONFIG_REMOVING		"removing"
 #define	ZPOOL_CONFIG_RESILVERING	"resilvering"
+#define	ZPOOL_CONFIG_COMMENT		"comment"
 #define	ZPOOL_CONFIG_SUSPENDED		"suspended"	/* not stored on disk */
 #define	ZPOOL_CONFIG_TIMESTAMP		"timestamp"	/* not stored on disk */
 #define	ZPOOL_CONFIG_BOOTFS		"bootfs"	/* not stored on disk */
@@ -784,6 +790,7 @@ typedef enum zfs_ioc {
 	ZFS_IOC_SPACE_WRITTEN,
 	ZFS_IOC_SPACE_SNAPS,
 	ZFS_IOC_DESTROY_SNAPS_NVL,
+	ZFS_IOC_POOL_REGUID,
 	ZFS_IOC_REOPEN
 } zfs_ioc_t;
 
@@ -847,6 +854,7 @@ typedef enum {
  *	ESC_ZFS_RESILVER_START
  *	ESC_ZFS_RESILVER_END
  *	ESC_ZFS_POOL_DESTROY
+ *	ESC_ZFS_POOL_REGUID
  *
  *		ZFS_EV_POOL_NAME	DATA_TYPE_STRING
  *		ZFS_EV_POOL_GUID	DATA_TYPE_UINT64

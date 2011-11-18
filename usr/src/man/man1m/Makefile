@@ -9,8 +9,11 @@
 # at http://www.illumos.org/license/CDDL.
 #
 
+#
 # Copyright 2011, Richard Lowe
+# Copyright 2011 Nexenta Systems, Inc. All rights reserved.
 # Copyright (c) 2011 Delphix. All rights reserved.
+#
 
 include ../../Makefile.master
 
@@ -390,6 +393,7 @@ COMMON_MANFILES = 	6to4relay.1m		\
 	 	 	powertop.1m		\
 	 	 	ppdmgr.1m		\
 	 	 	pppd.1m			\
+			pppdump.1m		\
 	 	 	pppoec.1m		\
 	 	 	pppoed.1m		\
 	 	 	pppstats.1m		\
@@ -522,6 +526,9 @@ COMMON_MANFILES = 	6to4relay.1m		\
 	 	 	syseventd.1m		\
 	 	 	syslogd.1m		\
 	 	 	tapes.1m		\
+			tcpd.1m			\
+			tcpdchk.1m		\
+			tcpdmatch.1m		\
 	 	 	th_define.1m		\
 	 	 	th_manage.1m		\
 	 	 	tic.1m			\
@@ -588,7 +595,7 @@ COMMON_MANFILES = 	6to4relay.1m		\
 	 	 	zoneadmd.1m		\
 	 	 	zonecfg.1m		\
 	 	 	zpool.1m		\
-	 	 	zstreamdump.1m		\
+	 	 	zstreamdump.1m
 
 i386_MANFILES =	 	lms.1m			\
 	 	 	parted.1m		\

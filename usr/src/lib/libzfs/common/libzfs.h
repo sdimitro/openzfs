@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2010 Nexenta Systems, Inc. All rights reserved.
+ * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
@@ -231,6 +231,7 @@ typedef struct splitflags {
  */
 extern int zpool_scan(zpool_handle_t *, pool_scan_func_t);
 extern int zpool_clear(zpool_handle_t *, const char *, nvlist_t *);
+extern int zpool_reguid(zpool_handle_t *);
 extern int zpool_reopen(zpool_handle_t *);
 
 extern int zpool_vdev_online(zpool_handle_t *, const char *, int,
@@ -606,6 +607,9 @@ typedef struct recvflags {
 
 	/* do not mount file systems as they are extracted (private) */
 	boolean_t nomount;
+
+	/* suggested clone origin */
+	zfs_handle_t *origin;
 } recvflags_t;
 
 extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t *,

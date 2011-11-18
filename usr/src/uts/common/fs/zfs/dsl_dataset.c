@@ -938,7 +938,7 @@ dmu_snapshots_destroy_nvl(nvlist_t *snaps, boolean_t defer, char *failed)
 			dsda->ds = ds;
 			dsda->defer = defer;
 			dsl_sync_task_create(dstg, dsl_dataset_destroy_check,
-				dsl_dataset_destroy_sync, dsda, dstg, 0);
+			    dsl_dataset_destroy_sync, dsda, dstg, 0);
 		} else if (err == ENOENT) {
 			err = 0;
 		} else {
@@ -4224,8 +4224,8 @@ dsl_dataset_space_wouldfree(dsl_dataset_t *firstsnap,
 			break;
 
 		dsl_deadlist_space_range(&ds->ds_deadlist,
-			firstsnap->ds_phys->ds_prev_snap_txg, UINT64_MAX,
-			&used, &comp, &uncomp);
+		    firstsnap->ds_phys->ds_prev_snap_txg, UINT64_MAX,
+		    &used, &comp, &uncomp);
 		*usedp += used;
 		*compp += comp;
 		*uncompp += uncomp;

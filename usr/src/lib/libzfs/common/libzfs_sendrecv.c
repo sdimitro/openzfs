@@ -781,7 +781,7 @@ typedef struct send_dump_data {
 	char prevsnap[ZFS_MAXNAMELEN];
 	uint64_t prevsnap_obj;
 	boolean_t seenfrom, seento, replicate, doall, fromorigin;
-	boolean_t verbose, noop, parsable;
+	boolean_t verbose, dryrun, parsable;
 	int outfd;
 	boolean_t err;
 	nvlist_t *fss;
@@ -943,7 +943,7 @@ hold_for_send(zfs_handle_t *zhp, send_dump_data_t *sdd)
 
 	assert(zhp->zfs_type == ZFS_TYPE_SNAPSHOT);
 
-	if (sdd->noop)
+	if (sdd->dryrun)
 		return (0);
 
 	/*
@@ -1067,10 +1067,10 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 		if (sdd->parsable) {
 			if (sdd->prevsnap[0] != '\0') {
 				(void) fprintf(stderr, "incremental\t%s\t%s",
-					sdd->prevsnap, zhp->zfs_name);
+				    sdd->prevsnap, zhp->zfs_name);
 			} else {
 				(void) fprintf(stderr, "full\t%s",
-					zhp->zfs_name);
+				    zhp->zfs_name);
 			}
 		} else {
 			(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
@@ -1080,7 +1080,7 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 		if (err == 0) {
 			if (sdd->parsable) {
 				(void) fprintf(stderr, "\t%llu\n",
-				    (longlong_t) size);
+				    (longlong_t)size);
 			} else {
 				char buf[16];
 				zfs_nicenum(size, buf, sizeof (buf));
@@ -1093,7 +1093,7 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 		}
 	}
 
-	if (!sdd->noop) {
+	if (!sdd->dryrun) {
 		err = dump_ioctl(zhp, sdd->prevsnap, sdd->prevsnap_obj,
 		    fromorigin, sdd->outfd, sdd->debugnv);
 	}
@@ -1222,12 +1222,12 @@ again:
 		VERIFY(nvlist_lookup_string(fslist, "name", &fsname) == 0);
 		(void) nvlist_lookup_uint64(fslist, "origin", &origin_guid);
 		(void) nvlist_lookup_uint64(fslist, "parentfromsnap",
-			&parent_guid);
+		    &parent_guid);
 
 		if (parent_guid != 0) {
 			parent_nv = fsavl_find(sdd->fsavl, parent_guid, NULL);
 			if (!nvlist_exists(parent_nv, "sent")) {
-				/* parent has not yet been sent; skip this one */
+				/* parent has not been sent; skip this one */
 				needagain = B_TRUE;
 				continue;
 			}
@@ -1445,7 +1445,7 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 	sdd.fsavl = fsavl;
 	sdd.verbose = flags->verbose;
 	sdd.parsable = flags->parsable;
-	sdd.noop = flags->dryrun;
+	sdd.dryrun = flags->dryrun;
 	sdd.filter_cb = filter_func;
 	sdd.filter_cb_arg = cb_arg;
 	if (debugnvp)
@@ -1468,23 +1468,21 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 		 * before generating any data.  Then do a non-verbose real
 		 * run to generate the streams.
 		 */
-		sdd.noop = B_TRUE;
+		sdd.dryrun = B_TRUE;
 		err = dump_filesystems(zhp, &sdd);
-		sdd.noop = flags->dryrun;
+		sdd.dryrun = flags->dryrun;
 		sdd.verbose = B_FALSE;
 		if (flags->parsable) {
 			(void) fprintf(stderr, "size\t%llu\n",
-			    (longlong_t) sdd.size);
+			    (longlong_t)sdd.size);
 		} else {
 			char buf[16];
 			zfs_nicenum(sdd.size, buf, sizeof (buf));
 			(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-				"total estimated size is %s\n"), buf);
+			    "total estimated size is %s\n"), buf);
 		}
 	}
-free:
-	if (err == 0)
-		err = dump_filesystems(zhp, &sdd);
+	err = dump_filesystems(zhp, &sdd);
 	fsavl_destroy(fsavl);
 	nvlist_free(fss);
 
@@ -1728,12 +1726,10 @@ static int
 guid_to_name_cb(zfs_handle_t *zhp, void *arg)
 {
 	guid_to_name_data_t *gtnd = arg;
-	const char *slash;
 	int err;
 
 	if (gtnd->skip != NULL &&
-	    (slash = strrchr(zhp->zfs_name, '/')) != NULL &&
-	    strcmp(slash + 1, gtnd->skip) == 0) {
+	    strcmp(zhp->zfs_name, gtnd->skip) == 0) {
 		return (0);
 	}
 
@@ -1792,11 +1788,10 @@ guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
 			return (0);
 
 		/*
-		 * Remember the last portion of the dataset so we skip it next
-		 * time through (as we've already searched that portion of the
-		 * hierarchy).
+		 * Remember the dataset that we already searched, so we
+		 * skip it next time through.
 		 */
-		gtnd.skip = strrchr(pname, '/') + 1;
+		gtnd.skip = pname;
 	}
 
 	return (ENOENT);
@@ -2576,7 +2571,12 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 	 * Determine the name of the origin snapshot, store in zc_string.
 	 */
 	if (drrb->drr_flags & DRR_FLAG_CLONE) {
-		if (guid_to_name(hdl, zc.zc_value,
+		if (flags->origin != NULL &&
+		    flags->origin->zfs_dmustats.dds_guid ==
+		    drrb->drr_fromguid) {
+			(void) strlcpy(zc.zc_string, flags->origin->zfs_name,
+			    sizeof (zc.zc_string));
+		} else if (guid_to_name(hdl, zc.zc_value,
 		    drrb->drr_fromguid, zc.zc_string) != 0) {
 			zcmd_free_nvlists(&zc);
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,

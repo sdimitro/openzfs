@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2011 by Delphix. All rights reserved.
+ */
+
 #ifndef _SPAWN_H
 #define	_SPAWN_H
 

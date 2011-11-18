@@ -23,6 +23,8 @@
  * Use is subject to license terms.
  */
 
+/* Copyright (c) 2011 by Delphix. All rights reserved. */
+
 /*
  * condvar.h:
  *

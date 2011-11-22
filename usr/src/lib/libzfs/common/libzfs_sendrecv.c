@@ -2576,7 +2576,12 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 	 * Determine the name of the origin snapshot, store in zc_string.
 	 */
 	if (drrb->drr_flags & DRR_FLAG_CLONE) {
-		if (guid_to_name(hdl, zc.zc_value,
+		if (flags->origin != NULL &&
+		    flags->origin->zfs_dmustats.dds_guid ==
+		    drrb->drr_fromguid) {
+			(void) strlcpy(zc.zc_string, flags->origin->zfs_name,
+			    sizeof (zc.zc_string));
+		} else if (guid_to_name(hdl, zc.zc_value,
 		    drrb->drr_fromguid, zc.zc_string) != 0) {
 			zcmd_free_nvlists(&zc);
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,

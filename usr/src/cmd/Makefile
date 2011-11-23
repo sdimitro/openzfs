@@ -452,6 +452,7 @@ COMMON_SUBDIRS=		\
 	zdb		\
 	zdump		\
 	zfs		\
+	zhack		\
 	zic		\
 	zinject		\
 	zlogin		\

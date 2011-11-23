@@ -18,8 +18,10 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -54,6 +56,7 @@
 #include <sys/zfs_fuid.h>
 #include <sys/arc.h>
 #include <sys/ddt.h>
+#include <sys/zfeature.h>
 #undef ZFS_MAXNAMELEN
 #undef verify
 #include <libzfs.h>
@@ -1085,7 +1088,7 @@ dump_dsl_dataset(objset_t *os, uint64_t object, void *data, size_t size)
 
 	ASSERT(size == sizeof (*ds));
 	crtime = ds->ds_creation_time;
-	zdb_nicenum(ds->ds_used_bytes, used);
+	zdb_nicenum(ds->ds_referenced_bytes, used);
 	zdb_nicenum(ds->ds_compressed_bytes, compressed);
 	zdb_nicenum(ds->ds_uncompressed_bytes, uncompressed);
 	zdb_nicenum(ds->ds_unique_bytes, unique);
@@ -1125,6 +1128,44 @@ dump_dsl_dataset(objset_t *os, uint64_t object, void *data, size_t size)
 	(void) printf("\t\tprops_obj = %llu\n",
 	    (u_longlong_t)ds->ds_props_obj);
 	(void) printf("\t\tbp = %s\n", blkbuf);
+}
+
+/* ARGSUSED */
+static int
+dump_bptree_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
+{
+	char blkbuf[BP_SPRINTF_LEN];
+
+	if (bp->blk_birth != 0) {
+		sprintf_blkptr(blkbuf, bp);
+		(void) printf("\t%s\n", blkbuf);
+	}
+	return (0);
+}
+
+static void
+dump_bptree(objset_t *os, uint64_t obj, char *name)
+{
+	char bytes[32];
+	bptree_phys_t *bt;
+	dmu_buf_t *db;
+
+	if (dump_opt['d'] < 3)
+		return;
+
+	VERIFY3U(0, ==, dmu_bonus_hold(os, obj, FTAG, &db));
+	bt = db->db_data;
+	zdb_nicenum(bt->bt_bytes, bytes);
+	(void) printf("\n    %s: %llu datasets, %s\n",
+	    name, (unsigned long long)(bt->bt_end - bt->bt_begin), bytes);
+	dmu_buf_rele(db, FTAG);
+
+	if (dump_opt['d'] < 5)
+		return;
+
+	(void) printf("\n");
+
+	(void) bptree_iterate(os, obj, B_FALSE, dump_bptree_cb, NULL, NULL);
 }
 
 /* ARGSUSED */
@@ -1435,6 +1476,9 @@ static object_viewer_t *object_viewer[DMU_OT_NUMTYPES + 1] = {
 	dump_none,		/* deadlist hdr			*/
 	dump_zap,		/* dsl clones			*/
 	dump_none,		/* bpobj subobjs		*/
+	dump_zap,		/* feature list			*/
+	dump_zap,		/* feature descriptions		*/
+	dump_none,		/* bptree			*/
 	dump_unknown,		/* Unknown type, must be last	*/
 };
 
@@ -2192,6 +2236,12 @@ dump_block_stats(spa_t *spa)
 	    count_block_cb, &zcb, NULL);
 	(void) bpobj_iterate_nofree(&spa->spa_dsl_pool->dp_free_bpobj,
 	    count_block_cb, &zcb, NULL);
+	if (spa_feature_is_active(spa,
+	    &spa_feature_table[SPA_FEATURE_ASYNC_DESTROY])) {
+		VERIFY3U(0, ==, bptree_iterate(spa->spa_meta_objset,
+		    spa->spa_dsl_pool->dp_bptree_obj, B_FALSE, count_block_cb,
+		    &zcb, NULL));
+	}
 
 	if (dump_opt['c'] > 1)
 		flags |= TRAVERSE_PREFETCH_DATA;
@@ -2473,7 +2523,14 @@ dump_zpool(spa_t *spa)
 			dump_bpobj(&spa->spa_deferred_bpobj, "Deferred frees");
 			if (spa_version(spa) >= SPA_VERSION_DEADLISTS) {
 				dump_bpobj(&spa->spa_dsl_pool->dp_free_bpobj,
-				    "Pool frees");
+				    "Pool snapshot frees");
+			}
+
+			if (spa_feature_is_active(spa,
+			    &spa_feature_table[SPA_FEATURE_ASYNC_DESTROY])) {
+				dump_bptree(spa->spa_meta_objset,
+				    spa->spa_dsl_pool->dp_bptree_obj,
+				    "Pool dataset frees");
 			}
 			dump_dtl(spa->spa_root_vdev, 0);
 		}

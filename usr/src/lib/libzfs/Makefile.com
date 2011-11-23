@@ -27,6 +27,7 @@ LIBRARY= libzfs.a
 VERS= .1
 
 OBJS_SHARED=			\
+	zfeature_common.o	\
 	zfs_comutil.o		\
 	zfs_deleg.o		\
 	zfs_fletcher.o		\

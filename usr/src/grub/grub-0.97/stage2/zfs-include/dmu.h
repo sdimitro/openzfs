@@ -16,9 +16,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 /*
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_DMU_H
@@ -38,8 +40,8 @@ typedef enum dmu_object_type {
 	DMU_OT_OBJECT_ARRAY,		/* UINT64 */
 	DMU_OT_PACKED_NVLIST,		/* UINT8 (XDR by nvlist_pack/unpack) */
 	DMU_OT_PACKED_NVLIST_SIZE,	/* UINT64 */
-	DMU_OT_BPLIST,			/* UINT64 */
-	DMU_OT_BPLIST_HDR,		/* UINT64 */
+	DMU_OT_BPOBJ,			/* UINT64 */
+	DMU_OT_BPOBJ_HDR,		/* UINT64 */
 	/* spa: */
 	DMU_OT_SPACE_MAP_HEADER,	/* UINT64 */
 	DMU_OT_SPACE_MAP,		/* UINT64 */
@@ -56,7 +58,7 @@ typedef enum dmu_object_type {
 	DMU_OT_DSL_DATASET,		/* UINT64 */
 	/* zpl: */
 	DMU_OT_ZNODE,			/* ZNODE */
-	DMU_OT_OLDACL,			/* OLD ACL */
+	DMU_OT_OLDACL,			/* Old ACL */
 	DMU_OT_PLAIN_FILE_CONTENTS,	/* UINT8 */
 	DMU_OT_DIRECTORY_CONTENTS,	/* ZAP */
 	DMU_OT_MASTER_NODE,		/* ZAP */
@@ -79,7 +81,7 @@ typedef enum dmu_object_type {
 	DMU_OT_FUID,			/* FUID table (Packed NVLIST UINT8) */
 	DMU_OT_FUID_SIZE,		/* FUID table size UINT64 */
 	DMU_OT_NEXT_CLONES,		/* ZAP */
-	DMU_OT_SCRUB_QUEUE,		/* ZAP */
+	DMU_OT_SCAN_QUEUE,		/* ZAP */
 	DMU_OT_USERGROUP_USED,		/* ZAP */
 	DMU_OT_USERGROUP_QUOTA,		/* ZAP */
 	DMU_OT_USERREFS,		/* ZAP */
@@ -89,6 +91,14 @@ typedef enum dmu_object_type {
 	DMU_OT_SA_MASTER_NODE,		/* ZAP */
 	DMU_OT_SA_ATTR_REGISTRATION,	/* ZAP */
 	DMU_OT_SA_ATTR_LAYOUTS,		/* ZAP */
+	DMU_OT_SCAN_XLATE,		/* ZAP */
+	DMU_OT_DEDUP,			/* fake dedup BP from ddt_bp_create() */
+	DMU_OT_DEADLIST,		/* ZAP */
+	DMU_OT_DEADLIST_HDR,		/* UINT64 */
+	DMU_OT_DSL_CLONES,		/* ZAP */
+	DMU_OT_BPOBJ_SUBOBJ,		/* UINT64 */
+	DMU_OT_FEATURE_LIST,		/* ZAP */
+	DMU_OT_FEATURE_DESCRIPTIONS,	/* ZAP */
 	DMU_OT_NUMTYPES
 } dmu_object_type_t;
 
@@ -107,6 +117,9 @@ typedef enum dmu_objset_type {
  */
 #define	DMU_POOL_DIRECTORY_OBJECT	1
 #define	DMU_POOL_CONFIG			"config"
+#define	DMU_POOL_FEATURES_FOR_READ	"features_for_read"
+#define	DMU_POOL_FEATURES_FOR_WRITE	"features_for_write"
+#define	DMU_POOL_FEATURE_DESCRIPTIONS	"feature_descriptions"
 #define	DMU_POOL_ROOT_DATASET		"root_dataset"
 #define	DMU_POOL_SYNC_BPLIST		"sync_bplist"
 #define	DMU_POOL_ERRLOG_SCRUB		"errlog_scrub"

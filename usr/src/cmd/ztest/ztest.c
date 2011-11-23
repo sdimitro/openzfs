@@ -106,6 +106,7 @@
 #include <sys/dsl_scan.h>
 #include <sys/zio_checksum.h>
 #include <sys/refcount.h>
+#include <sys/zfeature.h>
 #include <stdio.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
@@ -5569,10 +5570,9 @@ make_random_props()
 {
 	nvlist_t *props;
 
-	if (ztest_random(2) == 0)
-		return (NULL);
-
 	VERIFY(nvlist_alloc(&props, NV_UNIQUE_NAME, 0) == 0);
+	if (ztest_random(2) == 0)
+		return (props);
 	VERIFY(nvlist_add_uint64(props, "autoreplace", 1) == 0);
 
 	return (props);
@@ -5603,6 +5603,12 @@ ztest_init(ztest_shared_t *zs)
 	nvroot = make_vdev_root(NULL, NULL, ztest_opts.zo_vdev_size, 0,
 	    0, ztest_opts.zo_raidz, zs->zs_mirrors, 1);
 	props = make_random_props();
+	for (int i = 0; i < SPA_FEATURES; i++) {
+		char buf[1024];
+		(void) snprintf(buf, sizeof (buf), "feature@%s",
+		    spa_feature_table[i].fi_name);
+		VERIFY3U(0, ==, nvlist_add_uint64(props, buf, 0));
+	}
 	VERIFY3U(0, ==, spa_create(ztest_opts.zo_pool, nvroot, props,
 	    NULL, NULL));
 	nvlist_free(nvroot);
@@ -5610,6 +5616,7 @@ ztest_init(ztest_shared_t *zs)
 	VERIFY3U(0, ==, spa_open(ztest_opts.zo_pool, &spa, FTAG));
 	zs->zs_metaslab_sz =
 	    1ULL << spa->spa_root_vdev->vdev_child[0]->vdev_ms_shift;
+
 	spa_close(spa, FTAG);
 
 	kernel_fini();

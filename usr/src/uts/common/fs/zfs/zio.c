@@ -2980,3 +2980,45 @@ static zio_pipe_stage_t *zio_pipeline[] = {
 	zio_checksum_verify,
 	zio_done
 };
+
+/* dnp is the dnode for zb1->zb_object */
+boolean_t
+zbookmark_is_before(const dnode_phys_t *dnp, const zbookmark_t *zb1,
+    const zbookmark_t *zb2)
+{
+	uint64_t zb1nextL0, zb2thisobj;
+
+	ASSERT(zb1->zb_objset == zb2->zb_objset);
+	ASSERT(zb2->zb_level == 0);
+
+	/*
+	 * A bookmark in the deadlist is considered to be after
+	 * everything else.
+	 */
+	if (zb2->zb_object == DMU_DEADLIST_OBJECT)
+		return (B_TRUE);
+
+	/* The objset_phys_t isn't before anything. */
+	if (dnp == NULL)
+		return (B_FALSE);
+
+	zb1nextL0 = (zb1->zb_blkid + 1) <<
+	    ((zb1->zb_level) * (dnp->dn_indblkshift - SPA_BLKPTRSHIFT));
+
+	zb2thisobj = zb2->zb_object ? zb2->zb_object :
+	    zb2->zb_blkid << (DNODE_BLOCK_SHIFT - DNODE_SHIFT);
+
+	if (zb1->zb_object == DMU_META_DNODE_OBJECT) {
+		uint64_t nextobj = zb1nextL0 *
+		    (dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT) >> DNODE_SHIFT;
+		return (nextobj <= zb2thisobj);
+	}
+
+	if (zb1->zb_object < zb2thisobj)
+		return (B_TRUE);
+	if (zb1->zb_object > zb2thisobj)
+		return (B_FALSE);
+	if (zb2->zb_object == DMU_META_DNODE_OBJECT)
+		return (B_FALSE);
+	return (zb1nextL0 <= zb2->zb_blkid);
+}

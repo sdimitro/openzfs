@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #include <sys/dmu.h>
@@ -100,6 +101,9 @@ const dmu_object_type_info_t dmu_ot[DMU_OT_NUMTYPES] = {
 	{	byteswap_uint64_array,	TRUE,	"DSL deadlist map hdr"	},
 	{	zap_byteswap,		TRUE,	"DSL dir clones"	},
 	{	byteswap_uint64_array,	TRUE,	"bpobj subobj"		},
+	{	zap_byteswap,		TRUE,	"feature list"		},
+	{	zap_byteswap,		TRUE,	"feature descriptions"	},
+	{	byteswap_uint64_array,	TRUE,	"bptree"		}
 };
 
 int

@@ -18,11 +18,10 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 by Delphix. All rights reserved.
- */
-/*
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  */
 
@@ -138,6 +137,9 @@ typedef enum dmu_object_type {
 	DMU_OT_DEADLIST_HDR,		/* UINT64 */
 	DMU_OT_DSL_CLONES,		/* ZAP */
 	DMU_OT_BPOBJ_SUBOBJ,		/* UINT64 */
+	DMU_OT_FEATURE_LIST,		/* ZAP */
+	DMU_OT_FEATURE_DESCRIPTIONS,	/* ZAP */
+	DMU_OT_BPTREE,			/* bptree_phys_t stack */
 	DMU_OT_NUMTYPES
 } dmu_object_type_t;
 
@@ -218,6 +220,9 @@ typedef void dmu_buf_evict_func_t(struct dmu_buf *db, void *user_ptr);
  */
 #define	DMU_POOL_DIRECTORY_OBJECT	1
 #define	DMU_POOL_CONFIG			"config"
+#define	DMU_POOL_FEATURES_FOR_WRITE	"features_for_write"
+#define	DMU_POOL_FEATURES_FOR_READ	"features_for_read"
+#define	DMU_POOL_FEATURE_DESCRIPTIONS	"feature_descriptions"
 #define	DMU_POOL_ROOT_DATASET		"root_dataset"
 #define	DMU_POOL_SYNC_BPOBJ		"sync_bplist"
 #define	DMU_POOL_ERRLOG_SCRUB		"errlog_scrub"
@@ -233,6 +238,7 @@ typedef void dmu_buf_evict_func_t(struct dmu_buf *db, void *user_ptr);
 #define	DMU_POOL_CREATION_VERSION	"creation_version"
 #define	DMU_POOL_SCAN			"scan"
 #define	DMU_POOL_FREE_BPOBJ		"free_bpobj"
+#define	DMU_POOL_BPTREE_OBJ		"bptree_obj"
 
 /*
  * Allocate an object from this objset.  The range of object numbers
@@ -493,7 +499,7 @@ void dmu_tx_callback_register(dmu_tx_t *tx, dmu_tx_callback_func_t *dcb_func,
 
 /*
  * Free up the data blocks for a defined range of a file.  If size is
- * zero, the range from offset to end-of-file is freed.
+ * -1, the range from offset to end-of-file is freed.
  */
 int dmu_free_range(objset_t *os, uint64_t object, uint64_t offset,
 	uint64_t size, dmu_tx_t *tx);

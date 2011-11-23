@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_DSL_POOL_H
@@ -34,6 +35,7 @@
 #include <sys/ddt.h>
 #include <sys/arc.h>
 #include <sys/bpobj.h>
+#include <sys/bptree.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -85,6 +87,7 @@ typedef struct dsl_pool {
 	uint64_t dp_write_limit;
 	uint64_t dp_tmp_userrefs_obj;
 	bpobj_t dp_free_bpobj;
+	uint64_t dp_bptree_obj;
 
 	struct dsl_scan *dp_scan;
 
@@ -110,7 +113,8 @@ typedef struct dsl_pool {
 	zfs_all_blkstats_t *dp_blkstats;
 } dsl_pool_t;
 
-int dsl_pool_open(spa_t *spa, uint64_t txg, dsl_pool_t **dpp);
+int dsl_pool_init(spa_t *spa, uint64_t txg, dsl_pool_t **dpp);
+int dsl_pool_open(dsl_pool_t *dp);
 void dsl_pool_close(dsl_pool_t *dp);
 dsl_pool_t *dsl_pool_create(spa_t *spa, nvlist_t *zplprops, uint64_t txg);
 void dsl_pool_sync(dsl_pool_t *dp, uint64_t txg);

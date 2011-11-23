@@ -484,6 +484,16 @@ zfs_prop_written(const char *name)
 }
 
 /*
+ * Returns true if this is a valid feature@ property.
+ */
+boolean_t
+zfs_prop_feature(const char *name)
+{
+	static const char *prefix = "feature@";
+	return (strncmp(name, prefix, strlen(prefix)) == 0);
+}
+
+/*
  * Tables of index types, plus functions to convert between the user view
  * (strings) and internal representation (uint64_t).
  */

@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -1236,6 +1237,9 @@ do_print_vdev(uintptr_t addr, int flags, int depth, int stats,
 			break;
 		case VDEV_AUX_VERSION_OLDER:
 			aux = "VERS_OLDER";
+			break;
+		case VDEV_AUX_UNSUP_FEAT:
+			aux = "UNSUP_FEAT";
 			break;
 		case VDEV_AUX_SPARED:
 			aux = "SPARED";

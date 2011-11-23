@@ -18,6 +18,7 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 by Delphix. All rights reserved.
@@ -45,6 +46,7 @@
 
 #include "libzfs_impl.h"
 #include "zfs_prop.h"
+#include "zfeature_common.h"
 
 int
 libzfs_errno(libzfs_handle_t *hdl)
@@ -112,7 +114,8 @@ libzfs_error_description(libzfs_handle_t *hdl)
 	case EZFS_RESILVERING:
 		return (dgettext(TEXT_DOMAIN, "currently resilvering"));
 	case EZFS_BADVERSION:
-		return (dgettext(TEXT_DOMAIN, "unsupported version"));
+		return (dgettext(TEXT_DOMAIN, "unsupported version or "
+		    "feature"));
 	case EZFS_POOLUNAVAIL:
 		return (dgettext(TEXT_DOMAIN, "pool is unavailable"));
 	case EZFS_DEVOVERFLOW:
@@ -629,6 +632,7 @@ libzfs_init(void)
 
 	zfs_prop_init();
 	zpool_prop_init();
+	zpool_feature_init();
 	libzfs_mnttab_init(hdl);
 
 	return (hdl);
@@ -1282,8 +1286,9 @@ addlist(libzfs_handle_t *hdl, char *propname, zprop_list_t **listp,
 	 * this is a pool property or if this isn't a user-defined
 	 * dataset property,
 	 */
-	if (prop == ZPROP_INVAL && (type == ZFS_TYPE_POOL ||
-	    (!zfs_prop_user(propname) && !zfs_prop_userquota(propname) &&
+	if (prop == ZPROP_INVAL && ((type == ZFS_TYPE_POOL &&
+	    !zfs_prop_feature(propname)) || (type == ZFS_TYPE_DATASET &&
+	    !zfs_prop_user(propname) && !zfs_prop_userquota(propname) &&
 	    !zfs_prop_written(propname)))) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 		    "invalid property '%s'"), propname);
@@ -1296,11 +1301,26 @@ addlist(libzfs_handle_t *hdl, char *propname, zprop_list_t **listp,
 
 	entry->pl_prop = prop;
 	if (prop == ZPROP_INVAL) {
-		if ((entry->pl_user_prop = zfs_strdup(hdl, propname)) == NULL) {
+		char buf[MAXPATHLEN];
+		char *newpropname = propname;
+
+		if (zfs_prop_feature(propname)) {
+			zfeature_info_t *fi;
+			char *feature = strchr(propname, '@') + 1;
+
+			if (zfeature_lookup(feature, B_TRUE, &fi) == 0) {
+				(void) snprintf(buf, sizeof (buf),
+				    "feature@%s", fi->fi_name);
+				newpropname = buf;
+			}
+		}
+
+		if ((entry->pl_user_prop = zfs_strdup(hdl, newpropname)) ==
+		    NULL) {
 			free(entry);
 			return (-1);
 		}
-		entry->pl_width = strlen(propname);
+		entry->pl_width = strlen(newpropname);
 	} else {
 		entry->pl_width = zprop_width(prop, &entry->pl_fixed,
 		    type);

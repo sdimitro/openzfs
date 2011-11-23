@@ -48,6 +48,7 @@
 #include <sys/arc.h>
 #include <sys/ddt.h>
 #include "zfs_prop.h"
+#include "zfeature_common.h"
 
 /*
  * SPA locking
@@ -216,7 +217,7 @@
  * Like spa_vdev_enter/exit, these are convenience wrappers -- the actual
  * locking is, always, based on spa_namespace_lock and spa_config_lock[].
  *
- * spa_rename() is also implemented within this file since is requires
+ * spa_rename() is also implemented within this file since it requires
  * manipulation of the namespace.
  */
 
@@ -483,8 +484,22 @@ spa_add(const char *name, nvlist_t *config, const char *altroot)
 	VERIFY(nvlist_alloc(&spa->spa_load_info, NV_UNIQUE_NAME,
 	    KM_SLEEP) == 0);
 
-	if (config != NULL)
+	if (config != NULL) {
+		nvlist_t *features;
+
+		if (nvlist_lookup_nvlist(config, ZPOOL_CONFIG_FEATURES_FOR_READ,
+		    &features) == 0) {
+			VERIFY(nvlist_dup(features, &spa->spa_label_features,
+			    0) == 0);
+		}
+
 		VERIFY(nvlist_dup(config, &spa->spa_config, 0) == 0);
+	}
+
+	if (spa->spa_label_features == NULL) {
+		VERIFY(nvlist_alloc(&spa->spa_label_features, NV_UNIQUE_NAME,
+		    KM_SLEEP) == 0);
+	}
 
 	return (spa);
 }
@@ -521,6 +536,7 @@ spa_remove(spa_t *spa)
 
 	list_destroy(&spa->spa_config_list);
 
+	nvlist_free(spa->spa_label_features);
 	nvlist_free(spa->spa_load_info);
 	spa_config_set(spa, NULL);
 
@@ -1029,6 +1045,20 @@ spa_vdev_state_exit(spa_t *spa, vdev_t *vd, int error)
  * ==========================================================================
  */
 
+void
+spa_activate_mos_feature(spa_t *spa, const char *feature)
+{
+	(void) nvlist_add_boolean(spa->spa_label_features, feature);
+	vdev_config_dirty(spa->spa_root_vdev);
+}
+
+void
+spa_deactivate_mos_feature(spa_t *spa, const char *feature)
+{
+	(void) nvlist_remove_all(spa->spa_label_features, feature);
+	vdev_config_dirty(spa->spa_root_vdev);
+}
+
 /*
  * Rename a spa_t.
  */
@@ -1264,6 +1294,12 @@ dsl_pool_t *
 spa_get_dsl(spa_t *spa)
 {
 	return (spa->spa_dsl_pool);
+}
+
+boolean_t
+spa_is_initializing(spa_t *spa)
+{
+	return (spa->spa_is_initializing);
 }
 
 blkptr_t *
@@ -1549,6 +1585,7 @@ spa_init(int mode)
 	vdev_cache_stat_init();
 	zfs_prop_init();
 	zpool_prop_init();
+	zpool_feature_init();
 	spa_config_load();
 	l2arc_start();
 }

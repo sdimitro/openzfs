@@ -18,33 +18,32 @@
 #
 # CDDL HEADER END
 #
+
 #
-# Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 # Copyright (c) 2011 by Delphix. All rights reserved.
 #
 
-PROG= ztest
+PROG= zhack
+SRCS= ../$(PROG).c
 OBJS= $(PROG).o
-SRCS= $(OBJS:%.o=../%.c)
 
 include ../../Makefile.cmd
 include ../../Makefile.ctf
 
 INCS += -I../../../lib/libzpool/common
-INCS += -I../../../uts/common/fs/zfs
-INCS += -I../../../common/zfs
+INCS +=	-I../../../uts/common/fs/zfs
+INCS +=	-I../../../common/zfs
 
-LDLIBS += -lumem -lzpool -lcmdutils -lm -lnvpair
+LDLIBS += -lzpool -lumem -lnvpair -lzfs -lavl
 
-C99MODE= -xc99=%all
-C99LMODE= -Xc99=%all
-CFLAGS += -g $(CCVERBOSE)
-CFLAGS64 += -g $(CCVERBOSE)
+C99MODE=	-xc99=%all
+C99LMODE=	-Xc99=%all
+
+CFLAGS += $(CCVERBOSE)
+CFLAGS64 += $(CCVERBOSE)
 CPPFLAGS += -D_LARGEFILE64_SOURCE=1 -D_REENTRANT $(INCS)
-
-# lint complains about unused _umem_* functions
-LINTFLAGS += -xerroff=E_NAME_DEF_NOT_USED2 
-LINTFLAGS64 += -xerroff=E_NAME_DEF_NOT_USED2  
 
 .KEEP_STATE:
 

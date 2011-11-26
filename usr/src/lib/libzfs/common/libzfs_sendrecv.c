@@ -781,7 +781,7 @@ typedef struct send_dump_data {
 	char prevsnap[ZFS_MAXNAMELEN];
 	uint64_t prevsnap_obj;
 	boolean_t seenfrom, seento, replicate, doall, fromorigin;
-	boolean_t verbose, dryrun, parsable;
+	boolean_t estimatesize, printoutput, dryrun, parsable;
 	int outfd;
 	boolean_t err;
 	nvlist_t *fss;
@@ -1059,38 +1059,44 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 	fromorigin = sdd->prevsnap[0] == '\0' &&
 	    (sdd->fromorigin || sdd->replicate);
 
-	if (sdd->verbose) {
-		uint64_t size;
+	if (sdd->estimatesize) {
+		uint64_t size = 0;
 		err = estimate_ioctl(zhp, sdd->prevsnap_obj,
 		    fromorigin, &size);
 
-		if (sdd->parsable) {
-			if (sdd->prevsnap[0] != '\0') {
-				(void) fprintf(stderr, "incremental\t%s\t%s",
-				    sdd->prevsnap, zhp->zfs_name);
-			} else {
-				(void) fprintf(stderr, "full\t%s",
-				    zhp->zfs_name);
-			}
-		} else {
-			(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-			    "send from @%s to %s"),
-			    sdd->prevsnap, zhp->zfs_name);
-		}
-		if (err == 0) {
+		if (sdd->printoutput) {
 			if (sdd->parsable) {
-				(void) fprintf(stderr, "\t%llu\n",
-				    (longlong_t)size);
+				if (sdd->prevsnap[0] != '\0') {
+					(void) fprintf(stderr,
+					    "incremental\t%s\t%s",
+					    sdd->prevsnap, zhp->zfs_name);
+				} else {
+					(void) fprintf(stderr, "full\t%s",
+					    zhp->zfs_name);
+				}
 			} else {
-				char buf[16];
-				zfs_nicenum(size, buf, sizeof (buf));
 				(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-				    " estimated size is %s\n"), buf);
+				    "send from @%s to %s"),
+				    sdd->prevsnap, zhp->zfs_name);
 			}
-			sdd->size += size;
-		} else {
-			(void) fprintf(stderr, "\n");
+			if (err == 0) {
+				if (sdd->parsable) {
+					(void) fprintf(stderr, "\t%llu\n",
+					    (longlong_t) size);
+				} else {
+					char buf[16];
+					zfs_nicenum(size, buf, sizeof (buf));
+					(void) fprintf(stderr,
+					    dgettext(TEXT_DOMAIN,
+					    " estimated size is %s\n"), buf);
+				}
+				sdd->size += size;
+			} else {
+				(void) fprintf(stderr, "\n");
+			}
 		}
+
+		sdd->size += size;
 	}
 
 	if (!sdd->dryrun) {
@@ -1293,7 +1299,7 @@ again:
 int
 zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
     sendflags_t *flags, int outfd, snapfilter_cb_t filter_func,
-    void *cb_arg, nvlist_t **debugnvp)
+    void *cb_arg, nvlist_t **debugnvp, uint64_t *sizeestimate)
 {
 	char errbuf[1024];
 	send_dump_data_t sdd = { 0 };
@@ -1443,7 +1449,8 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 	sdd.fromorigin = flags->fromorigin;
 	sdd.fss = fss;
 	sdd.fsavl = fsavl;
-	sdd.verbose = flags->verbose;
+	sdd.printoutput = flags->verbose;
+	sdd.estimatesize = flags->verbose || sizeestimate != NULL;
 	sdd.parsable = flags->parsable;
 	sdd.dryrun = flags->dryrun;
 	sdd.filter_cb = filter_func;
@@ -1462,24 +1469,30 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 	} else {
 		sdd.cleanup_fd = -1;
 	}
-	if (flags->verbose) {
+	if (sdd.estimatesize) {
 		/*
-		 * Do a verbose no-op dry run to get all the verbose output
-		 * before generating any data.  Then do a non-verbose real
-		 * run to generate the streams.
+		 * Do a no-op dry run with estimatesize to get all the size
+		 * output before generating any data. Then do a run without
+		 * estimatesize to generate the real streams.
 		 */
 		sdd.dryrun = B_TRUE;
 		err = dump_filesystems(zhp, &sdd);
 		sdd.dryrun = flags->dryrun;
-		sdd.verbose = B_FALSE;
-		if (flags->parsable) {
-			(void) fprintf(stderr, "size\t%llu\n",
-			    (longlong_t)sdd.size);
-		} else {
-			char buf[16];
-			zfs_nicenum(sdd.size, buf, sizeof (buf));
-			(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-			    "total estimated size is %s\n"), buf);
+		sdd.printoutput = B_FALSE;
+		sdd.estimatesize = B_FALSE;
+		if (flags->verbose) {
+			if (flags->parsable) {
+				(void) fprintf(stderr, "size\t%llu\n",
+				    (longlong_t) sdd.size);
+			} else {
+				char buf[16];
+				zfs_nicenum(sdd.size, buf, sizeof (buf));
+				(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
+					"total estimated size is %s\n"), buf);
+			}
+		}
+		if (sizeestimate != NULL) {
+			*sizeestimate = sdd.size;
 		}
 	}
 	err = dump_filesystems(zhp, &sdd);

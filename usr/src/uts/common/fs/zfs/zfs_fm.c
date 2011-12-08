@@ -709,6 +709,10 @@ zfs_ereport_start_checksum(spa_t *spa, vdev_t *vd,
 
 	if (report->zcr_ereport == NULL) {
 		report->zcr_free(report->zcr_cbdata, report->zcr_cbinfo);
+		if (report->zcr_ckinfo != NULL) {
+			kmem_free(report->zcr_ckinfo,
+			    sizeof (*report->zcr_ckinfo));
+		}
 		kmem_free(report, sizeof (*report));
 		return;
 	}

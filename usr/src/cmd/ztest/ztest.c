@@ -395,11 +395,11 @@ typedef struct ztest_shared {
 	uint64_t	zs_vdev_aux;
 	uint64_t	zs_alloc;
 	uint64_t	zs_space;
-	uint64_t	zs_guid;
 	uint64_t	zs_splits;
 	uint64_t	zs_mirrors;
 	uint64_t	zs_metaslab_sz;
 	uint64_t	zs_metaslab_df_alloc_threshold;
+	uint64_t	zs_guid;
 } ztest_shared_t;
 
 #define	ID_PARALLEL	-1ULL

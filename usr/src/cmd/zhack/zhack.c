@@ -107,7 +107,7 @@ space_delta_cb(dmu_object_type_t bonustype, void *data,
 	 */
 	if (bonustype != DMU_OT_ZNODE && bonustype != DMU_OT_SA)
 		return (ENOENT);
-	fprintf(stderr, "modifying object that needs user accounting");
+	(void) fprintf(stderr, "modifying object that needs user accounting");
 	abort();
 	/* NOTREACHED */
 }

@@ -36,7 +36,7 @@ INCS += -I../../../lib/libzpool/common
 INCS +=	-I../../../uts/common/fs/zfs
 INCS +=	-I../../../common/zfs
 
-LDLIBS += -lzpool -lumem -lnvpair -lzfs -lavl
+LDLIBS += -lzpool -lumem -lnvpair -lzfs
 
 C99MODE=	-xc99=%all
 C99LMODE=	-Xc99=%all

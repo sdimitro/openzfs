@@ -100,20 +100,23 @@ ndmp_add_file_handler(ndmp_session_t *session, void *cookie, int fd,
 	new->fh_mode = mode;
 	new->fh_class = class;
 	new->fh_func = func;
+	(void) mutex_lock(&session->ns_file_handler_lock);
 	new->fh_next = session->ns_file_handler_list;
 	session->ns_file_handler_list = new;
+	(void) mutex_unlock(&session->ns_file_handler_lock);
 	return (0);
 }
 
 /*
  * Removes a file handler from the file handler list.
  */
-int
+void
 ndmp_remove_file_handler(ndmp_session_t *session, int fd)
 {
 	ndmp_file_handler_t **last;
 	ndmp_file_handler_t *handler;
 
+	(void) mutex_lock(&session->ns_file_handler_lock);
 	last = &session->ns_file_handler_list;
 	while (*last != 0) {
 		handler = *last;
@@ -121,12 +124,11 @@ ndmp_remove_file_handler(ndmp_session_t *session, int fd)
 		if (handler->fh_fd == fd) {
 			*last = handler->fh_next;
 			(void) free(handler);
-			return (1);
+			break;
 		}
 		last = &handler->fh_next;
 	}
-
-	return (0);
+	(void) mutex_unlock(&session->ns_file_handler_lock);
 }
 
 /*
@@ -197,20 +199,19 @@ ndmp_check_mover_state(ndmp_session_t *session)
  * Calls select on the the set of file descriptors from the file handler list
  * masked by the fd_class argument.  Calls the file handler function for each
  * file descriptor that is ready for I/O.
+ *
+ * We lock the file handler list to be safe, even though it should not be
+ * possible for this list to be modified except while processing requests
+ * in the context of this thread.
  */
 int
 ndmp_select(ndmp_session_t *session, boolean_t block, ulong_t class_mask)
 {
-	fd_set rfds;
-	fd_set wfds;
-	fd_set efds;
-	int n;
+	struct pollfd *fds;
+	nfds_t nfds, i;
 	ndmp_file_handler_t *handler;
-	struct timeval timeout;
-	boolean_t error;
-
-	if (session->ns_file_handler_list == NULL)
-		return (0);
+	int timeout;
+	int ret;
 
 	/*
 	 * If select should be blocked, then we poll every ten seconds.
@@ -220,79 +221,63 @@ ndmp_select(ndmp_session_t *session, boolean_t block, ulong_t class_mask)
 	 * that was closed in the other end.
 	 */
 	if (block)
-		timeout.tv_sec = 10;
+		timeout = 10000;	/* 10 seconds */
 	else
-		timeout.tv_sec = 0;
-	timeout.tv_usec = 0;
+		timeout = 0;
+
+	(void) mutex_lock(&session->ns_file_handler_lock);
+	for (nfds = 0, handler = session->ns_file_handler_list;
+	    handler != NULL; handler = handler->fh_next) {
+		if ((handler->fh_class & class_mask) == 0)
+			continue;
+
+		nfds++;
+	}
+
+	if (nfds == 0) {
+		(void) mutex_unlock(&session->ns_file_handler_lock);
+		return (0);
+	}
+
+	fds = alloca(nfds * sizeof (struct pollfd));
+	bzero(fds, nfds * sizeof (struct pollfd));
+
+	for (nfds = 0, handler = session->ns_file_handler_list;
+	    handler != NULL; handler = handler->fh_next) {
+		if ((handler->fh_class & class_mask) == 0)
+			continue;
+
+		fds[nfds].fd = handler->fh_fd;
+		if (handler->fh_mode & NDMPD_SELECT_MODE_READ)
+			fds[nfds].events |= POLLIN;
+		if (handler->fh_mode & NDMPD_SELECT_MODE_WRITE)
+			fds[nfds].events |= POLLOUT;
+
+		nfds++;
+	}
+	(void) mutex_unlock(&session->ns_file_handler_lock);
 
 	do {
-		/* Create the fd_sets for select. */
-		FD_ZERO(&rfds);
-		FD_ZERO(&wfds);
-		FD_ZERO(&efds);
-
-		for (handler = session->ns_file_handler_list; handler != 0;
-		    handler = handler->fh_next) {
-			if ((handler->fh_class & class_mask) == 0)
-				continue;
-
-			if (handler->fh_mode & NDMPD_SELECT_MODE_READ)
-				FD_SET(handler->fh_fd, &rfds);
-			if (handler->fh_mode & NDMPD_SELECT_MODE_WRITE)
-				FD_SET(handler->fh_fd, &wfds);
-			if (handler->fh_mode & NDMPD_SELECT_MODE_EXCEPTION)
-				FD_SET(handler->fh_fd, &efds);
-		}
 		ndmp_check_mover_state(session);
-		n = select(FD_SETSIZE, &rfds, &wfds, &efds, &timeout);
-	} while (n == 0 && block);
+		ret = poll(fds, nfds, timeout);
+	} while (ret == 0 && block);
 
-	if (n < 0) {
-		int session_fd = session->ns_sock;
-
+	if (ret < 0) {
 		if (errno == EINTR) {
 			if (session->ns_conn_error == 0)
 				session->ns_conn_error = EINTR;
 			return (-1);
 		}
 
-		ndmp_debug(session, "error on select: %s", strerror(errno));
-
-		for (handler = session->ns_file_handler_list; handler != 0;
-		    handler = handler->fh_next) {
-			if ((handler->fh_class & class_mask) == 0)
-				continue;
-
-			error = B_FALSE;
-			if (handler->fh_mode & NDMPD_SELECT_MODE_READ) {
-				if (FD_ISSET(handler->fh_fd, &rfds) &&
-				    session_fd == handler->fh_fd) {
-					error = B_TRUE;
-				}
-			}
-			if (handler->fh_mode & NDMPD_SELECT_MODE_WRITE) {
-				if (FD_ISSET(handler->fh_fd, &wfds) &&
-				    session_fd == handler->fh_fd) {
-					error = B_TRUE;
-				}
-			}
-			if (handler->fh_mode & NDMPD_SELECT_MODE_EXCEPTION) {
-				if (FD_ISSET(handler->fh_fd, &efds) &&
-				    session_fd == handler->fh_fd) {
-					error = B_TRUE;
-				}
-			}
-
-			if (error)
-				ndmp_session_failed(session, EIO);
-		}
+		ndmp_debug(session, "error on poll: %s", strerror(errno));
 
 		return (-1);
 	}
 
-	if (n == 0)
+	if (ret == 0)
 		return (0);
 
+	(void) mutex_lock(&session->ns_file_handler_lock);
 	handler = session->ns_file_handler_list;
 	while (handler != NULL) {
 		ulong_t mode = 0;
@@ -301,40 +286,64 @@ ndmp_select(ndmp_session_t *session, boolean_t block, ulong_t class_mask)
 			handler = handler->fh_next;
 			continue;
 		}
-		if (handler->fh_mode & NDMPD_SELECT_MODE_READ) {
-			if (FD_ISSET(handler->fh_fd, &rfds)) {
-				mode |= NDMPD_SELECT_MODE_READ;
-				FD_CLR(handler->fh_fd, &rfds);
+
+		/*
+		 * Iterate over all file descriptors looking for a match to
+		 * this handler.  The expected number of file descriptors is
+		 * low (1-2 per session), so this shouldn't be too expensive.
+		 */
+		for (i = 0; i < nfds; i++) {
+			if (fds[i].fd != handler->fh_fd)
+				continue;
+
+			if ((fds[i].revents & POLLERR) &&
+			    fds[i].fd == session->ns_sock) {
+				(void) mutex_unlock(
+				    &session->ns_file_handler_lock);
+				ndmp_session_failed(session, EIO);
+				return (-1);
 			}
-		}
-		if (handler->fh_mode & NDMPD_SELECT_MODE_WRITE) {
-			if (FD_ISSET(handler->fh_fd, &wfds)) {
-				mode |= NDMPD_SELECT_MODE_WRITE;
-				FD_CLR(handler->fh_fd, &wfds);
-			}
-		}
-		if (handler->fh_mode & NDMPD_SELECT_MODE_EXCEPTION) {
-			if (FD_ISSET(handler->fh_fd, &efds)) {
-				mode |= NDMPD_SELECT_MODE_EXCEPTION;
-				FD_CLR(handler->fh_fd, &efds);
-			}
-		}
-		if (mode) {
-			(*handler->fh_func)(handler->fh_cookie,
-			    handler->fh_fd, mode);
 
 			/*
-			 * The list can be modified during the execution of
-			 * handler->fh_func. Therefore, handler will start from
-			 * the beginning of the handler list after each
-			 * execution.
+			 * We mask off 'revents' here because when we invoke
+			 * the handler, we have to re-walk the handler list as
+			 * things may have changed.  By masking off these
+			 * events, we can safely revisit the fd list and we
+			 * won't invoke the handler again for the same fd.
 			 */
+			if ((handler->fh_mode & NDMPD_SELECT_MODE_READ) &&
+			    (fds[i].revents & POLLIN)) {
+				mode |= NDMPD_SELECT_MODE_READ;
+				fds[i].revents &= ~POLLIN;
+			}
+
+			if ((handler->fh_mode & NDMPD_SELECT_MODE_WRITE) &&
+			    (fds[i].revents & POLLOUT)) {
+				mode |= NDMPD_SELECT_MODE_WRITE;
+				fds[i].revents &= ~POLLOUT;
+			}
+		}
+
+		if (mode) {
+			/*
+			 * The list can be modified during the execution of
+			 * the handler function. We therefore drop the lock
+			 * around execution, and start iterating from the start
+			 * of the list each time.  We know that we won't invoke
+			 * the same handler again because we masked off the
+			 * events in 'revents', above.
+			 */
+			(void) mutex_unlock(&session->ns_file_handler_lock);
+			(*handler->fh_func)(handler->fh_cookie,
+			    handler->fh_fd, mode);
+			(void) mutex_lock(&session->ns_file_handler_lock);
+
 			handler = session->ns_file_handler_list;
 		} else {
 			handler = handler->fh_next;
 		}
-
 	}
+	(void) mutex_unlock(&session->ns_file_handler_lock);
 
 	return (1);
 }

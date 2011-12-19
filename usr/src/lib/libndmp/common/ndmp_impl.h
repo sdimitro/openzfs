@@ -246,7 +246,6 @@ typedef struct ndmp_handler {
 
 #define	NDMPD_SELECT_MODE_READ		1
 #define	NDMPD_SELECT_MODE_WRITE		2
-#define	NDMPD_SELECT_MODE_EXCEPTION	4
 
 typedef void ndmp_file_handler_func_t(struct ndmp_session *, int, ulong_t);
 
@@ -369,6 +368,7 @@ typedef struct ndmp_session {
 	ndmp_session_data_desc_t ns_data;
 	ndmp_session_notify_state_t ns_notify;
 	ndmp_file_handler_t *ns_file_handler_list; /* for I/O multiplexing */
+	mutex_t ns_file_handler_lock;
 	boolean_t ns_global;
 
 	uint32_t ns_logid;
@@ -573,7 +573,7 @@ extern void ndmp_free_env(ndmp_session_t *);
 extern void ndmp_free_nlist(ndmp_session_t *);
 extern int ndmp_add_file_handler(ndmp_session_t *,
     void *, int, ulong_t, ulong_t, ndmp_file_handler_func_t *);
-extern int ndmp_remove_file_handler(ndmp_session_t *, int);
+extern void ndmp_remove_file_handler(ndmp_session_t *, int);
 extern void ndmp_send_reply(ndmp_session_t *, void *);
 
 extern int ndmp_mtioctl(ndmp_session_t *, int, int, int);

@@ -78,7 +78,7 @@ data_accept_connection_v3(ndmp_session_t *session, int fd, ulong_t mode)
 	    "port %d, addr %s", session->ns_data.dd_sock,
 	    ntohs(from.sin_port), inet_ntoa(IN_ADDR(from.sin_addr.s_addr)));
 
-	(void) ndmp_remove_file_handler(session, fd);
+	ndmp_remove_file_handler(session, fd);
 	(void) close(session->ns_data.dd_listen_sock);
 	session->ns_data.dd_listen_sock = -1;
 
@@ -754,13 +754,13 @@ ndmp_data_error(ndmp_session_t *session, ndmp_data_halt_reason reason)
 
 	if (session->ns_data.dd_data_addr.addr_type == NDMP_ADDR_TCP) {
 		if (session->ns_data.dd_sock != -1) {
-			(void) ndmp_remove_file_handler(session,
+			ndmp_remove_file_handler(session,
 			    session->ns_data.dd_sock);
 			(void) close(session->ns_data.dd_sock);
 			session->ns_data.dd_sock = -1;
 		}
 		if (session->ns_data.dd_listen_sock != -1) {
-			(void) ndmp_remove_file_handler(session,
+			ndmp_remove_file_handler(session,
 			    session->ns_data.dd_listen_sock);
 
 			(void) close(session->ns_data.dd_listen_sock);
@@ -953,7 +953,7 @@ ndmp_data_cleanup(ndmp_session_t *session)
 	if (session->ns_data.dd_listen_sock != -1) {
 		ndmp_debug(session, "closing data listen socket: %d",
 		    session->ns_data.dd_listen_sock);
-		(void) ndmp_remove_file_handler(session,
+		ndmp_remove_file_handler(session,
 		    session->ns_data.dd_listen_sock);
 		(void) close(session->ns_data.dd_listen_sock);
 		session->ns_data.dd_listen_sock = -1;

@@ -265,8 +265,7 @@ ndmp_session_close(ndmp_session_t *session)
 static void
 session_file_handler(ndmp_session_t *session, int fd, ulong_t mode)
 {
-	fd_set fds;
-	struct timeval timeout;
+	struct pollfd fds = { 0 };
 
 	(void) mutex_lock(&session->ns_lock);
 
@@ -278,12 +277,10 @@ session_file_handler(ndmp_session_t *session, int fd, ulong_t mode)
 	 * waiting for non-existent data with the lock held, which will prevent
 	 * other threads from making forward progress.
 	 */
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 0;
-	FD_ZERO(&fds);
-	FD_SET(fd, &fds);
+	fds.fd = fd;
+	fds.events = POLLIN;
 
-	if (select(FD_SETSIZE, &fds, NULL, NULL, &timeout) == 0) {
+	if (poll(&fds, 1, 0) <= 0) {
 		(void) mutex_unlock(&session->ns_lock);
 		return;
 	}
@@ -340,7 +337,7 @@ ndmp_session_worker(void *param)
 	ndmp_debug(session, "session with %s terminated",
 	    session->ns_remoteaddr);
 
-	(void) ndmp_remove_file_handler(session, sock);
+	ndmp_remove_file_handler(session, sock);
 
 	/*
 	 * Only server sessions are destroyed in this context, as we've

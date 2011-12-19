@@ -842,13 +842,13 @@ void
 ndmp_mover_shut_down(ndmp_session_t *session)
 {
 	if (session->ns_mover.md_listen_sock != -1) {
-		(void) ndmp_remove_file_handler(session,
+		ndmp_remove_file_handler(session,
 		    session->ns_mover.md_listen_sock);
 		(void) close(session->ns_mover.md_listen_sock);
 		session->ns_mover.md_listen_sock = -1;
 	}
 	if (session->ns_mover.md_sock != -1) {
-		(void) ndmp_remove_file_handler(session,
+		ndmp_remove_file_handler(session,
 		    session->ns_mover.md_sock);
 		(void) close(session->ns_mover.md_sock);
 		session->ns_mover.md_sock = -1;
@@ -1178,13 +1178,13 @@ ndmp_mover_error(ndmp_session_t *session, ndmp_mover_halt_reason reason)
 	}
 
 	if (session->ns_mover.md_listen_sock != -1) {
-		(void) ndmp_remove_file_handler(session,
+		ndmp_remove_file_handler(session,
 		    session->ns_mover.md_listen_sock);
 		(void) close(session->ns_mover.md_listen_sock);
 		session->ns_mover.md_listen_sock = -1;
 	}
 	if (session->ns_mover.md_sock != -1) {
-		(void) ndmp_remove_file_handler(session,
+		ndmp_remove_file_handler(session,
 		    session->ns_mover.md_sock);
 		(void) close(session->ns_mover.md_sock);
 		session->ns_mover.md_sock = -1;
@@ -1635,7 +1635,7 @@ mover_data_write_v3(ndmp_session_t *session, int fd, ulong_t mode)
 		session->ns_mover.md_seek_position =
 		    session->ns_mover.md_position;
 
-		(void) ndmp_remove_file_handler(session, fd);
+		ndmp_remove_file_handler(session, fd);
 
 		if (ndmp_send_request(session,
 		    NDMP_NOTIFY_MOVER_PAUSED,
@@ -1748,7 +1748,7 @@ mover_data_write_v3(ndmp_session_t *session, int fd, ulong_t mode)
 	 * request will reinstall the handler.
 	 */
 	if (session->ns_mover.md_bytes_left_to_read == 0)
-		(void) ndmp_remove_file_handler(session, fd);
+		ndmp_remove_file_handler(session, fd);
 }
 
 /*
@@ -1770,7 +1770,7 @@ accept_connection_v3(ndmp_session_t *session, int fd, ulong_t mode)
 	ndmp_debug(session, "sin: port %d addr %s", ntohs(from.sin_port),
 	    inet_ntoa(IN_ADDR(from.sin_addr.s_addr)));
 
-	(void) ndmp_remove_file_handler(session, fd);
+	ndmp_remove_file_handler(session, fd);
 	(void) close(session->ns_mover.md_listen_sock);
 	session->ns_mover.md_listen_sock = -1;
 

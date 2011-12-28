@@ -4046,7 +4046,7 @@ zfs_ioc_clear(zfs_cmd_t *zc)
 }
 
 static int
-zfs_ioc_reopen(zfs_cmd_t *zc)
+zfs_ioc_pool_reopen(zfs_cmd_t *zc)
 {
 	spa_t *spa;
 	int error;
@@ -4906,7 +4906,7 @@ static zfs_ioc_vec_t zfs_ioc_vec[] = {
 	    DATASET_NAME, B_TRUE, POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY },
 	{ zfs_ioc_pool_reguid, zfs_secpolicy_config, POOL_NAME, B_TRUE,
 	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY },
-	{ zfs_ioc_reopen, zfs_secpolicy_config, POOL_NAME, B_TRUE,
+	{ zfs_ioc_pool_reopen, zfs_secpolicy_config, POOL_NAME, B_TRUE,
 	    POOL_CHECK_SUSPENDED },
 };
 

@@ -3510,6 +3510,9 @@ zpool_do_reopen(int argc, char **argv)
 	zpool_handle_t *zhp;
 	char *pool;
 
+	argc--;
+	argv++;
+
 	if (argc != 1)
 		return (2);
 

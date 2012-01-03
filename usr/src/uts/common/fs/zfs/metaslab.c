@@ -36,7 +36,7 @@
  * avoid having to load lots of space_maps in a given txg. There are,
  * however, some cases where we want to avoid "fast" ganging and instead
  * we want to do an exhaustive search of all metaslabs on this device.
- * Currently we don't allow any gang or dump device related allocations
+ * Currently we don't allow any gang, zil, or dump device related allocations
  * to "fast" gang.
  */
 #define	CAN_FASTGANG(flags) \

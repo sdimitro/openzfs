@@ -2937,6 +2937,13 @@ is_be(char *root)
 
 	if (!is_zfs(root))
 		return (B_FALSE);
+
+	/*
+	 * Always update the root filesystem if it's zfs.
+	 */
+	if (strcmp(root, "/") == 0)
+		return (B_TRUE);
+
 	/*
 	 * Get dataset for mountpoint
 	 */

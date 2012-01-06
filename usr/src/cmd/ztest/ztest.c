@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -5309,6 +5309,7 @@ ztest_run(ztest_shared_t *zs)
 {
 	thread_t *tid;
 	spa_t *spa;
+	objset_t *os;
 	thread_t resume_tid;
 	int error;
 
@@ -5342,6 +5343,10 @@ ztest_run(ztest_shared_t *zs)
 	VERIFY(spa_open(ztest_opts.zo_pool, &spa, FTAG) == 0);
 	spa->spa_debug = B_TRUE;
 	ztest_spa = spa;
+
+	VERIFY3U(0, ==, dmu_objset_hold(ztest_opts.zo_pool, FTAG, &os));
+	zs->zs_guid = dmu_objset_fsid_guid(os);
+	dmu_objset_rele(os, FTAG);
 
 	spa->spa_dedup_ditto = 2 * ZIO_DEDUPDITTO_MIN;
 

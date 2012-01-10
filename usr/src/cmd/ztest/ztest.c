@@ -592,7 +592,7 @@ process_options(int argc, char **argv)
 
 	int opt;
 	uint64_t value;
-	char altdir[MAXNAMELEN];
+	char altdir[MAXNAMELEN] = { 0 };
 
 	bcopy(&ztest_opts_defaults, zo, sizeof (*zo));
 
@@ -728,9 +728,7 @@ process_options(int argc, char **argv)
 		(void) snprintf(zo->zo_alt_ztest, sizeof (zo->zo_alt_ztest),
 		    "%s/usr/bin/%.*s/ztest", realaltdir, isalen, isa);
 		(void) snprintf(zo->zo_alt_libpath, sizeof (zo->zo_alt_libpath),
-		    "%s/usr/lib/%s", realaltdir,
-		    (strncmp(isa, "amd64", isalen) == 0 ||
-		    strncmp(isa, "sparcv9", isalen)) ? "64" : "");
+		    "%s/usr/lib/%.*s", realaltdir, isalen, isa);
 
 		if (0 != access(zo->zo_alt_ztest, X_OK)) {
 			ztest_dump_core = B_FALSE;

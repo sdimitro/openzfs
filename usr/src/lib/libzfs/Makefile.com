@@ -20,7 +20,7 @@
 #
 #
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 LIBRARY= libzfs.a
@@ -48,7 +48,8 @@ OBJS_COMMON=			\
 	libzfs_pool.o		\
 	libzfs_sendrecv.o	\
 	libzfs_status.o		\
-	libzfs_util.o
+	libzfs_util.o		\
+	libzfs2.o
 
 OBJECTS= $(OBJS_COMMON) $(OBJS_SHARED)
 

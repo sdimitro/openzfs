@@ -22,7 +22,7 @@
 #
 # Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 #
@@ -243,6 +243,7 @@ GENUNIX_OBJS +=	\
 		nvpair.o	\
 		nvpair_alloc_system.o	\
 		nvpair_alloc_fixed.o	\
+		fnvpair.o	\
 		octet.o		\
 		open.o		\
 		p_online.o	\

@@ -20,7 +20,7 @@
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2011 Nexenta Systems, Inc. All rights reserved.
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 # MAPFILE HEADER START
 #
@@ -39,6 +39,16 @@ $mapfile_version 2
 
 SYMBOL_VERSION SUNWprivate_1.1 {
     global:
+
+# libzfs2 routines:
+
+	libzfs2_fini;
+	libzfs2_init;
+	zfs2_snapshot;
+	zfs2_snaprange_space;
+
+# legacy libzfs routines:
+
 	fletcher_2_native;
 	fletcher_2_byteswap;
 	fletcher_4_native;
@@ -76,7 +86,6 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_get_holds;
 	zfs_get_name;
 	zfs_get_pool_handle;
-	zfs_get_snapused_int;
 	zfs_get_user_props;
 	zfs_get_type;
 	zfs_handle_dup;
@@ -134,6 +143,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_release;
 	zfs_rename;
 	zfs_rollback;
+	zfs_save_arguments;
 	zfs_send;
 	zfs_share;
 	zfs_shareall;
@@ -145,6 +155,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_smb_acl_remove;
 	zfs_smb_acl_rename;
 	zfs_snapshot;
+	zfs_snapshot_nvl;
 	zfs_spa_version;
 	zfs_spa_version_map;
 	zfs_type_to_name;
@@ -200,6 +211,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zpool_label_disk;
 	zpool_mount_datasets;
 	zpool_name_to_prop;
+	zpool_log_history;
 	zpool_obj_to_path;
 	zpool_open;
 	zpool_open_canfail;
@@ -216,9 +228,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zpool_reopen;
 	zpool_scan;
 	zpool_search_import;
-	zpool_set_history_str;
 	zpool_set_prop;
-	zpool_stage_history;
 	zpool_state_to_name;
 	zpool_unmount_datasets;
 	zpool_upgrade;

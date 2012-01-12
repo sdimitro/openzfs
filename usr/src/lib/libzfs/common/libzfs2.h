@@ -18,18 +18,33 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
- * Copyright 2010 Nexenta Systems, Inc. All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
-/*LINTLIBRARY*/
-/*PROTOLIB1*/
+#ifndef	_LIBZFS2_H
+#define	_LIBZFS2_H
 
-#include <libzfs.h>
-#include <libzfs2.h>
-#include "../../../common/zfs/zfs_comutil.h"
-#include "../../../common/zfs/zfs_fletcher.h"
-#include "../../../common/zfs/zfs_prop.h"
-#include "../../../common/zfs/zfeature_common.h"
+#include <libnvpair.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/fs/zfs.h>
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
+int libzfs2_init(void);
+void libzfs2_fini(void);
+
+int zfs2_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp);
+
+int zfs2_snaprange_space(const char *firstsnap, const char *lastsnap,
+    uint64_t *usedp);
+
+#ifdef	__cplusplus
+}
+#endif
+
+#endif	/* _LIBZFS2_H */

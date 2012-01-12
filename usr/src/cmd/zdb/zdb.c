@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -57,6 +57,7 @@
 #include <sys/arc.h>
 #include <sys/ddt.h>
 #include <sys/zfeature.h>
+#include <zfs_comutil.h>
 #undef ZFS_MAXNAMELEN
 #undef verify
 #include <libzfs.h>
@@ -862,7 +863,7 @@ dump_history(spa_t *spa)
 			    ZPOOL_HIST_TXG, &txg) == 0);
 			verify(nvlist_lookup_string(events[i],
 			    ZPOOL_HIST_INT_STR, &intstr) == 0);
-			if (ievent >= LOG_END)
+			if (ievent >= ZFS_NUM_LEGACY_HISTORY_EVENTS)
 				continue;
 
 			(void) snprintf(internalstr,

@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -630,6 +630,14 @@ libzfs_init(void)
 
 	hdl->libzfs_sharetab = fopen("/etc/dfs/sharetab", "r");
 
+	if (libzfs2_init() != 0) {
+		(void) close(hdl->libzfs_fd);
+		(void) fclose(hdl->libzfs_mnttab);
+		(void) fclose(hdl->libzfs_sharetab);
+		free(hdl);
+		return (NULL);
+	}
+
 	zfs_prop_init();
 	zpool_prop_init();
 	zpool_feature_init();
@@ -653,6 +661,7 @@ libzfs_fini(libzfs_handle_t *hdl)
 	libzfs_fru_clear(hdl, B_TRUE);
 	namespace_clear(hdl);
 	libzfs_mnttab_fini(hdl);
+	libzfs2_fini();
 	free(hdl);
 }
 

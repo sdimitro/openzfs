@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -280,6 +280,9 @@ feature_enable_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	zfeature_info_t *feature = arg2;
 
 	spa_feature_enable(spa, feature, tx);
+	spa_history_log_internal(spa, "zhack enable feature", tx,
+	    "name=%s can_readonly=%u",
+	    feature->fi_name, feature->fi_can_readonly);
 }
 
 static void
@@ -356,6 +359,8 @@ feature_incr_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	zfeature_info_t *feature = arg2;
 
 	spa_feature_incr(spa, feature, tx);
+	spa_history_log_internal(spa, "zhack feature incr", tx,
+	    "name=%s", feature->fi_name);
 }
 
 static void
@@ -365,6 +370,8 @@ feature_decr_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	zfeature_info_t *feature = arg2;
 
 	spa_feature_decr(spa, feature, tx);
+	spa_history_log_internal(spa, "zhack feature decr", tx,
+	    "name=%s", feature->fi_name);
 }
 
 static void

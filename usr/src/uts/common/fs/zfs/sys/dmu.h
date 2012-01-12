@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  */
 
@@ -198,8 +198,9 @@ int dmu_objset_clone(const char *name, struct dsl_dataset *clone_origin,
     uint64_t flags);
 int dmu_objset_destroy(const char *name, boolean_t defer);
 int dmu_snapshots_destroy_nvl(struct nvlist *snaps, boolean_t defer, char *);
-int dmu_objset_snapshot(char *fsname, char *snapname, char *tag,
-    struct nvlist *props, boolean_t recursive, boolean_t temporary, int fd);
+int dmu_objset_snapshot(struct nvlist *snaps, struct nvlist *, struct nvlist *);
+int dmu_objset_snapshot_one(const char *fsname, const char *snapname);
+int dmu_objset_snapshot_tmp(const char *, const char *, int);
 int dmu_objset_rename(const char *name, const char *newname,
     boolean_t recursive);
 int dmu_objset_find(char *name, int func(const char *, void *), void *arg,
@@ -712,8 +713,8 @@ void dmu_traverse_objset(objset_t *os, uint64_t txg_start,
 
 int dmu_sendbackup(objset_t *tosnap, objset_t *fromsnap, boolean_t fromorigin,
     struct vnode *vp, offset_t *off);
-int dmu_send_estimate(objset_t *tosnap, objset_t *fromsnap, boolean_t fromorign,
-    uint64_t *sizep);
+int dmu_send_estimate(objset_t *tosnap, objset_t *fromsnap,
+    boolean_t fromorigin, uint64_t *sizep);
 
 typedef struct dmu_recv_cookie {
 	/*

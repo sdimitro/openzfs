@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <assert.h>
@@ -866,6 +866,12 @@ z_compress_level(void *dst, size_t *dstlen, const void *src, size_t srclen,
 
 uid_t
 crgetuid(cred_t *cr)
+{
+	return (0);
+}
+
+uid_t
+crgetruid(cred_t *cr)
 {
 	return (0);
 }

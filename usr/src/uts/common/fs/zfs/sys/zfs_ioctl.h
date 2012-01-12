@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_ZFS_IOCTL_H
@@ -256,22 +257,29 @@ typedef enum zfs_case {
 } zfs_case_t;
 
 typedef struct zfs_cmd {
-	char		zc_name[MAXPATHLEN];
+	char		zc_name[MAXPATHLEN];	/* name of pool or dataset */
+	uint64_t	zc_nvlist_src;		/* really (char *) */
+	uint64_t	zc_nvlist_src_size;
+	uint64_t	zc_nvlist_dst;		/* really (char *) */
+	uint64_t	zc_nvlist_dst_size;
+	boolean_t	zc_nvlist_dst_filled;	/* put an nvlist in dst? */
+	int		zc_pad2;
+
+	/*
+	 * The following members are for legacy ioctls which haven't been
+	 * converted to the new method.
+	 */
+	uint64_t	zc_history;		/* really (char *) */
 	char		zc_value[MAXPATHLEN * 2];
 	char		zc_string[MAXNAMELEN];
 	char		zc_top_ds[MAXPATHLEN];
 	uint64_t	zc_guid;
 	uint64_t	zc_nvlist_conf;		/* really (char *) */
 	uint64_t	zc_nvlist_conf_size;
-	uint64_t	zc_nvlist_src;		/* really (char *) */
-	uint64_t	zc_nvlist_src_size;
-	uint64_t	zc_nvlist_dst;		/* really (char *) */
-	uint64_t	zc_nvlist_dst_size;
 	uint64_t	zc_cookie;
 	uint64_t	zc_objset_type;
 	uint64_t	zc_perm_action;
-	uint64_t 	zc_history;		/* really (char *) */
-	uint64_t 	zc_history_len;
+	uint64_t	zc_history_len;
 	uint64_t	zc_history_offset;
 	uint64_t	zc_obj;
 	uint64_t	zc_iflags;		/* internal to zfs(7fs) */

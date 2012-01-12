@@ -24,6 +24,7 @@
  * Portions Copyright 2010 Robert Milkowski
  *
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -1885,7 +1886,7 @@ zvol_dumpify(zvol_state_t *zv)
 
 	if (zap_lookup(zv->zv_objset, ZVOL_ZAP_OBJ, ZVOL_DUMPSIZE,
 	    8, 1, &dumpsize) != 0 || dumpsize != zv->zv_volsize) {
-		boolean_t resize = (dumpsize > 0) ? B_TRUE : B_FALSE;
+		boolean_t resize = (dumpsize > 0);
 
 		if ((error = zvol_dump_init(zv, resize)) != 0) {
 			(void) zvol_dump_fini(zv);

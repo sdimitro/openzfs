@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_LIBFS_IMPL_H
@@ -36,6 +36,7 @@
 #include <libuutil.h>
 #include <libzfs.h>
 #include <libshare.h>
+#include <libzfs2.h>
 
 #include <fm/libtopo.h>
 
@@ -213,4 +214,4 @@ extern void libzfs_fru_clear(libzfs_handle_t *, boolean_t);
 }
 #endif
 
-#endif	/* _LIBFS_IMPL_H */
+#endif	/* _LIBZFS_IMPL_H */

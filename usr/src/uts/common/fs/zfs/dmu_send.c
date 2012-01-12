@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  */
 
@@ -654,8 +654,7 @@ recv_new_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 		    rbsa->ds, &rbsa->ds->ds_phys->ds_bp, rbsa->type, tx);
 	}
 
-	spa_history_log_internal(LOG_DS_REPLAY_FULL_SYNC,
-	    dd->dd_pool->dp_spa, tx, "dataset = %lld", dsobj);
+	spa_history_log_internal_ds(rbsa->ds, "receive new", tx, "");
 }
 
 /* ARGSUSED */
@@ -756,8 +755,7 @@ recv_existing_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 
 	rbsa->ds = cds;
 
-	spa_history_log_internal(LOG_DS_REPLAY_INC_SYNC,
-	    dp->dp_spa, tx, "dataset = %lld", dsobj);
+	spa_history_log_internal_ds(cds, "receive over existing", tx, "");
 }
 
 static boolean_t
@@ -1560,6 +1558,7 @@ recv_end_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 
 	dmu_buf_will_dirty(ds->ds_dbuf, tx);
 	ds->ds_phys->ds_flags &= ~DS_FLAG_INCONSISTENT;
+	spa_history_log_internal_ds(ds, "finished receiving", tx, "");
 }
 
 static int

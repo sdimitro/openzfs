@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <ctype.h>
@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <sys/efi_partition.h>
 #include <sys/vtoc.h>
 #include <sys/zfs_ioctl.h>
@@ -3502,40 +3503,30 @@ zpool_upgrade(zpool_handle_t *zhp, uint64_t new_version)
 }
 
 void
-zpool_set_history_str(const char *subcommand, int argc, char **argv,
-    char *history_str)
+zfs_save_arguments(int argc, char **argv, char *string, int len)
 {
-	int i;
-
-	(void) strlcpy(history_str, subcommand, HIS_MAX_RECORD_LEN);
-	for (i = 1; i < argc; i++) {
-		if (strlen(history_str) + 1 + strlen(argv[i]) >
-		    HIS_MAX_RECORD_LEN)
-			break;
-		(void) strlcat(history_str, " ", HIS_MAX_RECORD_LEN);
-		(void) strlcat(history_str, argv[i], HIS_MAX_RECORD_LEN);
+	(void) strlcpy(string, basename(argv[0]), len);
+	for (int i = 1; i < argc; i++) {
+		(void) strlcat(string, " ", len);
+		(void) strlcat(string, argv[i], len);
 	}
 }
 
-/*
- * Stage command history for logging.
- */
 int
-zpool_stage_history(libzfs_handle_t *hdl, const char *history_str)
+zpool_log_history(libzfs_handle_t *hdl, const char *message)
 {
-	if (history_str == NULL)
-		return (EINVAL);
+	zfs_cmd_t zc = { 0 };
+	nvlist_t *args;
+	int err;
 
-	if (strlen(history_str) > HIS_MAX_RECORD_LEN)
-		return (EINVAL);
-
-	if (hdl->libzfs_log_str != NULL)
-		free(hdl->libzfs_log_str);
-
-	if ((hdl->libzfs_log_str = strdup(history_str)) == NULL)
-		return (no_memory(hdl));
-
-	return (0);
+	args = fnvlist_alloc();
+	fnvlist_add_string(args, "message", message);
+	err = zcmd_write_src_nvlist(hdl, &zc, args);
+	if (err == 0)
+		err = ioctl(hdl->libzfs_fd, ZFS_IOC_LOG_HISTORY, &zc);
+	nvlist_free(args);
+	zcmd_free_nvlists(&zc);
+	return (err);
 }
 
 /*

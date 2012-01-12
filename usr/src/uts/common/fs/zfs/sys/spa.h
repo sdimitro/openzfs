@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -52,6 +52,7 @@ typedef struct spa_aux_vdev spa_aux_vdev_t;
 typedef struct ddt ddt_t;
 typedef struct ddt_entry ddt_entry_t;
 struct dsl_pool;
+struct dsl_dataset;
 
 /*
  * General-purpose 32-bit and 64-bit bitfield encodings.
@@ -640,11 +641,8 @@ typedef enum history_log_type {
 } history_log_type_t;
 
 typedef struct history_arg {
-	char *ha_history_str;
+	nvlist_t *ha_history_nvl;
 	history_log_type_t ha_log_type;
-	history_internal_events_t ha_event;
-	char *ha_zone;
-	uid_t ha_uid;
 } history_arg_t;
 
 extern char *spa_his_ievent_table[];
@@ -654,9 +652,14 @@ extern int spa_history_get(spa_t *spa, uint64_t *offset, uint64_t *len_read,
     char *his_buf);
 extern int spa_history_log(spa_t *spa, const char *his_buf,
     history_log_type_t what);
-extern void spa_history_log_internal(history_internal_events_t event,
-    spa_t *spa, dmu_tx_t *tx, const char *fmt, ...);
-extern void spa_history_log_version(spa_t *spa, history_internal_events_t evt);
+extern int spa_history_log_nvl(spa_t *spa, nvlist_t *nvl, history_log_type_t);
+extern void spa_history_log_version(spa_t *spa, const char *operation);
+extern void spa_history_log_internal(spa_t *spa, const char *operation,
+    dmu_tx_t *tx, const char *fmt, ...);
+extern void spa_history_log_internal_ds(struct dsl_dataset *ds, const char *op,
+    dmu_tx_t *tx, const char *fmt, ...);
+extern void spa_history_log_internal_dd(dsl_dir_t *dd, const char *operation,
+    dmu_tx_t *tx, const char *fmt, ...);
 
 /* error handling */
 struct zbookmark;

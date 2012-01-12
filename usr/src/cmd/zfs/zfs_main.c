@@ -3407,7 +3407,7 @@ zfs_snapshot_cb(zfs_handle_t *zhp, void *arg)
 	char *name;
 	int rv = 0;
 
-	asprintf(&name, "%s@%s", zfs_get_name(zhp), sd->sd_snapname);
+	(void) asprintf(&name, "%s@%s", zfs_get_name(zhp), sd->sd_snapname);
 	if (name == NULL)
 		nomem();
 	fnvlist_add_boolean(sd->sd_nvl, name);

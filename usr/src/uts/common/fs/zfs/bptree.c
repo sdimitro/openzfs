@@ -18,8 +18,9 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <sys/arc.h>
@@ -63,8 +64,9 @@ bptree_alloc(objset_t *os, dmu_tx_t *tx)
 	dmu_buf_t *db;
 	bptree_phys_t *bt;
 
-	obj = dmu_object_alloc(os, DMU_OT_BPTREE, SPA_MAXBLOCKSIZE,
-	    DMU_OT_BPTREE, sizeof (bptree_phys_t), tx);
+	obj = dmu_object_alloc(os, DMU_OTN_UINT64_METADATA,
+	    SPA_MAXBLOCKSIZE, DMU_OTN_UINT64_METADATA,
+	    sizeof (bptree_phys_t), tx);
 
 	/*
 	 * Bonus buffer contents are already initialized to 0, but for

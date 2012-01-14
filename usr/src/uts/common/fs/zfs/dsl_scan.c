@@ -769,22 +769,6 @@ dsl_scan_visitbp(blkptr_t *bp, const zbookmark_t *zb,
 	if (bp->blk_birth <= scn->scn_phys.scn_cur_min_txg)
 		return;
 
-	if (BP_GET_TYPE(bp) != DMU_OT_USERGROUP_USED) {
-		/*
-		 * For non-user-accounting blocks, we need to read the
-		 * new bp (from a deleted snapshot, found in
-		 * check_existing_xlation).  If we used the old bp,
-		 * pointers inside this block from before we resumed
-		 * would be untranslated.
-		 *
-		 * For user-accounting blocks, we need to read the old
-		 * bp, because we will apply the entire space delta to
-		 * it (original untranslated -> translations from
-		 * deleted snap -> now).
-		 */
-		bp_toread = *bp;
-	}
-
 	if (dsl_scan_recurse(scn, ds, ostype, dnp, &bp_toread, zb, tx,
 	    &buf) != 0)
 		return;
@@ -1589,6 +1573,8 @@ count_block(zfs_all_blkstats_t *zab, const blkptr_t *bp)
 	for (i = 0; i < 4; i++) {
 		int l = (i < 2) ? BP_GET_LEVEL(bp) : DN_MAX_LEVELS;
 		int t = (i & 1) ? BP_GET_TYPE(bp) : DMU_OT_TOTAL;
+		if (t & DMU_OT_NEWTYPE)
+			t = DMU_OT_OTHER;
 		zfs_blkstat_t *zb = &zab->zab_type[l][t];
 		int equal;
 

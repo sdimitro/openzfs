@@ -350,7 +350,7 @@ typedef enum {
 #define	SPA_VERSION_26			26ULL
 #define	SPA_VERSION_27			27ULL
 #define	SPA_VERSION_28			28ULL
-#define	SPA_VERSION_1000		1000ULL
+#define	SPA_VERSION_5000		5000ULL
 
 /*
  * When bumping up SPA_VERSION, make sure GRUB ZFS understands the on-disk
@@ -358,7 +358,7 @@ typedef enum {
  * and do the appropriate changes.  Also bump the version number in
  * usr/src/grub/capability.
  */
-#define	SPA_VERSION			SPA_VERSION_1000
+#define	SPA_VERSION			SPA_VERSION_5000
 #define	SPA_VERSION_STRING		"1000"
 
 /*
@@ -411,7 +411,7 @@ typedef enum {
 #define	SPA_VERSION_FAST_SNAP		SPA_VERSION_27
 #define	SPA_VERSION_MULTI_REPLACE	SPA_VERSION_28
 #define	SPA_VERSION_BEFORE_FEATURES	SPA_VERSION_28
-#define	SPA_VERSION_FEATURES		SPA_VERSION_1000
+#define	SPA_VERSION_FEATURES		SPA_VERSION_5000
 
 #define	SPA_VERSION_IS_SUPPORTED(v) \
 	(((v) >= SPA_VERSION_INITIAL && (v) <= SPA_VERSION_BEFORE_FEATURES) || \

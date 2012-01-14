@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -331,13 +331,13 @@ spa_feature_create_zap_objects(spa_t *spa, dmu_tx_t *tx)
 	    tx->tx_txg == TXG_INITIAL));
 
 	spa->spa_feat_for_read_obj = zap_create_link(spa->spa_meta_objset,
-	    DMU_OT_FEATURE_LIST, DMU_POOL_DIRECTORY_OBJECT,
+	    DMU_OTN_ZAP_METADATA, DMU_POOL_DIRECTORY_OBJECT,
 	    DMU_POOL_FEATURES_FOR_READ, tx);
 	spa->spa_feat_for_write_obj = zap_create_link(spa->spa_meta_objset,
-	    DMU_OT_FEATURE_LIST, DMU_POOL_DIRECTORY_OBJECT,
+	    DMU_OTN_ZAP_METADATA, DMU_POOL_DIRECTORY_OBJECT,
 	    DMU_POOL_FEATURES_FOR_WRITE, tx);
 	spa->spa_feat_desc_obj = zap_create_link(spa->spa_meta_objset,
-	    DMU_OT_FEATURE_DESCRIPTIONS, DMU_POOL_DIRECTORY_OBJECT,
+	    DMU_OTN_ZAP_METADATA, DMU_POOL_DIRECTORY_OBJECT,
 	    DMU_POOL_FEATURE_DESCRIPTIONS, tx);
 }
 

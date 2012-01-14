@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -1209,12 +1209,22 @@ spa_generate_guid(spa_t *spa)
 void
 sprintf_blkptr(char *buf, const blkptr_t *bp)
 {
-	char *type = NULL;
+	char type[256];
 	char *checksum = NULL;
 	char *compress = NULL;
 
 	if (bp != NULL) {
-		type = dmu_ot[BP_GET_TYPE(bp)].ot_name;
+		if (BP_GET_TYPE(bp) & DMU_OT_NEWTYPE) {
+			dmu_object_byteswap_t bswap =
+			    DMU_OT_BYTESWAP(BP_GET_TYPE(bp));
+			(void) snprintf(type, sizeof (type), "bswap %s %s",
+			    DMU_OT_IS_METADATA(BP_GET_TYPE(bp)) ?
+			    "metadata" : "data",
+			    dmu_ot_byteswap[bswap].ob_name);
+		} else {
+			(void) strlcpy(type, dmu_ot[BP_GET_TYPE(bp)].ot_name,
+			    sizeof (type));
+		}
 		checksum = zio_checksum_table[BP_GET_CHECKSUM(bp)].ci_name;
 		compress = zio_compress_table[BP_GET_COMPRESS(bp)].ci_name;
 	}

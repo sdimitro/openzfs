@@ -73,6 +73,53 @@ typedef struct objset objset_t;
 typedef struct dmu_tx dmu_tx_t;
 typedef struct dsl_dir dsl_dir_t;
 
+typedef enum dmu_object_byteswap {
+	DMU_BSWAP_UINT8,
+	DMU_BSWAP_UINT16,
+	DMU_BSWAP_UINT32,
+	DMU_BSWAP_UINT64,
+	DMU_BSWAP_ZAP,
+	DMU_BSWAP_DNODE,
+	DMU_BSWAP_OBJSET,
+	DMU_BSWAP_ZNODE,
+	DMU_BSWAP_OLDACL,
+	DMU_BSWAP_ACL,
+	/*
+	 * Allocating a new byteswap type number makes the on-disk format
+	 * incompatible with any other format that uses the same number.
+	 *
+	 * Data can usually be structured to work with one of the
+	 * DMU_BSWAP_UINT* or DMU_BSWAP_ZAP types.
+	 */
+	DMU_BSWAP_NUMFUNCS
+} dmu_object_byteswap_t;
+
+#define DMU_OT_NEWTYPE 0x80
+#define DMU_OT_METADATA 0x40
+#define DMU_OT_BYTESWAP_MASK 0x3f
+
+/*
+ * Defines a uint8_t object type. Object types specify if the data
+ * in the object is metadata (boolean) and how to byteswap the data
+ * (dmu_object_byteswap_t).
+ */
+#define DMU_OT(byteswap, metadata) \
+    (DMU_OT_NEWTYPE | \
+    ((metadata) ? DMU_OT_METADATA : 0) | \
+    ((byteswap) & DMU_OT_BYTESWAP_MASK))
+
+#define	DMU_OT_IS_VALID(ot) (((ot) & DMU_OT_NEWTYPE) ? \
+    ((ot) & DMU_OT_BYTESWAP_MASK) < DMU_BSWAP_NUMFUNCS : \
+    (ot) < DMU_OT_NUMTYPES)
+
+#define	DMU_OT_IS_METADATA(ot) (((ot) & DMU_OT_NEWTYPE) ? \
+    ((ot) & DMU_OT_METADATA) : \
+    dmu_ot[(ot)].ot_metadata)
+
+#define	DMU_OT_BYTESWAP(ot) (((ot) & DMU_OT_NEWTYPE) ? \
+    ((ot) & DMU_OT_BYTESWAP_MASK) : \
+    dmu_ot[(ot)].ot_byteswap)
+
 typedef enum dmu_object_type {
 	DMU_OT_NONE,
 	/* general: */
@@ -137,10 +184,35 @@ typedef enum dmu_object_type {
 	DMU_OT_DEADLIST_HDR,		/* UINT64 */
 	DMU_OT_DSL_CLONES,		/* ZAP */
 	DMU_OT_BPOBJ_SUBOBJ,		/* UINT64 */
-	DMU_OT_FEATURE_LIST,		/* ZAP */
-	DMU_OT_FEATURE_DESCRIPTIONS,	/* ZAP */
-	DMU_OT_BPTREE,			/* bptree_phys_t stack */
-	DMU_OT_NUMTYPES
+	/*
+	 * Do not allocate new object types here. Doing so makes the on-disk
+	 * format incompatible with any other format that uses the same object
+	 * type number.
+	 *
+	 * When creating an object which does not have one of the above types
+	 * use the DMU_OTN_* type with the correct byteswap and metadata
+	 * values.
+	 *
+	 * The DMU_OTN_* types do not have entries in the dmu_ot table,
+	 * use the DMU_OT_IS_METDATA() and DMU_OT_BYTESWAP() macros instead
+	 * of indexing into dmu_ot directly (this works for both DMU_OT_* types
+	 * and DMU_OTN_* types).
+	 */
+	DMU_OT_NUMTYPES,
+
+	/*
+	 * Names for valid types declared with DMU_OT().
+	 */
+	DMU_OTN_UINT8_DATA = DMU_OT(DMU_BSWAP_UINT8, B_FALSE),
+	DMU_OTN_UINT8_METADATA = DMU_OT(DMU_BSWAP_UINT8, B_TRUE),
+	DMU_OTN_UINT16_DATA = DMU_OT(DMU_BSWAP_UINT16, B_FALSE),
+	DMU_OTN_UINT16_METADATA = DMU_OT(DMU_BSWAP_UINT16, B_TRUE),
+	DMU_OTN_UINT32_DATA = DMU_OT(DMU_BSWAP_UINT32, B_FALSE),
+	DMU_OTN_UINT32_METADATA = DMU_OT(DMU_BSWAP_UINT32, B_TRUE),
+	DMU_OTN_UINT64_DATA = DMU_OT(DMU_BSWAP_UINT64, B_FALSE),
+	DMU_OTN_UINT64_METADATA = DMU_OT(DMU_BSWAP_UINT64, B_TRUE),
+	DMU_OTN_ZAP_DATA = DMU_OT(DMU_BSWAP_ZAP, B_FALSE),
+	DMU_OTN_ZAP_METADATA = DMU_OT(DMU_BSWAP_ZAP, B_TRUE),
 } dmu_object_type_t;
 
 typedef enum dmu_objset_type {
@@ -570,12 +642,18 @@ typedef struct dmu_object_info {
 typedef void arc_byteswap_func_t(void *buf, size_t size);
 
 typedef struct dmu_object_type_info {
-	arc_byteswap_func_t	*ot_byteswap;
+	dmu_object_byteswap_t	ot_byteswap;
 	boolean_t		ot_metadata;
 	char			*ot_name;
 } dmu_object_type_info_t;
 
+typedef struct dmu_object_byteswap_info {
+	arc_byteswap_func_t	*ob_func;
+	char			*ob_name;
+} dmu_object_byteswap_info_t;
+
 extern const dmu_object_type_info_t dmu_ot[DMU_OT_NUMTYPES];
+extern const dmu_object_byteswap_info_t dmu_ot_byteswap[DMU_BSWAP_NUMFUNCS];
 
 /*
  * Get information on a DMU object.

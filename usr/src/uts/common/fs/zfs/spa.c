@@ -1665,7 +1665,7 @@ spa_load_verify_done(zio_t *zio)
 	int error = zio->io_error;
 
 	if (error) {
-		if ((BP_GET_LEVEL(bp) != 0 || dmu_ot[type].ot_metadata) &&
+		if ((BP_GET_LEVEL(bp) != 0 || DMU_OT_IS_METADATA(type)) &&
 		    type != DMU_OT_INTENT_LOG)
 			atomic_add_64(&sle->sle_meta_count, 1);
 		else

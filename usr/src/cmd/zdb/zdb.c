@@ -67,7 +67,8 @@
 #define	ZDB_CHECKSUM_NAME(idx) ((idx) < ZIO_CHECKSUM_FUNCTIONS ? \
     zio_checksum_table[(idx)].ci_name : "UNKNOWN")
 #define	ZDB_OT_NAME(idx) ((idx) < DMU_OT_NUMTYPES ? \
-    dmu_ot[(idx)].ot_name : "UNKNOWN")
+    dmu_ot[(idx)].ot_name : DMU_OT_IS_VALID(idx) ? \
+    dmu_ot_byteswap[DMU_OT_BYTESWAP(idx)].ob_name : "UNKNOWN")
 #define	ZDB_OT_TYPE(idx) ((idx) < DMU_OT_NUMTYPES ? (idx) : DMU_OT_NUMTYPES)
 
 #ifndef lint
@@ -1477,9 +1478,6 @@ static object_viewer_t *object_viewer[DMU_OT_NUMTYPES + 1] = {
 	dump_none,		/* deadlist hdr			*/
 	dump_zap,		/* dsl clones			*/
 	dump_none,		/* bpobj subobjs		*/
-	dump_zap,		/* feature list			*/
-	dump_zap,		/* feature descriptions		*/
-	dump_none,		/* bptree			*/
 	dump_unknown,		/* Unknown type, must be last	*/
 };
 
@@ -1925,11 +1923,13 @@ typedef struct zdb_blkstats {
  */
 #define	ZDB_OT_DEFERRED	(DMU_OT_NUMTYPES + 0)
 #define	ZDB_OT_DITTO	(DMU_OT_NUMTYPES + 1)
-#define	ZDB_OT_TOTAL	(DMU_OT_NUMTYPES + 2)
+#define	ZDB_OT_OTHER	(DMU_OT_NUMTYPES + 2)
+#define	ZDB_OT_TOTAL	(DMU_OT_NUMTYPES + 3)
 
 static char *zdb_ot_extname[] = {
 	"deferred free",
 	"dedup ditto",
+	"other",
 	"Total",
 };
 
@@ -2010,9 +2010,10 @@ zdb_blkptr_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp, arc_buf_t *pbuf,
 
 	type = BP_GET_TYPE(bp);
 
-	zdb_count_block(zcb, zilog, bp, type);
+	zdb_count_block(zcb, zilog, bp,
+	    (type & DMU_OT_NEWTYPE) ? ZDB_OT_OTHER : type);
 
-	is_metadata = (BP_GET_LEVEL(bp) != 0 || dmu_ot[type].ot_metadata);
+	is_metadata = (BP_GET_LEVEL(bp) != 0 || DMU_OT_IS_METADATA(type));
 
 	if (dump_opt['c'] > 1 || (dump_opt['c'] && is_metadata)) {
 		int ioerr;
@@ -2419,7 +2420,7 @@ zdb_ddt_add_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	}
 
 	if (BP_IS_HOLE(bp) || BP_GET_CHECKSUM(bp) == ZIO_CHECKSUM_OFF ||
-	    BP_GET_LEVEL(bp) > 0 || dmu_ot[BP_GET_TYPE(bp)].ot_metadata)
+	    BP_GET_LEVEL(bp) > 0 || DMU_OT_IS_METADATA(BP_GET_TYPE(bp)))
 		return (0);
 
 	ddt_key_fill(&zdde_search.zdde_key, bp);

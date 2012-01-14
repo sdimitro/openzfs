@@ -677,7 +677,7 @@ dmu_tx_hold_zap(dmu_tx_t *tx, uint64_t object, int add, const char *name)
 		return;
 	}
 
-	ASSERT3P(dmu_ot[dn->dn_type].ot_byteswap, ==, zap_byteswap);
+	ASSERT3P(DMU_OT_BYTESWAP(dn->dn_type), ==, DMU_BSWAP_ZAP);
 
 	if (dn->dn_maxblkid == 0 && !add) {
 		blkptr_t *bp;

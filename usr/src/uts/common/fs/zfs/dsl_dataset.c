@@ -99,7 +99,7 @@ dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)
 	if (BP_IS_HOLE(bp))
 		return;
 	ASSERT(BP_GET_TYPE(bp) != DMU_OT_NONE);
-	ASSERT3U(BP_GET_TYPE(bp), <, DMU_OT_NUMTYPES);
+	ASSERT(DMU_OT_IS_VALID(BP_GET_TYPE(bp)));
 	if (ds == NULL) {
 		/*
 		 * Account for the meta-objset space in its placeholder

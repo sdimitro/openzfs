@@ -19,7 +19,7 @@
 
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_FS_ZFS_H
@@ -30,8 +30,8 @@
  */
 #define	SPA_VERSION_INITIAL		1ULL
 #define	SPA_VERSION_BEFORE_FEATURES	28ULL
-#define	SPA_VERSION			1000ULL
-#define	SPA_VERSION_FEATURES		1000ULL
+#define	SPA_VERSION			5000ULL
+#define	SPA_VERSION_FEATURES		5000ULL
 
 #define	SPA_VERSION_IS_SUPPORTED(v) \
 	(((v) >= SPA_VERSION_INITIAL && (v) <= SPA_VERSION_BEFORE_FEATURES) || \

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_DSL_POOL_H
@@ -50,7 +50,8 @@ struct dsl_scan;
 
 /* These macros are for indexing into the zfs_all_blkstats_t. */
 #define	DMU_OT_DEFERRED	DMU_OT_NONE
-#define	DMU_OT_TOTAL	DMU_OT_NUMTYPES
+#define	DMU_OT_OTHER	DMU_OT_NUMTYPES /* place holder for DMU_OT() types */
+#define	DMU_OT_TOTAL	(DMU_OT_NUMTYPES + 1)
 
 typedef struct zfs_blkstat {
 	uint64_t	zb_count;

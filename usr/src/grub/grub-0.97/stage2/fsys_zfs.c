@@ -23,7 +23,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -977,8 +977,8 @@ check_mos_features(dnode_phys_t *mosmdn, char *stack)
 	    stack)) != 0)
 		return (errnum);
 
-	if ((errnum = dnode_get(mosmdn, objnum, DMU_OT_FEATURE_LIST, dn,
-	    stack)) != 0)
+	if ((errnum = dnode_get(mosmdn, objnum, DMU_OTN_ZAP_METADATA,
+	    dn, stack)) != 0)
 		return (errnum);
 
 	return (zap_iterate(dn, check_feature, spa_feature_names, stack));

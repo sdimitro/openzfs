@@ -26,6 +26,9 @@
 #include <sys/nvpair.h>
 #include <sys/kmem.h>
 #include <sys/debug.h>
+#ifndef _KERNEL
+#include <stdlib.h>
+#endif
 
 /*
  * "Force" nvlist wrapper.
@@ -67,7 +70,7 @@ fnvlist_size(nvlist_t *nvl)
 
 /*
  * Returns allocated buffer of size *sizep.  Caller must free the buffer with
- * kmem_free(buf, *sizep) or free(buf).
+ * fnvlist_pack_free().
  */
 char *
 fnvlist_pack(nvlist_t *nvl, size_t *sizep)
@@ -76,6 +79,17 @@ fnvlist_pack(nvlist_t *nvl, size_t *sizep)
 	VERIFY3U(nvlist_pack(nvl, &packed, sizep, NV_ENCODE_NATIVE,
 	    KM_SLEEP), ==, 0);
 	return (packed);
+}
+
+/*ARGSUSED*/
+void
+fnvlist_pack_free(char *pack, size_t size)
+{
+#ifdef _KERNEL
+	kmem_free(pack, size);
+#else
+	free(pack);
+#endif
 }
 
 nvlist_t *

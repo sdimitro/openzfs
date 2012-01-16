@@ -161,7 +161,7 @@ libzfs2_ioctl(zfs_ioc_t ioc, const char *name,
 	}
 
 out:
-	free(packed);
+	fnvlist_pack_free(packed, size);
 	free((void *)(uintptr_t)zc.zc_nvlist_dst);
 	return (error);
 }

@@ -278,7 +278,7 @@ spa_history_log_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	}
 
 	mutex_exit(&spa->spa_history_lock);
-	kmem_free(record_packed, reclen);
+	fnvlist_pack_free(record_packed, reclen);
 	dmu_buf_rele(dbp, FTAG);
 	fnvlist_free(nvl);
 	kmem_free(hap, sizeof (history_arg_t));
@@ -448,8 +448,10 @@ log_internal(nvlist_t *nvl, const char *operation, spa_t *spa,
 	 * If this is part of creating a pool, not everything is
 	 * initialized yet, so don't bother logging the internal events.
 	 */
-	if (tx->tx_txg == TXG_INITIAL)
+	if (tx->tx_txg == TXG_INITIAL) {
+		fnvlist_free(nvl);
 		return;
+	}
 
 	ha = kmem_alloc(sizeof (history_arg_t), KM_SLEEP);
 	ha->ha_history_nvl = nvl;

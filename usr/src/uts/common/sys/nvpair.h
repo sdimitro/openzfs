@@ -280,6 +280,7 @@ nvlist_t *fnvlist_alloc(void);
 void fnvlist_free(nvlist_t *);
 size_t fnvlist_size(nvlist_t *);
 char *fnvlist_pack(nvlist_t *, size_t *);
+void fnvlist_pack_free(char *, size_t);
 nvlist_t *fnvlist_unpack(char *, size_t);
 nvlist_t *fnvlist_dup(nvlist_t *);
 void fnvlist_merge(nvlist_t *, nvlist_t *);

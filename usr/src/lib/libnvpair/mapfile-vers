@@ -45,6 +45,7 @@ SYMBOL_VERSION ILLUMOS_0.1 {	# Illumos additions
     fnvlist_free;
     fnvlist_size;
     fnvlist_pack;
+    fnvlist_pack_free;
     fnvlist_unpack;
     fnvlist_dup;
     fnvlist_merge;

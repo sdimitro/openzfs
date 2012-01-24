@@ -43,6 +43,14 @@ int zfs2_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp);
 int zfs2_snaprange_space(const char *firstsnap, const char *lastsnap,
     uint64_t *usedp);
 
+int zfs2_send(const char *snapname, const char *fromsnap, int fd);
+int zfs2_receive(const char *snapname, nvlist_t *props, const char *origin,
+    boolean_t force, int fd);
+int zfs2_send_space(const char *snapname, const char *fromsnap, uint64_t *);
+
+boolean_t zfs2_exists(const char *dataset);
+
+
 #ifdef	__cplusplus
 }
 #endif

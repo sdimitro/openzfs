@@ -44,8 +44,12 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 
 	libzfs2_fini;
 	libzfs2_init;
-	zfs2_snapshot;
+	zfs2_exists;
+	zfs2_receive;
+	zfs2_send;
+	zfs2_send_space;
 	zfs2_snaprange_space;
+	zfs2_snapshot;
 
 # legacy libzfs routines:
 

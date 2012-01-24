@@ -635,6 +635,13 @@ zfs_secpolicy_send(zfs_cmd_t *zc, cred_t *cr)
 }
 
 static int
+zfs_secpolicy_send_new(zfs_cmd_t *zc, cred_t *cr)
+{
+	return (zfs_secpolicy_write_perms(zc->zc_name,
+	    ZFS_DELEG_PERM_SEND, cr));
+}
+
+static int
 zfs_secpolicy_deleg_share(zfs_cmd_t *zc, cred_t *cr)
 {
 	vnode_t *vp;
@@ -3836,8 +3843,9 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 		nvlist_free(errlist);
 	}
 
-	if (nvlist_smush(errors, zc->zc_nvlist_dst_size) != 0 ||
-	    put_nvlist(zc, errors) != 0) {
+	if (zc->zc_nvlist_dst_size != 0 &&
+	    (nvlist_smush(errors, zc->zc_nvlist_dst_size) != 0 ||
+	    put_nvlist(zc, errors) != 0)) {
 		/*
 		 * Caller made zc->zc_nvlist_dst less than the minimum expected
 		 * size or supplied an invalid address.
@@ -3969,15 +3977,13 @@ zfs_ioc_send(zfs_cmd_t *zc)
 	rw_enter(&dp->dp_config_rwlock, RW_READER);
 	error = dsl_dataset_hold_obj(dp, zc->zc_sendobj, FTAG, &ds);
 	rw_exit(&dp->dp_config_rwlock);
-	if (error) {
-		spa_close(spa, FTAG);
+	spa_close(spa, FTAG);
+	if (error)
 		return (error);
-	}
 
 	error = dmu_objset_from_ds(ds, &tosnap);
 	if (error) {
 		dsl_dataset_rele(ds, FTAG);
-		spa_close(spa, FTAG);
 		return (error);
 	}
 
@@ -3985,7 +3991,6 @@ zfs_ioc_send(zfs_cmd_t *zc)
 		rw_enter(&dp->dp_config_rwlock, RW_READER);
 		error = dsl_dataset_hold_obj(dp, zc->zc_fromobj, FTAG, &dsfrom);
 		rw_exit(&dp->dp_config_rwlock);
-		spa_close(spa, FTAG);
 		if (error) {
 			dsl_dataset_rele(ds, FTAG);
 			return (error);
@@ -3996,12 +4001,37 @@ zfs_ioc_send(zfs_cmd_t *zc)
 			dsl_dataset_rele(ds, FTAG);
 			return (error);
 		}
-	} else {
-		spa_close(spa, FTAG);
+	}
+
+	if (zc->zc_obj) {
+		dsl_pool_t *dp = ds->ds_dir->dd_pool;
+
+		if (fromsnap != NULL) {
+			dsl_dataset_rele(dsfrom, FTAG);
+			dsl_dataset_rele(ds, FTAG);
+			return (EINVAL);
+		}
+
+		if (dsl_dir_is_clone(ds->ds_dir)) {
+			rw_enter(&dp->dp_config_rwlock, RW_READER);
+			error = dsl_dataset_hold_obj(dp,
+			    ds->ds_dir->dd_phys->dd_origin_obj, FTAG, &dsfrom);
+			rw_exit(&dp->dp_config_rwlock);
+			if (error) {
+				dsl_dataset_rele(ds, FTAG);
+				return (error);
+			}
+			error = dmu_objset_from_ds(dsfrom, &fromsnap);
+			if (error) {
+				dsl_dataset_rele(dsfrom, FTAG);
+				dsl_dataset_rele(ds, FTAG);
+				return (error);
+			}
+		}
 	}
 
 	if (estimate) {
-		error = dmu_send_estimate(tosnap, fromsnap, zc->zc_obj,
+		error = dmu_send_estimate(tosnap, fromsnap,
 		    &zc->zc_objset_type);
 	} else {
 		file_t *fp = getf(zc->zc_cookie);
@@ -4013,7 +4043,7 @@ zfs_ioc_send(zfs_cmd_t *zc)
 		}
 
 		off = fp->f_offset;
-		error = dmu_sendbackup(tosnap, fromsnap, zc->zc_obj,
+		error = dmu_sendbackup(tosnap, fromsnap,
 		    fp->f_vnode, &off);
 
 		if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
@@ -4900,6 +4930,106 @@ zfs_ioc_space_snaps(const char *lastsnap, nvlist_t *innvl, nvlist_t *outnvl)
 	return (error);
 }
 
+/*
+ * innvl: {
+ *     "fd" -> file descriptor to write stream to (int32)
+ *     (optional) "fromsnap" -> full snap name to send an incremental from
+ * }
+ *
+ * outnvl is unused
+ */
+/* ARGSUSED */
+static int
+zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
+{
+	objset_t *fromsnap = NULL;
+	objset_t *tosnap;
+	int error;
+	offset_t off;
+	char *fromname;
+	int fd;
+
+	error = nvlist_lookup_int32(innvl, "fd", &fd);
+	if (error != 0)
+		return (EINVAL);
+
+	error = dmu_objset_hold(snapname, FTAG, &tosnap);
+	if (error)
+		return (error);
+
+	error = nvlist_lookup_string(innvl, "fromsnap", &fromname);
+	if (error == 0) {
+		error = dmu_objset_hold(fromname, FTAG, &fromsnap);
+		if (error) {
+			dmu_objset_rele(tosnap, FTAG);
+			return (error);
+		}
+	}
+
+	file_t *fp = getf(fd);
+	if (fp == NULL) {
+		dmu_objset_rele(tosnap, FTAG);
+		if (fromsnap != NULL)
+			dmu_objset_rele(fromsnap, FTAG);
+		return (EBADF);
+	}
+
+	off = fp->f_offset;
+	error = dmu_sendbackup(tosnap, fromsnap, fp->f_vnode, &off);
+
+	if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
+		fp->f_offset = off;
+	releasef(fd);
+	if (fromsnap != NULL)
+		dmu_objset_rele(fromsnap, FTAG);
+	dmu_objset_rele(tosnap, FTAG);
+	return (error);
+}
+
+/*
+ * Determine approximately how large a zfs send stream will be -- the number
+ * of bytes that will be written to the fd supplied to zfs_ioc_send_new().
+ *
+ * innvl: {
+ *     (optional) "fromsnap" -> full snap name to send an incremental from
+ * }
+ *
+ * outnvl: {
+ *     "space" -> bytes of space (uint64)
+ * }
+ */
+static int
+zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
+{
+	objset_t *fromsnap = NULL;
+	objset_t *tosnap;
+	int error;
+	char *fromname;
+	uint64_t space;
+
+	error = dmu_objset_hold(snapname, FTAG, &tosnap);
+	if (error)
+		return (error);
+
+	error = nvlist_lookup_string(innvl, "fromsnap", &fromname);
+	if (error == 0) {
+		error = dmu_objset_hold(fromname, FTAG, &fromsnap);
+		if (error) {
+			dmu_objset_rele(tosnap, FTAG);
+			return (error);
+		}
+	}
+
+	error = dmu_send_estimate(tosnap, fromsnap, &space);
+	fnvlist_add_uint64(outnvl, "space", space);
+
+	if (fromsnap != NULL)
+		dmu_objset_rele(fromsnap, FTAG);
+	dmu_objset_rele(tosnap, FTAG);
+	return (error);
+}
+
+
 static zfs_ioc_vec_t zfs_ioc_vec[ZFS_IOC_LAST - ZFS_IOC_FIRST];
 
 static void
@@ -5102,6 +5232,14 @@ zfs_ioctl_init(void)
 
 	zfs_ioctl_register("space_snaps", ZFS_IOC_SPACE_SNAPS,
 	    zfs_ioc_space_snaps, zfs_secpolicy_read, DATASET_NAME,
+	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
+
+	zfs_ioctl_register("send", ZFS_IOC_SEND_NEW,
+	    zfs_ioc_send_new, zfs_secpolicy_send_new, DATASET_NAME,
+	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
+
+	zfs_ioctl_register("send_space", ZFS_IOC_SEND_SPACE,
+	    zfs_ioc_send_space, zfs_secpolicy_read, DATASET_NAME,
 	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
 
 	/* IOCTLS that use the legacy function signature */
@@ -5480,11 +5618,12 @@ zfsdev_ioctl(dev_t dev, int cmd, intptr_t arg, int flag, cred_t *cr, int *rvalp)
 		}
 
 		if (!nvlist_empty(outnvl) || zc->zc_nvlist_dst_size != 0) {
+			int smusherror = 0;
 			if (vec->zvec_smush_outnvlist) {
-				puterror = nvlist_smush(outnvl,
+				smusherror = nvlist_smush(outnvl,
 				    zc->zc_nvlist_dst_size);
 			}
-			if (puterror == 0)
+			if (smusherror == 0)
 				puterror = put_nvlist(zc, outnvl);
 		}
 

@@ -122,14 +122,14 @@ libzfs2_ioctl(zfs_ioc_t ioc, const char *name,
 
 	ASSERT3S(g_refcount, >, 0);
 
-	packed = fnvlist_pack(source, &size);
-
 	(void) strlcpy(zc.zc_name, name, sizeof (zc.zc_name));
+
+	packed = fnvlist_pack(source, &size);
 	zc.zc_nvlist_src = (uint64_t)(uintptr_t)packed;
 	zc.zc_nvlist_src_size = size;
 
 	if (resultp != NULL) {
-		zc.zc_nvlist_dst_size = 128 * 1024;
+		zc.zc_nvlist_dst_size = MAX(size * 2, 128 * 1024);
 		zc.zc_nvlist_dst = (uint64_t)(uintptr_t)
 		    malloc(zc.zc_nvlist_dst_size);
 		if (zc.zc_nvlist_dst == NULL) {
@@ -234,4 +234,161 @@ zfs2_snaprange_space(const char *firstsnap, const char *lastsnap,
 	fnvlist_free(result);
 
 	return (err);
+}
+
+boolean_t
+zfs2_exists(const char *dataset)
+{
+	/*
+	 * The objset_stats ioctl is still legacy, so we need to construct our
+	 * own zfs_cmd_t rather than using libzfs2_ioctl().
+	 */
+	zfs_cmd_t zc = { 0 };
+
+	(void) strlcpy(zc.zc_name, dataset, sizeof (zc.zc_name));
+	return (ioctl(g_fd, ZFS_IOC_OBJSET_STATS, &zc) == 0);
+}
+
+/*
+ * If fromsnap is NULL, a full (non-incremental) stream will be sent.
+ */
+int
+zfs2_send(const char *snapname, const char *fromsnap, int fd)
+{
+	nvlist_t *args;
+	int err;
+
+	args = fnvlist_alloc();
+	fnvlist_add_int32(args, "fd", fd);
+	if (fromsnap != NULL)
+		fnvlist_add_string(args, "fromsnap", fromsnap);
+	err = libzfs2_ioctl(ZFS_IOC_SEND_NEW, snapname, args, NULL);
+	nvlist_free(args);
+	return (err);
+}
+
+/*
+ * If fromsnap is NULL, a full (non-incremental) stream will be estimated.
+ */
+int
+zfs2_send_space(const char *snapname, const char *fromsnap, uint64_t *spacep)
+{
+	nvlist_t *args;
+	nvlist_t *result;
+	int err;
+
+	args = fnvlist_alloc();
+	if (fromsnap != NULL)
+		fnvlist_add_string(args, "fromsnap", fromsnap);
+	err = libzfs2_ioctl(ZFS_IOC_SEND_SPACE, snapname, args, &result);
+	nvlist_free(args);
+	if (err == 0)
+		*spacep = fnvlist_lookup_uint64(result, "space");
+	nvlist_free(result);
+	return (err);
+}
+
+static int
+recv_read(int fd, void *buf, int ilen)
+{
+	char *cp = buf;
+	int rv;
+	int len = ilen;
+
+	do {
+		rv = read(fd, cp, len);
+		cp += rv;
+		len -= rv;
+	} while (rv > 0);
+
+	if (rv < 0 || len != 0)
+		return (EIO);
+
+	return (0);
+}
+
+/*
+ * The simplest receive case: receive from the specified fd, creating the
+ * specified snapshot.  Apply the specified properties a "received" properties
+ * (which can be overridden by locally-set properties).  If the stream is a
+ * clone, its origin snapshot must be specified by 'origin'.  The 'force'
+ * flag will cause the target filesystem to be rolled back or destroyed if
+ * necessary to receive.
+ *
+ * Return 0 on success or an errno on failure.
+ *
+ * Note: this interface does not work on dedup'd streams
+ * (those with DMU_BACKUP_FEATURE_DEDUP).
+ */
+int
+zfs2_receive(const char *snapname, nvlist_t *props, const char *origin,
+    boolean_t force, int fd)
+{
+	/*
+	 * The receive ioctl is still legacy, so we need to construct our own
+	 * zfs_cmd_t rather than using libzfs2_ioctl().
+	 */
+	zfs_cmd_t zc = { 0 };
+	char *atp;
+	char *packed = NULL;
+	size_t size;
+	dmu_replay_record_t drr;
+	int error;
+
+	ASSERT3S(g_refcount, >, 0);
+
+	/* zc_name is name of containing filesystem */
+	(void) strlcpy(zc.zc_name, snapname, sizeof (zc.zc_name));
+	atp = strchr(zc.zc_name, '@');
+	if (atp == NULL)
+		return (EINVAL);
+	*atp = '\0';
+
+	/* if the fs does not exist, try its parent. */
+	if (!zfs2_exists(zc.zc_name)) {
+		char *slashp = strrchr(zc.zc_name, '/');
+		if (slashp == NULL)
+			return (ENOENT);
+		*slashp = '\0';
+
+	}
+
+	/* zc_value is full name of the snapshot to create */
+	(void) strlcpy(zc.zc_value, snapname, sizeof (zc.zc_value));
+
+	if (props != NULL) {
+		/* zc_nvlist_src is props to set */
+		packed = fnvlist_pack(props, &size);
+		zc.zc_nvlist_src = (uint64_t)(uintptr_t)packed;
+		zc.zc_nvlist_src_size = size;
+	}
+
+	/* zc_string is name of clone origin (if DRR_FLAG_CLONE) */
+	if (origin != NULL)
+		(void) strlcpy(zc.zc_string, origin, sizeof (zc.zc_string));
+
+	/* zc_begin_record is non-byteswapped BEGIN record */
+	error = recv_read(fd, &drr, sizeof (drr));
+	if (error != 0)
+		goto out;
+	zc.zc_begin_record = drr.drr_u.drr_begin;
+
+	/* zc_cookie is fd to read from */
+	zc.zc_cookie = fd;
+
+	/* zc guid is force flag */
+	zc.zc_guid = force;
+
+	/* zc_cleanup_fd is unused */
+	zc.zc_cleanup_fd = -1;
+
+	error = ioctl(g_fd, ZFS_IOC_RECV, &zc);
+	if (error != 0)
+		error = errno;
+
+out:
+	if (packed != NULL)
+		fnvlist_pack_free(packed, size);
+	free((void*)(uintptr_t)zc.zc_nvlist_dst);
+	return (error);
 }

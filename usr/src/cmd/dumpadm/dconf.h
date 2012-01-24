@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_DCONF_H
@@ -44,6 +45,7 @@ typedef struct dumpconf {
 	int dc_conf_fd;			/* File descriptor for config file */
 	int dc_dump_fd;			/* File descriptor for dump device */
 	boolean_t dc_readonly;		/* Readonly conf file */
+	int dc_opts;			/* Options for the dump device */
 } dumpconf_t;
 
 /*
@@ -64,6 +66,13 @@ typedef struct dumpconf {
 #define	DC_CURRENT	1		/* Kernel overrides file settings */
 #define	DC_OVERRIDE	2		/* File+defaults override kernel */
 
+/*
+ * Values for dc_resize property when using a zvol dump device:
+ */
+#define	DUMP_NONE	0		/* Don't automatically resize */
+#define	DUMP_RESIZE	1		/* Grow/shrink dump zvol */
+#define	DUMP_EXPAND	2		/* Grow only */
+
 extern int dconf_open(dumpconf_t *, const char *, const char *, int);
 extern int dconf_getdev(dumpconf_t *);
 extern int dconf_close(dumpconf_t *);
@@ -77,6 +86,7 @@ extern int dconf_str2savdir(dumpconf_t *, char *);
 extern int dconf_str2content(dumpconf_t *, char *);
 extern int dconf_str2enable(dumpconf_t *, char *);
 extern int dconf_str2csave(dumpconf_t *, char *);
+extern int dconf_str2option(dumpconf_t *, char *);
 
 #ifdef	__cplusplus
 }

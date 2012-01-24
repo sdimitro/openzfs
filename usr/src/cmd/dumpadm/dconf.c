@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -27,6 +28,9 @@
 #include <sys/swap.h>
 #include <sys/dumpadm.h>
 #include <sys/utsname.h>
+#include <sys/sysmacros.h>
+#include <sys/dumphdr.h>
+#include <sys/fm/util.h>
 
 #include <unistd.h>
 #include <string.h>
@@ -37,6 +41,8 @@
 #include <libdiskmgt.h>
 #include <libzfs.h>
 #include <uuid/uuid.h>
+#include <kstat.h>
+#include <assert.h>
 
 #include "dconf.h"
 #include "minfree.h"
@@ -70,6 +76,9 @@ static const char DC_STR_OFF[] = "off";		/* Off string */
 static const char DC_STR_YES[] = "yes";		/* Enable on string */
 static const char DC_STR_NO[] = "no";		/* Enable off string */
 static const char DC_STR_SWAP[] = "swap";	/* Default dump device */
+static const char DC_STR_NONE[] = "none";
+static const char DC_STR_RESIZE[] = "resize";	/* Grow/shrink dump device */
+static const char DC_STR_EXPAND[] = "expand";	/* Expand the dump device */
 
 /* The pages included in the dump */
 static const char DC_STR_KERNEL[] = "kernel";	/* Kernel only */
@@ -108,6 +117,7 @@ dconf_init(dumpconf_t *dcp, int dcmode)
 	dcp->dc_cflags = DUMP_KERNEL;
 	dcp->dc_enable = DC_ON;
 	dcp->dc_csave = DC_COMPRESSED;
+	dcp->dc_opts = DUMP_NONE;
 
 	dcp->dc_mode = dcmode;
 	dcp->dc_conf_fp = NULL;
@@ -364,10 +374,78 @@ dconf_dev_ioctl(dumpconf_t *dcp, int cmd)
 	return (-1);
 }
 
+/*
+ * Automatically adjust the size of the dump device (only applicable to
+ * zvols).  This is a best effort attempt as we don't want to fail the
+ * adding of a dump device should we fail to increase the size of the
+ * zvol.
+ */
+static void
+dump_resize(char *path, uint64_t size, int opts)
+{
+	kstat_ctl_t *kc = NULL;
+	kstat_t *ks;
+	kstat_named_t *arc_max;
+	uint64_t blksz, dumpsz;
+	libzfs_handle_t *hdl;
+	zfs_handle_t *zhp;
+	char *dataset = NULL;
+	char propstr[ZFS_MAXPROPLEN];
+
+	if (opts == DUMP_NONE)
+		return;
+
+	if ((kc = kstat_open()) == NULL ||
+	    (ks = kstat_lookup(kc, "zfs", 0, "arcstats")) == NULL ||
+	    (kstat_read(kc, ks, NULL) == -1))
+		return;
+
+	arc_max = kstat_data_lookup(ks, "c_max");
+	assert(arc_max != NULL);
+	assert(arc_max->data_type == KSTAT_DATA_UINT64);
+	dumpsz = arc_max->value.ui64 / 8 + 2 * DUMP_LOGSIZE + DUMP_ERPTSIZE;
+	(void) kstat_close(kc);
+
+	if ((hdl = libzfs_init()) == NULL)
+		return;
+
+	libzfs_print_on_error(hdl, B_TRUE);
+
+	dataset = path + strlen(ZVOL_FULL_DEV_DIR);
+	if ((zhp = zfs_open(hdl, dataset, ZFS_TYPE_VOLUME)) == NULL) {
+		libzfs_fini(hdl);
+		return;
+	}
+
+	/*
+	 * We would like to base the size of the dump device on
+	 * arc_meta_limit but that value is not exposed via the kstat
+	 * interface.  We can leverage arc_c_max to derive the value of
+	 * arc_meta_limit (arc_c_max / 4) and set the preferred dump size
+	 * to be 1/2 of arc_meta_limit + some slop.
+	 */
+	blksz = zfs_prop_get_int(zhp, ZFS_PROP_VOLBLOCKSIZE);
+	dumpsz = P2ROUNDUP(dumpsz, blksz);
+
+	/*
+	 * If the dump device is configured to always resize then we allow
+	 * it to shrink or grow.  Otherwise, we only change the size of the
+	 * dump device if it's not large enough to hold the arc metadata.
+	 */
+	if (opts == DUMP_RESIZE || size < dumpsz) {
+		(void) snprintf(propstr, sizeof (propstr), "%llu", dumpsz);
+		(void) zfs_prop_set(zhp, zfs_prop_to_name(ZFS_PROP_VOLSIZE),
+		    propstr);
+	}
+
+	zfs_close(zhp);
+	libzfs_fini(hdl);
+}
+
 int
 dconf_update(dumpconf_t *dcp, int checkinuse)
 {
-	int 		oconf;
+	int		oconf;
 	int		error;
 	char		*msg;
 
@@ -438,24 +516,30 @@ dconf_update(dumpconf_t *dcp, int checkinuse)
 		}
 		free(swt);
 
+	} else if (strcmp(dcp->dc_device, DC_STR_NONE) == 0) {
+		if (ioctl(dcp->dc_dump_fd, DIOCRMDEV, NULL) == -1) {
+			warn(gettext("failed to remove dump device"));
+			return (-1);
+		}
 	} else if (dcp->dc_device[0] != '\0') {
+		struct stat64 st;
+
+		if (open_stat64(dcp->dc_device, &st) == -1) {
+			warn(gettext("failed to access %s"),
+			    dcp->dc_device);
+			goto err;
+		}
+
 		/*
 		 * If we're not in forcible update mode, then fail the change
 		 * if the selected device cannot be used as the dump device,
 		 * or if it is not big enough to hold the dump.
 		 */
 		if (dcp->dc_mode == DC_CURRENT) {
-			struct stat64 st;
 			uint64_t d;
 
 			if (dconf_dev_ioctl(dcp, DIOCTRYDEV) == -1)
 				goto err;
-
-			if (open_stat64(dcp->dc_device, &st) == -1) {
-				warn(gettext("failed to access %s"),
-				    dcp->dc_device);
-				goto err;
-			}
 
 			if ((error = zvol_check_dump_config(
 			    dcp->dc_device)) > 0)
@@ -473,6 +557,11 @@ dconf_update(dumpconf_t *dcp, int checkinuse)
 				goto err;
 			}
 		}
+
+		if (strncmp(dcp->dc_device, ZVOL_FULL_DEV_DIR,
+		    strlen(ZVOL_FULL_DEV_DIR)) == 0)
+			dump_resize(dcp->dc_device, st.st_size, dcp->dc_opts);
+
 
 		if (dconf_dev_ioctl(dcp, DIOCSETDEV) == -1)
 			goto err;
@@ -564,6 +653,11 @@ dconf_str2device(dumpconf_t *dcp, char *buf)
 		return (0);
 	}
 
+	if (strcasecmp(buf, DC_STR_NONE) == 0) {
+		(void) strcpy(dcp->dc_device, DC_STR_NONE);
+		return (0);
+	}
+
 	if (valid_abspath(buf)) {
 		(void) strcpy(dcp->dc_device, buf);
 		return (0);
@@ -637,6 +731,28 @@ dconf_str2csave(dumpconf_t *dcp, char *buf)
 	}
 
 	warn(gettext("invalid save compressed value -- %s\n"), buf);
+	return (-1);
+}
+
+int
+dconf_str2option(dumpconf_t *dcp, char *buf)
+{
+	if (strcasecmp(buf, DC_STR_NONE) == 0) {
+		dcp->dc_opts = DUMP_NONE;
+		return (0);
+	}
+
+	if (strcasecmp(buf, DC_STR_EXPAND) == 0) {
+		dcp->dc_opts = DUMP_EXPAND;
+		return (0);
+	}
+
+	if (strcasecmp(buf, DC_STR_RESIZE) == 0) {
+		dcp->dc_opts = DUMP_RESIZE;
+		return (0);
+	}
+
+	warn(gettext("invalid argument -- %s\n"), buf);
 	return (-1);
 }
 

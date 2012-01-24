@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <sys/stat.h>
@@ -37,7 +38,7 @@ static const char USAGE[] = "\
 Usage: %s [-nuy] [-c kernel | curproc | all ] [-d dump-device | swap ]\n\
 	[-m min {k|m|%%} ] [-s savecore-dir] [-r root-dir] [-z on|off]\n";
 
-static const char OPTS[] = "inuyc:d:m:s:r:z:";
+static const char OPTS[] = "inuyc:d:m:o:s:r:z:";
 
 static const char PATH_DEVICE[] = "/dev/dump";
 static const char PATH_CONFIG[] = "/etc/dumpadm.conf";
@@ -138,6 +139,12 @@ main(int argc, char *argv[])
 
 			case 'n':
 				dc.dc_enable = DC_OFF;
+				modified++;
+				break;
+
+			case 'o':
+				if (dconf_str2option(&dc, optarg) == -1)
+					return (E_USAGE);
 				modified++;
 				break;
 

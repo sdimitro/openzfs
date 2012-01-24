@@ -2,6 +2,7 @@
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
  Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+ Copyright (c) 2012 by Delphix. All rights reserved.
 
  CDDL HEADER START
 
@@ -93,6 +94,10 @@
 
 	<property_group name='startd' type='framework'>
 		<propval name='duration' type='astring' value='transient' />
+	</property_group>
+
+	<property_group name='dumpadm' type='application'>
+		<propval name='options' type='astring' value='expand' />
 	</property_group>
 
 	<stability value='Unstable' />

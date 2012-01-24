@@ -20,6 +20,7 @@
 #
 #
 # Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 PROG = dumpadm
@@ -40,7 +41,7 @@ FILEMODE = 0555
 
 ROOTMANIFESTDIR = $(ROOTSVCSYSTEM)
 
-LDLIBS +=	-ldiskmgt -lzfs -luuid
+LDLIBS +=	-ldiskmgt -lzfs -luuid -lkstat
 
 .KEEP_STATE:
 

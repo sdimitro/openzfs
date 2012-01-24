@@ -23,6 +23,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
 /*	  All Rights Reserved  	*/
 
@@ -36,10 +40,8 @@
  * contributors.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 /*
- * 	Swap administrative interface
+ *	Swap administrative interface
  *	Used to add/delete/list swap devices.
  */
 
@@ -64,6 +66,9 @@
 #include	<libintl.h>
 #include	<libdiskmgt.h>
 #include	<sys/fs/zfs.h>
+#include	<kstat.h>
+#include	<assert.h>
+#include	<libzfs.h>
 
 #define	LFLAG	0x01	/* swap -l (list swap devices) */
 #define	DFLAG	0x02	/* swap -d (delete swap device) */
@@ -116,7 +121,7 @@ main(int argc, char **argv)
 	while ((c = getopt(argc, argv, "khlsd:a:12")) != EOF) {
 		char *char_p;
 		switch (c) {
-		case 'l': 	/* list all the swap devices */
+		case 'l':	/* list all the swap devices */
 			flag |= LFLAG;
 			break;
 		case 's':
@@ -365,7 +370,7 @@ doswap(int flag)
 static int
 list(int flag)
 {
-	struct swaptable 	*st;
+	struct swaptable	*st;
 	struct swapent	*swapent;
 	int	i;
 	struct stat64 statbuf;
@@ -417,7 +422,7 @@ list(int flag)
 	 *	of the header changes, change the next 5 formats as needed
 	 *	to make alignment of output agree with alignment of the header.
 	 * The next four translations are four cases for printing the
-	 * 	1st & 2nd fields.
+	 *	1st & 2nd fields.
 	 * The next translation is for printing the 3rd, 4th & 5th fields.
 	 *
 	 * Translations (if any) of the following keywords should match the
@@ -559,6 +564,55 @@ dumpadm_err(const char *warning)
 	    "run dumpadm(1M) to verify dump configuration\n"));
 }
 
+static void
+swap_resize(char *path)
+{
+	kstat_ctl_t *kc = NULL;
+	kstat_t *ks;
+	kstat_named_t *arc_max;
+	uint64_t blksz, swapsz;
+	libzfs_handle_t *hdl;
+	zfs_handle_t *zhp;
+	char *dataset = NULL;
+	char propstr[ZFS_MAXPROPLEN];
+
+	if ((kc = kstat_open()) == NULL ||
+	    (ks = kstat_lookup(kc, "zfs", 0, "arcstats")) == NULL ||
+	    (kstat_read(kc, ks, NULL) == -1))
+		return;
+
+	arc_max = kstat_data_lookup(ks, "c_max");
+	assert(arc_max != NULL);
+	assert(arc_max->data_type == KSTAT_DATA_UINT64);
+	swapsz = arc_max->value.ui64 / 4;
+	(void) kstat_close(kc);
+
+	if ((hdl = libzfs_init()) == NULL)
+		return;
+
+	libzfs_print_on_error(hdl, B_TRUE);
+
+	dataset = path + strlen(ZVOL_FULL_DEV_DIR);
+	if ((zhp = zfs_open(hdl, dataset, ZFS_TYPE_VOLUME)) == NULL) {
+		libzfs_fini(hdl);
+		return;
+	}
+
+	/*
+	 * The size of the swap device is based on 1/4 of arc_c_max.
+	 * We cap it at 16GB with a 1GB minimum.
+	 */
+	blksz = zfs_prop_get_int(zhp, ZFS_PROP_VOLBLOCKSIZE);
+	swapsz = MIN(swapsz, 16ULL << 30);
+	swapsz = P2ROUNDUP(MAX(swapsz, 1ULL << 30), blksz);
+	(void) snprintf(propstr, sizeof (propstr), "%llu", swapsz);
+
+	(void) zfs_prop_set(zhp, zfs_prop_to_name(ZFS_PROP_VOLSIZE), propstr);
+
+	zfs_close(zhp);
+	libzfs_fini(hdl);
+}
+
 static int
 delete(char *path, off_t offset)
 {
@@ -623,7 +677,6 @@ static int
 add(char *path, off_t offset, off_t cnt, int flags)
 {
 	swapres_t swr;
-
 	int fd, have_dumpdev = 1;
 	struct statvfs fsb;
 
@@ -661,6 +714,9 @@ add(char *path, off_t offset, off_t cnt, int flags)
 
 	} else if (!(flags & P1FLAG))
 		dumpadm_err(gettext("Warning: failed to open /dev/dump"));
+
+	if (strncmp(path, ZVOL_FULL_DEV_DIR, strlen(ZVOL_FULL_DEV_DIR)) == 0)
+		swap_resize(path);
 
 	swr.sr_name = path;
 	swr.sr_start = offset;

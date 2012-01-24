@@ -22,6 +22,8 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
 # cmd/swap/Makefile.com
 
 PROG=	swap
@@ -42,7 +44,7 @@ CLEANFILES += $(OBJS)
 
 all: $(PROG)
 
-LDLIBS	+=	-ldiskmgt
+LDLIBS	+=	-ldiskmgt -lkstat -lzfs
 $(PROG): $(OBJS)
 	$(LINK.c) $(OBJS) -o $@ $(LDLIBS)
 	$(POST_PROCESS)

@@ -21,6 +21,7 @@
 #
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 . /lib/svc/share/smf_include.sh
@@ -100,7 +101,11 @@ fi
 # how to modify the dump settings.
 #
 if [ -x /usr/sbin/dumpadm ]; then
-	/usr/sbin/dumpadm -u || $SMF_EXIT_ERR_CONFIG
+	options=`svcprop -p dumpadm/options SMF_FMRI`
+	if [ -n "$options" ]; then
+		options="-o $options"
+	fi
+	/usr/sbin/dumpadm -u $options || $SMF_EXIT_ERR_CONFIG
 else
 	echo "WARNING: /usr/sbin/dumpadm is missing or not executable" >& 2
 	exit $SMF_EXIT_ERR_CONFIG

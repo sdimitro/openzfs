@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 #
@@ -29,6 +29,7 @@
 #
 export PATH=/usr/ccs/bin:/usr/local/bin:/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin
 export PAGER="/usr/bin/less -ins"
+export SHELL=/bin/bash
 
 #
 # Define default prompt to <username>@<hostname>:<path><"($|#) ">

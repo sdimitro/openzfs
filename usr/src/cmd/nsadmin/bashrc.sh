@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 #
@@ -30,3 +30,4 @@ PS1='${LOGNAME}@$(/usr/bin/hostname):$(
     printf "%s" "${PWD/${HOME}/~}\$ ")'
 
 export PATH=/usr/ccs/bin:/usr/local/bin:/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin
+export SHELL=/bin/bash

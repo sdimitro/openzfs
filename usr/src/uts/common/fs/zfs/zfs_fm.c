@@ -23,6 +23,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 #include <sys/spa.h>
 #include <sys/spa_impl.h>
 #include <sys/vdev.h>

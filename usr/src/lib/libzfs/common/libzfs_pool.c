@@ -3177,6 +3177,26 @@ zpool_reguid(zpool_handle_t *zhp)
 }
 
 /*
+ * Reopen the pool.
+ */
+int
+zpool_reopen(zpool_handle_t *zhp)
+{
+	zfs_cmd_t zc = { 0 };
+	char msg[1024];
+	libzfs_handle_t *hdl = zhp->zpool_hdl;
+
+	(void) snprintf(msg, sizeof (msg),
+	    dgettext(TEXT_DOMAIN, "cannot reopen '%s'"),
+	    zhp->zpool_name);
+
+	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
+	if (zfs_ioctl(hdl, ZFS_IOC_POOL_REOPEN, &zc) == 0)
+		return (0);
+	return (zpool_standard_error(hdl, errno, msg));
+}
+
+/*
  * Convert from a devid string to a path.
  */
 static char *
@@ -4000,24 +4020,4 @@ out:
 		zpool_close(zhp);
 	libzfs_fini(hdl);
 	return (ret);
-}
-
-/*
- * Reopen the pool.
- */
-int
-zpool_reopen(zpool_handle_t *zhp)
-{
-	zfs_cmd_t zc = { 0 };
-	char msg[1024];
-	libzfs_handle_t *hdl = zhp->zpool_hdl;
-
-	(void) snprintf(msg, sizeof (msg),
-	    dgettext(TEXT_DOMAIN, "cannot reopen '%s'"),
-	    zhp->zpool_name);
-
-	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
-	if (zfs_ioctl(hdl, ZFS_IOC_POOL_REOPEN, &zc) == 0)
-		return (0);
-	return (zpool_standard_error(hdl, errno, msg));
 }

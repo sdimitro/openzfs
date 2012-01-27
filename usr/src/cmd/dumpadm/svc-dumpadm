@@ -101,7 +101,7 @@ fi
 # how to modify the dump settings.
 #
 if [ -x /usr/sbin/dumpadm ]; then
-	options=`svcprop -p dumpadm/options SMF_FMRI`
+	options=`svcprop -p dumpadm/options $SMF_FMRI`
 	if [ -n "$options" ]; then
 		options="-o $options"
 	fi

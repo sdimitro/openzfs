@@ -170,6 +170,7 @@ static void
 spa_prop_get_config(spa_t *spa, nvlist_t **nvp)
 {
 	vdev_t *rvd = spa->spa_root_vdev;
+	dsl_dir_t *freedir = spa->spa_dsl_pool->dp_free_dir;
 	uint64_t size;
 	uint64_t alloc;
 	uint64_t space;
@@ -187,6 +188,18 @@ spa_prop_get_config(spa_t *spa, nvlist_t **nvp)
 		spa_prop_add_list(*nvp, ZPOOL_PROP_ALLOCATED, NULL, alloc, src);
 		spa_prop_add_list(*nvp, ZPOOL_PROP_FREE, NULL,
 		    size - alloc, src);
+
+		/*
+		 * The $FREE directory was introduced in SPA_VERSION_DEADLISTS,
+		 * when opening pools before this version freedir will be NULL.
+		 */
+		if (freedir != NULL) {
+			spa_prop_add_list(*nvp, ZPOOL_PROP_FREEING, NULL,
+			    freedir->dd_phys->dd_used_bytes, src);
+		} else {
+			spa_prop_add_list(*nvp, ZPOOL_PROP_FREEING,
+			    NULL, 0, src);
+		}
 
 		space = 0;
 		for (int c = 0; c < rvd->vdev_children; c++) {

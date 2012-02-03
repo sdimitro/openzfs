@@ -184,6 +184,11 @@ int zfs_arc_shrink_shift = 0;
 int zfs_arc_p_min_shift = 0;
 
 /*
+ * This will override the zio_arena check in arc_reclaim_needed.
+ */
+int zfs_arena_override = 0;
+
+/*
  * Note that buffers can be in one of 6 states:
  *	ARC_anon	- anonymous (discussed below)
  *	ARC_mru		- recently used, currently cached
@@ -1982,6 +1987,11 @@ arc_shrink(void)
 		arc_adjust();
 }
 
+/*
+ * Determine if the system is under memory pressure and is asking
+ * to reclaim memory. A return value of 1 indicates that the system
+ * is under memory pressure and that the arc should adjust accordingly.
+ */
 static int
 arc_reclaim_needed(void)
 {
@@ -2037,13 +2047,42 @@ arc_reclaim_needed(void)
 #ifdef _KERNEL
 	/*
 	 * If zio data pages are being allocated out of a separate heap segment,
-	 * then enforce that the size of available vmem for this area remains
-	 * above about 1/16th free.
+	 * then enforce that the size of available vmem for this arena remains
+	 * above about 1/16th free unless the current size of the arc has
+	 * fallen below the minimum target size or someone has asked to
+	 * override this check. If an override has been requested, then
+	 * ignore the 1/16th free requirement while the arc size is
+	 * less than 1/2 of its maximum size.
+	 *
+	 * Note: The 1/16th arena free requirement was put in place
+	 * to aggressively evict memory from the arc in order to avoid
+	 * memory fragmentation issues.
 	 */
-	if (zio_arena != NULL &&
-	    vmem_size(zio_arena, VMEM_FREE) <
-	    (vmem_size(zio_arena, VMEM_ALLOC) >> 4))
-		return (1);
+	if (zio_arena != NULL) {
+		uint64_t arena_free, arena_alloc;
+
+		arena_alloc = vmem_size(zio_arena, VMEM_ALLOC) >> 4;
+		arena_free = vmem_size(zio_arena, VMEM_FREE);
+
+		if (arena_free < arena_alloc) {
+			/*
+			 * The zfs_arena_override is meant to allow
+			 * the arc to continue to grow even when the
+			 * the arena claims to be low on space. We need
+			 * to be conservative here so only override the
+			 * arena check while the arc is less than 1/2
+			 * of its maximum size.
+			 */
+			if (zfs_arena_override)
+				return (arc_size > (arc_c_max >> 1));
+
+			/*
+			 * If the arena is low on memory but we've dropped
+			 * below arc_c_min, then let the arc grow again.
+			 */
+			return (arc_size > arc_c_min);
+		}
+	}
 #endif
 
 #else

@@ -3186,7 +3186,7 @@ spa_l2cache_drop(spa_t *spa)
  */
 int
 spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
-    const char *history_str, nvlist_t *zplprops)
+    nvlist_t *zplprops)
 {
 	spa_t *spa;
 	char *altroot = NULL;
@@ -3405,8 +3405,6 @@ spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
 
 	spa_config_sync(spa, B_FALSE, B_TRUE);
 
-	if (version >= SPA_VERSION_ZPOOL_HISTORY && history_str != NULL)
-		(void) spa_history_log(spa, history_str, LOG_CMD_POOL_CREATE);
 	spa_history_log_version(spa, "create");
 
 	spa->spa_minref = refcount_count(&spa->spa_refcount);

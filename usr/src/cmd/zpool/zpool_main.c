@@ -931,7 +931,10 @@ zpool_do_destroy(int argc, char **argv)
 		return (1);
 	}
 
-	ret = (zpool_destroy(zhp) != 0);
+	/* The history must be logged as part of the export */
+	log_history = B_FALSE;
+
+	ret = (zpool_destroy(zhp, history_str) != 0);
 
 	zpool_close(zhp);
 
@@ -995,10 +998,13 @@ zpool_do_export(int argc, char **argv)
 			continue;
 		}
 
+		/* The history must be logged as part of the export */
+		log_history = B_FALSE;
+
 		if (hardforce) {
-			if (zpool_export_force(zhp) != 0)
+			if (zpool_export_force(zhp, history_str) != 0)
 				ret = 1;
-		} else if (zpool_export(zhp, force) != 0) {
+		} else if (zpool_export(zhp, force, history_str) != 0) {
 			ret = 1;
 		}
 

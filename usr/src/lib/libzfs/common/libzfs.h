@@ -219,7 +219,7 @@ extern int zpool_iter(libzfs_handle_t *, zpool_iter_f, void *);
  */
 extern int zpool_create(libzfs_handle_t *, const char *, nvlist_t *,
     nvlist_t *, nvlist_t *);
-extern int zpool_destroy(zpool_handle_t *);
+extern int zpool_destroy(zpool_handle_t *, const char *);
 extern int zpool_add(zpool_handle_t *, nvlist_t *);
 
 typedef struct splitflags {
@@ -341,8 +341,8 @@ extern int zpool_get_errlog(zpool_handle_t *, nvlist_t **);
 /*
  * Import and export functions
  */
-extern int zpool_export(zpool_handle_t *, boolean_t);
-extern int zpool_export_force(zpool_handle_t *);
+extern int zpool_export(zpool_handle_t *, boolean_t, const char *);
+extern int zpool_export_force(zpool_handle_t *, const char *);
 extern int zpool_import(libzfs_handle_t *, nvlist_t *, const char *,
     char *altroot);
 extern int zpool_import_props(libzfs_handle_t *, nvlist_t *, const char *,

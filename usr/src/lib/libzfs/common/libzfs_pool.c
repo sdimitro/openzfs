@@ -1166,7 +1166,7 @@ create_failed:
  * datasets left in the pool.
  */
 int
-zpool_destroy(zpool_handle_t *zhp)
+zpool_destroy(zpool_handle_t *zhp, const char *log_str)
 {
 	zfs_cmd_t zc = { 0 };
 	zfs_handle_t *zfp = NULL;
@@ -1178,6 +1178,7 @@ zpool_destroy(zpool_handle_t *zhp)
 		return (-1);
 
 	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
+	zc.zc_history = (uint64_t)(uintptr_t)log_str;
 
 	if (zfs_ioctl(hdl, ZFS_IOC_POOL_DESTROY, &zc) != 0) {
 		(void) snprintf(msg, sizeof (msg), dgettext(TEXT_DOMAIN,
@@ -1332,8 +1333,9 @@ zpool_add(zpool_handle_t *zhp, nvlist_t *nvroot)
  * Exports the pool from the system.  The caller must ensure that there are no
  * mounted datasets in the pool.
  */
-int
-zpool_export_common(zpool_handle_t *zhp, boolean_t force, boolean_t hardforce)
+static int
+zpool_export_common(zpool_handle_t *zhp, boolean_t force, boolean_t hardforce,
+    const char *log_str)
 {
 	zfs_cmd_t zc = { 0 };
 	char msg[1024];
@@ -1344,6 +1346,7 @@ zpool_export_common(zpool_handle_t *zhp, boolean_t force, boolean_t hardforce)
 	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
 	zc.zc_cookie = force;
 	zc.zc_guid = hardforce;
+	zc.zc_history = (uint64_t)(uintptr_t)log_str;
 
 	if (zfs_ioctl(zhp->zpool_hdl, ZFS_IOC_POOL_EXPORT, &zc) != 0) {
 		switch (errno) {
@@ -1365,15 +1368,15 @@ zpool_export_common(zpool_handle_t *zhp, boolean_t force, boolean_t hardforce)
 }
 
 int
-zpool_export(zpool_handle_t *zhp, boolean_t force)
+zpool_export(zpool_handle_t *zhp, boolean_t force, const char *log_str)
 {
-	return (zpool_export_common(zhp, force, B_FALSE));
+	return (zpool_export_common(zhp, force, B_FALSE, log_str));
 }
 
 int
-zpool_export_force(zpool_handle_t *zhp)
+zpool_export_force(zpool_handle_t *zhp, const char *log_str)
 {
-	return (zpool_export_common(zhp, B_TRUE, B_TRUE));
+	return (zpool_export_common(zhp, B_TRUE, B_TRUE, log_str));
 }
 
 static void

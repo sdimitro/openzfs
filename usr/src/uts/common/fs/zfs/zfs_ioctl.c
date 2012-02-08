@@ -284,7 +284,7 @@ zfs_log_history(zfs_cmd_t *zc)
 
 	if (spa_open(zc->zc_name, &spa, FTAG) == 0) {
 		if (spa_version(spa) >= SPA_VERSION_ZPOOL_HISTORY)
-			(void) spa_history_log(spa, buf, LOG_CMD_NORMAL);
+			(void) spa_history_log(spa, buf);
 		spa_close(spa, FTAG);
 	}
 	history_str_free(buf);
@@ -1242,7 +1242,6 @@ zfs_ioc_pool_create(zfs_cmd_t *zc)
 	nvlist_t *config, *props = NULL;
 	nvlist_t *rootprops = NULL;
 	nvlist_t *zplprops = NULL;
-	char *buf;
 
 	if (error = get_nvlist(zc->zc_nvlist_conf, zc->zc_nvlist_conf_size,
 	    zc->zc_iflags, &config))
@@ -1282,9 +1281,7 @@ zfs_ioc_pool_create(zfs_cmd_t *zc)
 			goto pool_props_bad;
 	}
 
-	buf = history_str_get(zc);
-
-	error = spa_create(zc->zc_name, config, props, buf, zplprops);
+	error = spa_create(zc->zc_name, config, props, zplprops);
 
 	/*
 	 * Set the remaining root properties
@@ -1292,9 +1289,6 @@ zfs_ioc_pool_create(zfs_cmd_t *zc)
 	if (!error && (error = zfs_set_prop_nvlist(zc->zc_name,
 	    ZPROP_SRC_LOCAL, rootprops, NULL)) != 0)
 		(void) spa_destroy(zc->zc_name);
-
-	if (buf != NULL)
-		history_str_free(buf);
 
 pool_props_bad:
 	nvlist_free(rootprops);
@@ -3229,7 +3223,7 @@ zfs_ioc_log_history(const char *unused, nvlist_t *innvl, nvlist_t *outnvl)
 		return (ENOTSUP);
 	}
 
-	error = spa_history_log(spa, message, LOG_CMD_NORMAL);
+	error = spa_history_log(spa, message);
 	spa_close(spa, FTAG);
 	return (error);
 }
@@ -5247,6 +5241,8 @@ zfs_ioctl_init(void)
 	zfs_ioctl_register_legacy(ZFS_IOC_POOL_FREEZE, zfs_ioc_pool_freeze,
 	    zfs_secpolicy_config, NO_NAME, B_FALSE, POOL_CHECK_READONLY);
 
+	zfs_ioctl_register_pool(ZFS_IOC_POOL_CREATE, zfs_ioc_pool_create,
+	    zfs_secpolicy_config, B_TRUE, POOL_CHECK_NONE);
 	zfs_ioctl_register_pool_modify(ZFS_IOC_POOL_SCAN,
 	    zfs_ioc_pool_scan);
 	zfs_ioctl_register_pool_modify(ZFS_IOC_POOL_UPGRADE,
@@ -5284,16 +5280,15 @@ zfs_ioctl_init(void)
 	    zfs_ioc_inject_list_next, zfs_secpolicy_inject);
 
 	/*
-	 * pool create, destroy, and export don't log the history as part of
-	 * zfsdev_ioctl, but rather zfs_ioc_pool_create, and zfs_ioc_pool_export
-	 * do the logging of those commands.
+	 * pool destroy, and export don't log the history as part of
+	 * zfsdev_ioctl, but rather zfs_ioc_pool_export
+	 * does the logging of those commands.
 	 */
-	zfs_ioctl_register_pool(ZFS_IOC_POOL_CREATE, zfs_ioc_pool_create,
-	    zfs_secpolicy_config, B_FALSE, POOL_CHECK_NONE);
 	zfs_ioctl_register_pool(ZFS_IOC_POOL_DESTROY, zfs_ioc_pool_destroy,
 	    zfs_secpolicy_config, B_FALSE, POOL_CHECK_NONE);
 	zfs_ioctl_register_pool(ZFS_IOC_POOL_EXPORT, zfs_ioc_pool_export,
 	    zfs_secpolicy_config, B_FALSE, POOL_CHECK_NONE);
+
 	zfs_ioctl_register_pool(ZFS_IOC_POOL_STATS, zfs_ioc_pool_stats,
 	    zfs_secpolicy_read, B_FALSE, POOL_CHECK_NONE);
 	zfs_ioctl_register_pool(ZFS_IOC_POOL_GET_PROPS, zfs_ioc_pool_get_props,
@@ -5612,7 +5607,7 @@ zfsdev_ioctl(dev_t dev, int cmd, intptr_t arg, int flag, cred_t *cr, int *rvalp)
 				fnvlist_add_nvlist(lognv, ZPOOL_HIST_OUTPUT_NVL,
 				    outnvl);
 			}
-			(void) spa_history_log_nvl(spa, lognv, LOG_CMD_NORMAL);
+			(void) spa_history_log_nvl(spa, lognv);
 			fnvlist_free(lognv);
 			spa_close(spa, FTAG);
 		}

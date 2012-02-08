@@ -198,7 +198,7 @@ static void
 spa_history_log_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 {
 	spa_t		*spa = arg1;
-	history_arg_t	*hap = arg2;
+	nvlist_t	*nvl = arg2;
 	objset_t	*mos = spa->spa_meta_objset;
 	dmu_buf_t	*dbp;
 	spa_history_phys_t *shpp;
@@ -206,7 +206,6 @@ spa_history_log_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	uint64_t	le_len;
 	char		*record_packed = NULL;
 	int		ret;
-	nvlist_t	*nvl = hap->ha_history_nvl;
 
 	/*
 	 * If we have an older pool that doesn't have a command
@@ -263,8 +262,6 @@ spa_history_log_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	record_packed = fnvlist_pack(nvl, &reclen);
 
 	mutex_enter(&spa->spa_history_lock);
-	if (hap->ha_log_type == LOG_CMD_POOL_CREATE)
-		VERIFY(shpp->sh_eof == shpp->sh_pool_create_len);
 
 	/* write out the packed length as little endian */
 	le_len = LE_64((uint64_t)reclen);
@@ -272,40 +269,39 @@ spa_history_log_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	if (!ret)
 		ret = spa_history_write(spa, record_packed, reclen, shpp, tx);
 
-	if (!ret && hap->ha_log_type == LOG_CMD_POOL_CREATE) {
-		shpp->sh_pool_create_len += sizeof (le_len) + reclen;
-		shpp->sh_bof = shpp->sh_pool_create_len;
+	/* The first command is the create, which we keep forever */
+	if (ret == 0 && shpp->sh_pool_create_len == 0 &&
+	    nvlist_exists(nvl, ZPOOL_HIST_CMD)) {
+		shpp->sh_pool_create_len = shpp->sh_bof = shpp->sh_eof;
 	}
 
 	mutex_exit(&spa->spa_history_lock);
 	fnvlist_pack_free(record_packed, reclen);
 	dmu_buf_rele(dbp, FTAG);
 	fnvlist_free(nvl);
-	kmem_free(hap, sizeof (history_arg_t));
 }
 
 /*
  * Write out a history event.
  */
 int
-spa_history_log(spa_t *spa, const char *msg, history_log_type_t type)
+spa_history_log(spa_t *spa, const char *msg)
 {
 	int err;
 	nvlist_t *nvl = fnvlist_alloc();
 
-	ASSERT(type == LOG_CMD_NORMAL || type == LOG_CMD_POOL_CREATE);
 	fnvlist_add_string(nvl, ZPOOL_HIST_CMD, msg);
-	err = spa_history_log_nvl(spa, nvl, type);
+	err = spa_history_log_nvl(spa, nvl);
 	fnvlist_free(nvl);
 	return (err);
 }
 
 int
-spa_history_log_nvl(spa_t *spa, nvlist_t *nvl, history_log_type_t type)
+spa_history_log_nvl(spa_t *spa, nvlist_t *nvl)
 {
-	history_arg_t *ha;
 	int err = 0;
 	dmu_tx_t *tx;
+	nvlist_t *nvarg;
 
 	if (spa_version(spa) < SPA_VERSION_ZPOOL_HISTORY)
 		return (EINVAL);
@@ -317,22 +313,20 @@ spa_history_log_nvl(spa_t *spa, nvlist_t *nvl, history_log_type_t type)
 		return (err);
 	}
 
-	ha = kmem_zalloc(sizeof (history_arg_t), KM_SLEEP);
-	ha->ha_history_nvl = fnvlist_dup(nvl);
+	nvarg = fnvlist_dup(nvl);
 	if (spa_history_zone() != NULL) {
-		fnvlist_add_string(ha->ha_history_nvl, ZPOOL_HIST_ZONE,
+		fnvlist_add_string(nvarg, ZPOOL_HIST_ZONE,
 		    spa_history_zone());
 	}
-	fnvlist_add_uint64(ha->ha_history_nvl, ZPOOL_HIST_WHO,
+	fnvlist_add_uint64(nvarg, ZPOOL_HIST_WHO,
 	    crgetruid(CRED()));
-	ha->ha_log_type = type;
 
 	/* Kick this off asynchronously; errors are ignored. */
 	dsl_sync_task_do_nowait(spa_get_dsl(spa), NULL,
-	    spa_history_log_sync, spa, ha, 0, tx);
+	    spa_history_log_sync, spa, nvarg, 0, tx);
 	dmu_tx_commit(tx);
 
-	/* spa_history_log_sync will free ha and nvl */
+	/* spa_history_log_sync will free nvl */
 	return (err);
 
 }
@@ -441,7 +435,6 @@ static void
 log_internal(nvlist_t *nvl, const char *operation, spa_t *spa,
     dmu_tx_t *tx, const char *fmt, va_list adx)
 {
-	history_arg_t *ha;
 	char *msg;
 
 	/*
@@ -453,26 +446,21 @@ log_internal(nvlist_t *nvl, const char *operation, spa_t *spa,
 		return;
 	}
 
-	ha = kmem_alloc(sizeof (history_arg_t), KM_SLEEP);
-	ha->ha_history_nvl = nvl;
-
 	msg = kmem_alloc(vsnprintf(NULL, 0, fmt, adx) + 1, KM_SLEEP);
 	(void) vsprintf(msg, fmt, adx);
-	fnvlist_add_string(ha->ha_history_nvl, ZPOOL_HIST_INT_STR, msg);
+	fnvlist_add_string(nvl, ZPOOL_HIST_INT_STR, msg);
 	strfree(msg);
 
-	fnvlist_add_string(ha->ha_history_nvl, ZPOOL_HIST_INT_NAME, operation);
-	fnvlist_add_uint64(ha->ha_history_nvl, ZPOOL_HIST_TXG, tx->tx_txg);
-
-	ha->ha_log_type = LOG_INTERNAL;
+	fnvlist_add_string(nvl, ZPOOL_HIST_INT_NAME, operation);
+	fnvlist_add_uint64(nvl, ZPOOL_HIST_TXG, tx->tx_txg);
 
 	if (dmu_tx_is_syncing(tx)) {
-		spa_history_log_sync(spa, ha, tx);
+		spa_history_log_sync(spa, nvl, tx);
 	} else {
 		dsl_sync_task_do_nowait(spa_get_dsl(spa), NULL,
-		    spa_history_log_sync, spa, ha, 0, tx);
+		    spa_history_log_sync, spa, nvl, 0, tx);
 	}
-	/* spa_history_log_sync() will free ha and strings */
+	/* spa_history_log_sync() will free nvl */
 }
 
 void

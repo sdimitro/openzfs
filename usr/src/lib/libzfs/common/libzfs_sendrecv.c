@@ -1082,7 +1082,7 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 			if (err == 0) {
 				if (sdd->parsable) {
 					(void) fprintf(stderr, "\t%llu\n",
-					    (longlong_t) size);
+					    (longlong_t)size);
 				} else {
 					char buf[16];
 					zfs_nicenum(size, buf, sizeof (buf));
@@ -1090,7 +1090,6 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 					    dgettext(TEXT_DOMAIN,
 					    " estimated size is %s\n"), buf);
 				}
-				sdd->size += size;
 			} else {
 				(void) fprintf(stderr, "\n");
 			}
@@ -1483,12 +1482,12 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 		if (flags->verbose) {
 			if (flags->parsable) {
 				(void) fprintf(stderr, "size\t%llu\n",
-				    (longlong_t) sdd.size);
+				    (longlong_t)sdd.size);
 			} else {
 				char buf[16];
 				zfs_nicenum(sdd.size, buf, sizeof (buf));
 				(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-					"total estimated size is %s\n"), buf);
+				    "total estimated size is %s\n"), buf);
 			}
 		}
 		if (sizeestimate != NULL) {

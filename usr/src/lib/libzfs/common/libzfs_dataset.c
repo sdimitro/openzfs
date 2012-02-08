@@ -2839,7 +2839,6 @@ create_parents(libzfs_handle_t *hdl, char *target, int prefixlen)
 	 */
 	for (cp = target + prefixlen + 1;
 	    cp = strchr(cp, '/'); *cp = '/', cp++) {
-		char *logstr;
 
 		*cp = '\0';
 
@@ -2850,16 +2849,12 @@ create_parents(libzfs_handle_t *hdl, char *target, int prefixlen)
 			continue;
 		}
 
-		logstr = hdl->libzfs_log_str;
-		hdl->libzfs_log_str = NULL;
 		if (zfs_create(hdl, target, ZFS_TYPE_FILESYSTEM,
 		    NULL) != 0) {
-			hdl->libzfs_log_str = logstr;
 			opname = dgettext(TEXT_DOMAIN, "create");
 			goto ancestorerr;
 		}
 
-		hdl->libzfs_log_str = logstr;
 		h = zfs_open(hdl, target, ZFS_TYPE_FILESYSTEM);
 		if (h == NULL) {
 			opname = dgettext(TEXT_DOMAIN, "open");
@@ -3479,17 +3474,13 @@ rollback_destroy(zfs_handle_t *zhp, void *data)
 		    zfs_get_type(zhp) == ZFS_TYPE_SNAPSHOT &&
 		    zfs_prop_get_int(zhp, ZFS_PROP_CREATETXG) >
 		    cbp->cb_create) {
-			char *logstr;
 
 			cbp->cb_dependent = B_TRUE;
 			cbp->cb_error |= zfs_iter_dependents(zhp, B_FALSE,
 			    rollback_destroy, cbp);
 			cbp->cb_dependent = B_FALSE;
 
-			logstr = zhp->zfs_hdl->libzfs_log_str;
-			zhp->zfs_hdl->libzfs_log_str = NULL;
 			cbp->cb_error |= zfs_destroy(zhp, B_FALSE);
-			zhp->zfs_hdl->libzfs_log_str = logstr;
 		}
 	} else {
 		/* We must destroy this clone; first unmount it */

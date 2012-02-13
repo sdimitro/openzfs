@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 by Delphix. All rights reserved.
+# Copyright 2012 by Delphix. All rights reserved.
 #
 # MAPFILE HEADER START
 #
@@ -43,6 +43,7 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_connect;
 	ndmp_client_butypes_get;
 	ndmp_client_butypes_info;
+	ndmp_client_data_abort;
 	ndmp_client_data_connect;
 	ndmp_client_data_listen;
 	ndmp_client_disconnect;

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include "ndmp_impl.h"
@@ -654,6 +654,31 @@ ndmp_client_data_connect(ndmp_session_t *session, ndmp_addr_t *addr)
 	ndmp_free_message(session, &msg);
 	return (err);
 }
+
+/*
+ * Send a NDMP DATA ABORT command.
+ */
+int
+ndmp_client_data_abort(ndmp_session_t *session)
+{
+	ndmp_data_abort_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	if ((err = ndmp_send_request(session, NDMP_DATA_ABORT,
+	    NULL, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "data abort",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
 
 /*
  * Free the memory associated with a response from ndmp_client_data_listen().

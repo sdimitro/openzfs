@@ -37,7 +37,7 @@
 #
 
 #
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 LIBRARY= libndmp.a
@@ -79,6 +79,7 @@ SRCDIR=		../common
 INCS +=		-I$(SRCDIR)
 
 CPPFLAGS +=	$(INCS) -D_LARGEFILE64_SOURCE=1 -D_REENTRANT
+CPPFLAGS +=	-D_FILE_OFFSET_BITS=64
 
 LDLIBS   += -lsocket -lnsl -lmd5 -lumem -lc
 

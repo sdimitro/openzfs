@@ -184,11 +184,6 @@ int zfs_arc_shrink_shift = 0;
 int zfs_arc_p_min_shift = 0;
 
 /*
- * This will override the zio_arena check in arc_reclaim_needed.
- */
-int zfs_arena_override = 0;
-
-/*
  * Note that buffers can be in one of 6 states:
  *	ARC_anon	- anonymous (discussed below)
  *	ARC_mru		- recently used, currently cached
@@ -2048,41 +2043,16 @@ arc_reclaim_needed(void)
 	/*
 	 * If zio data pages are being allocated out of a separate heap segment,
 	 * then enforce that the size of available vmem for this arena remains
-	 * above about 1/16th free unless the current size of the arc has
-	 * fallen below the minimum target size or someone has asked to
-	 * override this check. If an override has been requested, then
-	 * ignore the 1/16th free requirement while the arc size is
-	 * less than 1/2 of its maximum size.
+	 * above about 1/16th free.
 	 *
 	 * Note: The 1/16th arena free requirement was put in place
 	 * to aggressively evict memory from the arc in order to avoid
 	 * memory fragmentation issues.
 	 */
-	if (zio_arena != NULL) {
-		uint64_t arena_free, arena_alloc;
-
-		arena_alloc = vmem_size(zio_arena, VMEM_ALLOC) >> 4;
-		arena_free = vmem_size(zio_arena, VMEM_FREE);
-
-		if (arena_free < arena_alloc) {
-			/*
-			 * The zfs_arena_override is meant to allow
-			 * the arc to continue to grow even when the
-			 * the arena claims to be low on space. We need
-			 * to be conservative here so only override the
-			 * arena check while the arc is less than 1/2
-			 * of its maximum size.
-			 */
-			if (zfs_arena_override)
-				return (arc_size > (arc_c_max >> 1));
-
-			/*
-			 * If the arena is low on memory but we've dropped
-			 * below arc_c_min, then let the arc grow again.
-			 */
-			return (arc_size > arc_c_min);
-		}
-	}
+	if (zio_arena != NULL &&
+	    vmem_size(zio_arena, VMEM_FREE) <
+	    (vmem_size(zio_arena, VMEM_ALLOC) >> 4))
+		return (1);
 #endif
 
 #else
@@ -2136,6 +2106,13 @@ arc_kmem_reap_now(arc_reclaim_strategy_t strat)
 	}
 	kmem_cache_reap_now(buf_cache);
 	kmem_cache_reap_now(hdr_cache);
+
+	/*
+	 * Ask the vmem areana to reclaim unused memory from its
+	 * quantum caches.
+	 */
+	if (zio_arena != NULL && strat == ARC_RECLAIM_AGGR)
+		vmem_qcache_reap(zio_arena);
 }
 
 static void

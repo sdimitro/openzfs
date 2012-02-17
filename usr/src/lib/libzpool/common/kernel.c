@@ -47,6 +47,7 @@ uint64_t physmem;
 vnode_t *rootdir = (vnode_t *)0xabcd1234;
 char hw_serial[HW_HOSTID_LEN];
 kmutex_t cpu_lock;
+vmem_t *zio_arena = NULL;
 
 struct utsname utsname = {
 	"userland", "libzpool", "1", "1", "na"
@@ -842,6 +843,8 @@ kernel_init(int mode)
 	VERIFY((urandom_fd = open("/dev/urandom", O_RDONLY)) != -1);
 
 	system_taskq_init();
+
+	mutex_init(&cpu_lock, NULL, MUTEX_DEFAULT, NULL);
 
 	spa_init(mode);
 }

@@ -33,7 +33,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef _LIBNDMP_H
@@ -172,6 +172,7 @@ typedef void ndmp_addr_t;
 
 extern ndmp_addr_t *ndmp_client_data_listen(struct ndmp_session *);
 extern int ndmp_client_data_connect(struct ndmp_session *, ndmp_addr_t *);
+extern int ndmp_client_data_stop(struct ndmp_session *);
 extern void ndmp_client_addr_free(struct ndmp_session *, ndmp_addr_t *);
 extern int ndmp_client_start_backup(struct ndmp_session *, const char *,
     int, ndmp_pval *);
@@ -181,6 +182,7 @@ extern int ndmp_client_start_recover(struct ndmp_session *, const char *,
 /* Mover control */
 extern int ndmp_client_mover_abort(struct ndmp_session *);
 extern int ndmp_client_mover_close(struct ndmp_session *);
+extern int ndmp_client_mover_stop(struct ndmp_session *);
 extern int ndmp_client_mover_set_record_size(struct ndmp_session *,
     size_t);
 extern int ndmp_client_mover_set_window(struct ndmp_session *,
@@ -193,6 +195,7 @@ extern int ndmp_client_mover_connect(struct ndmp_session *, ndmp_addr_t *,
     ndmp_mover_mode mode);
 
 /* Tape control */
+extern int ndmp_client_tape_close(struct ndmp_session *);
 extern int ndmp_client_tape_open(struct ndmp_session *, const char *,
     ndmp_tape_open_mode);
 extern int ndmp_client_tape_read(struct ndmp_session *, char *, size_t);

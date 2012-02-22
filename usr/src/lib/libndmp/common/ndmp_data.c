@@ -37,7 +37,7 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright (c) 2011 by Delphix.  All rights reserved. */
+/* Copyright (c) 2012 by Delphix.  All rights reserved. */
 
 #include "ndmp_impl.h"
 
@@ -54,6 +54,8 @@ data_connect_sock_v3(ndmp_session_t *session, ulong_t addr, ushort_t port)
 	session->ns_data.dd_data_addr.addr_type = NDMP_ADDR_TCP;
 	session->ns_data.dd_data_addr.tcp_ip_v3 = ntohl(addr);
 	session->ns_data.dd_data_addr.tcp_port_v3 = port;
+
+	ndmp_debug(session, "data socket: %d\n", session->ns_data.dd_sock);
 
 	return (NDMP_NO_ERR);
 }
@@ -752,6 +754,9 @@ ndmp_data_error(ndmp_session_t *session, ndmp_data_halt_reason reason)
 
 	ndmp_data_error_send(session, reason);
 
+	ndmp_debug(session, "data error reason 0x%x, closing connection",
+	    reason);
+
 	if (session->ns_data.dd_data_addr.addr_type == NDMP_ADDR_TCP) {
 		if (session->ns_data.dd_sock != -1) {
 			ndmp_remove_file_handler(session,
@@ -918,6 +923,7 @@ ndmp_remote_read_v3(ndmp_session_t *session, char *data, ssize_t length)
 void
 ndmp_data_init(ndmp_session_t *session)
 {
+	ndmp_debug(session, "initializing data");
 	session->ns_data.dd_operation = NDMP_DATA_OP_NOACTION;
 	session->ns_data.dd_state = NDMP_DATA_STATE_IDLE;
 	session->ns_data.dd_halt_reason = NDMP_DATA_HALT_NA;

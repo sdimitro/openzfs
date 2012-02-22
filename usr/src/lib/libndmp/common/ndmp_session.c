@@ -37,7 +37,7 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright (c) 2011 by Delphix.  All rights reserved. */
+/* Copyright (c) 2012 by Delphix.  All rights reserved. */
 
 /*
  * Sessions, clients, and servers.
@@ -549,7 +549,7 @@ void
 ndmp_session_failed(ndmp_session_t *session, int err)
 {
 	if (err == ESHUTDOWN) {
-		ndmp_debug(session, "session shutdown", err);
+		ndmp_debug(session, "session shutdown");
 	} else if (err != 0) {
 		ndmp_debug(session, "session failed with error %d", err);
 	}

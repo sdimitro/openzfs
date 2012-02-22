@@ -679,6 +679,29 @@ ndmp_client_data_abort(ndmp_session_t *session)
 	return (err);
 }
 
+/*
+ * Send a NDMP DATA STOP command.
+ */
+int
+ndmp_client_data_stop(ndmp_session_t *session)
+{
+	ndmp_data_stop_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	if ((err = ndmp_send_request(session, NDMP_DATA_STOP,
+	    NULL, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "data stop",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
 
 /*
  * Free the memory associated with a response from ndmp_client_data_listen().
@@ -883,6 +906,30 @@ ndmp_client_tape_open(ndmp_session_t *session, const char *device,
 }
 
 /*
+ * Send a NDMP TAPE CLOSE command.
+ */
+int
+ndmp_client_tape_close(ndmp_session_t *session)
+{
+	ndmp_tape_close_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	if ((err = ndmp_send_request(session, NDMP_TAPE_CLOSE,
+	    NULL, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "tape close",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
+	return (err);
+}
+
+/*
  * Send a NDMP TAPE READ command.  This will fill in the buffer provided by the
  * caller, and return the number of bytes read, or -1 on error.
  */
@@ -1015,6 +1062,8 @@ ndmp_client_mover_set_window(ndmp_session_t *session, u_longlong_t offset,
 	ndmp_mover_set_window_reply *reply;
 	int err;
 	ndmp_msg_t msg;
+
+	ndmp_debug(session, "setting mover window to (%llu, %llu)\n", offset, length);
 
 	request.offset = long_long_to_quad(offset);
 	request.length = long_long_to_quad(length);
@@ -1186,6 +1235,30 @@ ndmp_client_mover_connect(ndmp_session_t *session, ndmp_addr_t *addr,
 		dump_addr(session, "mover connection address", addr);
 
 	ndmp_free_message(session, &msg);
+	return (err);
+}
+
+/*
+ * Send a NDMP MOVER STOP command.
+ */
+int
+ndmp_client_mover_stop(ndmp_session_t *session)
+{
+	ndmp_mover_stop_reply *reply;
+	int err;
+	ndmp_msg_t msg;
+
+	if ((err = ndmp_send_request(session, NDMP_MOVER_STOP,
+	    NULL, &msg)) < 0) {
+		return (-1);
+	}
+
+	reply = msg.mi_body;
+	err = ndmp_check_reply(session, "mover stop",
+	    NDMP_GET_ERR(err, reply));
+
+	ndmp_free_message(session, &msg);
+
 	return (err);
 }
 

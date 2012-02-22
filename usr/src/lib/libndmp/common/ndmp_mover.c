@@ -37,7 +37,7 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright (c) 2011 by Delphix.  All rights reserved. */
+/* Copyright (c) 2012 by Delphix.  All rights reserved. */
 
 #include "ndmp_impl.h"
 
@@ -377,7 +377,7 @@ ndmp_mover_set_window_v3(ndmp_session_t *session, void *body)
 	if (quad_to_long_long(request->length) == 0) {
 		reply.error = NDMP_ILLEGAL_ARGS_ERR;
 		ndmp_log(session, LOG_ERR,
-		    "invalid record size 0");
+		    "invalid window size 0");
 	}
 
 	if (reply.error != NDMP_NO_ERR) {
@@ -783,8 +783,8 @@ ndmp_remote_write(ndmp_session_t *session, char *data, ulong_t length)
 		if ((n = write(session->ns_data.dd_sock, &data[count],
 		    length - count)) < 0) {
 			ndmp_log(session, LOG_ERR,
-			    "failed to write to socket: %s",
-			    strerror(errno));
+			    "failed to write to socket %d: %s",
+			    session->ns_data.dd_sock, strerror(errno));
 			return (-1);
 		}
 		count += n;
@@ -895,6 +895,7 @@ ndmp_mover_connect(ndmp_session_t *session, ndmp_mover_mode mover_mode)
 			 * data socket to receive the recovery data.
 			 */
 			if (sin.sin_addr.s_addr == 0 && sin.sin_port == 0) {
+				ndmp_debug(session, "setting data socket to mover socket");
 				session->ns_data.dd_sock =
 				    session->ns_mover.md_sock;
 				return (NDMP_NO_ERR);
@@ -946,7 +947,7 @@ ndmp_mover_connect(ndmp_session_t *session, ndmp_mover_mode mover_mode)
 
 		session->ns_data.dd_sock = sock;
 
-		ndmp_debug(session, "data.mover_sock: %u", sock);
+		ndmp_debug(session, "data sock: %u", sock);
 
 		return (NDMP_NO_ERR);
 	}

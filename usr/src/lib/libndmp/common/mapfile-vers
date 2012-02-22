@@ -46,6 +46,7 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_data_abort;
 	ndmp_client_data_connect;
 	ndmp_client_data_listen;
+	ndmp_client_data_stop;
 	ndmp_client_disconnect;
 	ndmp_client_create;
 	ndmp_client_destroy;
@@ -61,6 +62,7 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_mover_read;
 	ndmp_client_mover_set_record_size;
 	ndmp_client_mover_set_window;
+	ndmp_client_mover_stop;
 	ndmp_client_msg_body;
 	ndmp_client_msg_error;
 	ndmp_client_msg_free;
@@ -69,6 +71,7 @@ SYMBOL_VERSION DLPXprivate_1.1 {
 	ndmp_client_send;
 	ndmp_client_start_backup;
 	ndmp_client_start_recover;
+	ndmp_client_tape_close;
 	ndmp_client_tape_open;
 	ndmp_client_tape_read;
 	ndmp_client_tape_write;

@@ -600,11 +600,11 @@ swap_resize(char *path)
 
 	/*
 	 * The size of the swap device is based on 1/4 of arc_c_max.
-	 * We cap it at 16GB with a 1GB minimum.
+	 * We cap it at 16GB with a 2GB minimum.
 	 */
 	blksz = zfs_prop_get_int(zhp, ZFS_PROP_VOLBLOCKSIZE);
 	swapsz = MIN(swapsz, 16ULL << 30);
-	swapsz = P2ROUNDUP(MAX(swapsz, 1ULL << 30), blksz);
+	swapsz = P2ROUNDUP(MAX(swapsz, 2ULL << 30), blksz);
 	(void) snprintf(propstr, sizeof (propstr), "%llu", swapsz);
 
 	(void) zfs_prop_set(zhp, zfs_prop_to_name(ZFS_PROP_VOLSIZE), propstr);

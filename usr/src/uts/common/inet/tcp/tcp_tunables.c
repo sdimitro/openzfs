@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 /* Copyright (c) 1990 Mentat Inc. */
 
@@ -255,7 +256,7 @@ mod_prop_info_t tcp_propinfo_tbl[] = {
 
 	{ "_keepalive_interval", MOD_PROTO_TCP,
 	    mod_set_uint32, mod_get_uint32,
-	    {10*SECONDS, 10*DAYS, 2*HOURS}, {2*HOURS} },
+	    {10*SECONDS, 10*DAYS, 30*MINUTES}, {2*HOURS} },
 
 	{ "_maxpsz_multiplier", MOD_PROTO_TCP,
 	    mod_set_uint32, mod_get_uint32,

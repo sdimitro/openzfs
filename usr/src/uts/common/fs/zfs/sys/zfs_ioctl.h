@@ -42,6 +42,15 @@ extern "C" {
 #endif
 
 /*
+ * The structures in this file are passed between userland and the
+ * kernel.  Userland may be running a 32-bit process, while the kernel
+ * is 64-bit.  Therefore, these structures need to compile the same in
+ * 32-bit and 64-bit.  This means not using type "long", and adding
+ * explicit padding so that the 32-bit structure will not be packed more
+ * tightly than the 64-bit structure (which requires 64-bit alignment).
+ */
+
+/*
  * Property values for snapdir
  */
 #define	ZFS_SNAPDIR_HIDDEN		0
@@ -232,6 +241,7 @@ typedef struct zinject_record {
 	int32_t		zi_duration;
 	uint64_t	zi_timer;
 	uint32_t	zi_cmd;
+	uint32_t	zi_pad;
 } zinject_record_t;
 
 #define	ZINJECT_NULL		0x1

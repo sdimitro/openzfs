@@ -294,8 +294,10 @@ ndmp_server_env_value(ndmp_session_t *session, int idx)
 void
 ndmp_server_done(ndmp_session_t *session, int reason)
 {
+	(void) mutex_lock(&session->ns_lock);
 	session->ns_running = B_FALSE;
 	ndmp_data_error(session, reason);
+	(void) mutex_unlock(&session->ns_lock);
 }
 
 /*

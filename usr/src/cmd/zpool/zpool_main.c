@@ -1548,7 +1548,7 @@ show_import(nvlist_t *config)
 			    "imported in read-write mode. Import the pool "
 			    "with\n"
 			    "\t\"-o readonly=on\", access the pool on a system "
-			    "that supports the required\n\tfeature(s), or "
+			    "that supports the\n\trequired feature(s), or "
 			    "recreate the pool from backup.\n"));
 			break;
 		case ZPOOL_STATUS_MISSING_DEV_R:

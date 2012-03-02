@@ -1392,8 +1392,10 @@ zpool_rewind_exclaim(libzfs_handle_t *hdl, const char *name, boolean_t dryrun,
 	if (!hdl->libzfs_printerr || config == NULL)
 		return;
 
-	if (nvlist_lookup_nvlist(config, ZPOOL_CONFIG_LOAD_INFO, &nv) != 0)
+	if (nvlist_lookup_nvlist(config, ZPOOL_CONFIG_LOAD_INFO, &nv) != 0 ||
+	    nvlist_lookup_nvlist(nv, ZPOOL_CONFIG_REWIND_INFO, &nv) != 0) {
 		return;
+	}
 
 	if (nvlist_lookup_uint64(nv, ZPOOL_CONFIG_LOAD_TIME, &rewindto) != 0)
 		return;
@@ -1449,6 +1451,7 @@ zpool_explain_recover(libzfs_handle_t *hdl, const char *name, int reason,
 
 	/* All attempted rewinds failed if ZPOOL_CONFIG_LOAD_TIME missing */
 	if (nvlist_lookup_nvlist(config, ZPOOL_CONFIG_LOAD_INFO, &nv) != 0 ||
+	    nvlist_lookup_nvlist(nv, ZPOOL_CONFIG_REWIND_INFO, &nv) != 0 ||
 	    nvlist_lookup_uint64(nv, ZPOOL_CONFIG_LOAD_TIME, &rewindto) != 0)
 		goto no_info;
 
@@ -1708,6 +1711,14 @@ zpool_import_props(libzfs_handle_t *hdl, nvlist_t *config, const char *newname,
 				    "pool uses the following feature(s) not "
 				    "supported by this system:\n"));
 				zpool_print_unsup_feat(nv);
+				if (nvlist_exists(nvinfo,
+				    ZPOOL_CONFIG_CAN_RDONLY)) {
+					(void) printf(dgettext(TEXT_DOMAIN,
+					    "All unsupported features are only "
+					    "required for writing to the pool."
+					    "\nThe pool can be imported using "
+					    "'-o readonly=on'.\n"));
+				}
 			}
 			/*
 			 * Unsupported version.

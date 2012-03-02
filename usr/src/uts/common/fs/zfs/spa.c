@@ -1912,6 +1912,9 @@ spa_load(spa_t *spa, spa_load_state_t state, spa_import_type_t type,
 			    KM_SLEEP) == 0);
 		}
 
+		nvlist_free(spa->spa_load_info);
+		spa->spa_load_info = fnvlist_alloc();
+
 		gethrestime(&spa->spa_loaded_ts);
 		error = spa_load_impl(spa, pool_guid, config, state, type,
 		    mosconfig, &ereport);
@@ -2185,6 +2188,11 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 
 		nvlist_free(unsup_feat);
 
+		if (!missing_feat_read) {
+			fnvlist_add_boolean(spa->spa_load_info,
+			    ZPOOL_CONFIG_CAN_RDONLY);
+		}
+
 		/*
 		 * If the state is SPA_LOAD_TRYIMPORT, our objective is
 		 * twofold: to determine whether the pool is available for
@@ -2455,8 +2463,6 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 		 * read-only mode but not read-write mode. We now have enough
 		 * information and can return to userland.
 		 */
-		VERIFY(nvlist_add_boolean(spa->spa_load_info,
-		    ZPOOL_CONFIG_CAN_RDONLY) == 0);
 		return (spa_vdev_err(rvd, VDEV_AUX_UNSUP_FEAT, ENOTSUP));
 	}
 
@@ -2575,10 +2581,18 @@ spa_load_retry(spa_t *spa, spa_load_state_t state, int mosconfig)
 	return (spa_load(spa, state, SPA_IMPORT_EXISTING, mosconfig));
 }
 
+/*
+ * If spa_load() fails this function will try loading prior txg's. If
+ * 'state' is SPA_LOAD_RECOVER and one of these loads succeeds the pool
+ * will be rewound to that txg. If 'state' is not SPA_LOAD_RECOVER this
+ * function will not rewind the pool and will return the same error as
+ * spa_load().
+ */
 static int
 spa_load_best(spa_t *spa, spa_load_state_t state, int mosconfig,
     uint64_t max_request, int rewind_flags)
 {
+	nvlist_t *loadinfo = NULL;
 	nvlist_t *config = NULL;
 	int load_error, rewind_error;
 	uint64_t safe_rewind_txg;
@@ -2607,9 +2621,18 @@ spa_load_best(spa_t *spa, spa_load_state_t state, int mosconfig,
 		return (load_error);
 	}
 
-	/* Price of rolling back is discarding txgs, including log */
-	if (state == SPA_LOAD_RECOVER)
+	if (state == SPA_LOAD_RECOVER) {
+		/* Price of rolling back is discarding txgs, including log */
 		spa_set_log_state(spa, SPA_LOG_CLEAR);
+	} else {
+		/*
+		 * If we aren't rolling back save the load info from our first
+		 * import attempt so that we can restore it after attempting
+		 * to rewind.
+		 */
+		loadinfo = spa->spa_load_info;
+		spa->spa_load_info = fnvlist_alloc();
+	}
 
 	spa->spa_load_max_txg = spa->spa_last_ubsync_txg;
 	safe_rewind_txg = spa->spa_last_ubsync_txg - TXG_DEFER_SIZE;
@@ -2633,7 +2656,20 @@ spa_load_best(spa_t *spa, spa_load_state_t state, int mosconfig,
 	if (config && (rewind_error || state != SPA_LOAD_RECOVER))
 		spa_config_set(spa, config);
 
-	return (state == SPA_LOAD_RECOVER ? rewind_error : load_error);
+	if (state == SPA_LOAD_RECOVER) {
+		ASSERT3P(loadinfo, ==, NULL);
+		return (rewind_error);
+	} else {
+		/* Store the rewind info as part of the initial load info */
+		fnvlist_add_nvlist(loadinfo, ZPOOL_CONFIG_REWIND_INFO,
+		    spa->spa_load_info);
+
+		/* Restore the initial load info */
+		fnvlist_free(spa->spa_load_info);
+		spa->spa_load_info = loadinfo;
+
+		return (load_error);
+	}
 }
 
 /*

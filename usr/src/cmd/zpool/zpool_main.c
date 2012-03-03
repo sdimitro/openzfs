@@ -4245,13 +4245,79 @@ zpool_do_status(int argc, char **argv)
 }
 
 typedef struct upgrade_cbdata {
-	int	cb_all;
 	int	cb_first;
-	int	cb_newer;
 	int	cb_argc;
 	uint64_t cb_version;
 	char	**cb_argv;
 } upgrade_cbdata_t;
+
+static int
+upgrade_version(zpool_handle_t *zhp, uint64_t version)
+{
+	int ret;
+	nvlist_t *config;
+	uint64_t oldversion;
+
+	config = zpool_get_config(zhp, NULL);
+	verify(nvlist_lookup_uint64(config, ZPOOL_CONFIG_VERSION,
+	    &oldversion) == 0);
+
+	assert(SPA_VERSION_IS_SUPPORTED(oldversion));
+	assert(oldversion < version);
+
+	ret = zpool_upgrade(zhp, version);
+	if (ret != 0)
+		return (ret);
+
+	if (version >= SPA_VERSION_FEATURES) {
+		(void) printf(gettext("Successfully upgraded "
+		    "'%s' from version %llu to feature flags.\n"),
+		    zpool_get_name(zhp), oldversion);
+	} else {
+		(void) printf(gettext("Successfully upgraded "
+		    "'%s' from version %llu to version %llu.\n"),
+		    zpool_get_name(zhp), oldversion, version);
+	}
+
+	return (0);
+}
+
+static int
+upgrade_enable_all(zpool_handle_t *zhp, int *countp)
+{
+	int i, ret, count;
+	boolean_t firstff = B_TRUE;
+	nvlist_t *enabled = zpool_get_features(zhp);
+
+	count = 0;
+	for (i = 0; i < SPA_FEATURES; i++) {
+		const char *fname = spa_feature_table[i].fi_guid;
+		if (!nvlist_exists(enabled, fname)) {
+			char *propname;
+			verify(0 == asprintf(&propname, "feature@%s", fname));
+			ret = zpool_set_prop(zhp, propname,
+			    ZFS_FEATURE_ENABLED);
+			if (ret != 0) {
+				free(propname);
+				return (ret);
+			}
+			count++;
+
+			if (firstff) {
+				(void) printf(gettext("Enabled the "
+				    "following features on '%s':\n"),
+				    zpool_get_name(zhp));
+				firstff = B_FALSE;
+			}
+			(void) printf(gettext("  %s\n"), fname);
+			free(propname);
+		}
+	}
+
+	if (countp != NULL)
+		*countp = count;
+	return (0);
+}
 
 static int
 upgrade_cb(zpool_handle_t *zhp, void *arg)
@@ -4259,52 +4325,72 @@ upgrade_cb(zpool_handle_t *zhp, void *arg)
 	upgrade_cbdata_t *cbp = arg;
 	nvlist_t *config;
 	uint64_t version;
-	int ret = 0;
+	boolean_t printnl = B_FALSE;
+	int ret;
 
 	config = zpool_get_config(zhp, NULL);
 	verify(nvlist_lookup_uint64(config, ZPOOL_CONFIG_VERSION,
 	    &version) == 0);
 
-	if (!cbp->cb_newer && SPA_VERSION_IS_SUPPORTED(version) &&
-	    version != SPA_VERSION) {
-		if (!cbp->cb_all) {
-			if (cbp->cb_first) {
-				(void) printf(gettext("The following pools are "
-				    "out of date, and can be upgraded.  After "
-				    "being\nupgraded, these pools will no "
-				    "longer be accessible by older software "
-				    "versions.\n\n"));
-				(void) printf(gettext("VER  POOL\n"));
-				(void) printf(gettext("---  ------------\n"));
-				cbp->cb_first = B_FALSE;
-			}
+	assert(SPA_VERSION_IS_SUPPORTED(version));
 
-			(void) printf("%2llu   %s\n", (u_longlong_t)version,
-			    zpool_get_name(zhp));
-		} else {
+	if (version < cbp->cb_version) {
+		cbp->cb_first = B_FALSE;
+		ret = upgrade_version(zhp, cbp->cb_version);
+		if (ret != 0)
+			return (ret);
+		printnl = B_TRUE;
+
+		/*
+		 * If they did "zpool upgrade -a", then we could
+		 * be doing ioctls to different pools.  We need
+		 * to log this history once to each pool, and bypass
+		 * the normal history logging that happens in main().
+		 */
+		(void) zpool_log_history(g_zfs, history_str);
+		log_history = B_FALSE;
+	}
+
+	if (cbp->cb_version >= SPA_VERSION_FEATURES) {
+		int count;
+		ret = upgrade_enable_all(zhp, &count);
+		if (ret != 0)
+			return (ret);
+
+		if (count > 0) {
 			cbp->cb_first = B_FALSE;
-			ret = zpool_upgrade(zhp, cbp->cb_version);
-			if (!ret) {
-				(void) printf(gettext("Successfully upgraded "
-				    "'%s'\n\n"), zpool_get_name(zhp));
-			}
-			/*
-			 * If they did "zpool upgrade -a", then we could
-			 * be doing ioctls to different pools.  We need
-			 * to log this history once to each pool, and bypass
-			 * the normal history logging that happens in main().
-			 */
-			(void) zpool_log_history(g_zfs, history_str);
-			log_history = B_FALSE;
+			printnl = B_TRUE;
 		}
-	} else if (cbp->cb_newer && !SPA_VERSION_IS_SUPPORTED(version)) {
-		assert(!cbp->cb_all);
+	}
 
+	if (printnl) {
+		(void) printf(gettext("\n"));
+	}
+
+	return (0);
+}
+
+static int
+upgrade_list_older_cb(zpool_handle_t *zhp, void *arg)
+{
+	upgrade_cbdata_t *cbp = arg;
+	nvlist_t *config;
+	uint64_t version;
+
+	config = zpool_get_config(zhp, NULL);
+	verify(nvlist_lookup_uint64(config, ZPOOL_CONFIG_VERSION,
+	    &version) == 0);
+
+	assert(SPA_VERSION_IS_SUPPORTED(version));
+
+	if (version < SPA_VERSION_FEATURES) {
 		if (cbp->cb_first) {
 			(void) printf(gettext("The following pools are "
-			    "formatted using an unsupported software version "
-			    "and\ncannot be accessed on the current "
-			    "system.\n\n"));
+			    "formatted with legacy version numbers and can\n"
+			    "be upgraded to use feature flags.  After "
+			    "being upgraded, these pools\nwill no "
+			    "longer be accessible by software that does not "
+			    "support feature\nflags.\n\n"));
 			(void) printf(gettext("VER  POOL\n"));
 			(void) printf(gettext("---  ------------\n"));
 			cbp->cb_first = B_FALSE;
@@ -4314,14 +4400,65 @@ upgrade_cb(zpool_handle_t *zhp, void *arg)
 		    zpool_get_name(zhp));
 	}
 
-	zpool_close(zhp);
-	return (ret);
+	return (0);
+}
+
+static int
+upgrade_list_disabled_cb(zpool_handle_t *zhp, void *arg)
+{
+	upgrade_cbdata_t *cbp = arg;
+	nvlist_t *config;
+	uint64_t version;
+
+	config = zpool_get_config(zhp, NULL);
+	verify(nvlist_lookup_uint64(config, ZPOOL_CONFIG_VERSION,
+	    &version) == 0);
+
+	if (version >= SPA_VERSION_FEATURES) {
+		int i;
+		boolean_t poolfirst = B_TRUE;
+		nvlist_t *enabled = zpool_get_features(zhp);
+
+		for (i = 0; i < SPA_FEATURES; i++) {
+			const char *fguid = spa_feature_table[i].fi_guid;
+			const char *fname = spa_feature_table[i].fi_uname;
+			if (!nvlist_exists(enabled, fguid)) {
+				if (cbp->cb_first) {
+					(void) printf(gettext("\nSome "
+					    "supported features are not "
+					    "enabled on the following pools. "
+					    "Once a\nfeature is enabled the "
+					    "pool may become incompatible with "
+					    "software\nthat does not support "
+					    "the feature. See "
+					    "zpool-features(5) for "
+					    "details.\n\n"));
+					(void) printf(gettext("POOL  "
+					    "FEATURE\n"));
+					(void) printf(gettext("------"
+					    "---------\n"));
+					cbp->cb_first = B_FALSE;
+				}
+
+				if (poolfirst) {
+					(void) printf(gettext("%s\n"),
+					    zpool_get_name(zhp));
+					poolfirst = B_FALSE;
+				}
+
+				(void) printf(gettext("      %s\n"), fname);
+			}
+		}
+	}
+
+	return (0);
 }
 
 /* ARGSUSED */
 static int
 upgrade_one(zpool_handle_t *zhp, void *data)
 {
+	boolean_t printnl = B_FALSE;
 	upgrade_cbdata_t *cbp = data;
 	uint64_t cur_version;
 	int ret;
@@ -4336,26 +4473,45 @@ upgrade_one(zpool_handle_t *zhp, void *data)
 	cur_version = zpool_get_prop_int(zhp, ZPOOL_PROP_VERSION, NULL);
 	if (cur_version > cbp->cb_version) {
 		(void) printf(gettext("Pool '%s' is already formatted "
-		    "using more current version '%llu'.\n"),
+		    "using more current version '%llu'.\n\n"),
 		    zpool_get_name(zhp), cur_version);
 		return (0);
 	}
-	if (cur_version == cbp->cb_version) {
+
+	if (cbp->cb_version != SPA_VERSION && cur_version == cbp->cb_version) {
 		(void) printf(gettext("Pool '%s' is already formatted "
-		    "using the current version.\n"), zpool_get_name(zhp));
+		    "using version %llu.\n\n"), zpool_get_name(zhp),
+		    cbp->cb_version);
 		return (0);
 	}
 
-	ret = zpool_upgrade(zhp, cbp->cb_version);
-
-	if (!ret) {
-		(void) printf(gettext("Successfully upgraded '%s' "
-		    "from version %llu to version %llu\n\n"),
-		    zpool_get_name(zhp), (u_longlong_t)cur_version,
-		    (u_longlong_t)cbp->cb_version);
+	if (cur_version != cbp->cb_version) {
+		printnl = B_TRUE;
+		ret = upgrade_version(zhp, cbp->cb_version);
+		if (ret != 0)
+			return (ret);
 	}
 
-	return (ret != 0);
+	if (cbp->cb_version >= SPA_VERSION_FEATURES) {
+		int count = 0;
+		ret = upgrade_enable_all(zhp, &count);
+		if (ret != 0)
+			return (ret);
+
+		if (count != 0) {
+			printnl = B_TRUE;
+		} else if (cur_version == SPA_VERSION) {
+			(void) printf(gettext("Pool '%s' already has all "
+			    "supported features enabled.\n"),
+			    zpool_get_name(zhp));
+		}
+	}
+
+	if (printnl) {
+		(void) printf(gettext("\n"));
+	}
+
+	return (0);
 }
 
 /*
@@ -4374,6 +4530,7 @@ zpool_do_upgrade(int argc, char **argv)
 	upgrade_cbdata_t cb = { 0 };
 	int ret = 0;
 	boolean_t showversions = B_FALSE;
+	boolean_t upgradeall = B_FALSE;
 	char *end;
 
 
@@ -4381,7 +4538,7 @@ zpool_do_upgrade(int argc, char **argv)
 	while ((c = getopt(argc, argv, ":avV:")) != -1) {
 		switch (c) {
 		case 'a':
-			cb.cb_all = B_TRUE;
+			upgradeall = B_TRUE;
 			break;
 		case 'v':
 			showversions = B_TRUE;
@@ -4414,19 +4571,19 @@ zpool_do_upgrade(int argc, char **argv)
 
 	if (cb.cb_version == 0) {
 		cb.cb_version = SPA_VERSION;
-	} else if (!cb.cb_all && argc == 0) {
+	} else if (!upgradeall && argc == 0) {
 		(void) fprintf(stderr, gettext("-V option is "
 		    "incompatible with other arguments\n"));
 		usage(B_FALSE);
 	}
 
 	if (showversions) {
-		if (cb.cb_all || argc != 0) {
+		if (upgradeall || argc != 0) {
 			(void) fprintf(stderr, gettext("-v option is "
 			    "incompatible with other arguments\n"));
 			usage(B_FALSE);
 		}
-	} else if (cb.cb_all) {
+	} else if (upgradeall) {
 		if (argc != 0) {
 			(void) fprintf(stderr, gettext("-a option should not "
 			    "be used along with a pool name\n"));
@@ -4436,9 +4593,25 @@ zpool_do_upgrade(int argc, char **argv)
 
 	(void) printf(gettext("This system supports ZFS pool feature "
 	    "flags.\n\n"));
-	cb.cb_first = B_TRUE;
 	if (showversions) {
-		(void) printf(gettext("The following versions are "
+		int i;
+
+		(void) printf(gettext("The following features are "
+		    "supported:\n\n"));
+		(void) printf(gettext("FEAT DESCRIPTION\n"));
+		(void) printf("----------------------------------------------"
+		    "---------------\n");
+		for (i = 0; i < SPA_FEATURES; i++) {
+			zfeature_info_t *fi = &spa_feature_table[i];
+			const char *ro = fi->fi_can_readonly ?
+			    " (read-only compatible)" : "";
+
+			(void) printf("%-37s%s\n", fi->fi_uname, ro);
+			(void) printf("     %s\n", fi->fi_desc);
+		}
+		(void) printf("\n");
+
+		(void) printf(gettext("The following legacy versions are also "
 		    "supported:\n\n"));
 		(void) printf(gettext("VER  DESCRIPTION\n"));
 		(void) printf("---  -----------------------------------------"
@@ -4481,32 +4654,44 @@ zpool_do_upgrade(int argc, char **argv)
 		(void) printf(gettext("\nFor more information on a particular "
 		    "version, including supported releases,\n"));
 		(void) printf(gettext("see the ZFS Administration Guide.\n\n"));
-	} else if (argc == 0) {
-		int notfound;
-
+	} else if (argc == 0 && upgradeall) {
+		cb.cb_first = B_TRUE;
 		ret = zpool_iter(g_zfs, upgrade_cb, &cb);
-		notfound = cb.cb_first;
-
-		if (!cb.cb_all && ret == 0) {
-			if (!cb.cb_first)
-				(void) printf("\n");
-			cb.cb_first = B_TRUE;
-			cb.cb_newer = B_TRUE;
-			ret = zpool_iter(g_zfs, upgrade_cb, &cb);
-			if (!cb.cb_first) {
-				notfound = B_FALSE;
-				(void) printf("\n");
+		if (ret == 0 && cb.cb_first) {
+			if (cb.cb_version == SPA_VERSION) {
+				(void) printf(gettext("All pools are already "
+				    "formatted using feature flags.\n"));
+				(void) printf(gettext("Every features flags "
+				    "pool has all supported features "
+				    "enabled."));
+			} else {
+				(void) printf(gettext("All pools are already "
+				    "formatted with version %llu or higher.\n"),
+				    cb.cb_version);
 			}
 		}
+	} else if (argc == 0) {
+		cb.cb_first = B_TRUE;
+		ret = zpool_iter(g_zfs, upgrade_list_older_cb, &cb);
+		assert(ret == 0);
 
-		if (ret == 0) {
-			if (notfound)
-				(void) printf(gettext("All pools are formatted "
-				    "using this version.\n"));
-			else if (!cb.cb_all)
-				(void) printf(gettext("Use 'zpool upgrade -v' "
-				    "for a list of available versions and "
-				    "their associated\nfeatures.\n"));
+		if (cb.cb_first) {
+			(void) printf(gettext("All pools are formatted "
+			    "using feature flags.\n\n"));
+		} else {
+			(void) printf(gettext("\nUse 'zpool upgrade -v' "
+			    "for a list of available legacy versions.\n"));
+		}
+
+		cb.cb_first = B_TRUE;
+		ret = zpool_iter(g_zfs, upgrade_list_disabled_cb, &cb);
+		assert(ret == 0);
+
+		if (cb.cb_first) {
+			(void) printf(gettext("Every feature flags pool has "
+			    "all supported features enabled.\n"));
+		} else {
+			(void) printf(gettext("\n"));
 		}
 	} else {
 		ret = for_each_pool(argc, argv, B_FALSE, NULL,

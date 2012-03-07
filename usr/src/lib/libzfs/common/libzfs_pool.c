@@ -410,27 +410,19 @@ zpool_valid_proplist(libzfs_handle_t *hdl, const char *poolname,
 		const char *propname = nvpair_name(elem);
 
 		prop = zpool_name_to_prop(propname);
-		if (prop == ZPROP_INVAL && zfs_prop_feature(propname)) {
+		if (prop == ZPROP_INVAL && zpool_prop_feature(propname)) {
 			int err;
 			zfeature_info_t *feature;
-			char newpropname[MAXNAMELEN];
 			char *fname = strchr(propname, '@') + 1;
 
-			err = zfeature_lookup(fname, B_TRUE, &feature);
+			err = zfeature_lookup_name(fname, &feature);
 			if (err != 0) {
-				if (err == EEXIST) {
-					zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-					    "invalid feature '%s' (ambiguous "
-					    "feature; use long name)"), fname);
-				} else {
-					zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-					    "invalid feature '%s'"), fname);
-				}
+				ASSERT3U(err, ==, ENOENT);
+				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+				    "invalid feature '%s'"), fname);
 				(void) zfs_error(hdl, EZFS_BADPROP, errbuf);
 				goto error;
 			}
-			(void) snprintf(newpropname, sizeof (newpropname),
-			    "feature@%s", feature->fi_name);
 
 			if (nvpair_type(elem) != DATA_TYPE_STRING) {
 				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
@@ -448,7 +440,7 @@ zpool_valid_proplist(libzfs_handle_t *hdl, const char *poolname,
 				goto error;
 			}
 
-			if (nvlist_add_uint64(retprops, newpropname, 0) != 0) {
+			if (nvlist_add_uint64(retprops, propname, 0) != 0) {
 				(void) no_memory(hdl);
 				goto error;
 			}
@@ -706,9 +698,7 @@ zpool_expand_proplist(zpool_handle_t *zhp, zprop_list_t **plp)
 	char buf[ZFS_MAXPROPLEN];
 	nvlist_t *features = NULL;
 	zprop_list_t **last;
-
-	if (*plp == NULL)
-		features = zpool_get_features(zhp);
+	boolean_t firstexpand = (NULL == *plp);
 
 	if (zprop_expand_list(hdl, plp, ZFS_TYPE_POOL) != 0)
 		return (-1);
@@ -717,13 +707,16 @@ zpool_expand_proplist(zpool_handle_t *zhp, zprop_list_t **plp)
 	while (*last != NULL)
 		last = &(*last)->pl_next;
 
-	if (features != NULL) {
+	if ((*plp)->pl_all)
+		features = zpool_get_features(zhp);
+
+	if ((*plp)->pl_all && firstexpand) {
 		for (int i = 0; i < SPA_FEATURES; i++) {
 			zprop_list_t *entry = zfs_alloc(hdl,
 			    sizeof (zprop_list_t));
 			entry->pl_prop = ZPROP_INVAL;
 			entry->pl_user_prop = zfs_asprintf(hdl, "feature@%s",
-			    spa_feature_table[i].fi_name);
+			    spa_feature_table[i].fi_uname);
 			entry->pl_width = strlen(entry->pl_user_prop);
 			entry->pl_all = B_TRUE;
 
@@ -735,13 +728,38 @@ zpool_expand_proplist(zpool_handle_t *zhp, zprop_list_t **plp)
 	/* add any unsupported features */
 	for (nvpair_t *nvp = nvlist_next_nvpair(features, NULL);
 	    nvp != NULL; nvp = nvlist_next_nvpair(features, nvp)) {
-		if (zfeature_is_supported(nvpair_name(nvp), B_FALSE))
+		char *propname;
+		boolean_t found;
+		zprop_list_t *entry;
+
+		if (zfeature_is_supported(nvpair_name(nvp)))
 			continue;
 
-		zprop_list_t *entry = zfs_alloc(hdl, sizeof (zprop_list_t));
-		entry->pl_prop = ZPROP_INVAL;
-		entry->pl_user_prop = zfs_asprintf(hdl, "feature@%s",
+		propname = zfs_asprintf(hdl, "unsupported@%s",
 		    nvpair_name(nvp));
+
+		/*
+		 * Before adding the property to the list make sure that no
+		 * other pool already added the same property.
+		 */
+		found = B_FALSE;
+		entry = *plp;
+		while (entry != NULL) {
+			if (entry->pl_user_prop != NULL &&
+			    strcmp(propname, entry->pl_user_prop) == 0) {
+				found = B_TRUE;
+				break;
+			}
+			entry = entry->pl_next;
+		}
+		if (found) {
+			free(propname);
+			continue;
+		}
+
+		entry = zfs_alloc(hdl, sizeof (zprop_list_t));
+		entry->pl_prop = ZPROP_INVAL;
+		entry->pl_user_prop = propname;
 		entry->pl_width = strlen(entry->pl_user_prop);
 		entry->pl_all = B_TRUE;
 
@@ -778,13 +796,32 @@ zpool_prop_get_feature(zpool_handle_t *zhp, const char *propname, char *buf,
 	boolean_t supported;
 	const char *feature = strchr(propname, '@') + 1;
 
-	supported = zfeature_is_supported(feature, B_FALSE);
+	supported = zpool_prop_feature(propname);
+	ASSERT(supported || zfs_prop_unsupported(propname));
+
+	/*
+	 * Convert from feature name to feature guid. This conversion is
+	 * unecessary for unsupported@... properties because they already
+	 * use guids.
+	 */
+	if (supported) {
+		int ret;
+		zfeature_info_t *fi;
+
+		ret = zfeature_lookup_name(feature, &fi);
+		if (ret != 0) {
+			(void) strlcpy(buf, "-", len);
+			return (ENOTSUP);
+		}
+		feature = fi->fi_guid;
+	}
+
 	if (nvlist_lookup_uint64(features, feature, &refcount) == 0)
 		found = B_TRUE;
 
 	if (supported) {
 		if (!found) {
-			(void) strlcpy(buf, "disabled", len);
+			(void) strlcpy(buf, ZFS_FEATURE_DISABLED, len);
 		} else  {
 			if (refcount == 0)
 				(void) strlcpy(buf, ZFS_FEATURE_ENABLED, len);
@@ -793,8 +830,11 @@ zpool_prop_get_feature(zpool_handle_t *zhp, const char *propname, char *buf,
 		}
 	} else {
 		if (found) {
-			/* Since the pool is open, it couldn't be unsupported */
-			(void) strlcpy(buf, "readonly", len);
+			if (refcount == 0) {
+				(void) strcpy(buf, ZFS_UNSUPPORTED_INACTIVE);
+			} else {
+				(void) strcpy(buf, ZFS_UNSUPPORTED_READONLY);
+			}
 		} else {
 			(void) strlcpy(buf, "-", len);
 			return (ENOTSUP);

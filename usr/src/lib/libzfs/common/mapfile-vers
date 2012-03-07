@@ -118,7 +118,6 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_prop_column_name;
 	zfs_prop_default_numeric;
 	zfs_prop_default_string;
-	zfs_prop_feature;
 	zfs_prop_get;
 	zfs_prop_get_int;
 	zfs_prop_get_numeric;
@@ -223,9 +222,11 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zpool_print_unsup_feat;
 	zpool_prop_align_right;
 	zpool_prop_column_name;
+	zpool_prop_feature;
 	zpool_prop_get_feature;
 	zpool_prop_readonly;
 	zpool_prop_to_name;
+	zpool_prop_unsupported;
 	zpool_prop_values;
 	zpool_read_label;
 	zpool_refresh_stats;

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef _ZFEATURE_COMMON_H
@@ -37,7 +37,8 @@ extern "C" {
 struct zfeature_info;
 
 typedef struct zfeature_info {
-	const char *fi_name;	/* Feature long name */
+	const char *fi_uname;	/* User-facing feature name */
+	const char *fi_guid;	/* On-disk feature identifier */
 	const char *fi_desc;	/* Feature description */
 	boolean_t fi_can_readonly; /* Can open pool readonly w/o support? */
 	boolean_t fi_mos;	/* Is the feature necessary to read the MOS? */
@@ -55,10 +56,11 @@ enum spa_feature {
 
 extern zfeature_info_t spa_feature_table[SPA_FEATURES];
 
-extern boolean_t zfeature_is_valid_name(const char *);
+extern boolean_t zfeature_is_valid_guid(const char *);
 
-extern boolean_t zfeature_is_supported(const char *, boolean_t);
-extern int zfeature_lookup(const char *, boolean_t, zfeature_info_t **res);
+extern boolean_t zfeature_is_supported(const char *);
+extern int zfeature_lookup_guid(const char *, zfeature_info_t **res);
+extern int zfeature_lookup_name(const char *, zfeature_info_t **res);
 
 extern void zpool_feature_init(void);
 

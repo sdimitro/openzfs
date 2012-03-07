@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -480,16 +480,6 @@ boolean_t
 zfs_prop_written(const char *name)
 {
 	static const char *prefix = "written@";
-	return (strncmp(name, prefix, strlen(prefix)) == 0);
-}
-
-/*
- * Returns true if this is a valid feature@ property.
- */
-boolean_t
-zfs_prop_feature(const char *name)
-{
-	static const char *prefix = "feature@";
 	return (strncmp(name, prefix, strlen(prefix)) == 0);
 }
 

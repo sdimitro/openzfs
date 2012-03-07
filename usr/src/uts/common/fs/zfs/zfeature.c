@@ -189,7 +189,7 @@ feature_is_supported(objset_t *os, uint64_t obj, uint64_t desc_obj,
 		    za.za_num_integers == 1);
 
 		if (za.za_first_integer != 0 &&
-		    !zfeature_is_supported(za.za_name, B_FALSE)) {
+		    !zfeature_is_supported(za.za_name)) {
 			supported = B_FALSE;
 
 			if (unsup_feat != NULL) {
@@ -220,7 +220,7 @@ feature_get_refcount(objset_t *os, uint64_t read_obj, uint64_t write_obj,
 
 	ASSERT(0 != zapobj);
 
-	err = zap_lookup(os, zapobj, feature->fi_name, sizeof (uint64_t), 1,
+	err = zap_lookup(os, zapobj, feature->fi_guid, sizeof (uint64_t), 1,
 	    &refcount);
 	if (err != 0) {
 		if (err == ENOENT)
@@ -242,9 +242,9 @@ feature_do_action(objset_t *os, uint64_t read_obj, uint64_t write_obj,
 	uint64_t zapobj = feature->fi_can_readonly ? write_obj : read_obj;
 
 	ASSERT(0 != zapobj);
-	ASSERT(zfeature_is_valid_name(feature->fi_name));
+	ASSERT(zfeature_is_valid_guid(feature->fi_guid));
 
-	error = zap_lookup(os, zapobj, feature->fi_name,
+	error = zap_lookup(os, zapobj, feature->fi_guid,
 	    sizeof (uint64_t), 1, &refcount);
 
 	/*
@@ -295,26 +295,26 @@ feature_do_action(objset_t *os, uint64_t read_obj, uint64_t write_obj,
 		}
 	}
 
-	error = zap_update(os, zapobj, feature->fi_name,
+	error = zap_update(os, zapobj, feature->fi_guid,
 	    sizeof (uint64_t), 1, &refcount, tx);
 	if (error != 0)
 		return (error);
 
 	if (action == FEATURE_ACTION_ENABLE) {
 		error = zap_update(os, desc_obj,
-		    feature->fi_name, 1, strlen(feature->fi_desc) + 1,
+		    feature->fi_guid, 1, strlen(feature->fi_desc) + 1,
 		    feature->fi_desc, tx);
 		if (error != 0)
 			return (error);
 	}
 
 	if (action == FEATURE_ACTION_INCR && refcount == 1 && feature->fi_mos) {
-		spa_activate_mos_feature(dmu_objset_spa(os), feature->fi_name);
+		spa_activate_mos_feature(dmu_objset_spa(os), feature->fi_guid);
 	}
 
 	if (action == FEATURE_ACTION_DECR && refcount == 0) {
 		spa_deactivate_mos_feature(dmu_objset_spa(os),
-		    feature->fi_name);
+		    feature->fi_guid);
 	}
 
 	return (0);

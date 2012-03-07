@@ -383,7 +383,7 @@ spa_prop_validate(spa_t *spa, nvlist_t *props)
 
 		switch (prop) {
 		case ZPROP_INVAL:
-			if (!zfs_prop_feature(propname)) {
+			if (!zpool_prop_feature(propname)) {
 				error = EINVAL;
 				break;
 			}
@@ -407,7 +407,7 @@ spa_prop_validate(spa_t *spa, nvlist_t *props)
 			}
 
 			fname = strchr(propname, '@') + 1;
-			if (zfeature_lookup(fname, B_FALSE, NULL) != 0) {
+			if (zfeature_lookup_name(fname, NULL) != 0) {
 				error = EINVAL;
 				break;
 			}
@@ -627,7 +627,7 @@ spa_prop_set(spa_t *spa, nvlist_t *nvp)
 			if (prop == ZPOOL_PROP_VERSION) {
 				VERIFY(nvpair_value_uint64(elem, &ver) == 0);
 			} else {
-				ASSERT(zfs_prop_feature(nvpair_name(elem)));
+				ASSERT(zpool_prop_feature(nvpair_name(elem)));
 				ver = SPA_VERSION_FEATURES;
 				need_sync = B_TRUE;
 			}
@@ -2090,7 +2090,7 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 		for (nvpair_t *nvp = nvlist_next_nvpair(spa->spa_label_features,
 		    NULL); nvp != NULL;
 		    nvp = nvlist_next_nvpair(spa->spa_label_features, nvp)) {
-			if (!zfeature_is_supported(nvpair_name(nvp), B_FALSE)) {
+			if (!zfeature_is_supported(nvpair_name(nvp))) {
 				VERIFY(nvlist_add_string(unsup_feat,
 				    nvpair_name(nvp), "") == 0);
 			}
@@ -3267,7 +3267,7 @@ spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
 	has_features = B_FALSE;
 	for (nvpair_t *elem = nvlist_next_nvpair(props, NULL);
 	    elem != NULL; elem = nvlist_next_nvpair(props, elem)) {
-		if (zfs_prop_feature(nvpair_name(elem)))
+		if (zpool_prop_feature(nvpair_name(elem)))
 			has_features = B_TRUE;
 	}
 
@@ -3275,7 +3275,7 @@ spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
 	    zpool_prop_to_name(ZPOOL_PROP_VERSION), &version) != 0) {
 		version = SPA_VERSION;
 	}
-	ASSERT(version <= SPA_VERSION);
+	ASSERT(SPA_VERSION_IS_SUPPORTED(version));
 
 	spa->spa_first_txg = txg;
 	spa->spa_uberblock.ub_txg = txg - 1;
@@ -5729,11 +5729,10 @@ spa_sync_props(void *arg1, void *arg2, dmu_tx_t *tx)
 			/*
 			 * We checked this earlier in spa_prop_validate().
 			 */
-			ASSERT(zfs_prop_feature(nvpair_name(elem)));
+			ASSERT(zpool_prop_feature(nvpair_name(elem)));
 
 			fname = strchr(nvpair_name(elem), '@') + 1;
-			VERIFY3U(0, ==, zfeature_lookup(fname, B_FALSE,
-			    &feature));
+			VERIFY3U(0, ==, zfeature_lookup_name(fname, &feature));
 
 			spa_feature_enable(spa, feature, tx);
 			spa_history_log_internal(spa, "set", tx,

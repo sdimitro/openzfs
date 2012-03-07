@@ -409,12 +409,12 @@ add_prop_list(const char *propname, char *propval, nvlist_t **props,
 
 	if (poolprop) {
 		if ((prop = zpool_name_to_prop(propname)) == ZPROP_INVAL &&
-		    !zfs_prop_feature(propname)) {
+		    !zpool_prop_feature(propname)) {
 			(void) fprintf(stderr, gettext("property '%s' is "
 			    "not a valid pool property\n"), propname);
 			return (2);
 		}
-		if (zfs_prop_feature(propname))
+		if (zpool_prop_feature(propname))
 			normnm = propname;
 		else
 			normnm = zpool_prop_to_name(prop);
@@ -832,7 +832,7 @@ zpool_do_create(int argc, char **argv)
 				zfeature_info_t *feat = &spa_feature_table[i];
 
 				(void) snprintf(propname, sizeof (propname),
-				    "feature@%s", feat->fi_name);
+				    "feature@%s", feat->fi_uname);
 				if (add_prop_list(propname, ZFS_FEATURE_ENABLED,
 				    &props, B_TRUE) != 0)
 					goto errout;
@@ -2655,7 +2655,8 @@ print_pool(zpool_handle_t *zhp, list_cbdata_t *cb)
 				propstr = property;
 
 			right_justify = zpool_prop_align_right(pl->pl_prop);
-		} else if (zfs_prop_feature(pl->pl_user_prop) &&
+		} else if ((zpool_prop_feature(pl->pl_user_prop) ||
+		    zpool_prop_unsupported(pl->pl_user_prop)) &&
 		    zpool_prop_get_feature(zhp, pl->pl_user_prop, property,
 		    sizeof (property)) == 0) {
 			propstr = property;
@@ -4683,16 +4684,16 @@ get_callback(zpool_handle_t *zhp, void *data)
 			continue;
 
 		if (pl->pl_prop == ZPROP_INVAL &&
-		    zfs_prop_feature(pl->pl_user_prop)) {
+		    (zpool_prop_feature(pl->pl_user_prop) ||
+		    zpool_prop_unsupported(pl->pl_user_prop))) {
 			srctype = ZPROP_SRC_LOCAL;
 
 			if (zpool_prop_get_feature(zhp, pl->pl_user_prop,
-			    value, sizeof (value)) != 0) {
-				srctype = ZPROP_SRC_NONE;
+			    value, sizeof (value)) == 0) {
+				zprop_print_one_property(zpool_get_name(zhp),
+				    cbp, pl->pl_user_prop, value, srctype,
+				    NULL, NULL);
 			}
-
-			zprop_print_one_property(zpool_get_name(zhp), cbp,
-			    pl->pl_user_prop, value, srctype, NULL, NULL);
 		} else {
 			if (zpool_get_prop(zhp, pl->pl_prop, value,
 			    sizeof (value), &srctype) != 0)

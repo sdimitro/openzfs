@@ -5603,7 +5603,7 @@ ztest_init(ztest_shared_t *zs)
 	for (int i = 0; i < SPA_FEATURES; i++) {
 		char buf[1024];
 		(void) snprintf(buf, sizeof (buf), "feature@%s",
-		    spa_feature_table[i].fi_name);
+		    spa_feature_table[i].fi_uname);
 		VERIFY3U(0, ==, nvlist_add_uint64(props, buf, 0));
 	}
 	VERIFY3U(0, ==, spa_create(ztest_opts.zo_pool, nvroot, props, NULL));

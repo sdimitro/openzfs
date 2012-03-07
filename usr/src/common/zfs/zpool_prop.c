@@ -168,6 +168,26 @@ zpool_prop_default_numeric(zpool_prop_t prop)
 	return (zpool_prop_table[prop].pd_numdefault);
 }
 
+/*
+ * Returns true if this is a valid feature@ property.
+ */
+boolean_t
+zpool_prop_feature(const char *name)
+{
+	static const char *prefix = "feature@";
+	return (strncmp(name, prefix, strlen(prefix)) == 0);
+}
+
+/*
+ * Returns true if this is a valid unsupported@ property.
+ */
+boolean_t
+zpool_prop_unsupported(const char *name)
+{
+	static const char *prefix = "unsupported@";
+	return (strncmp(name, prefix, strlen(prefix)) == 0);
+}
+
 int
 zpool_prop_string_to_index(zpool_prop_t prop, const char *string,
     uint64_t *index)

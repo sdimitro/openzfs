@@ -1284,9 +1284,10 @@ addlist(libzfs_handle_t *hdl, char *propname, zprop_list_t **listp,
 	 * dataset property,
 	 */
 	if (prop == ZPROP_INVAL && ((type == ZFS_TYPE_POOL &&
-	    !zfs_prop_feature(propname)) || (type == ZFS_TYPE_DATASET &&
-	    !zfs_prop_user(propname) && !zfs_prop_userquota(propname) &&
-	    !zfs_prop_written(propname)))) {
+	    !zpool_prop_feature(propname) &&
+	    !zpool_prop_unsupported(propname)) ||
+	    (type == ZFS_TYPE_DATASET && !zfs_prop_user(propname) &&
+	    !zfs_prop_userquota(propname) && !zfs_prop_written(propname)))) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 		    "invalid property '%s'"), propname);
 		return (zfs_error(hdl, EZFS_BADPROP,
@@ -1298,19 +1299,7 @@ addlist(libzfs_handle_t *hdl, char *propname, zprop_list_t **listp,
 
 	entry->pl_prop = prop;
 	if (prop == ZPROP_INVAL) {
-		char buf[MAXPATHLEN];
 		char *newpropname = propname;
-
-		if (zfs_prop_feature(propname)) {
-			zfeature_info_t *fi;
-			char *feature = strchr(propname, '@') + 1;
-
-			if (zfeature_lookup(feature, B_TRUE, &fi) == 0) {
-				(void) snprintf(buf, sizeof (buf),
-				    "feature@%s", fi->fi_name);
-				newpropname = buf;
-			}
-		}
 
 		if ((entry->pl_user_prop = zfs_strdup(hdl, newpropname)) ==
 		    NULL) {

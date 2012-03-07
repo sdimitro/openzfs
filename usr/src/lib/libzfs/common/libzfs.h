@@ -461,8 +461,12 @@ extern void zfs_prune_proplist(zfs_handle_t *, uint8_t *);
 #define	ZFS_MOUNTPOINT_NONE	"none"
 #define	ZFS_MOUNTPOINT_LEGACY	"legacy"
 
+#define	ZFS_FEATURE_DISABLED	"disabled"
 #define	ZFS_FEATURE_ENABLED	"enabled"
 #define	ZFS_FEATURE_ACTIVE	"active"
+
+#define ZFS_UNSUPPORTED_INACTIVE	"inactive"
+#define ZFS_UNSUPPORTED_READONLY	"readonly"
 
 /*
  * zpool property management

@@ -77,8 +77,7 @@ usage(void)
 	    "        -d decrease instead of increase the refcount\n"
 	    "        -m add the feature to the label if increasing refcount\n"
 	    "\n"
-	    "    <feature> : should be of the form "
-	    "<reverse.dns>:<feature_name>\n");
+	    "    <feature> : should be a feature guid\n");
 	exit(1);
 }
 
@@ -281,8 +280,8 @@ feature_enable_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 
 	spa_feature_enable(spa, feature, tx);
 	spa_history_log_internal(spa, "zhack enable feature", tx,
-	    "name=%s can_readonly=%u",
-	    feature->fi_name, feature->fi_can_readonly);
+	    "guid=%s can_readonly=%u",
+	    feature->fi_guid, feature->fi_can_readonly);
 }
 
 static void
@@ -300,6 +299,7 @@ zhack_do_feature_enable(int argc, char **argv)
 	 * are incremented, so fi_mos can just be left as false for now.
 	 */
 	desc = NULL;
+	feature.fi_uname = "zhack";
 	feature.fi_mos = B_FALSE;
 	feature.fi_can_readonly = B_FALSE;
 	feature.fi_depends = nodeps;
@@ -331,18 +331,18 @@ zhack_do_feature_enable(int argc, char **argv)
 		usage();
 	}
 	target = argv[0];
-	feature.fi_name = argv[1];
+	feature.fi_guid = argv[1];
 
-	if (!zfeature_is_valid_name(feature.fi_name))
-		fatal("invalid feature name: %s", feature.fi_name);
+	if (!zfeature_is_valid_guid(feature.fi_guid))
+		fatal("invalid feature guid: %s", feature.fi_guid);
 
 	zhack_spa_open(target, B_FALSE, FTAG, &spa);
 	mos = spa->spa_meta_objset;
 
-	if (0 == zfeature_lookup(feature.fi_name, B_FALSE, NULL))
+	if (0 == zfeature_lookup_guid(feature.fi_guid, NULL))
 		fatal("'%s' is a real feature, will not enable");
-	if (0 == zap_contains(mos, spa->spa_feat_desc_obj, feature.fi_name))
-		fatal("feature already enabled: %s", feature.fi_name);
+	if (0 == zap_contains(mos, spa->spa_feat_desc_obj, feature.fi_guid))
+		fatal("feature already enabled: %s", feature.fi_guid);
 
 	VERIFY3U(0, ==, dsl_sync_task_do(spa->spa_dsl_pool, NULL,
 	    feature_enable_sync, spa, &feature, 5));
@@ -360,7 +360,7 @@ feature_incr_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 
 	spa_feature_incr(spa, feature, tx);
 	spa_history_log_internal(spa, "zhack feature incr", tx,
-	    "name=%s", feature->fi_name);
+	    "guid=%s", feature->fi_guid);
 }
 
 static void
@@ -371,7 +371,7 @@ feature_decr_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 
 	spa_feature_decr(spa, feature, tx);
 	spa_history_log_internal(spa, "zhack feature decr", tx,
-	    "name=%s", feature->fi_name);
+	    "guid=%s", feature->fi_guid);
 }
 
 static void
@@ -391,6 +391,7 @@ zhack_do_feature_ref(int argc, char **argv)
 	 * feature for read or write based on the information we read off
 	 * disk later.
 	 */
+	feature.fi_uname = "zhack";
 	feature.fi_mos = B_FALSE;
 	feature.fi_desc = NULL;
 	feature.fi_depends = nodeps;
@@ -417,29 +418,29 @@ zhack_do_feature_ref(int argc, char **argv)
 		usage();
 	}
 	target = argv[0];
-	feature.fi_name = argv[1];
+	feature.fi_guid = argv[1];
 
-	if (!zfeature_is_valid_name(feature.fi_name))
-		fatal("invalid feature name: %s", feature.fi_name);
+	if (!zfeature_is_valid_guid(feature.fi_guid))
+		fatal("invalid feature guid: %s", feature.fi_guid);
 
 	zhack_spa_open(target, B_FALSE, FTAG, &spa);
 	mos = spa->spa_meta_objset;
 
-	if (0 == zfeature_lookup(feature.fi_name, B_FALSE, NULL))
+	if (0 == zfeature_lookup_guid(feature.fi_guid, NULL))
 		fatal("'%s' is a real feature, will not change refcount");
 
 	if (0 == zap_contains(mos, spa->spa_feat_for_read_obj,
-	    feature.fi_name)) {
+	    feature.fi_guid)) {
 		feature.fi_can_readonly = B_FALSE;
 	} else if (0 == zap_contains(mos, spa->spa_feat_for_write_obj,
-	    feature.fi_name)) {
+	    feature.fi_guid)) {
 		feature.fi_can_readonly = B_TRUE;
 	} else {
-		fatal("feature is not enabled: %s", feature.fi_name);
+		fatal("feature is not enabled: %s", feature.fi_guid);
 	}
 
 	if (decr && !spa_feature_is_active(spa, &feature))
-		fatal("feature refcount already 0: %s", feature.fi_name);
+		fatal("feature refcount already 0: %s", feature.fi_guid);
 
 	VERIFY3U(0, ==, dsl_sync_task_do(spa->spa_dsl_pool, NULL,
 	    decr ? feature_decr_sync : feature_incr_sync, spa, &feature, 5));

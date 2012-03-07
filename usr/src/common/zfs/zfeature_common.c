@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifdef _KERNEL
@@ -44,9 +44,9 @@ boolean_t zfeature_checks_disable = B_FALSE;
 zfeature_info_t spa_feature_table[SPA_FEATURES];
 
 /*
- * Valid characters for feature names. This list is mainly for aesthetic
+ * Valid characters for feature guids. This list is mainly for aesthetic
  * purposes and could be expanded in the future. There are different allowed
- * characters in the name's reverse dns portion (before the colon) and its
+ * characters in the guids reverse dns portion (before the colon) and its
  * short name (after the colon).
  */
 static int
@@ -58,12 +58,12 @@ valid_char(char c, boolean_t after_colon)
 }
 
 /*
- * Every feature name must contain exactly one colon which separates a reverse
+ * Every feature guid must contain exactly one colon which separates a reverse
  * dns organization name from the feature's "short" name (e.g.
  * "com.company:feature_name").
  */
 boolean_t
-zfeature_is_valid_name(const char *name)
+zfeature_is_valid_guid(const char *name)
 {
 	int i;
 	boolean_t has_colon = B_FALSE;
@@ -85,60 +85,46 @@ zfeature_is_valid_name(const char *name)
 }
 
 boolean_t
-zfeature_is_supported(const char *name, boolean_t allowshort)
+zfeature_is_supported(const char *guid)
 {
 	if (zfeature_checks_disable)
 		return (B_TRUE);
 
-	return (0 == zfeature_lookup(name, allowshort, NULL));
+	return (0 == zfeature_lookup_guid(guid, NULL));
 }
 
-/*
- * If the allow_short option is given, the reverse DNS portion of the feature
- * name may be omitted. If this option is given and there are multiple features
- * with the same short name, this function returns EEXIST.
- */
 int
-zfeature_lookup(const char *name, boolean_t allowshort, zfeature_info_t **res)
+zfeature_lookup_guid(const char *guid, zfeature_info_t **res)
 {
-	boolean_t found_short = B_FALSE;
-
-	if (!allowshort && !zfeature_is_valid_name(name))
-		return (EINVAL);
-
 	for (int i = 0; i < SPA_FEATURES; i++) {
 		zfeature_info_t *feature = &spa_feature_table[i];
-		char *short_name;
-
-		if (strcmp(name, feature->fi_name) == 0) {
+		if (strcmp(guid, feature->fi_guid) == 0) {
 			if (res != NULL)
 				*res = feature;
 			return (0);
 		}
-
-		if (!allowshort)
-			continue;
-
-		short_name = strchr(feature->fi_name, ':') + 1;
-		ASSERT(short_name != NULL);
-		if (strcmp(name, short_name) == 0) {
-			if (found_short)
-				return (EEXIST);
-
-			if (res != NULL)
-				*res = feature;
-			found_short = B_TRUE;
-		}
 	}
 
-	if (found_short)
-		return (0);
+	return (ENOENT);
+}
+
+int
+zfeature_lookup_name(const char *name, zfeature_info_t **res)
+{
+	for (int i = 0; i < SPA_FEATURES; i++) {
+		zfeature_info_t *feature = &spa_feature_table[i];
+		if (strcmp(name, feature->fi_uname) == 0) {
+			if (res != NULL)
+				*res = feature;
+			return (0);
+		}
+	}
 
 	return (ENOENT);
 }
 
 static void
-zfeature_register(int fid, const char *name, const char *desc,
+zfeature_register(int fid, const char *guid, const char *name, const char *desc,
     boolean_t readonly, boolean_t mos, zfeature_info_t **deps)
 {
 	zfeature_info_t *feature = &spa_feature_table[fid];
@@ -148,12 +134,13 @@ zfeature_register(int fid, const char *name, const char *desc,
 	ASSERT(desc != NULL);
 	ASSERT(!readonly || !mos);
 	ASSERT3U(fid, <, SPA_FEATURES);
-	ASSERT(zfeature_is_valid_name(name));
+	ASSERT(zfeature_is_valid_guid(guid));
 
 	if (deps == NULL)
 		deps = nodeps;
 
-	feature->fi_name = name;
+	feature->fi_guid = guid;
+	feature->fi_uname = name;
 	feature->fi_desc = desc;
 	feature->fi_can_readonly = readonly;
 	feature->fi_mos = mos;
@@ -164,6 +151,6 @@ void
 zpool_feature_init(void)
 {
 	zfeature_register(SPA_FEATURE_ASYNC_DESTROY,
-	    "com.delphix:async_destroy", "Destroy filesystems asynchronously.",
-	    B_TRUE, B_FALSE, NULL);
+	    "com.delphix:async_destroy", "async_destroy",
+	    "Destroy filesystems asynchronously.", B_TRUE, B_FALSE, NULL);
 }

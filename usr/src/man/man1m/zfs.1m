@@ -3041,21 +3041,22 @@ Permissions are generally the ability to use a \fBZFS\fR subcommand or change a
 NAME             TYPE           NOTES
 allow            subcommand     Must also have the permission that is being
                                 allowed
-clone            subcommand     Must also have the 'create' ability and 'mount'
-                                ability in the origin file system
-create           subcommand     Must also have the 'mount' ability
-destroy          subcommand     Must also have the 'mount' ability
+clone            subcommand     Must also have the 'create' and 'mount'
+                                permissions in the parent file system
+create           subcommand     Must also have the 'mount' permission
+destroy          subcommand     Must also have the 'mount' permission
 mount            subcommand     Allows mount/umount of ZFS datasets
-promote          subcommand     Must also have the 'mount'
-                                and 'promote' ability in the origin file system
-receive          subcommand     Must also have the 'mount' and 'create' ability
+promote          subcommand     Must also have the 'mount' and 'promote'
+                                permissions in the origin file system
+receive          subcommand     Must also have the 'mount' and 'create'
+                                permissions
 rename           subcommand     Must also have the 'mount' and 'create'
-                                ability in the new parent
-rollback         subcommand     Must also have the 'mount' ability
+                                permissions in the new parent
+rollback         subcommand
 send             subcommand
 share            subcommand     Allows sharing file systems over NFS or SMB
                                 protocols
-snapshot         subcommand     Must also have the 'mount' ability
+snapshot         subcommand
 groupquota       other          Allows accessing any groupquota@... property
 groupused        other          Allows reading any groupused@... property
 userprop         other          Allows changing any user property
@@ -3737,7 +3738,7 @@ Local+Descendent permissions on (tank/users)
 \fBExample 21 \fRDelegating Property Permissions on a ZFS Dataset
 .sp
 .LP
-The following example shows to grant the ability to set quotas and reservations
+The following example shows how to grant the permissions to set quotas and reservations
 on the \fBusers/home\fR file system. The permissions on \fBusers/home\fR are
 also displayed.
 

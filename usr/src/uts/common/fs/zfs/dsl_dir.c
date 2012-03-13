@@ -1054,9 +1054,6 @@ dsl_dir_set_quota_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	mutex_enter(&dd->dd_lock);
 	dd->dd_phys->dd_quota = effective_value;
 	mutex_exit(&dd->dd_lock);
-
-	spa_history_log_internal_dd(dd, "set quota", tx,
-	    "quota=%lld", (longlong_t)effective_value);
 }
 
 int
@@ -1176,9 +1173,6 @@ dsl_dir_set_reservation_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	DSL_PROP_CHECK_PREDICTION(dd, psa);
 
 	dsl_dir_set_reservation_sync_impl(dd, value, tx);
-
-	spa_history_log_internal_dd(dd, "set reservation", tx,
-	    "reservation=%lld", (longlong_t)value);
 }
 
 int

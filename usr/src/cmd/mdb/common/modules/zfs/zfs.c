@@ -2186,7 +2186,7 @@ zfs_blkstats(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		return (DCMD_ERR);
 	}
 
-	tzb = &stats.zab_type[DN_MAX_LEVELS][DMU_OT_NUMTYPES];
+	tzb = &stats.zab_type[DN_MAX_LEVELS][DMU_OT_TOTAL];
 	if (tzb->zb_gangs != 0) {
 		mdb_printf("Ganged blocks: %llu\n",
 		    (longlong_t)tzb->zb_gangs);

@@ -4223,7 +4223,7 @@ sd_set_properties(struct sd_lun *un, char *name, char *value)
 	if (strcasecmp(name, "physical-block-size") == 0) {
 		if (ddi_strtol(value, &endptr, 0, &val) == 0 &&
 		    ISP2(val) && val >= un->un_tgt_blocksize &&
-		    val >= un->un_sys_blocksize)
+		    val >= un->un_sys_blocksize) {
 			un->un_phy_blocksize = val;
 		} else {
 			goto value_invalid;

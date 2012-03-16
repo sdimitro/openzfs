@@ -6433,7 +6433,7 @@ emlxs_hba_attach(dev_info_t *dip)
 		    hba->model_info.device_id, hba->model_info.model);
 		goto failed;
 	}
-#define FILTER_ORACLE_BRANDED
+#define	FILTER_ORACLE_BRANDED
 #ifdef FILTER_ORACLE_BRANDED
 
 	/* Sun-branded adapters are not supported  */

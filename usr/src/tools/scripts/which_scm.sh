@@ -24,8 +24,6 @@
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
-#
 
 # which_scm outputs two strings: one identifying the SCM in use, and
 # the second giving the root directory for the SCM, if known, or just
@@ -100,8 +98,8 @@ while [[ "$DIR" != / ]]; do
 	SCM_TYPE="$1"
 	# We're done searching if we hit either a change in type or the top
 	# of a "third type" control system.
-	if [[ "$SCM_TYPE" != "$CWD_TYPE" || "$SCM_TYPE" == mercurial || \
-	    "$SCM_TYPE" == teamware || "$SCM_TYPE" == git ]]; then
+	if [[ "$SCM_TYPE" != "$CWD_TYPE" || "$SCM_TYPE" == git || \
+	    "$SCM_TYPE" == mercurial || "$SCM_TYPE" == teamware ]]; then
 		break
 	fi
 	PREVDIR="$DIR"

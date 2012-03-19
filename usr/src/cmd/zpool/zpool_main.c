@@ -1457,13 +1457,18 @@ show_import(nvlist_t *config)
 		break;
 
 	case ZPOOL_STATUS_VERSION_OLDER:
-		(void) printf(gettext(" status: The pool is formatted using an "
-		    "older on-disk version.\n"));
+		(void) printf(gettext(" status: The pool is formatted using a "
+		    "legacy on-disk version.\n"));
 		break;
 
 	case ZPOOL_STATUS_VERSION_NEWER:
 		(void) printf(gettext(" status: The pool is formatted using an "
 		    "incompatible version.\n"));
+		break;
+
+	case ZPOOL_STATUS_FEAT_DISABLED:
+		(void) printf(gettext(" status: Some supported features are "
+		    "not enabled on the pool.\n"));
 		break;
 
 	case ZPOOL_STATUS_UNSUP_FEAT_READ:
@@ -1512,19 +1517,21 @@ show_import(nvlist_t *config)
 	 * Print out an action according to the overall state of the pool.
 	 */
 	if (vs->vs_state == VDEV_STATE_HEALTHY) {
-		if (reason == ZPOOL_STATUS_VERSION_OLDER)
+		if (reason == ZPOOL_STATUS_VERSION_OLDER ||
+		    reason == ZPOOL_STATUS_FEAT_DISABLED) {
 			(void) printf(gettext(" action: The pool can be "
 			    "imported using its name or numeric identifier, "
 			    "though\n\tsome features will not be available "
 			    "without an explicit 'zpool upgrade'.\n"));
-		else if (reason == ZPOOL_STATUS_HOSTID_MISMATCH)
+		} else if (reason == ZPOOL_STATUS_HOSTID_MISMATCH) {
 			(void) printf(gettext(" action: The pool can be "
 			    "imported using its name or numeric "
 			    "identifier and\n\tthe '-f' flag.\n"));
-		else
+		} else {
 			(void) printf(gettext(" action: The pool can be "
 			    "imported using its name or numeric "
 			    "identifier.\n"));
+		}
 	} else if (vs->vs_state == VDEV_STATE_DEGRADED) {
 		(void) printf(gettext(" action: The pool can be imported "
 		    "despite missing or damaged devices.  The\n\tfault "
@@ -3981,12 +3988,13 @@ status_callback(zpool_handle_t *zhp, void *data)
 		break;
 
 	case ZPOOL_STATUS_VERSION_OLDER:
-		(void) printf(gettext("status: The pool is formatted using an "
-		    "older on-disk format.  The pool can\n\tstill be used, but "
-		    "some features are unavailable.\n"));
+		(void) printf(gettext("status: The pool is formatted using a "
+		    "legacy on-disk format.  The pool can\n\tstill be used, "
+		    "but some features are unavailable.\n"));
 		(void) printf(gettext("action: Upgrade the pool using 'zpool "
 		    "upgrade'.  Once this is done, the\n\tpool will no longer "
-		    "be accessible on older software versions.\n"));
+		    "be accessible on software that does not support feature\n"
+		    "\tflags.\n"));
 		break;
 
 	case ZPOOL_STATUS_VERSION_NEWER:
@@ -3996,6 +4004,16 @@ status_callback(zpool_handle_t *zhp, void *data)
 		(void) printf(gettext("action: Access the pool from a system "
 		    "running more recent software, or\n\trestore the pool from "
 		    "backup.\n"));
+		break;
+
+	case ZPOOL_STATUS_FEAT_DISABLED:
+		(void) printf(gettext("status: Some supported features are not "
+		    "enabled on the pool. The pool can\n\tstill be used, but "
+		    "some features are unavailable.\n"));
+		(void) printf(gettext("action: Enable all features using "
+		    "'zpool upgrade'. Once this is done,\n\tthe pool may no "
+		    "longer be accessible by software that does not support\n\t"
+		    "the features. See zpool-features(5) for details.\n"));
 		break;
 
 	case ZPOOL_STATUS_UNSUP_FEAT_READ:

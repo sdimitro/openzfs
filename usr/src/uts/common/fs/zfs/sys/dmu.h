@@ -94,31 +94,31 @@ typedef enum dmu_object_byteswap {
 	DMU_BSWAP_NUMFUNCS
 } dmu_object_byteswap_t;
 
-#define DMU_OT_NEWTYPE 0x80
-#define DMU_OT_METADATA 0x40
-#define DMU_OT_BYTESWAP_MASK 0x3f
+#define	DMU_OT_NEWTYPE 0x80
+#define	DMU_OT_METADATA 0x40
+#define	DMU_OT_BYTESWAP_MASK 0x3f
 
 /*
  * Defines a uint8_t object type. Object types specify if the data
  * in the object is metadata (boolean) and how to byteswap the data
  * (dmu_object_byteswap_t).
  */
-#define DMU_OT(byteswap, metadata) \
-    (DMU_OT_NEWTYPE | \
-    ((metadata) ? DMU_OT_METADATA : 0) | \
-    ((byteswap) & DMU_OT_BYTESWAP_MASK))
+#define	DMU_OT(byteswap, metadata) \
+	(DMU_OT_NEWTYPE | \
+	((metadata) ? DMU_OT_METADATA : 0) | \
+	((byteswap) & DMU_OT_BYTESWAP_MASK))
 
 #define	DMU_OT_IS_VALID(ot) (((ot) & DMU_OT_NEWTYPE) ? \
-    ((ot) & DMU_OT_BYTESWAP_MASK) < DMU_BSWAP_NUMFUNCS : \
-    (ot) < DMU_OT_NUMTYPES)
+	((ot) & DMU_OT_BYTESWAP_MASK) < DMU_BSWAP_NUMFUNCS : \
+	(ot) < DMU_OT_NUMTYPES)
 
 #define	DMU_OT_IS_METADATA(ot) (((ot) & DMU_OT_NEWTYPE) ? \
-    ((ot) & DMU_OT_METADATA) : \
-    dmu_ot[(ot)].ot_metadata)
+	((ot) & DMU_OT_METADATA) : \
+	dmu_ot[(ot)].ot_metadata)
 
 #define	DMU_OT_BYTESWAP(ot) (((ot) & DMU_OT_NEWTYPE) ? \
-    ((ot) & DMU_OT_BYTESWAP_MASK) : \
-    dmu_ot[(ot)].ot_byteswap)
+	((ot) & DMU_OT_BYTESWAP_MASK) : \
+	dmu_ot[(ot)].ot_byteswap)
 
 typedef enum dmu_object_type {
 	DMU_OT_NONE,
@@ -312,6 +312,7 @@ typedef void dmu_buf_evict_func_t(struct dmu_buf *db, void *user_ptr);
 #define	DMU_POOL_SCAN			"scan"
 #define	DMU_POOL_FREE_BPOBJ		"free_bpobj"
 #define	DMU_POOL_BPTREE_OBJ		"bptree_obj"
+#define	DMU_POOL_EMPTY_BPOBJ		"empty_bpobj"
 
 /*
  * Allocate an object from this objset.  The range of object numbers

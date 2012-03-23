@@ -21,6 +21,7 @@
 
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 
 include ../Makefile.master
 
@@ -235,9 +236,10 @@ SUBDIRS += \
 	sasl_plugins	\
 	udapl		\
 	libzpool	\
+	libzfs_core	\
 	libzfs		\
-	libbe 		\
-	pylibbe 	\
+	libbe		\
+	pylibbe		\
 	libzfs_jni	\
 	pyzfs		\
 	pysolaris	\
@@ -475,6 +477,7 @@ HDRSUBDIRS=		\
 	libwrap		\
 	libxcurses2	\
 	libzfs		\
+	libzfs_core	\
 	libzfs_jni	\
 	libzoneinfo	\
 	libzonestat	\
@@ -639,7 +642,8 @@ pkcs11:		libcryptoutil
 print:		libldap5
 udapl/udapl_tavor:	udapl/libdat
 libzfs:		libdevid libgen libnvpair libuutil \
-		libadm libavl libefi libidmap libmd
+		libadm libavl libefi libidmap libmd libzfs_core
+libzfs_core:	libnvpair
 libzfs_jni:	libdiskmgt libnvpair libzfs
 libzpool:	libavl libumem libnvpair libcmdutils
 libsec:		libavl libidmap

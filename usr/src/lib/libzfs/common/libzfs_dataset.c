@@ -3376,7 +3376,7 @@ zfs_snapshot_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, nvlist_t *props)
 		return (-1);
 	}
 
-	ret = zfs2_snapshot(snaps, props, &errors);
+	ret = lzc_snapshot(snaps, props, &errors);
 
 	if (ret != 0) {
 		boolean_t printed = B_FALSE;

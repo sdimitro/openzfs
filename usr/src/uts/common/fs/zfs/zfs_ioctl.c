@@ -5047,7 +5047,7 @@ zfs_ioctl_register_legacy(zfs_ioc_t ioc, zfs_ioc_legacy_func_t *func,
 
 /*
  * Register a new-style ioctl.  The ioctl is invoked from userland by
- * libzfs2_ioctl().  The registration arguments are as follows:
+ * lzc_ioctl().  The registration arguments are as follows:
  *
  * const char *name
  *   The name of the ioctl.  This is used for history logging.  If the

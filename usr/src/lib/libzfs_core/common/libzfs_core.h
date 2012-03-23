@@ -18,20 +18,42 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- *
- * Copyright 2010 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
-/*LINTLIBRARY*/
-/*PROTOLIB1*/
+#ifndef	_LIBZFS_CORE_H
+#define	_LIBZFS_CORE_H
 
-#include <libzfs.h>
-#include <libzfs_core.h>
-#include "../../../common/zfs/zfs_comutil.h"
-#include "../../../common/zfs/zfs_fletcher.h"
-#include "../../../common/zfs/zfs_prop.h"
-#include "../../../common/zfs/zfeature_common.h"
+#include <libnvpair.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/fs/zfs.h>
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
+int libzfs_core_init(void);
+void libzfs_core_fini(void);
+
+int lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp);
+
+int lzc_snaprange_space(const char *firstsnap, const char *lastsnap,
+    uint64_t *usedp);
+
+int lzc_send(const char *snapname, const char *fromsnap, int fd);
+int lzc_receive(const char *snapname, nvlist_t *props, const char *origin,
+    boolean_t force, int fd);
+int lzc_send_space(const char *snapname, const char *fromsnap,
+    uint64_t *result);
+
+boolean_t lzc_exists(const char *dataset);
+
+
+#ifdef	__cplusplus
+}
+#endif
+
+#endif	/* _LIBZFS_CORE_H */

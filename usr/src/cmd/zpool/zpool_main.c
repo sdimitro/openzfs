@@ -833,6 +833,14 @@ zpool_do_create(int argc, char **argv)
 
 				(void) snprintf(propname, sizeof (propname),
 				    "feature@%s", feat->fi_uname);
+
+				/*
+				 * Skip feature if user specified it manually
+				 * on the command line.
+				 */
+				if (nvlist_exists(props, propname))
+					continue;
+
 				if (add_prop_list(propname, ZFS_FEATURE_ENABLED,
 				    &props, B_TRUE) != 0)
 					goto errout;

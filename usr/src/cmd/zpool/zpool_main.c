@@ -4299,10 +4299,11 @@ upgrade_enable_all(zpool_handle_t *zhp, int *countp)
 
 	count = 0;
 	for (i = 0; i < SPA_FEATURES; i++) {
-		const char *fname = spa_feature_table[i].fi_guid;
-		if (!nvlist_exists(enabled, fname)) {
+		const char *fname = spa_feature_table[i].fi_uname;
+		const char *fguid = spa_feature_table[i].fi_guid;
+		if (!nvlist_exists(enabled, fguid)) {
 			char *propname;
-			verify(0 == asprintf(&propname, "feature@%s", fname));
+			verify(-1 != asprintf(&propname, "feature@%s", fname));
 			ret = zpool_set_prop(zhp, propname,
 			    ZFS_FEATURE_ENABLED);
 			if (ret != 0) {
@@ -4668,10 +4669,10 @@ zpool_do_upgrade(int argc, char **argv)
 		if (ret == 0 && cb.cb_first) {
 			if (cb.cb_version == SPA_VERSION) {
 				(void) printf(gettext("All pools are already "
-				    "formatted using feature flags.\n"));
-				(void) printf(gettext("Every features flags "
-				    "pool has all supported features "
-				    "enabled."));
+				    "formatted using feature flags.\n\n"));
+				(void) printf(gettext("Every feature flags "
+				    "pool already has all supported features "
+				    "enabled.\n"));
 			} else {
 				(void) printf(gettext("All pools are already "
 				    "formatted with version %llu or higher.\n"),

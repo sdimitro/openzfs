@@ -51,6 +51,16 @@ typedef enum {
 	ZFS_TYPE_POOL		= 0x8
 } zfs_type_t;
 
+typedef enum dmu_objset_type {
+	DMU_OST_NONE,
+	DMU_OST_META,
+	DMU_OST_ZFS,
+	DMU_OST_ZVOL,
+	DMU_OST_OTHER,			/* For testing only! */
+	DMU_OST_ANY,			/* Be careful! */
+	DMU_OST_NUMTYPES
+} dmu_objset_type_t;
+
 #define	ZFS_TYPE_DATASET	\
 	(ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME | ZFS_TYPE_SNAPSHOT)
 
@@ -812,6 +822,7 @@ typedef enum zfs_ioc {
 	ZFS_IOC_LOG_HISTORY,
 	ZFS_IOC_SEND_NEW,
 	ZFS_IOC_SEND_SPACE,
+	ZFS_IOC_CLONE,
 	ZFS_IOC_LAST
 } zfs_ioc_t;
 

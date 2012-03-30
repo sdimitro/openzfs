@@ -43,6 +43,7 @@
 #include <sys/param.h>
 #include <sys/cred.h>
 #include <sys/time.h>
+#include <sys/fs/zfs.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -214,16 +215,6 @@ typedef enum dmu_object_type {
 	DMU_OTN_ZAP_DATA = DMU_OT(DMU_BSWAP_ZAP, B_FALSE),
 	DMU_OTN_ZAP_METADATA = DMU_OT(DMU_BSWAP_ZAP, B_TRUE),
 } dmu_object_type_t;
-
-typedef enum dmu_objset_type {
-	DMU_OST_NONE,
-	DMU_OST_META,
-	DMU_OST_ZFS,
-	DMU_OST_ZVOL,
-	DMU_OST_OTHER,			/* For testing only! */
-	DMU_OST_ANY,			/* Be careful! */
-	DMU_OST_NUMTYPES
-} dmu_objset_type_t;
 
 void byteswap_uint64_array(void *buf, size_t size);
 void byteswap_uint32_array(void *buf, size_t size);

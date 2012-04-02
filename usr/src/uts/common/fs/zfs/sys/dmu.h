@@ -260,7 +260,8 @@ int dmu_objset_create(const char *name, dmu_objset_type_t type, uint64_t flags,
 int dmu_objset_clone(const char *name, struct dsl_dataset *clone_origin,
     uint64_t flags);
 int dmu_objset_destroy(const char *name, boolean_t defer);
-int dmu_snapshots_destroy_nvl(struct nvlist *snaps, boolean_t defer, char *);
+int dmu_snapshots_destroy_nvl(struct nvlist *snaps, boolean_t defer,
+    struct nvlist *errlist);
 int dmu_objset_snapshot(struct nvlist *snaps, struct nvlist *, struct nvlist *);
 int dmu_objset_snapshot_one(const char *fsname, const char *snapname);
 int dmu_objset_snapshot_tmp(const char *, const char *, int);

@@ -376,26 +376,13 @@ zfs_dozonecheck_ds(const char *dataset, dsl_dataset_t *ds, cred_t *cr)
 	return (zfs_dozonecheck_impl(dataset, zoned, cr));
 }
 
-/*
- * If name ends in a '@', then require recursive permissions.
- */
-int
+static int
 zfs_secpolicy_write_perms(const char *name, const char *perm, cred_t *cr)
 {
 	int error;
-	boolean_t descendent = B_FALSE;
 	dsl_dataset_t *ds;
-	char *at;
-
-	at = strchr(name, '@');
-	if (at != NULL && at[1] == '\0') {
-		*at = '\0';
-		descendent = B_TRUE;
-	}
 
 	error = dsl_dataset_hold(name, FTAG, &ds);
-	if (at != NULL)
-		*at = '@';
 	if (error != 0)
 		return (error);
 
@@ -403,14 +390,14 @@ zfs_secpolicy_write_perms(const char *name, const char *perm, cred_t *cr)
 	if (error == 0) {
 		error = secpolicy_zfs(cr);
 		if (error)
-			error = dsl_deleg_access_impl(ds, descendent, perm, cr);
+			error = dsl_deleg_access_impl(ds, perm, cr);
 	}
 
 	dsl_dataset_rele(ds, FTAG);
 	return (error);
 }
 
-int
+static int
 zfs_secpolicy_write_perms_ds(const char *name, dsl_dataset_t *ds,
     const char *perm, cred_t *cr)
 {
@@ -420,7 +407,7 @@ zfs_secpolicy_write_perms_ds(const char *name, dsl_dataset_t *ds,
 	if (error == 0) {
 		error = secpolicy_zfs(cr);
 		if (error)
-			error = dsl_deleg_access_impl(ds, B_FALSE, perm, cr);
+			error = dsl_deleg_access_impl(ds, perm, cr);
 	}
 	return (error);
 }
@@ -739,17 +726,43 @@ zfs_secpolicy_destroy(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 
 /*
  * Destroying snapshots with delegated permissions requires
- * descendent mount and destroy permissions.
+ * descendant mount and destroy permissions.
  */
 /* ARGSUSED */
 static int
-zfs_secpolicy_destroy_snaps_nvl(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
+zfs_secpolicy_destroy_snaps(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 {
+	nvlist_t *snaps;
+	nvpair_t *pair, *nextpair;
 	int error;
-	char *dsname = kmem_asprintf("%s@", zc->zc_name);
 
-	error = zfs_secpolicy_destroy_perms(dsname, cr);
-	strfree(dsname);
+	if (nvlist_lookup_nvlist(innvl, "snaps", &snaps) != 0)
+		return (EINVAL);
+	for (pair = nvlist_next_nvpair(snaps, NULL); pair != NULL;
+	    pair = nextpair) {
+		dsl_dataset_t *ds;
+
+		nextpair = nvlist_next_nvpair(snaps, pair);
+		error = dsl_dataset_hold(nvpair_name(pair), FTAG, &ds);
+		if (error == ENOENT) {
+			/*
+			 * Ignore any snapshots that don't exist (we consider
+			 * them "already destroyed").  Remove the name from the
+			 * nvl here in case the snapshot is created between
+			 * now and when we try to destroy it (in which case
+			 * we don't want to destroy it since we haven't
+			 * checked for permission).
+			 */
+			nvlist_remove_nvpair(snaps, pair);
+			continue;
+		} else if (error == 0) {
+			dsl_dataset_rele(ds, FTAG);
+		}
+		error = zfs_secpolicy_destroy_perms(nvpair_name(pair), cr);
+		if (error != 0)
+			break;
+	}
+
 	return (error);
 }
 
@@ -3266,46 +3279,42 @@ zfs_unmount_snap(const char *name, void *arg)
 }
 
 /*
- * inputs:
- * zc_name		name of filesystem, snaps must be under it
- * zc_nvlist_src[_size]	full names of snapshots to destroy
- * zc_defer_destroy	mark for deferred destroy
+ * innvl: {
+ *     "snaps" -> { snapshot1, snapshot2 }
+ *     (optional boolean) "defer"
+ * }
  *
- * outputs:
- * zc_name		on failure, name of failed snapshot
+ * outnvl: snapshot -> error code (int32)
+ *
  */
 static int
-zfs_ioc_destroy_snaps_nvl(zfs_cmd_t *zc)
+zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 {
-	int err, len;
-	nvlist_t *nvl;
+	int err, poollen, len;
+	nvlist_t *snaps;
 	nvpair_t *pair;
+	boolean_t defer;
 
-	if ((err = get_nvlist(zc->zc_nvlist_src, zc->zc_nvlist_src_size,
-	    zc->zc_iflags, &nvl)) != 0)
-		return (err);
+	if (nvlist_lookup_nvlist(innvl, "snaps", &snaps) != 0)
+		return (EINVAL);
+	defer= nvlist_exists(innvl, "defer");
 
-	len = strlen(zc->zc_name);
-	for (pair = nvlist_next_nvpair(nvl, NULL); pair != NULL;
-	    pair = nvlist_next_nvpair(nvl, pair)) {
+	poollen = strlen(poolname);
+	for (pair = nvlist_next_nvpair(snaps, NULL); pair != NULL;
+	    pair = nvlist_next_nvpair(snaps, pair)) {
 		const char *name = nvpair_name(pair);
-		/*
-		 * The snap name must be underneath the zc_name.  This ensures
-		 * that our permission checks were legitimate.
-		 */
-		if (strncmp(zc->zc_name, name, len) != 0 ||
-		    (name[len] != '@' && name[len] != '/')) {
-			nvlist_free(nvl);
-			return (EINVAL);
-		}
+		const char *cp = strchr(name, '@');
 
-		(void) zfs_unmount_snap(name, NULL);
+		/*
+		 * The snap must be in the specified pool.
+		 */
+		if (strncmp(name, name, poollen) != 0 ||
+		    (name[poollen] != '/' && name[poollen] != '@'))
+			return (EXDEV);
+
 	}
 
-	err = dmu_snapshots_destroy_nvl(nvl, zc->zc_defer_destroy,
-	    zc->zc_name);
-	nvlist_free(nvl);
-	return (err);
+	return (dmu_snapshots_destroy_nvl(snaps, defer, outnvl));
 }
 
 /*
@@ -5217,8 +5226,8 @@ zfs_ioctl_register_dataset_modify(zfs_ioc_t ioc, zfs_ioc_legacy_func_t *func,
 static void
 zfs_ioctl_init(void)
 {
-	zfs_ioctl_register("snapshot", ZFS_IOC_SNAPSHOT, zfs_ioc_snapshot,
-	    zfs_secpolicy_snapshot, POOL_NAME,
+	zfs_ioctl_register("snapshot", ZFS_IOC_SNAPSHOT,
+	    zfs_ioc_snapshot, zfs_secpolicy_snapshot, POOL_NAME,
 	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE, B_TRUE);
 
 	zfs_ioctl_register("log_history", ZFS_IOC_LOG_HISTORY,
@@ -5243,6 +5252,10 @@ zfs_ioctl_init(void)
 
 	zfs_ioctl_register("clone", ZFS_IOC_CLONE,
 	    zfs_ioc_clone, zfs_secpolicy_create_clone, DATASET_NAME,
+	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE, B_TRUE);
+
+	zfs_ioctl_register("destroy_snaps", ZFS_IOC_DESTROY_SNAPS,
+	    zfs_ioc_destroy_snaps, zfs_secpolicy_destroy_snaps, POOL_NAME,
 	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE, B_TRUE);
 
 	/* IOCTLS that use the legacy function signature */
@@ -5368,8 +5381,6 @@ zfs_ioctl_init(void)
 	    zfs_secpolicy_hold);
 	zfs_ioctl_register_dataset_modify(ZFS_IOC_RELEASE, zfs_ioc_release,
 	    zfs_secpolicy_release);
-	zfs_ioctl_register_dataset_modify(ZFS_IOC_DESTROY_SNAPS_NVL,
-	    zfs_ioc_destroy_snaps_nvl, zfs_secpolicy_destroy_snaps_nvl);
 	zfs_ioctl_register_dataset_modify(ZFS_IOC_INHERIT_PROP,
 	    zfs_ioc_inherit_prop, zfs_secpolicy_inherit_prop);
 	zfs_ioctl_register_dataset_modify(ZFS_IOC_SET_FSACL, zfs_ioc_set_fsacl,

@@ -206,13 +206,13 @@ lzc_clone(const char *fsname, const char *origin,
  * are supported.  { user:prop_name -> string value }
  *
  * The returned results nvlist will have an entry for each snapshot that failed.
- * The value will be the error code.
+ * The value will be the (int32) error code.
  *
  * The return value will be 0 if all snapshots were created, otherwise it will
  * be the errno of a (undetermined) snapshot that failed.
  */
 int
-lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp)
+lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **errlist)
 {
 	nvpair_t *elem;
 	nvlist_t *args;
@@ -231,10 +231,60 @@ lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp)
 	if (props != NULL)
 		fnvlist_add_nvlist(args, "props", props);
 
-	error = lzc_ioctl(ZFS_IOC_SNAPSHOT, pool, args, resultp);
+	error = lzc_ioctl(ZFS_IOC_SNAPSHOT, pool, args, errlist);
 	nvlist_free(args);
 
 	return (error);
+}
+
+/*
+ * Destroys snapshots.
+ *
+ * The keys in the snaps nvlist are the snapshots to be destroyed.
+ * They must all be in the same pool.
+ *
+ * Snapshots that do not exist will be silently ignored.
+ *
+ * If 'defer' is not set, and a snapshot has user holds or clones, the destroy operation will fail
+ * and none of the snapshots will be destroyed.
+ *
+ * If 'defer' is set, and a snapshot has user holds or clones, it will be
+ * marked for deferred destruction, and will be destroyed when the last hold
+ * or clone is removed/destroyed.
+ *
+ * The return value will be 0 if all snapshots were destroyed (or marked for
+ * later destruction if 'defer' is set) or didn't exist to begin with.
+ *
+ * Otherwise the return value will be the errno of a (undetermined) snapshot
+ * that failed, no snapshots will be destroyed, and the errlist will have an
+ * entry for each snapshot that failed.  The value in the errlist will be
+ * the (int32) error code.
+ */
+int
+lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist)
+{
+	nvpair_t *elem;
+	nvlist_t *args;
+	int error;
+	char pool[MAXNAMELEN];
+
+	/* determine the pool name */
+	elem = nvlist_next_nvpair(snaps, NULL);
+	if (elem == NULL)
+		return (0);
+	(void) strlcpy(pool, nvpair_name(elem), sizeof (pool));
+	pool[strcspn(pool, "/@")] = '\0';
+
+	args = fnvlist_alloc();
+	fnvlist_add_nvlist(args, "snaps", snaps);
+	if (defer)
+		fnvlist_add_boolean(args, "defer");
+
+	error = lzc_ioctl(ZFS_IOC_DESTROY_SNAPS, pool, args, errlist);
+	nvlist_free(args);
+
+	return (error);
+
 }
 
 int

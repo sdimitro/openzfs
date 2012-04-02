@@ -38,9 +38,10 @@ extern "C" {
 int libzfs_core_init(void);
 void libzfs_core_fini(void);
 
-int lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp);
+int lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **errlist);
 int lzc_create(const char *fsname, dmu_objset_type_t type, nvlist_t *props);
 int lzc_clone(const char *fsname, const char *origin, nvlist_t *props);
+int lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist);
 
 int lzc_snaprange_space(const char *firstsnap, const char *lastsnap,
     uint64_t *usedp);

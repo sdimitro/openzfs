@@ -734,7 +734,7 @@ zfs_secpolicy_destroy_snaps(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 {
 	nvlist_t *snaps;
 	nvpair_t *pair, *nextpair;
-	int error;
+	int error = 0;
 
 	if (nvlist_lookup_nvlist(innvl, "snaps", &snaps) != 0)
 		return (EINVAL);
@@ -753,7 +753,8 @@ zfs_secpolicy_destroy_snaps(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 			 * we don't want to destroy it since we haven't
 			 * checked for permission).
 			 */
-			nvlist_remove_nvpair(snaps, pair);
+			fnvlist_remove_nvpair(snaps, pair);
+			error = 0;
 			continue;
 		} else if (error == 0) {
 			dsl_dataset_rele(ds, FTAG);
@@ -3290,20 +3291,19 @@ zfs_unmount_snap(const char *name, void *arg)
 static int
 zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 {
-	int err, poollen, len;
+	int poollen;
 	nvlist_t *snaps;
 	nvpair_t *pair;
 	boolean_t defer;
 
 	if (nvlist_lookup_nvlist(innvl, "snaps", &snaps) != 0)
 		return (EINVAL);
-	defer= nvlist_exists(innvl, "defer");
+	defer = nvlist_exists(innvl, "defer");
 
 	poollen = strlen(poolname);
 	for (pair = nvlist_next_nvpair(snaps, NULL); pair != NULL;
 	    pair = nvlist_next_nvpair(snaps, pair)) {
 		const char *name = nvpair_name(pair);
-		const char *cp = strchr(name, '@');
 
 		/*
 		 * The snap must be in the specified pool.

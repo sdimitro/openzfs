@@ -3144,7 +3144,7 @@ zfs_destroy_snaps_nvl(zfs_handle_t *zhp, nvlist_t *snaps, boolean_t defer)
 
 	if (ret != 0) {
 		for (nvpair_t *pair = nvlist_next_nvpair(errlist, NULL);
-		    pair != NULL; nvlist_next_nvpair(errlist, pair)) {
+		    pair != NULL; pair = nvlist_next_nvpair(errlist, pair)) {
 			char errbuf[1024];
 			(void) snprintf(errbuf, sizeof (errbuf),
 			    dgettext(TEXT_DOMAIN, "cannot destroy snapshot %s"),
@@ -3152,7 +3152,8 @@ zfs_destroy_snaps_nvl(zfs_handle_t *zhp, nvlist_t *snaps, boolean_t defer)
 
 			switch (fnvpair_value_int32(pair)) {
 			case EEXIST:
-				zfs_error_aux(zhp->zfs_hdl, dgettext(TEXT_DOMAIN,
+				zfs_error_aux(zhp->zfs_hdl,
+				    dgettext(TEXT_DOMAIN,
 				    "snapshot is cloned"));
 				ret = zfs_error(zhp->zfs_hdl, EZFS_EXISTS,
 				    errbuf);

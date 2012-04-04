@@ -151,7 +151,7 @@ static pd_getf_t	get_zone, get_autopush, get_rate_mod, get_rate,
 			get_bridge_pvid, get_protection, get_rxrings,
 			get_txrings, get_cntavail,
 			get_allowedips, get_allowedcids, get_pool,
-			get_rings_range, get_linkmode_prop;
+			get_rings_range, get_linkmode_prop, get_macaddress;
 
 static pd_setf_t	set_zone, set_rate, set_powermode, set_radio,
 			set_public_prop, set_resource, set_stp_prop,
@@ -362,6 +362,8 @@ static link_attr_t link_attr[] = {
 	{ MAC_PROP_MAX_TXHWCLNT_AVAIL,	sizeof (uint_t), "txhwclnt-available"},
 
 	{ MAC_PROP_IB_LINKMODE,	sizeof (uint32_t),	"linkmode"},
+
+	{ MAC_PROP_MACADDRESS,	sizeof (mac_addrprop_t), "mac-address"},
 
 	{ MAC_PROP_PRIVATE,	0,			"driver-private"}
 };
@@ -726,6 +728,10 @@ static prop_desc_t	prop_table[] = {
 	    NULL, NULL, get_cntavail, NULL, 0,
 	    DATALINK_CLASS_ALL, DATALINK_ANY_MEDIATYPE },
 
+	{ "mac-address", { "", 0}, NULL, 0,
+	    NULL, NULL, get_macaddress, NULL, 0,
+	    DATALINK_CLASS_PHYS|DATALINK_CLASS_AGGR|DATALINK_CLASS_VNIC|
+	    DATALINK_CLASS_SIMNET, DATALINK_ANY_MEDIATYPE }
 };
 
 #define	DLADM_MAX_PROPS	(sizeof (prop_table) / sizeof (prop_desc_t))
@@ -4580,6 +4586,25 @@ get_linkmode_prop(dladm_handle_t handle, prop_desc_t *pdp,
 	}
 	(void) snprintf(prop_val[0], DLADM_STRSIZE, "%s", s);
 
+	*val_cnt = 1;
+	return (DLADM_STATUS_OK);
+}
+
+/* ARGSUSED */
+static dladm_status_t
+get_macaddress(dladm_handle_t handle, prop_desc_t *pdp, datalink_id_t linkid,
+    char **prop_val, uint_t *val_cnt, datalink_media_t media, uint_t flags,
+    uint_t *perm_flags)
+{
+	dladm_status_t	status;
+	mac_addrprop_t	addrprop;
+
+	if ((status = i_dladm_get_public_prop(handle, linkid, pdp->pd_name,
+	    flags, perm_flags, &addrprop, sizeof (addrprop))) !=
+	    DLADM_STATUS_OK)
+		return (status);
+	(void) _link_ntoa(addrprop.ma_addr, prop_val[0], addrprop.ma_len,
+	    IFT_OTHER);
 	*val_cnt = 1;
 	return (DLADM_STATUS_OK);
 }

@@ -133,6 +133,11 @@ typedef enum {
 	MAC_LOGTYPE_FLOW
 } mac_logtype_t;
 
+typedef struct mac_addrprop_s {
+	uint32_t	ma_len;
+	uint8_t		ma_addr[MAXMACADDRLEN];
+} mac_addrprop_t;
+
 #define	MAXLINKPROPNAME		256		/* max property name len */
 
 /*
@@ -205,6 +210,7 @@ typedef enum {
 	MAC_PROP_MAX_RXHWCLNT_AVAIL,
 	MAC_PROP_MAX_TXHWCLNT_AVAIL,
 	MAC_PROP_IB_LINKMODE,
+	MAC_PROP_MACADDRESS,
 	MAC_PROP_PRIVATE = -1
 } mac_prop_id_t;
 

@@ -3180,6 +3180,15 @@ mac_get_prop(mac_handle_t mh, mac_prop_id_t id, char *name, void *val,
 		 */
 		return (0);
 
+	case MAC_PROP_MACADDRESS: {
+		mac_addrprop_t *addrprop = val;
+
+		if (valsize < sizeof (mac_addrprop_t))
+			return (EINVAL);
+		mac_unicast_primary_get(mh, addrprop->ma_addr);
+		addrprop->ma_len = mip->mi_type->mt_addr_length;
+		return (0);
+	}
 	default:
 		break;
 
@@ -3333,6 +3342,25 @@ mac_prop_info(mac_handle_t mh, mac_prop_id_t id, char *name,
 		if (perm != NULL)
 			*perm = MAC_PROP_PERM_READ;
 		return (0);
+
+	case MAC_PROP_MACADDRESS: {
+		mac_addrprop_t	*defaddr = default_val;
+
+		/*
+		 * For now, the mac-address property is read-only, but it
+		 * could be extended to be read-write in the future.
+		 */
+		if (perm != NULL)
+			*perm = MAC_PROP_PERM_READ;
+		if (defaddr != NULL) {
+			if (default_size < sizeof (mac_addrprop_t))
+				return (EINVAL);
+			bcopy(mip->mi_info.mi_unicst_addr, defaddr->ma_addr,
+			    mip->mi_type->mt_addr_length);
+			defaddr->ma_len = mip->mi_type->mt_addr_length;
+		}
+		return (0);
+	}
 	}
 
 	/*

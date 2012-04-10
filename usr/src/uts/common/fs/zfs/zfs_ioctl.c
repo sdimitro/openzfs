@@ -3289,7 +3289,6 @@ zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 	nvlist_t *snaps;
 	nvpair_t *pair;
 	boolean_t defer;
-	int err;
 
 	if (nvlist_lookup_nvlist(innvl, "snaps", &snaps) != 0)
 		return (EINVAL);

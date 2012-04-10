@@ -3247,36 +3247,30 @@ zfs_ioc_log_history(const char *unused, nvlist_t *innvl, nvlist_t *outnvl)
 	return (error);
 }
 
+/* ARGSUSED */
 int
 zfs_unmount_snap(const char *name, void *arg)
 {
-	vfs_t *vfsp = NULL;
+	vfs_t *vfsp;
+	int err;
 
-	if (arg) {
-		char *snapname = arg;
-		char *fullname = kmem_asprintf("%s@%s", name, snapname);
-		vfsp = zfs_get_vfs(fullname);
-		strfree(fullname);
-	} else if (strchr(name, '@')) {
-		vfsp = zfs_get_vfs(name);
-	}
+	if (strchr(name, '@') == NULL)
+		return (0);
 
-	if (vfsp) {
-		/*
-		 * Always force the unmount for snapshots.
-		 */
-		int flag = MS_FORCE;
-		int err;
+	vfsp = zfs_get_vfs(name);
+	if (vfsp == NULL)
+		return (0);
 
-		if ((err = vn_vfswlock(vfsp->vfs_vnodecovered)) != 0) {
-			VFS_RELE(vfsp);
-			return (err);
-		}
+	if ((err = vn_vfswlock(vfsp->vfs_vnodecovered)) != 0) {
 		VFS_RELE(vfsp);
-		if ((err = dounmount(vfsp, flag, kcred)) != 0)
-			return (err);
+		return (err);
 	}
-	return (0);
+	VFS_RELE(vfsp);
+
+	/*
+	 * Always force the unmount for snapshots.
+	 */
+	return (dounmount(vfsp, MS_FORCE, kcred));
 }
 
 /*
@@ -3295,6 +3289,7 @@ zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 	nvlist_t *snaps;
 	nvpair_t *pair;
 	boolean_t defer;
+	int err;
 
 	if (nvlist_lookup_nvlist(innvl, "snaps", &snaps) != 0)
 		return (EINVAL);
@@ -3312,6 +3307,11 @@ zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
 		    (name[poollen] != '/' && name[poollen] != '@'))
 			return (EXDEV);
 
+		/*
+		 * Ignore failures to unmount; dmu_snapshots_destroy_nvl()
+		 * will deal with this gracefully (by filling in outnvl).
+		 */
+		(void) zfs_unmount_snap(name, NULL);
 	}
 
 	return (dmu_snapshots_destroy_nvl(snaps, defer, outnvl));

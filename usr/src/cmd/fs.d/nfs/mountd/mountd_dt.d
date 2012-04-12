@@ -22,10 +22,14 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 provider mountd {
 	probe hashset(int, float);
 	probe e__nb__enqueue(void);
+	probe host_fenced_out(char *, char *);
 	probe nb_set_enqueue(void);
 	probe log_host(char *);
 	probe log_no_host(void);

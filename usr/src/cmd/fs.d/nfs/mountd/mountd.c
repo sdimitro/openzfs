@@ -20,7 +20,7 @@
  *
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -1248,6 +1248,7 @@ mount(struct svc_req *rqstp)
 		host = clnames->h_hostservs[0].h_host;
 
 	if (flavor_count == 0) {
+		DTRACE_PROBE2(mountd, host_fenced_out, sh->sh_path, host);
 		error = EACCES;
 		goto reply;
 	}

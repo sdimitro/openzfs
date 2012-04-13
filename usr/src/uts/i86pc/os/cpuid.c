@@ -1752,7 +1752,12 @@ cpuid_pass2(cpu_t *cpu)
 		 * available.
 		 */
 		if (cp->cp_ebx) {
-			uint32_t x2apic_id;
+			/*
+			 * EDX, which contains the x2apic ID of the
+			 * current logical proccesor, does not vary
+			 * with the initial value in ECX.
+			 */
+			uint32_t x2apic_id = cp->cp_edx;
 			uint_t coreid_shift = 0;
 			uint_t ncpu_per_core = 1;
 			uint_t chipid_shift = 0;
@@ -1768,11 +1773,9 @@ cpuid_pass2(cpu_t *cpu)
 				level = CPI_CPU_LEVEL_TYPE(cp);
 
 				if (level == 1) {
-					x2apic_id = cp->cp_edx;
 					coreid_shift = BITX(cp->cp_eax, 4, 0);
 					ncpu_per_core = BITX(cp->cp_ebx, 15, 0);
 				} else if (level == 2) {
-					x2apic_id = cp->cp_edx;
 					chipid_shift = BITX(cp->cp_eax, 4, 0);
 					ncpu_per_chip = BITX(cp->cp_ebx, 15, 0);
 				}

@@ -358,7 +358,20 @@ ztest_info_t ztest_info[] = {
 	{ ztest_fault_inject,			1,	&zopt_sometimes	},
 	{ ztest_ddt_repair,			1,	&zopt_sometimes	},
 	{ ztest_dmu_snapshot_hold,		1,	&zopt_sometimes	},
+#if 0
+	/*
+	 * There is a period between the time spa_change_guid() is called and
+	 * when the labels with the new guid are synced to disk during which
+	 * spa_guid() and the guid in the vdev labels don't match. If
+	 * vdev_reopen() is called during this time, it will call
+	 * vdev_validate() which will mark the vdev as corrupt due to the vdev
+	 * discrepancy.
+	 *
+	 * This test is temporarily disabled in DelphixOS until this is
+	 * resolved (bug 14097).
+	 */
 	{ ztest_reguid,				1,	&zopt_sometimes },
+#endif
 	{ ztest_spa_rename,			1,	&zopt_rarely	},
 	{ ztest_scrub,				1,	&zopt_rarely	},
 	{ ztest_dsl_dataset_promote_busy,	1,	&zopt_rarely	},

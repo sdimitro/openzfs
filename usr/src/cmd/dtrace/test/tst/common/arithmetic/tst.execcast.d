@@ -20,34 +20,39 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
-
-/*
  * Copyright (c) 2012 by Delphix.  All rights reserved.
  */
 
 /*
- * ASSERTION: D pointers do not allow invalid pointer accesses.
- *
- * SECTION: Pointers and Arrays/Pointer Safety
- *
- * NOTES:
- *
+ * Test execution-time casting between integer types of different size.
  */
 
 #pragma D option quiet
 
+int64_t x;
+
 BEGIN
 {
-	y = (int *)-33007;
-	*y = 3;
-	trace(*y);
-	exit(0);
-}
+	z = 0xfff0;
 
-ERROR
-{
-	exit(1);
+	x = (int32_t)(int16_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	x = (int32_t)(uint16_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	x = (uint32_t)(int16_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	x = (uint32_t)(uint16_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	printf("\n");
+
+	x = (int16_t)(int32_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	x = (int16_t)(uint32_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	x = (uint16_t)(int32_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+	x = (uint16_t)(uint32_t)z;
+	printf("%16x %20d %20u\n", x, x, x);
+
+	exit(0);
 }

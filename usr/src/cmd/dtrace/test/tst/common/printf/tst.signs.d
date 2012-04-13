@@ -20,38 +20,25 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
-#pragma	ident	"%Z%%M%	%I%	%E% SMI"
-
 /*
- * ASSERTION:
- * 	Complex expressions.
- *	Call complex expressions and make sure test succeeds.
- *	Match expected output in tst.complex.d.out
- *
- * SECTION: Types, Operators, and Expressions/Arithmetic Operators
- *
+ * Check %d v. %i v. %u.
  */
 
 #pragma D option quiet
 
+uint16_t x;
+int16_t y;
+
 BEGIN
 {
-	i = 0;
-	i = i++ + ++i;
-	printf("The value of i is %d\n", i);
-	i = i-- - --i;
-	printf("The value of i is %d\n", i);
-	i = i-- + ++i;
-	printf("The value of i is %d\n", i);
-	i += i++ + -- i + ++i - ++i * i ;
-	printf("The value of i is %d\n", i);
-	i -= i++ * 3;
-	printf("The value of i is %d\n", i);
-	i = i++/i--+i++-++i-++i;
-	printf("The value of i is %d\n", i);
-	exit (0);
+	x = 0xffffffff;
+	y = 0xffffffff;
+
+	printf("%d %i %u\n", x, x, x);
+	printf("%d %i %u\n", y, y, y);
+
+	exit(0);
 }

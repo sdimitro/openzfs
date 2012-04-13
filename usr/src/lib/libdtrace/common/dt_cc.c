@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -2462,7 +2462,8 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 out:
-	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3))
+	if (context != DT_CTX_DTYPE && yypcb->pcb_root != NULL &&
+	    DT_TREEDUMP_PASS(dtp, 3))
 		dt_node_printr(yypcb->pcb_root, stderr, 0);
 
 	if (dtp->dt_cdefs_fd != -1 && (ftruncate64(dtp->dt_cdefs_fd, 0) == -1 ||

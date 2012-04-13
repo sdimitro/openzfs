@@ -21,7 +21,7 @@
 
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/dtrace/tests@$(PKGVERS)
@@ -59,6 +59,7 @@ dir path=opt/SUNWdtrt/tst/common/drops
 dir path=opt/SUNWdtrt/tst/common/dtraceUtil
 dir path=opt/SUNWdtrt/tst/common/end
 dir path=opt/SUNWdtrt/tst/common/enum
+dir path=opt/SUNWdtrt/tst/common/env
 dir path=opt/SUNWdtrt/tst/common/error
 dir path=opt/SUNWdtrt/tst/common/exit
 dir path=opt/SUNWdtrt/tst/common/fbtprovider
@@ -357,7 +358,15 @@ file path=opt/SUNWdtrt/tst/common/arithmetic/err.D_SYNTAX.divmin.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arithmetic/err.D_SYNTAX.muladd.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arithmetic/err.D_SYNTAX.muldiv.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arithmetic/tst.basics.d mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.basics.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.compcast.d mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.compcast.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/arithmetic/tst.complex.d mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.compnarrowassign.d mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.compnarrowassign.d.out \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.execcast.d mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.execcast.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/arrays/err.D_ARR_BADREF.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arrays/err.D_DECL_ARRBIG.toobig.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arrays/err.D_DECL_ARRNULL.bad.d mode=0444
@@ -720,6 +729,20 @@ file path=opt/SUNWdtrt/tst/common/enum/err.D_UNKNOWN.RepeatIdentifiers.d \
 file path=opt/SUNWdtrt/tst/common/enum/tst.EnumEquality.d mode=0444
 file path=opt/SUNWdtrt/tst/common/enum/tst.EnumSameValue.d mode=0444
 file path=opt/SUNWdtrt/tst/common/enum/tst.EnumValAssign.d mode=0444
+file path=opt/SUNWdtrt/tst/common/env/err.D_PRAGMA_OPTSET.setfromscript.d \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/env/err.D_PRAGMA_OPTSET.unsetfromscript.d \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.ld_nolazyload.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.ld_nolazyload.ksh.out mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.setenv1.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.setenv1.ksh.out mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.setenv2.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.setenv2.ksh.out mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.unsetenv1.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.unsetenv1.ksh.out mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.unsetenv2.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/env/tst.unsetenv2.ksh.out mode=0444
 file path=opt/SUNWdtrt/tst/common/error/tst.DTRACEFLT_BADADDR.d mode=0444
 file path=opt/SUNWdtrt/tst/common/error/tst.DTRACEFLT_DIVZERO.d mode=0444
 file path=opt/SUNWdtrt/tst/common/error/tst.DTRACEFLT_UNKNOWN.d mode=0444
@@ -1313,6 +1336,8 @@ file path=opt/SUNWdtrt/tst/common/printf/tst.printgG.d mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.printgG.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.rawfmt.d mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.rawfmt.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/tst.signs.d mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/tst.signs.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.str.d mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.str.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.sym.d mode=0444

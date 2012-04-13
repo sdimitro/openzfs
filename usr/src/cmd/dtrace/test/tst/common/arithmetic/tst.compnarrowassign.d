@@ -20,34 +20,23 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
-
-/*
  * Copyright (c) 2012 by Delphix.  All rights reserved.
  */
 
 /*
- * ASSERTION: D pointers do not allow invalid pointer accesses.
- *
- * SECTION: Pointers and Arrays/Pointer Safety
- *
- * NOTES:
- *
+ * Test narrowing at assignment.
  */
 
 #pragma D option quiet
 
+uint16_t x;
+uint32_t y;
+
 BEGIN
 {
-	y = (int *)-33007;
-	*y = 3;
-	trace(*y);
-	exit(0);
-}
+	x = 0xbeefcafe;
+	y = x;
+	printf("%x", y); /* where's the beef? */
 
-ERROR
-{
-	exit(1);
+	exit(0);
 }

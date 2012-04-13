@@ -19,12 +19,15 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 #include <sys/types.h>
 #include <sys/sysmacros.h>
@@ -474,30 +477,59 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	size_t dstsize = dt_node_type_size(dst);
 
 	dif_instr_t instr;
-	int reg, n;
+	int rg;
 
-	if (dt_node_is_scalar(dst) && (dstsize < srcsize ||
-	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
-		if ((reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	if (!dt_node_is_scalar(dst))
+		return; /* not a scalar */
+	if (dstsize == srcsize &&
+	    ((src->dn_flags ^ dst->dn_flags) & DT_NF_SIGNED) != 0)
+		return; /* not narrowing or changing signed-ness */
+	if (dstsize > srcsize && (src->dn_flags & DT_NF_SIGNED) == 0)
+		return; /* nothing to do in this case */
 
-		if (dstsize < srcsize)
-			n = sizeof (uint64_t) * NBBY - dstsize * NBBY;
-		else
-			n = sizeof (uint64_t) * NBBY - srcsize * NBBY;
+	if ((rg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		dt_cg_setx(dlp, reg, n);
+	if (dstsize <= srcsize) {
+		int n = sizeof (uint64_t) * NBBY - dstsize * NBBY;
 
-		instr = DIF_INSTR_FMT(DIF_OP_SLL,
-		    src->dn_reg, reg, dst->dn_reg);
+		dt_cg_setx(dlp, rg, n);
+
+		instr = DIF_INSTR_FMT(DIF_OP_SLL, src->dn_reg, rg, dst->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		instr = DIF_INSTR_FMT((dst->dn_flags & DT_NF_SIGNED) ?
-		    DIF_OP_SRA : DIF_OP_SRL, dst->dn_reg, reg, dst->dn_reg);
-
+		    DIF_OP_SRA : DIF_OP_SRL, dst->dn_reg, rg, dst->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, reg);
+	} else {
+		int n = sizeof (uint64_t) * NBBY - srcsize * NBBY;
+		int s = (dstsize - srcsize) * NBBY;
+
+		dt_cg_setx(dlp, rg, n);
+
+		instr = DIF_INSTR_FMT(DIF_OP_SLL, src->dn_reg, rg, dst->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		if (dst->dn_flags & DT_NF_SIGNED) {
+			instr = DIF_INSTR_FMT(DIF_OP_SRA,
+			    dst->dn_reg, rg, dst->dn_reg);
+			dt_irlist_append(dlp,
+			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+		} else {
+			dt_cg_setx(dlp, rg, s);
+			instr = DIF_INSTR_FMT(DIF_OP_SRA,
+			    dst->dn_reg, rg, dst->dn_reg);
+			dt_irlist_append(dlp,
+			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			dt_cg_setx(dlp, rg, n - s);
+			instr = DIF_INSTR_FMT(DIF_OP_SRL,
+			    dst->dn_reg, rg, dst->dn_reg);
+			dt_irlist_append(dlp,
+			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+		}
 	}
+
+	dt_regset_free(drp, rg);
 }
 
 /*

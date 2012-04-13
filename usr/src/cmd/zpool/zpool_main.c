@@ -385,6 +385,18 @@ print_vdev_tree(zpool_handle_t *zhp, const char *name, nvlist_t *nv, int indent,
 	}
 }
 
+static boolean_t
+prop_list_contains_feature(nvlist_t *proplist)
+{
+	nvpair_t *nvp;
+	for (nvp = nvlist_next_nvpair(proplist, NULL); NULL != nvp;
+	    nvp = nvlist_next_nvpair(proplist, nvp)) {
+		if (zpool_prop_feature(nvpair_name(nvp)))
+			return (B_TRUE);
+	}
+	return (B_FALSE);
+}
+
 /*
  * Add a property pair (name, string-value) into a property nvlist.
  */
@@ -408,12 +420,30 @@ add_prop_list(const char *propname, char *propval, nvlist_t **props,
 	proplist = *props;
 
 	if (poolprop) {
+		const char *vname = zpool_prop_to_name(ZPOOL_PROP_VERSION);
+
 		if ((prop = zpool_name_to_prop(propname)) == ZPROP_INVAL &&
 		    !zpool_prop_feature(propname)) {
 			(void) fprintf(stderr, gettext("property '%s' is "
 			    "not a valid pool property\n"), propname);
 			return (2);
 		}
+
+		/*
+		 * feature@ properties and version should not be specified
+		 * at the same time.
+		 */
+		if ((prop == ZPROP_INVAL && zpool_prop_feature(propname) &&
+		    nvlist_exists(proplist, vname)) ||
+		    (prop == ZPOOL_PROP_VERSION &&
+		    prop_list_contains_feature(proplist))) {
+			(void) fprintf(stderr, gettext("'feature@' and "
+			    "'version' properties cannot be specified "
+			    "together\n"));
+			return (2);
+		}
+
+
 		if (zpool_prop_feature(propname))
 			normnm = propname;
 		else

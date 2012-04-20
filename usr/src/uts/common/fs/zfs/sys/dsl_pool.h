@@ -82,7 +82,6 @@ typedef struct dsl_pool {
 
 	/* No lock needed - sync context only */
 	blkptr_t dp_meta_rootbp;
-	list_t dp_synced_datasets;
 	hrtime_t dp_read_overhead;
 	uint64_t dp_throughput; /* bytes per millisec */
 	uint64_t dp_write_limit;
@@ -97,6 +96,9 @@ typedef struct dsl_pool {
 	kmutex_t dp_lock;
 	uint64_t dp_space_towrite[TXG_SIZE];
 	uint64_t dp_tempreserved[TXG_SIZE];
+	uint64_t dp_mos_used_delta;
+	uint64_t dp_mos_compressed_delta;
+	uint64_t dp_mos_uncompressed_delta;
 
 	/* Has its own locking */
 	tx_state_t dp_tx;
@@ -120,7 +122,6 @@ int dsl_pool_open(dsl_pool_t *dp);
 void dsl_pool_close(dsl_pool_t *dp);
 dsl_pool_t *dsl_pool_create(spa_t *spa, nvlist_t *zplprops, uint64_t txg);
 void dsl_pool_sync(dsl_pool_t *dp, uint64_t txg);
-void dsl_pool_sync_done(dsl_pool_t *dp, uint64_t txg);
 int dsl_pool_sync_context(dsl_pool_t *dp);
 uint64_t dsl_pool_adjustedsize(dsl_pool_t *dp, boolean_t netfree);
 uint64_t dsl_pool_adjustedfree(dsl_pool_t *dp, boolean_t netfree);
@@ -140,6 +141,8 @@ int dsl_read_nolock(zio_t *pio, spa_t *spa, const blkptr_t *bpp,
 void dsl_pool_create_origin(dsl_pool_t *dp, dmu_tx_t *tx);
 void dsl_pool_upgrade_clones(dsl_pool_t *dp, dmu_tx_t *tx);
 void dsl_pool_upgrade_dir_clones(dsl_pool_t *dp, dmu_tx_t *tx);
+void dsl_pool_mos_diduse_space(dsl_pool_t *dp,
+    int64_t used, int64_t comp, int64_t uncomp);
 
 taskq_t *dsl_pool_vnrele_taskq(dsl_pool_t *dp);
 

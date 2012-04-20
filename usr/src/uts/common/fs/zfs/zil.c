@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -570,12 +570,19 @@ zil_destroy(zilog_t *zilog, boolean_t keep_first)
 			kmem_cache_free(zil_lwb_cache, lwb);
 		}
 	} else if (!keep_first) {
-		(void) zil_parse(zilog, zil_free_log_block,
-		    zil_free_log_record, tx, zh->zh_claim_txg);
+		zil_destroy_sync(zilog, tx);
 	}
 	mutex_exit(&zilog->zl_lock);
 
 	dmu_tx_commit(tx);
+}
+
+void
+zil_destroy_sync(zilog_t *zilog, dmu_tx_t *tx)
+{
+	ASSERT(list_is_empty(&zilog->zl_lwb_list));
+	(void) zil_parse(zilog, zil_free_log_block,
+	    zil_free_log_record, tx, zilog->zl_header->zh_claim_txg);
 }
 
 int

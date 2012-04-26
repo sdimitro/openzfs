@@ -1190,6 +1190,8 @@ file path=opt/SUNWdtrt/tst/common/pragma/tst.libdep.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/pragma/tst.libdepfullyconnected.ksh \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/pragma/tst.libdepsepdir.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/pragma/tst.temporal.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/pragma/tst.temporal2.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/err.D_PRED_SCALAR.NonScalarPred.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/err.D_SYNTAX.invalid.d mode=0444
@@ -1199,7 +1201,6 @@ file path=opt/SUNWdtrt/tst/common/predicates/tst.basics.d mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/tst.basics.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/tst.complex.d mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/tst.complex.d.out mode=0444
-file path=opt/SUNWdtrt/tst/common/predicates/tst.predcache.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/preprocessor/err.D_IDENT_UNDEF.afterprobe.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/preprocessor/err.D_PRAGCTL_INVAL.tabdefine.d \

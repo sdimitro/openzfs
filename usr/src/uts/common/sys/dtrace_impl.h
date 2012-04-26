@@ -199,15 +199,18 @@ typedef struct dtrace_hash {
  * predicate is non-NULL, the DIF object is executed.  If the result is
  * non-zero, the action list is processed, with each action being executed
  * accordingly.  When the action list has been completely executed, processing
- * advances to the next ECB.  processing advances to the next ECB.  If the
- * result is non-zero; For each ECB, it first determines the The ECB
- * abstraction allows disjoint consumers to multiplex on single probes.
+ * advances to the next ECB. The ECB abstraction allows disjoint consumers
+ * to multiplex on single probes.
+ *
+ * Execution of the ECB results in consuming dte_size bytes in the buffer
+ * to record data.  During execution, dte_needed bytes must be available in
+ * the buffer.  This space is used for both recorded data and tuple data.
  */
 struct dtrace_ecb {
 	dtrace_epid_t dte_epid;			/* enabled probe ID */
 	uint32_t dte_alignment;			/* required alignment */
-	size_t dte_needed;			/* bytes needed */
-	size_t dte_size;			/* total size of payload */
+	size_t dte_needed;			/* space needed for execution */
+	size_t dte_size;			/* size of recorded payload */
 	dtrace_predicate_t *dte_predicate;	/* predicate, if any */
 	dtrace_action_t *dte_action;		/* actions, if any */
 	dtrace_ecb_t *dte_next;			/* next ECB on probe */

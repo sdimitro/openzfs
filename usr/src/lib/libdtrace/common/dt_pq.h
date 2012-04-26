@@ -18,67 +18,35 @@
  *
  * CDDL HEADER END
  */
-
-/*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
 /*
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
-/*
- * ASSERTION:
- *   We set our buffer size absurdly low to prevent a flood of errors that we
- *   don't care about.  We set our statusrate to be infinitely short to cause
- *   lots of activity by the DTrace process.
- *
- * SECTION: Actions and Subroutines/copyin();
- *	Options and Tunables/bufsize;
- *	Options and Tunables/bufpolicy;
- *	Options and Tunables/statusrate
- */
+#ifndef	_DT_PQ_H
+#define	_DT_PQ_H
 
+#include <dtrace.h>
 
-#pragma D option bufsize=32
-#pragma D option bufpolicy=ring
-#pragma D option statusrate=1nsec
+#ifdef	__cplusplus
+extern "C" {
+#endif
 
-syscall:::entry
-{
-	n++;
-	trace(copyin(rand(), 1));
-}
+typedef uint64_t (*dt_pq_value_f)(void *, void *);
 
-syscall:::entry
-{
-	trace(copyin(rand() | 1, 1));
-}
+typedef struct dt_pq {
+	dtrace_hdl_t *dtpq_hdl;		/* dtrace handle */
+	void **dtpq_items;		/* array of elements */
+	uint_t dtpq_size;		/* count of allocated elements */
+	uint_t dtpq_last;		/* next free slot */
+	dt_pq_value_f dtpq_value;	/* callback to get the value */
+	void *dtpq_arg;			/* callback argument */
+} dt_pq_t;
 
-syscall:::entry
-{
-	trace(copyin(NULL, 1));
-}
+extern dt_pq_t *dt_pq_init(dtrace_hdl_t *, uint_t size, dt_pq_value_f, void *);
+extern void dt_pq_fini(dt_pq_t *);
 
-dtrace:::ERROR
-{
-	err++;
-}
+extern void dt_pq_insert(dt_pq_t *, void *);
+extern void *dt_pq_pop(dt_pq_t *);
+extern void *dt_pq_walk(dt_pq_t *, uint_t *);
 
-tick-1sec
-/sec++ == 10/
-{
-	exit(2);
-}
-
-END
-/n == 0 || err == 0/
-{
-	exit(1);
-}
-
-END
-/n != 0 && err != 0/
-{
-	exit(0);
-}
+#endif	/* _DT_PQ_H */

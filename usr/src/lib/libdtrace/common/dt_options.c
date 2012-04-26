@@ -25,7 +25,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <sys/resource.h>
@@ -465,7 +465,6 @@ dt_opt_syslibdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 	return (0);
 }
-
 
 /*ARGSUSED*/
 static int
@@ -970,6 +969,7 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "statusrate", dt_opt_rate, DTRACEOPT_STATUSRATE },
 	{ "strsize", dt_opt_strsize, DTRACEOPT_STRSIZE },
 	{ "ustackframes", dt_opt_runtime, DTRACEOPT_USTACKFRAMES },
+	{ "temporal", dt_opt_runtime, DTRACEOPT_TEMPORAL },
 	{ NULL }
 };
 

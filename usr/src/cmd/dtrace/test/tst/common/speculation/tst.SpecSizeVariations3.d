@@ -23,8 +23,10 @@
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 /*
  * ASSERTION:
  * Verify the behavior of speculations with changes in specsize.
@@ -35,7 +37,7 @@
  */
 
 #pragma D option quiet
-#pragma D option specsize=40
+#pragma D option specsize=56
 
 BEGIN
 {

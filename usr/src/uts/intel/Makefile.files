@@ -282,3 +282,8 @@ MCAMD_OBJS	+= \
 	mcamd_dimmcfg.o \
 	mcamd_subr.o \
 	mcamd_pcicfg.o
+
+VMXNET3S_OBJS =	vmxnet3_main.o \
+		vmxnet3_rx.o \
+		vmxnet3_tx.o \
+		vmxnet3_utils.o

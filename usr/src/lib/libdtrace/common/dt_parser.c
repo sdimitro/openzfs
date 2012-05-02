@@ -2900,14 +2900,14 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 	case DT_TOK_DEREF:
 		/*
 		 * If the deref operator is applied to a translated pointer,
-		 * we can just set our output type to the base translation.
+		 * we set our output type to the output of the translation.
 		 */
 		if ((idp = dt_node_resolve(cp, DT_IDENT_XLPTR)) != NULL) {
 			dt_xlator_t *dxp = idp->di_data;
 
 			dnp->dn_ident = &dxp->dx_souid;
 			dt_node_type_assign(dnp,
-			    DT_DYN_CTFP(dtp), DT_DYN_TYPE(dtp));
+			    dnp->dn_ident->di_ctfp, dnp->dn_ident->di_type);
 			break;
 		}
 
@@ -3891,6 +3891,14 @@ asgn_common:
 
 		dt_node_type_propagate(lp, dnp); /* see K&R[A7.5] */
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
+
+		/*
+		 * If it's a pointer then should be able to (attempt to)
+		 * assign to it.
+		 */
+		if (lkind == CTF_K_POINTER)
+			dnp->dn_flags |= DT_NF_WRITABLE;
+
 		break;
 	}
 

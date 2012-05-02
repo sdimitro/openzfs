@@ -20,10 +20,15 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 BEGIN
 {
-	trace(*curpsinfo);
+	trace(curpsinfo);
+}
+
+BEGIN
+{
+	exit(0);
 }

@@ -39,3 +39,8 @@ BEGIN
 
 	trace();
 }
+
+BEGIN
+{
+	exit(0);
+}

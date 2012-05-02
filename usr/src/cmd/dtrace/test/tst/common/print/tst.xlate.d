@@ -23,9 +23,23 @@
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
+#pragma D option quiet
+
+typedef struct pancakes {
+	int i;
+	string s;
+	timespec_t t;
+} pancakes_t;
+
+translator pancakes_t < void *V > {
+	i = 2 * 10;
+	s = strjoin("I like ", "pancakes");
+	t = *(timespec_t *)`dtrace_zero;
+};
+
 BEGIN
 {
-	print(curpsinfo);
+	print(*(xlate < pancakes_t * > ((void *)NULL)));
 }
 
 BEGIN

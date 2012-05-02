@@ -25,7 +25,7 @@
 
 BEGIN
 {
-	print(curpsinfo);
+	*((int *)alloca(4)) = 1;
 }
 
 BEGIN

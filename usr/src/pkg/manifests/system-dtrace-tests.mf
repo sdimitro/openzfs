@@ -1175,6 +1175,8 @@ file path=opt/SUNWdtrt/tst/common/pointers/tst.PointerAssignment.d mode=0444
 file path=opt/SUNWdtrt/tst/common/pointers/tst.ValidPointer1.d mode=0444
 file path=opt/SUNWdtrt/tst/common/pointers/tst.ValidPointer2.d mode=0444
 file path=opt/SUNWdtrt/tst/common/pointers/tst.VoidCast.d mode=0444
+file path=opt/SUNWdtrt/tst/common/pointers/tst.assigncast1.d mode=0444
+file path=opt/SUNWdtrt/tst/common/pointers/tst.assigncast2.d mode=0444
 file path=opt/SUNWdtrt/tst/common/pointers/tst.basic1.d mode=0444
 file path=opt/SUNWdtrt/tst/common/pointers/tst.basic2.d mode=0444
 file path=opt/SUNWdtrt/tst/common/pragma/err.D_PRAGERR.d mode=0444
@@ -1252,10 +1254,13 @@ file path=opt/SUNWdtrt/tst/common/print/tst.array.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.array.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.bitfield.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.bitfield.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/print/tst.dyn.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.primitive.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.primitive.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.struct.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.struct.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/print/tst.xlate.d mode=0444
+file path=opt/SUNWdtrt/tst/common/print/tst.xlate.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printa/err.D_PRINTA_AGGARG.badagg.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/printa/err.D_PRINTA_AGGARG.badfmt.d \
@@ -1793,6 +1798,7 @@ file path=opt/SUNWdtrt/tst/common/tick-n/tst.tickusec.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/err.D_PROTO_LEN.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/err.D_TRACE_DYN.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/err.D_TRACE_VOID.bad.d mode=0444
+file path=opt/SUNWdtrt/tst/common/trace/tst.dyn.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/tst.misc.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/tst.qstring.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/tst.qstring.d.out mode=0444
@@ -1862,6 +1868,14 @@ file path=opt/SUNWdtrt/tst/common/translators/tst.RepeatDeclaration.d \
 file path=opt/SUNWdtrt/tst/common/translators/tst.SimultaneousTranslators.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/translators/tst.StructureAssignment.d \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/translators/tst.TestTransStability1.ksh \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/translators/tst.TestTransStability1.ksh.out \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/translators/tst.TestTransStability2.ksh \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/translators/tst.TestTransStability2.ksh.out \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/translators/tst.TransNonPointer.d mode=0444
 file path=opt/SUNWdtrt/tst/common/translators/tst.TransOutputPointer.d \

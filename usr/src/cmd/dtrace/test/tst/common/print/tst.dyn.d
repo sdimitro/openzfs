@@ -25,7 +25,7 @@
 
 BEGIN
 {
-	print(curpsinfo);
+	print(*curpsinfo);
 }
 
 BEGIN

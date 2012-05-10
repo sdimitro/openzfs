@@ -22,9 +22,9 @@
 
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
-#
-
 # Copyright 2008, 2010, Richard Lowe
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
 
 # Make sure there is a copyright claim for the current year.
 
@@ -33,6 +33,10 @@ import time, re, sys
 def err(stream, msg, fname):
 	stream.write("%s: %s\n" % (fname, msg))
 
+def is_delphix_copyright(line):
+	return re.search(r'Copyright \(c\) \d\d\d\d by Delphix\. ' +
+			r'All rights reserved\.$', line)
+
 def is_copyright(line):
 	return re.search(r'Copyright (?!\[yyyy\])', line)
 
@@ -40,7 +44,7 @@ def is_current_copyright(line):
 	return re.search(r'Copyright.*\b%s\b' % time.strftime('%Y'), line)
 
 def copyright(fh, filename=None, output=sys.stderr):
-	ret = rights = goodrights = 0
+	ret = rights = goodrights = companyrights = 0
 
 	if not filename:
 		filename = fh.name
@@ -48,12 +52,18 @@ def copyright(fh, filename=None, output=sys.stderr):
 	for line in fh:
 		if is_copyright(line):
 			rights += 1
-			if is_current_copyright(line):
-				goodrights += 1
-				break
+			if is_delphix_copyright(line):
+				companyrights += 1
+				if is_current_copyright(line):
+					goodrights += 1
+					break
 
 	if rights == 0:
 		err(output, "no copyright message found", filename)
+		ret = 1
+	elif companyrights == 0:
+		err(output, "missing or mistyped Delphix copyright",
+		    filename)
 		ret = 1
 	elif goodrights == 0:
 		err(output, "no copyright claim for current year found",

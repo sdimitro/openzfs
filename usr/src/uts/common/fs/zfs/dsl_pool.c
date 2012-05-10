@@ -42,6 +42,7 @@
 #include <sys/dsl_deadlist.h>
 #include <sys/bptree.h>
 #include <sys/zfeature.h>
+#include <sys/zil_impl.h>
 
 int zfs_no_write_throttle = 0;
 int zfs_write_limit_shift = 3;			/* 1/8th of physical memory */
@@ -86,6 +87,8 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 
 	txg_list_create(&dp->dp_dirty_datasets,
 	    offsetof(dsl_dataset_t, ds_dirty_link));
+	txg_list_create(&dp->dp_dirty_zilogs,
+	    offsetof(zilog_t, zl_dirty_link));
 	txg_list_create(&dp->dp_dirty_dirs,
 	    offsetof(dsl_dir_t, dd_dirty_link));
 	txg_list_create(&dp->dp_sync_tasks,
@@ -229,6 +232,7 @@ dsl_pool_close(dsl_pool_t *dp)
 		dmu_objset_evict(dp->dp_meta_objset);
 
 	txg_list_destroy(&dp->dp_dirty_datasets);
+	txg_list_destroy(&dp->dp_dirty_zilogs);
 	txg_list_destroy(&dp->dp_sync_tasks);
 	txg_list_destroy(&dp->dp_dirty_dirs);
 
@@ -418,7 +422,6 @@ dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)
 		objset_t *os = ds->ds_objset;
 		bplist_iterate(&ds->ds_pending_deadlist,
 		    deadlist_enqueue_cb, &ds->ds_deadlist, tx);
-		zil_clean(os->os_zil, txg);
 		ASSERT(!dmu_objset_is_dirty(os, txg));
 		dmu_buf_rele(ds->ds_dbuf, ds);
 	}
@@ -523,6 +526,21 @@ dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)
 		    MAX(zfs_write_limit_min,
 		    dp->dp_throughput * zfs_txg_synctime_ms));
 	}
+}
+
+void
+dsl_pool_sync_done(dsl_pool_t *dp, uint64_t txg)
+{
+	zilog_t *zilog;
+	dsl_dataset_t *ds;
+
+	while (zilog = txg_list_remove(&dp->dp_dirty_zilogs, txg)) {
+		ds = dmu_objset_ds(zilog->zl_os);
+		zil_clean(zilog, txg);
+		ASSERT(!dmu_objset_is_dirty(zilog->zl_os, txg));
+		dmu_buf_rele(ds->ds_dbuf, zilog);
+	}
+	ASSERT(!dmu_objset_is_dirty(dp->dp_meta_objset, txg));
 }
 
 /*

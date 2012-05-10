@@ -6095,7 +6095,7 @@ spa_sync(spa_t *spa, uint64_t txg)
 
 	spa->spa_ubsync = spa->spa_uberblock;
 
-	ASSERT(!dmu_objset_is_dirty(dp->dp_meta_objset, txg));
+	dsl_pool_sync_done(dp, txg);
 
 	/*
 	 * Update usable space statistics.

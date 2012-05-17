@@ -24,6 +24,7 @@
  * Portions Copyright 2011 Martin Matuska
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  */
 
 /*
@@ -68,6 +69,7 @@
 #include <sys/dsl_prop.h>
 #include <sys/dsl_deleg.h>
 #include <sys/dmu_objset.h>
+#include <sys/dmu_impl.h>
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
 #include <sys/sunldi.h>
@@ -4046,7 +4048,7 @@ zfs_ioc_send(zfs_cmd_t *zc)
 		}
 
 		off = fp->f_offset;
-		error = dmu_sendbackup(tosnap, fromsnap,
+		error = dmu_send(tosnap, fromsnap, zc->zc_cookie,
 		    fp->f_vnode, &off);
 
 		if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
@@ -4055,6 +4057,49 @@ zfs_ioc_send(zfs_cmd_t *zc)
 	}
 	if (dsfrom)
 		dsl_dataset_rele(dsfrom, FTAG);
+	dsl_dataset_rele(ds, FTAG);
+	return (error);
+}
+
+/*
+ * inputs:
+ * zc_name	name of snapshot on which to report progress
+ * zc_cookie	file descriptor of send stream
+ *
+ * outputs:
+ * zc_cookie	number of bytes written in send stream thus far
+ */
+static int
+zfs_ioc_send_progress(zfs_cmd_t *zc)
+{
+	dsl_dataset_t *ds;
+	dmu_sendarg_t *dsp = NULL;
+	int error;
+
+	if ((error = dsl_dataset_hold(zc->zc_name, FTAG, &ds)) != 0)
+		return (error);
+
+	mutex_enter(&ds->ds_sendstream_lock);
+
+	/*
+	 * Iterate over all the send streams currently active on this dataset.
+	 * If there's one which matches the specified file descriptor _and_ the
+	 * stream was started by the current process, return the progress of
+	 * that stream.
+	 */
+	for (dsp = list_head(&ds->ds_sendstreams); dsp != NULL;
+	    dsp = list_next(&ds->ds_sendstreams, dsp)) {
+		if (dsp->dsa_outfd == zc->zc_cookie &&
+		    dsp->dsa_proc == curproc)
+			break;
+	}
+
+	if (dsp != NULL)
+		zc->zc_cookie = *(dsp->dsa_off);
+	else
+		error = ENOENT;
+
+	mutex_exit(&ds->ds_sendstream_lock);
 	dsl_dataset_rele(ds, FTAG);
 	return (error);
 }
@@ -4978,7 +5023,7 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	}
 
 	off = fp->f_offset;
-	error = dmu_sendbackup(tosnap, fromsnap, fp->f_vnode, &off);
+	error = dmu_send(tosnap, fromsnap, fd, fp->f_vnode, &off);
 
 	if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
 		fp->f_offset = off;
@@ -5350,6 +5395,8 @@ zfs_ioctl_init(void)
 	    zfs_ioc_dataset_list_next);
 	zfs_ioctl_register_dataset_read(ZFS_IOC_SNAPSHOT_LIST_NEXT,
 	    zfs_ioc_snapshot_list_next);
+	zfs_ioctl_register_dataset_read(ZFS_IOC_SEND_PROGRESS,
+	    zfs_ioc_send_progress);
 
 	zfs_ioctl_register_dataset_read_secpolicy(ZFS_IOC_DIFF,
 	    zfs_ioc_diff, zfs_secpolicy_diff);

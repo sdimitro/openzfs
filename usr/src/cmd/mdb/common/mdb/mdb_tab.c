@@ -380,6 +380,11 @@ mdb_tab_size(mdb_tab_cookie_t *mcp)
 	return (mdb_nv_size(&mcp->mtc_nv));
 }
 
+/*
+ * Determine whether the specified name is a valid tab completion for
+ * the given command. If the name is a valid tab completion then
+ * it will be saved in the mdb_tab_cookie_t.
+ */
 void
 mdb_tab_insert(mdb_tab_cookie_t *mcp, const char *name)
 {
@@ -477,6 +482,14 @@ mdb_tab_fini(mdb_tab_cookie_t *mcp)
 {
 }
 
+/*
+ * This function takes a ctf id and determines whether or not the associated
+ * type should be considered as a potential match for the given tab
+ * completion command. We verify that the type itself is valid
+ * for completion given the current context of the command, resolve
+ * its actual name, and then pass it off to mdb_tab_insert to determine
+ * if it's an actual match.
+ */
 static int
 tab_complete_type(mdb_ctf_id_t id, void *arg)
 {

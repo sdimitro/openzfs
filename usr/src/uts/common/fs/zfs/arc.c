@@ -2095,7 +2095,6 @@ arc_reclaim_needed(void)
 		return (1);
 #endif
 
-#ifdef _KERNEL
 	/*
 	 * If zio data pages are being allocated out of a separate heap segment,
 	 * then enforce that the size of available vmem for this arena remains
@@ -2109,8 +2108,6 @@ arc_reclaim_needed(void)
 	    vmem_size(zio_arena, VMEM_FREE) <
 	    (vmem_size(zio_arena, VMEM_ALLOC) >> 4))
 		return (1);
-#endif
-
 #else
 	if (spa_get_random(100) == 0)
 		return (1);

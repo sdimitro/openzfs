@@ -1624,12 +1624,32 @@ arc_buf_size(arc_buf_t *buf)
 boolean_t
 arc_buf_eviction_needed(arc_buf_t *buf)
 {
-	arc_buf_hdr_t *hdr = buf->b_hdr;
+	arc_buf_hdr_t *hdr;
 	kmutex_t *hash_lock;
 	boolean_t evict_needed = B_FALSE;
 
 	if (zfs_disable_dup_eviction)
 		return (B_FALSE);
+
+	mutex_enter(&buf->b_evict_lock);
+	hdr = buf->b_hdr;
+	if (hdr == NULL) {
+		/*
+		 * We are in arc_do_user_evicts(); let that function
+		 * perform the eviction.
+		 */
+		ASSERT(buf->b_data == NULL);
+		mutex_exit(&buf->b_evict_lock);
+		return (B_FALSE);
+	} else if (buf->b_data == NULL) {
+		/*
+		 * We have already been added to the arc eviction list;
+		 * recommend eviction.
+		 */
+		ASSERT3P(hdr, ==, &arc_eviction_hdr);
+		mutex_exit(&buf->b_evict_lock);
+		return (B_TRUE);
+	}
 
 	hash_lock = HDR_LOCK(hdr);
 	mutex_enter(hash_lock);
@@ -1640,6 +1660,7 @@ arc_buf_eviction_needed(arc_buf_t *buf)
 		evict_needed = B_TRUE;
 
 	mutex_exit(hash_lock);
+	mutex_exit(&buf->b_evict_lock);
 	return (evict_needed);
 }
 

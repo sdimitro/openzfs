@@ -2151,19 +2151,24 @@ nextepid:
 
 /*
  * Reduce memory usage by shrinking the buffer if it's no more than half full.
+ * Note, we need to preserve the alignment of the data at dtbd_oldest,
+ * which is only 4-byte aligned.
  */
 static void
 dt_realloc_buf(dtrace_hdl_t *dtp, dtrace_bufdesc_t *buf, int cursize)
 {
 	uint64_t used = buf->dtbd_size - buf->dtbd_oldest;
 	if (used < cursize / 2) {
-		char *newdata = dt_alloc(dtp, used);
+		int misalign = buf->dtbd_oldest & (sizeof (uint64_t) - 1);
+		char *newdata = dt_alloc(dtp, used + misalign);
 		if (newdata == NULL)
 			return;
-		bcopy(buf->dtbd_data + buf->dtbd_oldest, newdata, used);
+		bzero(newdata, misalign);
+		bcopy(buf->dtbd_data + buf->dtbd_oldest,
+		    newdata + misalign, used);
 		dt_free(dtp, buf->dtbd_data);
-		buf->dtbd_oldest = 0;
-		buf->dtbd_size = used;
+		buf->dtbd_oldest = misalign;
+		buf->dtbd_size = used + misalign;
 		buf->dtbd_data = newdata;
 	}
 }
@@ -2198,6 +2203,7 @@ dt_unring_buf(dtrace_hdl_t *dtp, dtrace_bufdesc_t *buf)
 		dt_free(dtp, buf->dtbd_data);
 		buf->dtbd_oldest = 0;
 		buf->dtbd_data = newdata;
+		buf->dtbd_size += misalign;
 	}
 	return (0);
 }

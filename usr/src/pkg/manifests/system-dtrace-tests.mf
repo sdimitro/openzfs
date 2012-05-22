@@ -1197,6 +1197,7 @@ file path=opt/SUNWdtrt/tst/common/pragma/tst.libdepfullyconnected.ksh \
 file path=opt/SUNWdtrt/tst/common/pragma/tst.libdepsepdir.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/pragma/tst.temporal.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/pragma/tst.temporal2.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/pragma/tst.temporal3.d mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/err.D_PRED_SCALAR.NonScalarPred.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/predicates/err.D_SYNTAX.invalid.d mode=0444

@@ -1355,14 +1355,12 @@ addlist(libzfs_handle_t *hdl, char *propname, zprop_list_t **listp,
 
 	entry->pl_prop = prop;
 	if (prop == ZPROP_INVAL) {
-		char *newpropname = propname;
-
-		if ((entry->pl_user_prop = zfs_strdup(hdl, newpropname)) ==
+		if ((entry->pl_user_prop = zfs_strdup(hdl, propname)) ==
 		    NULL) {
 			free(entry);
 			return (-1);
 		}
-		entry->pl_width = strlen(newpropname);
+		entry->pl_width = strlen(propname);
 	} else {
 		entry->pl_width = zprop_width(prop, &entry->pl_fixed,
 		    type);

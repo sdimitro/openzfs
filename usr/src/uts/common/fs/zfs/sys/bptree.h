@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_BPTREE_H
@@ -61,4 +61,4 @@ int bptree_iterate(objset_t *os, uint64_t obj, boolean_t free,
 }
 #endif
 
-#endif
+#endif	/* _SYS_BPTREE_H */

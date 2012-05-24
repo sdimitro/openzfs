@@ -45,17 +45,17 @@
 #define	DMU_OT_BYTESWAP_MASK 0x3f
 
 #define	DMU_OT(byteswap, metadata) \
-    (DMU_OT_NEWTYPE | \
-    ((metadata) ? DMU_OT_METADATA : 0) | \
-    ((byteswap) & DMU_OT_BYTESWAP_MASK))
+	(DMU_OT_NEWTYPE | \
+	((metadata) ? DMU_OT_METADATA : 0) | \
+	((byteswap) & DMU_OT_BYTESWAP_MASK))
 
 #define	DMU_OT_IS_VALID(ot) (((ot) & DMU_OT_NEWTYPE) ? \
-    ((ot) & DMU_OT_BYTESWAP_MASK) < DMU_BSWAP_NUMFUNCS : \
-    (ot) < DMU_OT_NUMTYPES)
+	((ot) & DMU_OT_BYTESWAP_MASK) < DMU_BSWAP_NUMFUNCS : \
+	(ot) < DMU_OT_NUMTYPES)
 
 #define	DMU_OT_IS_METADATA(ot) (((ot) & DMU_OT_NEWTYPE) ? \
-    ((ot) & DMU_OT_METADATA) : \
-    dmu_ot[(ot)].ot_metadata)
+	((ot) & DMU_OT_METADATA) : \
+	dmu_ot[(ot)].ot_metadata)
 
 typedef enum dmu_object_byteswap {
 	DMU_BSWAP_UINT8,

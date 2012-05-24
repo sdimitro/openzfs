@@ -635,9 +635,6 @@ typedef struct recvflags {
 
 	/* do not mount file systems as they are extracted (private) */
 	boolean_t nomount;
-
-	/* suggested clone origin */
-	zfs_handle_t *origin;
 } recvflags_t;
 
 extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t *,

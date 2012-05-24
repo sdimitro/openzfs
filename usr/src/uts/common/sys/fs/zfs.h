@@ -372,7 +372,7 @@ typedef enum {
  * usr/src/grub/capability.
  */
 #define	SPA_VERSION			SPA_VERSION_5000
-#define	SPA_VERSION_STRING		"1000"
+#define	SPA_VERSION_STRING		"5000"
 
 /*
  * Symbolic names for the changes that caused a SPA_VERSION switch.

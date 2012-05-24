@@ -41,13 +41,11 @@
  * spa_version() number.
  *
  * Each new on-disk format change will be given a uniquely identifying string
- * name name rather than a version number. This avoids the problem of different
+ * guid rather than a version number. This avoids the problem of different
  * organizations creating new on-disk formats with the same version number. To
- * keep feature names unique they should consist of the reverse dns name of the
+ * keep feature guids unique they should consist of the reverse dns name of the
  * organization which implemented the feature and a short name for the feature,
- * separated by a colon (e.g. com.delphix:async_destroy). Some userland tools
- * may choose to allow the user to omit the reverse dns portion of a feature's
- * name if the short name is unique.
+ * separated by a colon (e.g. com.delphix:async_destroy).
  *
  * Reference Counts
  * ----------------
@@ -89,7 +87,7 @@
  * --------------
  *
  * When feature flags are enabled spa_version() is set to SPA_VERSION_FEATURES
- * (1000). In order for this to work the pool is automatically upgraded to
+ * (5000). In order for this to work the pool is automatically upgraded to
  * SPA_VERSION_BEFORE_FEATURES (28) first, so all pre-feature flags on disk
  * format changes will be in use.
  *
@@ -97,11 +95,11 @@
  * These objects are linked to by the following names in the pool directory
  * object:
  *
- * 1) features_for_read: feature name -> reference count
+ * 1) features_for_read: feature guid -> reference count
  *    Features needed to open the pool for reading.
- * 2) features_for_write: feature name -> reference count
+ * 2) features_for_write: feature guid -> reference count
  *    Features needed to open the pool for writing.
- * 3) feature_descriptions: feature name -> descriptive string
+ * 3) feature_descriptions: feature guid -> descriptive string
  *    A human readable string.
  *
  * All enabled features appear in either features_for_read or

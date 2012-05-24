@@ -337,11 +337,7 @@ usage(boolean_t requested)
 		(void) fprintf(fp, "YES   disabled | enabled | active\n");
 
 		(void) fprintf(fp, gettext("\nThe feature@ properties must be "
-		    "appended with a feature specifier of one of these\n"
-		    "forms:\n"
-		    "    <reverse-dns>:<short-name>  (eg: \"com.example:feature"
-		    "\")\n"
-		    "    <short-name>                (eg: \"feature\")\n"));
+		    "appended with a feature name.\nSee zpool-features(5).\n"));
 	}
 
 	/*
@@ -3548,6 +3544,7 @@ zpool_do_reguid(int argc, char **argv)
 	zpool_close(zhp);
 	return (ret);
 }
+
 
 /*
  * zpool reopen <pool>

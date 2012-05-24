@@ -23,6 +23,10 @@
  * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 #ifndef _SYS_SPA_H
 #define	_SYS_SPA_H
 

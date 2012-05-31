@@ -5680,9 +5680,9 @@ zfsdev_ioctl(dev_t dev, int cmd, intptr_t arg, int flag, cred_t *cr, int *rvalp)
 				    outnvl);
 			}
 			(void) spa_history_log_nvl(spa, lognv);
-			fnvlist_free(lognv);
 			spa_close(spa, FTAG);
 		}
+		fnvlist_free(lognv);
 
 		if (!nvlist_empty(outnvl) || zc->zc_nvlist_dst_size != 0) {
 			int smusherror = 0;

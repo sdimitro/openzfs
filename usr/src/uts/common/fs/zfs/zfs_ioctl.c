@@ -2322,11 +2322,8 @@ zfs_set_prop_nvlist(const char *dsname, zprop_source_t source, nvlist_t *nvl,
 	int rv = 0;
 	uint64_t intval;
 	char *strval;
-	nvlist_t *genericnvl;
-	nvlist_t *retrynvl;
-
-	genericnvl = fnvlist_alloc();
-	retrynvl = fnvlist_alloc();
+	nvlist_t *genericnvl = fnvlist_alloc();
+	nvlist_t *retrynvl = fnvlist_alloc();
 
 retry:
 	pair = NULL;
@@ -2548,7 +2545,7 @@ zfs_ioc_set_prop(zfs_cmd_t *zc)
 	boolean_t received = zc->zc_cookie;
 	zprop_source_t source = (received ? ZPROP_SRC_RECEIVED :
 	    ZPROP_SRC_LOCAL);
-	nvlist_t *errors = fnvlist_alloc();
+	nvlist_t *errors;
 	int error;
 
 	if ((error = get_nvlist(zc->zc_nvlist_src, zc->zc_nvlist_src_size,
@@ -2571,6 +2568,7 @@ zfs_ioc_set_prop(zfs_cmd_t *zc)
 		}
 	}
 
+	errors = fnvlist_alloc();
 	error = zfs_set_prop_nvlist(zc->zc_name, source, nvl, errors);
 
 	if (zc->zc_nvlist_dst != NULL && errors != NULL) {

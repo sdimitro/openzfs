@@ -54,6 +54,8 @@
 int aok;
 #endif
 
+extern int64_t mdb_get_lbolt(void);
+
 static int
 getmember(uintptr_t addr, const char *type, mdb_ctf_id_t *idp,
     const char *member, int len, void *buf)
@@ -1735,7 +1737,7 @@ spa_vdevs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
  * descend down the tree.
  */
 
-#define	ZIO_MAXINDENT	24
+#define	ZIO_MAXINDENT	7
 #define	ZIO_MAXWIDTH	(sizeof (uintptr_t) * 2 + ZIO_MAXINDENT)
 #define	ZIO_WALK_SELF	0
 #define	ZIO_WALK_CHILD	1
@@ -1787,9 +1789,11 @@ zio_print_cb(uintptr_t addr, const void *data, void *priv)
 			mdb_printf("%*s%-*p %-5s %-16s ", indent, "",
 			    ZIO_MAXWIDTH - indent, addr, type, stage);
 			if (zio->io_waiter)
-				mdb_printf("%?p\n", zio->io_waiter);
+				mdb_printf("%-16p ", zio->io_waiter);
 			else
-				mdb_printf("-\n");
+				mdb_printf("%-16s ", "-");
+			mdb_printf("%llu\n",
+			    mdb_get_lbolt() - zio->io_timestamp);
 		}
 	}
 
@@ -1870,8 +1874,9 @@ zio_print(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	}
 
 	if (!(flags & DCMD_PIPE_OUT) && DCMD_HDRSPEC(flags))
-		mdb_printf("%<u>%-*s %-5s %-16s %-?s%</u>\n", ZIO_MAXWIDTH,
-		    "ADDRESS", "TYPE", "STAGE", "WAITER");
+		mdb_printf("%<u>%-*s %-5s %-16s %-16s %-16s%</u>\n",
+		    ZIO_MAXWIDTH, "ADDRESS", "TYPE", "STAGE", "WAITER",
+		    "TIME_ELAPSED");
 
 	if (zio_print_cb(addr, &zio, &zpa) != WALK_NEXT)
 		return (DCMD_ERR);

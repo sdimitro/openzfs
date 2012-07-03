@@ -24,7 +24,7 @@
  * enhancements (see README.txt).
  */
 #define	BUILD_NUMBER_NUMERIC		261024
-#define	BUILD_NUMBER_NUMERIC_STRING	"261024-dlpx1"
+#define	BUILD_NUMBER_NUMERIC_STRING	"261024-dx1"
 
 /*
  * TODO:
@@ -164,16 +164,16 @@ vmxnet3_getstat(void *data, uint_t stat, uint64_t *val)
          *val = txStats->bcastPktsTxOK;
          break;
       case MAC_STAT_NORCVBUF:
-         *val = rxStats->pktsRxOutOfBuf;
+         *val = rxStats->pktsRxOutOfBuf + dp->rx_alloc_failed;
          break;
       case MAC_STAT_IERRORS:
          *val = rxStats->pktsRxError;
          break;
       case MAC_STAT_NOXMTBUF:
-         *val = txStats->pktsTxDiscard;
+         *val = txStats->pktsTxDiscard + dp->tx_pullup_failed;
          break;
       case MAC_STAT_OERRORS:
-         *val = txStats->pktsTxError;
+         *val = txStats->pktsTxError + dp->tx_error;
          break;
       case MAC_STAT_COLLISIONS:
          *val = 0;
@@ -1250,6 +1250,7 @@ vmxnet3_reset(void *data)
 
    VMXNET3_DEBUG(dp, 1, "vmxnet3_reset()\n");
 
+   atomic_inc_32(&dp->reset_count);
    vmxnet3_stop(dp);
    VMXNET3_BAR1_PUT32(dp, VMXNET3_REG_CMD, VMXNET3_CMD_RESET_DEV);
    if ((ret = vmxnet3_start(dp)) != DDI_SUCCESS)
@@ -1373,6 +1374,50 @@ intr_unclaimed:
    return DDI_INTR_UNCLAIMED;
 }
 
+static int
+vmxnet3_kstat_update(kstat_t *ksp, int rw)
+{
+   vmxnet3_softc_t *dp = ksp->ks_private;
+   vmxnet3_kstats_t *statp = ksp->ks_data;
+
+   if (rw == KSTAT_WRITE)
+      return EACCES;
+
+   statp->reset_count.value.ul = dp->reset_count;
+   statp->tx_pullup_needed.value.ul = dp->tx_pullup_needed;
+   statp->tx_ring_full.value.ul = dp->tx_ring_full;
+   statp->rx_alloc_buf.value.ul = dp->rx_alloc_buf;
+
+   return 0;
+}
+
+static int
+vmxnet3_kstat_init(vmxnet3_softc_t *dp)
+{
+   vmxnet3_kstats_t *statp;
+
+   dp->devKstats = kstat_create(VMXNET3_MODNAME, dp->instance, "statistics",
+                                "dev",  KSTAT_TYPE_NAMED,
+                                sizeof (vmxnet3_kstats_t) /
+                                sizeof (kstat_named_t), 0);
+   if (dp->devKstats == NULL)
+      return DDI_FAILURE;
+
+   dp->devKstats->ks_update = vmxnet3_kstat_update;
+   dp->devKstats->ks_private = dp;
+
+   statp = dp->devKstats->ks_data;
+
+   kstat_named_init(&statp->reset_count, "reset_count", KSTAT_DATA_ULONG);
+   kstat_named_init(&statp->tx_pullup_needed, "tx_pullup_needed",
+		    KSTAT_DATA_ULONG);
+   kstat_named_init(&statp->tx_ring_full, "tx_ring_full", KSTAT_DATA_ULONG);
+   kstat_named_init(&statp->rx_alloc_buf, "rx_alloc_buf", KSTAT_DATA_ULONG);
+
+   kstat_install(dp->devKstats);
+
+   return DDI_SUCCESS;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1476,6 +1521,11 @@ vmxnet3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
       goto error_regs_map_1;
    }
 
+   if (vmxnet3_kstat_init(dp) != DDI_SUCCESS) {
+      VMXNET3_WARN(dp, "unable to initialize kstats");
+      goto error_regs_map_1;
+   }
+
    /*
     * Read the MAC address from the device
     */
@@ -1489,7 +1539,7 @@ vmxnet3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
     */
    if (!(macr = mac_alloc(MAC_VERSION))) {
       VMXNET3_WARN(dp, "mac_alloc() failed.\n");
-      goto error_regs_map_1;
+      goto error_kstat;
    }
 
    macr->m_type_ident = MAC_PLUGIN_IDENT_ETHER;
@@ -1509,7 +1559,7 @@ vmxnet3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
    mac_free(macr);
    if (ret != DDI_SUCCESS) {
       VMXNET3_WARN(dp, "mac_register() failed\n");
-      goto error_regs_map_1;
+      goto error_kstat;
    }
 
    /*
@@ -1618,6 +1668,8 @@ error_intr:
    (void) ddi_intr_free(dp->intrHandle);
 error_mac:
    (void) mac_unregister(dp->mac);
+error_kstat:
+   kstat_delete(dp->devKstats);
 error_regs_map_1:
    ddi_regs_map_free(&dp->bar1Handle);
 error_regs_map_0:
@@ -1686,6 +1738,8 @@ vmxnet3_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
 
    VERIFY(mac_unregister(dp->mac) == 0);
 
+   kstat_delete(dp->devKstats);
+
    if (dp->mfTable.buf) {
       vmxnet3_free_dma_mem(&dp->mfTable);
    }
@@ -1710,7 +1764,7 @@ vmxnet3_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
  * Structures used by the Solaris module loader
  */
 
-#define VMXNET3_IDENT "VMware EtherAdapter v3 b" BUILD_NUMBER_NUMERIC_STRING
+#define VMXNET3_IDENT "VMware Ethernet v3 b" BUILD_NUMBER_NUMERIC_STRING
 
 DDI_DEFINE_STREAM_OPS(vmxnet3_dev_ops,
                       nulldev,

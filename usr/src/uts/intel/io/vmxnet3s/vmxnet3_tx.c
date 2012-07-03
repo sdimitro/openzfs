@@ -406,10 +406,12 @@ vmxnet3_tx(void *data, mblk_t *mps)
       pullup = vmxnet3_tx_prepare_offload(dp, &ol, mp);
       if (pullup) {
          mblk_t *new_mp = msgpullup(mp, pullup);
+	 atomic_inc_32(&dp->tx_pullup_needed);
          freemsg(mp);
          if (new_mp) {
             mp = new_mp;
          } else {
+	    atomic_inc_32(&dp->tx_pullup_failed);
             continue;
          }
       }
@@ -426,22 +428,26 @@ vmxnet3_tx(void *data, mblk_t *mps)
           */
          if (mp->b_cont != NULL) {
             mblk_t *new_mp = msgpullup(mp, -1);
+	    atomic_inc_32(&dp->tx_pullup_needed);
             freemsg(mp);
             if (new_mp) {
                mp = new_mp;
                status = vmxnet3_tx_one(dp, txq, &ol, mp);
             } else {
+	       atomic_inc_32(&dp->tx_pullup_failed);
                continue;
             }
          }
       }
       if (status != VMXNET3_TX_OK && status != VMXNET3_TX_RINGFULL) {
          /* Fatal failure, drop it */
+	 atomic_inc_32(&dp->tx_error);
          freemsg(mp);
       }
    } while (mps && status != VMXNET3_TX_RINGFULL);
 
    if (status == VMXNET3_TX_RINGFULL) {
+      atomic_inc_32(&dp->tx_ring_full);
       mp->b_next = mps;
       mps = mp;
    } else {

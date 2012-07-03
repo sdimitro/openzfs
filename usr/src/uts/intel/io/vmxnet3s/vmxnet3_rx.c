@@ -44,8 +44,10 @@ vmxnet3_alloc_rxbuf(vmxnet3_softc_t *dp, boolean_t canSleep)
    int flag = canSleep ? KM_SLEEP : KM_NOSLEEP;
    int err;
 
+   atomic_inc_32(&dp->rx_alloc_buf);
    rxBuf = kmem_zalloc(sizeof(vmxnet3_rxbuf_t), flag);
    if (!rxBuf) {
+      atomic_inc_32(&dp->rx_alloc_failed);
       return NULL;
    }
 
@@ -55,6 +57,7 @@ vmxnet3_alloc_rxbuf(vmxnet3_softc_t *dp, boolean_t canSleep)
       VMXNET3_DEBUG(dp, 0, "Failed to allocate %d bytes for rx buf, err:%d.\n",
                     (dp->cur_mtu + 18), err);
       kmem_free(rxBuf, sizeof(vmxnet3_rxbuf_t));
+      atomic_inc_32(&dp->rx_alloc_failed);
       return NULL;
    }
 
@@ -176,6 +179,7 @@ vmxnet3_get_rxbuf(vmxnet3_softc_t *dp, boolean_t canSleep)
                            &rxBuf->freeCB);
    if (!rxBuf->mblk) {
       vmxnet3_put_rxbuf(rxBuf);
+      atomic_inc_32(&dp->rx_alloc_failed);
       rxBuf = NULL;
    }
 

@@ -20,6 +20,7 @@
 #ifndef _VMXNET3_SOLARIS_H_
 #define _VMXNET3_SOLARIS_H_
 
+#include <sys/atomic.h>
 #include <sys/types.h>
 #include <sys/conf.h>
 #include <sys/debug.h>
@@ -151,7 +152,22 @@ typedef struct vmxnet3_softc_t {
    uint32_t             rxMode;
 
    vmxnet3_dmabuf_t     mfTable;
+   kstat_t              *devKstats;
+   uint32_t             reset_count;
+   uint32_t             tx_pullup_needed;
+   uint32_t		tx_pullup_failed;
+   uint32_t             tx_ring_full;
+   uint32_t		tx_error;
+   uint32_t		rx_alloc_buf;
+   uint32_t		rx_alloc_failed;
 } vmxnet3_softc_t;
+
+typedef struct vmxnet3_kstats_t {
+   kstat_named_t	reset_count;
+   kstat_named_t	tx_pullup_needed;
+   kstat_named_t	tx_ring_full;
+   kstat_named_t	rx_alloc_buf;
+} vmxnet3_kstats_t;
 
 int       vmxnet3_alloc_dma_mem_1(vmxnet3_softc_t *dp, vmxnet3_dmabuf_t *dma,
                                   size_t size, boolean_t canSleep);

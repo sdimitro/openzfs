@@ -66,6 +66,7 @@ struct flock64;
 extern int add_share(struct vnode *, struct shrlock *);
 extern int del_share(struct vnode *, struct shrlock *);
 extern void cleanshares(struct vnode *, pid_t);
+extern void cleanshares_by_sysid(struct vnode *, int32_t sysid);
 extern int shr_has_remote_shares(vnode_t *, int32_t);
 extern int proc_has_nbmand_share_on_vp(vnode_t *, pid_t);
 #endif /* _KERNEL */

@@ -20,6 +20,8 @@
  * CDDL HEADER END
  */
 /*
+ * Copyright 2012 by Delphix. All rights reserved.
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -36,8 +38,6 @@
  * software developed by the University of California, Berkeley, and its
  * contributors.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -88,9 +88,7 @@ extern struct lifconf *getmyaddrs(void);
 
 /* ARGSUSED */
 void
-sm_status(namep, resp)
-	sm_name *namep;
-	sm_stat_res *resp;
+sm_stat_svc(sm_name *namep, sm_stat_res *resp)
 {
 
 	if (debug)
@@ -103,9 +101,7 @@ sm_status(namep, resp)
 
 /* ARGSUSED */
 void
-sm_mon(monp, resp)
-	mon *monp;
-	sm_stat_res *resp;
+sm_mon_svc(mon *monp, sm_stat_res *resp)
 {
 	mon_id *monidp;
 	monidp = &monp->mon_id;
@@ -131,9 +127,7 @@ sm_mon(monp, resp)
 
 /* ARGSUSED */
 void
-sm_unmon(monidp, resp)
-	mon_id *monidp;
-	sm_stat *resp;
+sm_unmon_svc(mon_id *monidp, sm_stat *resp)
 {
 	rw_rdlock(&thr_rwlock);
 	if (debug) {
@@ -153,9 +147,7 @@ sm_unmon(monidp, resp)
 
 /* ARGSUSED */
 void
-sm_unmon_all(myidp, resp)
-	my_id *myidp;
-	sm_stat *resp;
+sm_unmon_all_svc(my_id *myidp, sm_stat *resp)
 {
 	rw_rdlock(&thr_rwlock);
 	if (debug)
@@ -173,8 +165,7 @@ sm_unmon_all(myidp, resp)
  * Notifies lockd specified by name that state has changed for this server.
  */
 void
-sm_notify(ntfp)
-	stat_chge *ntfp;
+sm_notify_svc(stat_chge *ntfp)
 {
 	rw_rdlock(&thr_rwlock);
 	if (debug)
@@ -186,8 +177,7 @@ sm_notify(ntfp)
 
 /* ARGSUSED */
 void
-sm_simu_crash(myidp)
-	void *myidp;
+sm_simu_crash_svc(void *myidp)
 {
 	int i;
 	struct mon_entry *monitor_q;
@@ -198,7 +188,6 @@ sm_simu_crash(myidp)
 	if (debug)
 		(void) printf("proc sm_simu_crash\n");
 	if (in_crash) {
-		cond_wait(&crash_finish, &crash_lock);
 		mutex_unlock(&crash_lock);
 		return;
 	} else {
@@ -726,7 +715,6 @@ thr_send_notice(void *arg)
 	moninfo_t *minfop;
 
 	minfop = (moninfo_t *)arg;
-
 	if (statd_call_lockd(&minfop->id, minfop->state) == -1) {
 		if (debug && minfop->id.mon_id.mon_name)
 			(void) printf(
@@ -760,7 +748,7 @@ statd_call_lockd(monp, state)
 {
 	enum clnt_stat clnt_stat;
 	struct timeval tottimeout;
-	struct status stat;
+	struct sm_status stat;
 	my_id *my_idp;
 	char *mon_name;
 	int i;
@@ -769,7 +757,7 @@ statd_call_lockd(monp, state)
 
 	mon_name = monp->mon_id.mon_name;
 	my_idp = &monp->mon_id.my_id;
-	(void) memset(&stat, 0, sizeof (struct status));
+	(void) memset(&stat, 0, sizeof (stat));
 	stat.mon_name = mon_name;
 	stat.state = state;
 	for (i = 0; i < 16; i++) {
@@ -783,11 +771,12 @@ statd_call_lockd(monp, state)
 	tottimeout.tv_usec = 0;
 
 	if ((clnt = create_client(my_idp->my_name, my_idp->my_prog,
-		my_idp->my_vers, &tottimeout)) == (CLIENT *) NULL) {
+	            my_idp->my_vers, &tottimeout)) == (CLIENT *) NULL) {
 			return (-1);
 	}
 
-	clnt_stat = clnt_call(clnt, my_idp->my_proc, xdr_status, (char *)&stat,
+	clnt_stat = clnt_call(clnt, my_idp->my_proc,
+				xdr_sm_status, (char *)&stat,
 				xdr_void, NULL, tottimeout);
 	if (debug) {
 		(void) printf("clnt_stat=%s(%d)\n",

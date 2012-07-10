@@ -73,7 +73,7 @@ void
 space_map_destroy(space_map_t *sm)
 {
 	ASSERT(!sm->sm_loaded && !sm->sm_loading);
-	VERIFY3U(sm->sm_space, ==, 0);
+	VERIFY0(sm->sm_space);
 	avl_destroy(&sm->sm_root);
 	cv_destroy(&sm->sm_load_cv);
 }
@@ -286,7 +286,7 @@ space_map_load(space_map_t *sm, space_map_ops_t *ops, uint8_t maptype,
 	space = smo->smo_alloc;
 
 	ASSERT(sm->sm_ops == NULL);
-	VERIFY3U(sm->sm_space, ==, 0);
+	VERIFY0(sm->sm_space);
 
 	if (maptype == SM_FREE) {
 		space_map_add(sm, sm->sm_start, sm->sm_size);
@@ -475,7 +475,7 @@ space_map_sync(space_map_t *sm, uint8_t maptype,
 
 	zio_buf_free(entry_map, bufsize);
 
-	VERIFY3U(sm->sm_space, ==, 0);
+	VERIFY0(sm->sm_space);
 }
 
 void

@@ -114,14 +114,18 @@ _NOTE(CONSTCOND) } while (0)
 #define	VERIFY3S(x, y, z)	VERIFY3_IMPL(x, y, z, int64_t)
 #define	VERIFY3U(x, y, z)	VERIFY3_IMPL(x, y, z, uint64_t)
 #define	VERIFY3P(x, y, z)	VERIFY3_IMPL(x, y, z, uintptr_t)
+#define	VERIFY0(x)		VERIFY3_IMPL(x, ==, 0, uintmax_t)
+
 #if DEBUG
 #define	ASSERT3S(x, y, z)	VERIFY3_IMPL(x, y, z, int64_t)
 #define	ASSERT3U(x, y, z)	VERIFY3_IMPL(x, y, z, uint64_t)
 #define	ASSERT3P(x, y, z)	VERIFY3_IMPL(x, y, z, uintptr_t)
+#define	ASSERT0(x)		VERIFY3_IMPL(x, ==, 0, uintmax_t)
 #else
 #define	ASSERT3S(x, y, z)	((void)0)
 #define	ASSERT3U(x, y, z)	((void)0)
 #define	ASSERT3P(x, y, z)	((void)0)
+#define	ASSERT0(x)		((void)0)
 #endif
 
 #ifdef	_KERNEL

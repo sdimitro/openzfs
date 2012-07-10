@@ -481,9 +481,9 @@ zfs_range_unlock_reader(znode_t *zp, rl_t *remove)
 			cv_destroy(&remove->r_rd_cv);
 		}
 	} else {
-		ASSERT3U(remove->r_cnt, ==, 0);
-		ASSERT3U(remove->r_write_wanted, ==, 0);
-		ASSERT3U(remove->r_read_wanted, ==, 0);
+		ASSERT0(remove->r_cnt);
+		ASSERT0(remove->r_write_wanted);
+		ASSERT0(remove->r_read_wanted);
 		/*
 		 * Find start proxy representing this reader lock,
 		 * then decrement ref count on all proxies

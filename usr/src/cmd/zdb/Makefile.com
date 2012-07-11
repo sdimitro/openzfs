@@ -40,13 +40,13 @@ LDLIBS += -lzpool -lumem -lnvpair -lzfs -lavl
 C99MODE=	-xc99=%all
 C99LMODE=	-Xc99=%all
 
-CFLAGS += $(CCVERBOSE)
-CFLAGS64 += $(CCVERBOSE)
+CFLAGS += $(CCVERBOSE) -DDEBUG
+CFLAGS64 += $(CCVERBOSE) -DDEBUG
 CPPFLAGS += -D_LARGEFILE64_SOURCE=1 -D_REENTRANT $(INCS)
 
 # lint complains about unused _umem_* functions
-LINTFLAGS += -xerroff=E_NAME_DEF_NOT_USED2 
-LINTFLAGS64 += -xerroff=E_NAME_DEF_NOT_USED2  
+LINTFLAGS += -xerroff=E_NAME_DEF_NOT_USED2 -DDEBUG
+LINTFLAGS64 += -xerroff=E_NAME_DEF_NOT_USED2 -DDEBUG
 
 .KEEP_STATE:
 

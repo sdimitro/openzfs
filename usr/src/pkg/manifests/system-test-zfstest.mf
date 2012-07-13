@@ -1,0 +1,64 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
+
+set name=pkg.fmri value=pkg:/system/test/zfstest@$(PKGVERS)
+set name=pkg.description value="ZFS Test Suite"
+set name=pkg.summary value="ZFS Functional and Stress Tests"
+set name=info.classification \
+    value=org.opensolaris.category.2008:Development/System
+set name=variant.arch value=$(ARCH)
+dir path=opt/zfs-tests
+dir path=opt/zfs-tests/bin
+dir path=opt/zfs-tests/runfiles
+dir path=opt/zfs-tests/stf
+dir path=opt/zfs-tests/stf/cfg
+dir path=opt/zfs-tests/stf/include
+dir path=opt/zfs-tests/tests
+dir path=opt/zfs-tests/tests/functional
+dir path=opt/zfs-tests/tests/functional/truncate
+file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
+file path=opt/zfs-tests/bin/devname2devid mode=0555
+file path=opt/zfs-tests/bin/dir_rd_update mode=0555
+file path=opt/zfs-tests/bin/file_check mode=0555
+file path=opt/zfs-tests/bin/file_trunc mode=0555
+file path=opt/zfs-tests/bin/file_write mode=0555
+file path=opt/zfs-tests/bin/largest_file mode=0555
+file path=opt/zfs-tests/bin/mkbusy mode=0555
+file path=opt/zfs-tests/bin/mktree mode=0555
+file path=opt/zfs-tests/bin/mmapwrite mode=0555
+file path=opt/zfs-tests/bin/randfree_file mode=0555
+file path=opt/zfs-tests/bin/readmmap mode=0555
+file path=opt/zfs-tests/bin/rename_dir mode=0555
+file path=opt/zfs-tests/bin/rm_lnkcnt_zero_file mode=0555
+file path=opt/zfs-tests/bin/zfs mode=0555
+file path=opt/zfs-tests/bin/zfs_crypto mode=0555
+file path=opt/zfs-tests/bin/zfs_version mode=0555
+file path=opt/zfs-tests/bin/zfstest mode=0555
+file path=opt/zfs-tests/bin/zpool mode=0555
+file path=opt/zfs-tests/bin/zpool_smi mode=0555
+file path=opt/zfs-tests/bin/zpool_version mode=0555
+file path=opt/zfs-tests/runfiles/all.run mode=0444
+file path=opt/zfs-tests/stf/cfg/truncate.cfg mode=0555
+file path=opt/zfs-tests/stf/commands.cfg mode=0555
+file path=opt/zfs-tests/stf/default.cfg mode=0555
+file path=opt/zfs-tests/stf/include/libtest.kshlib mode=0555
+file path=opt/zfs-tests/stf/include/libtest.shlib mode=0555
+file path=opt/zfs-tests/tests/functional/truncate/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/truncate/setup mode=0555
+file path=opt/zfs-tests/tests/functional/truncate/truncate_001_pos mode=0555
+file path=opt/zfs-tests/tests/functional/truncate/truncate_002_pos mode=0555
+license cr_Sun license=cr_Sun
+license lic_CDDL license=lic_CDDL
+depend fmri=system/test/testrunner type=require

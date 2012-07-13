@@ -1,11 +1,22 @@
 /*
- * Copyright (c) 2011 by Delphix.
- * All rights reserved.
+ * This file and its contents are supplied under the terms of the
+ * Common Development and Distribution License ("CDDL"), version 1.0.
+ * You may only use this file in accordance with the terms of version
+ * 1.0 of the CDDL.
+ *
+ * A full copy of the text of the CDDL should have accompanied this
+ * source.  A copy of the CDDL is also available via the Internet at
+ * http://www.illumos.org/license/CDDL.
+ */
+
+/*
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <assert.h>
@@ -14,6 +25,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/devpoll.h>
@@ -110,6 +122,7 @@ test_start(const char *testName, const char *format, ...)
 	va_start(args, format);
 	(void) vprintf(format, args);
 	va_end(args);
+	(void) fflush(stdout);
 }
 
 static void
@@ -130,6 +143,7 @@ static void
 test_passed(const char *testName)
 {
 	(void) printf("TEST PASS: %s\n", testName);
+	(void) fflush(stdout);
 }
 
 static int
@@ -215,7 +229,7 @@ clear_fd(const char *testName, int pollfd, int testfd)
 static void
 poll_no_fd_test(void)
 {
-	const char	*testName = __FUNCTION__;
+	const char	*testName = __func__;
 	time_t		elapsed;
 	int		timeout = 10;
 	int		ret;
@@ -243,7 +257,7 @@ poll_no_fd_test(void)
 static void
 poll_with_fds_test(int testfd)
 {
-	const char	*testName = __FUNCTION__;
+	const char	*testName = __func__;
 	time_t		elapsed;
 	int		timeout = 10;
 	int		ret;
@@ -276,7 +290,7 @@ poll_with_fds_test(int testfd)
 static void
 dev_poll_no_fd_test(int pollfd, int testfd)
 {
-	const char	*testName = __FUNCTION__;
+	const char	*testName = __func__;
 	time_t		elapsed;
 	int		timeout = 10;
 	int		ret;
@@ -304,7 +318,7 @@ dev_poll_no_fd_test(int pollfd, int testfd)
 static void
 dev_poll_with_fds_test(int pollfd, int testfd)
 {
-	const char	*testName = __FUNCTION__;
+	const char	*testName = __func__;
 	time_t		elapsed;
 	int		timeout = 10;
 	int		ret;
@@ -389,6 +403,7 @@ poll_thread(void *data)
  * to wakeup, which allows us to test how dpioctl handles spurious
  * wakeups.
  */
+static void
 trigger_wakeup(void)
 {
 	pid_t   child;
@@ -403,7 +418,7 @@ trigger_wakeup(void)
 		perror("Fork failed: ");
 		exit(-1);
 	} else if (child == 0) {
-		exit(0);
+		_exit(0);
 	} else {
 		pid_t   result = -1;
 		int	status;
@@ -488,8 +503,8 @@ stop_threads(void)
 static void
 run_tests(void)
 {
-	pthread_t	pollThread = -1;
-	pthread_t	helperThread = -1;
+	pthread_t	pollThread;
+	pthread_t	helperThread;
 	int		ret;
 
 	ret = pthread_create(&helperThread, NULL, helper_thread, NULL);

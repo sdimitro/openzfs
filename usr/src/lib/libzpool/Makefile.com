@@ -57,9 +57,9 @@ C99MODE=	-xc99=%all
 C99LMODE=	-Xc99=%all
 
 CFLAGS +=	-g $(CCVERBOSE) $(CNOGLOBAL)
-CFLAGS64 +=	-g $(CCVERBOSE) $(CNOGLOBAL)
+CFLAGS64 +=	-g $(CCVERBOSE)	$(CNOGLOBAL)
 LDLIBS +=	-lcmdutils -lumem -lavl -lnvpair -lz -lc -lsysevent -lmd
-CPPFLAGS +=	$(INCS)
+CPPFLAGS +=	$(INCS)	-DDEBUG
 
 .KEEP_STATE:
 

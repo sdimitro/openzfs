@@ -721,11 +721,10 @@ dmu_objset_create_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	if (oa->clone_origin == NULL) {
 		spa_history_log_internal_ds(ds, "create", tx, "");
 	} else {
-		char *namebuf = kmem_alloc(MAXNAMELEN, KM_SLEEP);
+		char namebuf[MAXNAMELEN];
 		dsl_dataset_name(oa->clone_origin, namebuf);
 		spa_history_log_internal_ds(ds, "clone", tx,
 		    "origin=%s (%llu)", namebuf, oa->clone_origin->ds_object);
-		kmem_free(namebuf, MAXNAMELEN);
 	}
 	dsl_dataset_rele(ds, FTAG);
 }
@@ -976,6 +975,13 @@ dmu_objset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)
 			rv = err;
 		}
 	}
+
+	/*
+	 * If any call to snapshot_one_impl() failed, don't execute the
+	 * sync task.  The error handling code below will clean up the
+	 * snaponearg_t from any successful calls to
+	 * snapshot_one_impl().
+	 */
 	if (rv == 0)
 		err = dsl_sync_task_group_wait(saa.saa_dstg);
 	if (err != 0)
@@ -1007,15 +1013,15 @@ dmu_objset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)
 int
 dmu_objset_snapshot_one(const char *fsname, const char *snapname)
 {
-	int error;
+	int err;
 	char *longsnap = kmem_asprintf("%s@%s", fsname, snapname);
 	nvlist_t *snaps = fnvlist_alloc();
 
 	fnvlist_add_boolean(snaps, longsnap);
-	error = dmu_objset_snapshot(snaps, NULL, NULL);
+	err = dmu_objset_snapshot(snaps, NULL, NULL);
 	fnvlist_free(snaps);
 	strfree(longsnap);
-	return (error);
+	return (err);
 }
 
 int

@@ -3442,7 +3442,7 @@ zfs_snapshot(libzfs_handle_t *hdl, const char *path, boolean_t recursive,
 	if (recursive) {
 		(void) zfs_snapshot_cb(zfs_handle_dup(zhp), &sd);
 	} else {
-		verify(nvlist_add_boolean(sd.sd_nvl, path) == 0);
+		fnvlist_add_boolean(sd.sd_nvl, path);
 	}
 
 	ret = zfs_snapshot_nvl(hdl, sd.sd_nvl, props);

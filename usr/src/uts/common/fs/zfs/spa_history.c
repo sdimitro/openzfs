@@ -318,8 +318,7 @@ spa_history_log_nvl(spa_t *spa, nvlist_t *nvl)
 		fnvlist_add_string(nvarg, ZPOOL_HIST_ZONE,
 		    spa_history_zone());
 	}
-	fnvlist_add_uint64(nvarg, ZPOOL_HIST_WHO,
-	    crgetruid(CRED()));
+	fnvlist_add_uint64(nvarg, ZPOOL_HIST_WHO, crgetruid(CRED()));
 
 	/* Kick this off asynchronously; errors are ignored. */
 	dsl_sync_task_do_nowait(spa_get_dsl(spa), NULL,
@@ -494,15 +493,13 @@ spa_history_log_internal_ds(dsl_dataset_t *ds, const char *operation,
     dmu_tx_t *tx, const char *fmt, ...)
 {
 	va_list adx;
-	char *namebuf;
+	char namebuf[MAXNAMELEN];
 	nvlist_t *nvl = fnvlist_alloc();
 
 	ASSERT(tx != NULL);
 
-	namebuf = kmem_alloc(MAXNAMELEN, KM_SLEEP);
 	dsl_dataset_name(ds, namebuf);
 	fnvlist_add_string(nvl, ZPOOL_HIST_DSNAME, namebuf);
-	kmem_free(namebuf, MAXNAMELEN);
 	fnvlist_add_uint64(nvl, ZPOOL_HIST_DSID, ds->ds_object);
 
 	va_start(adx, fmt);
@@ -515,15 +512,13 @@ spa_history_log_internal_dd(dsl_dir_t *dd, const char *operation,
     dmu_tx_t *tx, const char *fmt, ...)
 {
 	va_list adx;
-	char *namebuf;
+	char namebuf[MAXNAMELEN];
 	nvlist_t *nvl = fnvlist_alloc();
 
 	ASSERT(tx != NULL);
 
-	namebuf = kmem_alloc(MAXNAMELEN, KM_SLEEP);
 	dsl_dir_name(dd, namebuf);
 	fnvlist_add_string(nvl, ZPOOL_HIST_DSNAME, namebuf);
-	kmem_free(namebuf, MAXNAMELEN);
 	fnvlist_add_uint64(nvl, ZPOOL_HIST_DSID,
 	    dd->dd_phys->dd_head_dataset_obj);
 

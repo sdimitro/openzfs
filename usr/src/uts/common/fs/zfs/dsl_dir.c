@@ -1291,16 +1291,14 @@ dsl_dir_rename_sync(void *arg1, void *arg2, dmu_tx_t *tx)
 	dsl_pool_t *dp = dd->dd_pool;
 	objset_t *mos = dp->dp_meta_objset;
 	int err;
-	char *namebuf;
+	char namebuf[MAXNAMELEN];
 
 	ASSERT(dmu_buf_refcount(dd->dd_dbuf) <= 2);
 
 	/* Log this before we change the name. */
-	namebuf = kmem_alloc(MAXNAMELEN, KM_SLEEP);
 	dsl_dir_name(ra->newparent, namebuf);
 	spa_history_log_internal_dd(dd, "rename", tx,
 	    "-> %s/%s", namebuf, ra->mynewname);
-	kmem_free(namebuf, MAXNAMELEN);
 
 	if (ra->newparent != dd->dd_parent) {
 		dsl_dir_diduse_space(dd->dd_parent, DD_USED_CHILD,

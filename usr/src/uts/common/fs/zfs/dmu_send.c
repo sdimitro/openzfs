@@ -400,6 +400,7 @@ is_before(dsl_dataset_t *later, dsl_dataset_t *earlier)
 	dsl_pool_t *dp = later->ds_dir->dd_pool;
 	int error;
 	boolean_t ret;
+	dsl_dataset_t *origin;
 
 	if (earlier->ds_phys->ds_creation_txg >=
 	    later->ds_phys->ds_creation_txg)
@@ -410,7 +411,6 @@ is_before(dsl_dataset_t *later, dsl_dataset_t *earlier)
 	if (!dsl_dir_is_clone(later->ds_dir))
 		return (B_FALSE);
 
-	dsl_dataset_t *origin;
 	rw_enter(&dp->dp_config_rwlock, RW_READER);
 	if (later->ds_dir->dd_phys->dd_origin_obj == earlier->ds_object) {
 		rw_exit(&dp->dp_config_rwlock);

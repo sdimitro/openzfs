@@ -24,8 +24,8 @@
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
-#ifndef	_LIBFS_IMPL_H
-#define	_LIBFS_IMPL_H
+#ifndef	_LIBZFS_IMPL_H
+#define	_LIBZFS_IMPL_H
 
 #include <sys/dmu.h>
 #include <sys/fs/zfs.h>

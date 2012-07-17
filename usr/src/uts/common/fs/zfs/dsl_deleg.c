@@ -521,8 +521,7 @@ dsl_load_user_sets(objset_t *mos, uint64_t zapobj, avl_tree_t *avl,
  * Check if user has requested permission.
  */
 int
-dsl_deleg_access_impl(dsl_dataset_t *ds, const char *perm,
-    cred_t *cr)
+dsl_deleg_access_impl(dsl_dataset_t *ds, const char *perm, cred_t *cr)
 {
 	dsl_dir_t *dd;
 	dsl_pool_t *dp;

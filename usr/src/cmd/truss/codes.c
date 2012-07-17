@@ -1265,6 +1265,8 @@ const struct ioc {
 		"zfs_cmd_t" },
 	{ (uint_t)ZFS_IOC_SEND_SPACE,		"ZFS_IOC_SEND_SPACE",
 		"zfs_cmd_t" },
+	{ (uint_t)ZFS_IOC_CLONE,		"ZFS_IOC_CLONE",
+		"zfs_cmd_t" },
 
 	/* kssl ioctls */
 	{ (uint_t)KSSL_ADD_ENTRY,		"KSSL_ADD_ENTRY",

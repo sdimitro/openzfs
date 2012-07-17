@@ -783,8 +783,8 @@ typedef void (*dmu_traverse_cb_t)(objset_t *os, void *arg, struct blkptr *bp,
 void dmu_traverse_objset(objset_t *os, uint64_t txg_start,
     dmu_traverse_cb_t cb, void *arg);
 
-int dmu_send(objset_t *tosnap, objset_t *fromsnap, int outfd,
-    struct vnode *vp, offset_t *off);
+int dmu_send(objset_t *tosnap, objset_t *fromsnap,
+    int outfd, struct vnode *vp, offset_t *off);
 int dmu_send_estimate(objset_t *tosnap, objset_t *fromsnap, uint64_t *sizep);
 
 typedef struct dmu_recv_cookie {

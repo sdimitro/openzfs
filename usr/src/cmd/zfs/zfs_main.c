@@ -1023,8 +1023,8 @@ destroy_print_cb(zfs_handle_t *zhp, void *arg)
 			free(cb->cb_prevsnap);
 		/* this snap continues the current range */
 		cb->cb_prevsnap = strdup(name);
-		assert(cb->cb_firstsnap != NULL);
-		assert(cb->cb_prevsnap != NULL);
+		if (cb->cb_firstsnap == NULL || cb->cb_prevsnap == NULL)
+			nomem();
 		if (cb->cb_verbose) {
 			if (cb->cb_parsable) {
 				(void) printf("destroy\t%s\n", name);
@@ -3454,9 +3454,10 @@ zfs_snapshot_cb(zfs_handle_t *zhp, void *arg)
 	snap_cbdata_t *sd = arg;
 	char *name;
 	int rv = 0;
+	int error;
 
-	(void) asprintf(&name, "%s@%s", zfs_get_name(zhp), sd->sd_snapname);
-	if (name == NULL)
+	error = asprintf(&name, "%s@%s", zfs_get_name(zhp), sd->sd_snapname);
+	if (error == -1)
 		nomem();
 	fnvlist_add_boolean(sd->sd_nvl, name);
 	free(name);

@@ -23,8 +23,8 @@
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Portions Copyright 2011 Martin Matuska
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -37,10 +37,95 @@
  * all of the logic is in the ioctl callback, and the new way where most
  * of the marshalling is handled in the common entry point, zfsdev_ioctl().
  *
- * All ioctls are registered in zfs_ioctl_init(), by calling
- * zfs_ioctl_register() or zfs_ioctl_register_legacy() to specify various
- * properties of the ioctl -- its number, name, callback, etc.  See the comments
- * above the register functions for details.
+ * Non-legacy ioctls should be registered by calling
+ * zfs_ioctl_register() from zfs_ioctl_init().  The ioctl is invoked
+ * from userland by lzc_ioctl().
+ *
+ * The registration arguments are as follows:
+ *
+ * const char *name
+ *   The name of the ioctl.  This is used for history logging.  If the
+ *   ioctl returns successfully (the callback returns 0), and allow_log
+ *   is true, then a history log entry will be recorded with the input &
+ *   output nvlists.  The log entry can be printed with "zpool history -i".
+ *
+ * zfs_ioc_t ioc
+ *   The ioctl request number, which userland will pass to ioctl(2).
+ *   The ioctl numbers can change from release to release, because
+ *   the caller (libzfs) must be matched to the kernel.
+ *
+ * zfs_secpolicy_func_t *secpolicy
+ *   This function will be called before the zfs_ioc_func_t, to
+ *   determine if this operation is permitted.  It should return EPERM
+ *   on failure, and 0 on success.  Checks include determining if the
+ *   dataset is visible in this zone, and if the user has either all
+ *   zfs privileges in the zone (SYS_MOUNT), or has been granted permission
+ *   to do this operation on this dataset with "zfs allow".
+ *
+ * zfs_ioc_namecheck_t namecheck
+ *   This specifies what to expect in the zfs_cmd_t:zc_name -- a pool
+ *   name, a dataset name, or nothing.  If the name is not well-formed,
+ *   the ioctl will fail and the callback will not be called.
+ *   Therefore, the callback can assume that the name is well-formed
+ *   (e.g. is null-terminated, doesn't have more than one '@' character,
+ *   doesn't have invalid characters).
+ *
+ * zfs_ioc_poolcheck_t pool_check
+ *   This specifies requirements on the pool state.  If the pool does
+ *   not meet them (is suspended or is readonly), the ioctl will fail
+ *   and the callback will not be called.  If any checks are specified
+ *   (i.e. it is not POOL_CHECK_NONE), namecheck must not be NO_NAME.
+ *   Multiple checks can be or-ed together (e.g. POOL_CHECK_SUSPENDED |
+ *   POOL_CHECK_READONLY).
+ *
+ * boolean_t smush_outnvlist
+ *   If smush_outnvlist is true, then the output is presumed to be a
+ *   list of errors, and it will be "smushed" down to fit into the
+ *   caller's buffer, by removing some entries and replacing them with a
+ *   single "N_MORE_ERRORS" entry indicating how many were removed.  See
+ *   nvlist_smush() for details.  If smush_outnvlist is false, and the
+ *   outnvlist does not fit into the userland-provided buffer, then the
+ *   ioctl will fail with ENOMEM.
+ *
+ * zfs_ioc_func_t *func
+ *   The callback function that will perform the operation.
+ *
+ *   The callback should return 0 on success, or an error number on
+ *   failure.  If the function fails, the userland ioctl will return -1,
+ *   and errno will be set to the callback's return value.  The callback
+ *   will be called with the following arguments:
+ *
+ *   const char *name
+ *     The name of the pool or dataset to operate on, from
+ *     zfs_cmd_t:zc_name.  The 'namecheck' argument specifies the
+ *     expected type (pool, dataset, or none).
+ *
+ *   nvlist_t *innvl
+ *     The input nvlist, deserialized from zfs_cmd_t:zc_nvlist_src.  Or
+ *     NULL if no input nvlist was provided.  Changes to this nvlist are
+ *     ignored.  If the input nvlist could not be deserialized, the
+ *     ioctl will fail and the callback will not be called.
+ *
+ *   nvlist_t *outnvl
+ *     The output nvlist, initially empty.  The callback can fill it in,
+ *     and it will be returned to userland by serializing it into
+ *     zfs_cmd_t:zc_nvlist_dst.  If it is non-empty, and serialization
+ *     fails (e.g. because the caller didn't supply a large enough
+ *     buffer), then the overall ioctl will fail.  See the
+ *     'smush_nvlist' argument above for additional behaviors.
+ *
+ *     There are two typical uses of the output nvlist:
+ *       - To return state, e.g. property values.  In this case,
+ *         smush_outnvlist should be false.  If the buffer was not large
+ *         enough, the caller will reallocate a larger buffer and try
+ *         the ioctl again.
+ *
+ *       - To return multiple errors from an ioctl which makes on-disk
+ *         changes.  In this case, smush_outnvlist should be true.
+ *         Ioctls which make on-disk modifications should generally not
+ *         use the outnvl if they succeed, because the caller can not
+ *         distinguish between the operation failing, and
+ *         deserialization failing.
  */
 
 #include <sys/types.h>
@@ -746,7 +831,9 @@ zfs_secpolicy_destroy_snaps(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 
 		nextpair = nvlist_next_nvpair(snaps, pair);
 		error = dsl_dataset_hold(nvpair_name(pair), FTAG, &ds);
-		if (error == ENOENT) {
+		if (error == 0) {
+			dsl_dataset_rele(ds, FTAG);
+		} else if (error == ENOENT) {
 			/*
 			 * Ignore any snapshots that don't exist (we consider
 			 * them "already destroyed").  Remove the name from the
@@ -758,8 +845,8 @@ zfs_secpolicy_destroy_snaps(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 			fnvlist_remove_nvpair(snaps, pair);
 			error = 0;
 			continue;
-		} else if (error == 0) {
-			dsl_dataset_rele(ds, FTAG);
+		} else {
+			break;
 		}
 		error = zfs_secpolicy_destroy_perms(nvpair_name(pair), cr);
 		if (error != 0)
@@ -4046,8 +4133,8 @@ zfs_ioc_send(zfs_cmd_t *zc)
 		}
 
 		off = fp->f_offset;
-		error = dmu_send(tosnap, fromsnap, zc->zc_cookie,
-		    fp->f_vnode, &off);
+		error = dmu_send(tosnap, fromsnap,
+		    zc->zc_cookie, fp->f_vnode, &off);
 
 		if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
 			fp->f_offset = off;
@@ -5098,92 +5185,8 @@ zfs_ioctl_register_legacy(zfs_ioc_t ioc, zfs_ioc_legacy_func_t *func,
 }
 
 /*
- * Register a new-style ioctl.  The ioctl is invoked from userland by
- * lzc_ioctl().  The registration arguments are as follows:
- *
- * const char *name
- *   The name of the ioctl.  This is used for history logging.  If the
- *   ioctl returns successfully (the callback returns 0), and allow_log
- *   is true, then a history log entry will be recorded with the input &
- *   output nvlists.  The log entry can be printed with "zpool history -i".
- *
- * zfs_ioc_t ioc
- *   The ioctl request number, which userland will pass to ioctl(2).
- *   The ioctl numbers can change from release to release, because
- *   the caller (libzfs) must be matched to the kernel.
- *
- * zfs_secpolicy_func_t *secpolicy
- *   This function will be called before the zfs_ioc_func_t, to
- *   determine if this operation is permitted.  It should return EPERM
- *   on failure, and 0 on success.  Checks include determining if the
- *   dataset is visible in this zone, and if the user has either all
- *   zfs privileges in the zone (SYS_MOUNT), or has been granted permission
- *   to do this operation on this dataset with "zfs allow".
- *
- * zfs_ioc_namecheck_t namecheck
- *   This specifies what to expect in the zfs_cmd_t:zc_name -- a pool
- *   name, a dataset name, or nothing.  If the name is not well-formed,
- *   the ioctl will fail and the callback will not be called.
- *   Therefore, the callback can assume that the name is well-formed
- *   (e.g. is null-terminated, doesn't have more than one '@' character,
- *   doesn't have invalid characters).
- *
- * zfs_ioc_poolcheck_t pool_check
- *   This specifies requirements on the pool state.  If the pool does
- *   not meet them (is suspended or is readonly), the ioctl will fail
- *   and the callback will not be called.  If any checks are specified
- *   (i.e. it is not POOL_CHECK_NONE), namecheck must not be NO_NAME.
- *   Multiple checks can be or-ed together (e.g. POOL_CHECK_SUSPENDED |
- *   POOL_CHECK_READONLY).
- *
- * boolean_t smush_outnvlist
- *   If smush_outnvlist is true, then the output is presumed to be a
- *   list of errors, and it will be "smushed" down to fit into the
- *   caller's buffer, by removing some entries and replacing them with a
- *   single "N_MORE_ERRORS" entry indicating how many were removed.  See
- *   nvlist_smush() for details.  If smush_outnvlist is false, and the
- *   outnvlist does not fit into the userland-provided buffer, then the
- *   ioctl will fail with ENOMEM.
- *
- * zfs_ioc_func_t *func
- *   The callback function that will perform the operation.
- *
- *   The callback should return 0 on success, or an error number on
- *   failure.  If the function fails, the userland ioctl will return -1,
- *   and errno will be set to the callback's return value.  The callback
- *   will be called with the following arguments:
- *
- *   const char *name
- *     The name of the pool or dataset to operate on, from
- *     zfs_cmd_t:zc_name.  The 'namecheck' argument specifies the
- *     expected type (pool, dataset, or none).
- *
- *   nvlist_t *innvl
- *     The input nvlist, deserialized from zfs_cmd_t:zc_nvlist_src.  Or
- *     NULL if no input nvlist was provided.  Changes to this nvlist are
- *     ignored.  If the input nvlist could not be deserialized, the
- *     ioctl will fail and the callback will not be called.
- *
- *   nvlist_t *outnvl
- *     The output nvlist, initially empty.  The callback can fill it in,
- *     and it will be returned to userland by serializing it into
- *     zfs_cmd_t:zc_nvlist_dst.  If it is non-empty, and serialization
- *     fails (e.g. because the caller didn't supply a large enough
- *     buffer), then the overall ioctl will fail.  See the
- *     'smush_nvlist' argument above for additional behaviors.
- *
- *     There are two typical uses of the output nvlist:
- *       - To return state, e.g. property values.  In this case,
- *         smush_outnvlist should be false.  If the buffer was not large
- *         enough, the caller will reallocate a larger buffer and try
- *         the ioctl again.
- *
- *       - To return multiple errors from an ioctl which makes on-disk
- *         changes.  In this case, smush_outnvlist should be true.
- *         Ioctls which make on-disk modifications should generally not
- *         use the outnvl if they succeed, because the caller can not
- *         distinguish between the operation failing, and
- *         deserialization failing.
+ * See the block comment at the beginning of this file for details on
+ * each argument to this function.
  */
 static void
 zfs_ioctl_register(const char *name, zfs_ioc_t ioc, zfs_ioc_func_t *func,
@@ -5620,15 +5623,17 @@ zfsdev_ioctl(dev_t dev, int cmd, intptr_t arg, int flag, cred_t *cr, int *rvalp)
 	case POOL_NAME:
 		if (pool_namecheck(zc->zc_name, NULL, NULL) != 0)
 			error = EINVAL;
-		error = pool_status_check(zc->zc_name,
-		    vec->zvec_namecheck, vec->zvec_pool_check);
+		else
+			error = pool_status_check(zc->zc_name,
+			    vec->zvec_namecheck, vec->zvec_pool_check);
 		break;
 
 	case DATASET_NAME:
 		if (dataset_namecheck(zc->zc_name, NULL, NULL) != 0)
 			error = EINVAL;
-		error = pool_status_check(zc->zc_name,
-		    vec->zvec_namecheck, vec->zvec_pool_check);
+		else
+			error = pool_status_check(zc->zc_name,
+			    vec->zvec_namecheck, vec->zvec_pool_check);
 		break;
 
 	case NO_NAME:
@@ -5704,7 +5709,7 @@ out:
 	nvlist_free(innvl);
 	rc = ddi_copyout(zc, (void *)arg, sizeof (zfs_cmd_t), flag);
 	if (error == 0 && rc != 0)
-			error = EFAULT;
+		error = EFAULT;
 	if (error == 0 && vec->zvec_allow_log) {
 		char *s = tsd_get(zfs_allow_log_key);
 		if (s != NULL)

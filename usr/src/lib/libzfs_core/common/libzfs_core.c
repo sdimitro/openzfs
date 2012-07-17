@@ -53,7 +53,7 @@
  *  - Clear Atomicity.  Because libzfs_core functions are generally 1:1
  *  with kernel ioctls, and kernel ioctls are general atomic, each
  *  libzfs_core function is atomic.  For example, creating multiple
- *  snapshots with a single call to zfs2_snapshot() is atomic -- it
+ *  snapshots with a single call to lzc_snapshot() is atomic -- it
  *  can't fail with only some of the requested snapshots created, even
  *  in the event of power loss or system crash.
  *
@@ -218,6 +218,8 @@ lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **errlist)
 	nvlist_t *args;
 	int error;
 	char pool[MAXNAMELEN];
+
+	*errlist = NULL;
 
 	/* determine the pool name */
 	elem = nvlist_next_nvpair(snaps, NULL);

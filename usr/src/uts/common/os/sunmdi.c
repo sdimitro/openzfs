@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -9434,6 +9435,7 @@ clean_vhcache(mdi_vhci_config_t *vhc)
 	mdi_vhcache_phci_t	*phci, *nxt_phci;
 	mdi_vhcache_client_t	*client, *nxt_client;
 	mdi_vhcache_pathinfo_t	*path, *nxt_path;
+	boolean_t		dirty = B_FALSE;
 
 	rw_enter(&vhcache->vhcache_lock, RW_WRITER);
 
@@ -9455,12 +9457,13 @@ clean_vhcache(mdi_vhci_config_t *vhc)
 			}
 		}
 
-		if (client->cct_cpi_head != NULL)
+		if (client->cct_cpi_head != NULL) {
 			enqueue_vhcache_client(vhcache, client);
-		else {
+		} else {
 			(void) mod_hash_destroy(vhcache->vhcache_client_hash,
 			    (mod_hash_key_t)client->cct_name_addr);
 			free_vhcache_client(client);
+			dirty = B_TRUE;
 		}
 	}
 
@@ -9469,15 +9472,19 @@ clean_vhcache(mdi_vhci_config_t *vhc)
 	for ( ; phci != NULL; phci = nxt_phci) {
 
 		nxt_phci = phci->cphci_next;
-		if (phci->cphci_phci != NULL)
+		if (phci->cphci_phci != NULL) {
 			enqueue_vhcache_phci(vhcache, phci);
-		else
+		} else {
 			free_vhcache_phci(phci);
+			dirty = B_TRUE;
+		}
 	}
 
 	vhcache->vhcache_clean_time = ddi_get_lbolt64();
 	rw_exit(&vhcache->vhcache_lock);
-	vhcache_dirty(vhc);
+
+	if (dirty)
+		vhcache_dirty(vhc);
 }
 
 /*

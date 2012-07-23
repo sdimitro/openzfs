@@ -53,8 +53,17 @@ getproparg() {
 	[ -n "$val" ] && [ "$val" != "\"\"" ] && echo $1 $val
 }
 
-if [ -x ${DELPHIX_SCREEN} ]; then
-	TERM=sun-color ${DELPHIX_SCREEN} < /dev/console > /dev/console
+#
+# Launch the Delphix startup screen to display the status of Delphix
+# services on the console. If the startup screen exits we will
+# continue on to present a login prompt.
+#
+if [[ -x ${DELPHIX_SCREEN} ]]; then
+	dev=`svcprop -p ttymon/device $SMF_FMRI`
+        [[ "$dev" == '""' ]] && dev=/dev/console
+	term=`svcprop -p ttymon/terminal_type $SMF_FMRI`
+        [[ "$term" == '""' ]] && term=sun-color
+	TERM=$term ${DELPHIX_SCREEN} <$dev >$dev
 fi
 
 args="-g"

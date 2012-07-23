@@ -21,9 +21,8 @@
 
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
- */
-/*
  * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -235,9 +234,10 @@ get_legacy_mountpoint(char *path, char *dataset, size_t dlen,
 {
 	FILE *fp;
 	struct mnttab entry;
+	int ret = 1;
 
 	if ((fp = fopen(MNTTAB, "r")) == NULL) {
-		return (1);
+		return (ret);
 	}
 
 	while (getmntent(fp, &entry) == 0) {
@@ -253,11 +253,12 @@ get_legacy_mountpoint(char *path, char *dataset, size_t dlen,
 			if (dlen > 0)
 				(void) strlcpy(dataset, entry.mnt_special,
 				    dlen);
+			ret = 0;
 			break;
 		}
 	}
 	(void) fclose(fp);
-	return (1);
+	return (ret);
 }
 
 /*

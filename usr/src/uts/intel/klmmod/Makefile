@@ -24,8 +24,6 @@
 #
 # Copyright 2012 by Delphix. All rights reserved.
 #
-#ident	"%Z%%M%	%I%	%E% SMI"
-#
 #	This makefile drives the production of the network lock manager server
 #	specific kernel module.
 #
@@ -60,8 +58,9 @@ INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 #
 #	Overrides.
 #
-LDFLAGS         += -dy -Nstrmod/rpcmod -Nfs/nfs
+LDFLAGS		+= -dy -Nstrmod/rpcmod -Nfs/nfs
 LDFLAGS		+= -M $(UTSBASE)/common/klm/mapfile-mod
+CTFMRGFLAGS	+= -f
 
 #
 #	Default build targets.

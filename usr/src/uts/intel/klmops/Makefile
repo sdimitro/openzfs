@@ -24,8 +24,6 @@
 #
 # Copyright 2012 by Delphix. All rights reserved.
 #
-#ident	"%Z%%M%	%I%	%E% SMI"
-#
 #	This makefile drives the production of the network lock manager client
 #	side module.
 #
@@ -60,8 +58,9 @@ INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 #
 #	Overrides.
 #
-LDFLAGS         += -dy -Nstrmod/rpcmod -Nfs/nfs
+LDFLAGS		+= -dy -Nstrmod/rpcmod -Nfs/nfs
 LDFLAGS		+= -M $(UTSBASE)/common/klm/mapfile-ops
+CTFMRGFLAGS	+= -f
 
 #
 #	Default build targets.

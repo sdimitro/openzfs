@@ -131,13 +131,13 @@ nlm_dispatch(
 	 * simply need to call xdr_free itself.  (would only
 	 * affect nlm_do_lock and it's callers)
 	 */
-	bzero((char *)&argu, sizeof (argu));
+	bzero(&argu, sizeof (argu));
 	if (!SVC_GETARGS(transp, de->de_xargs, (caddr_t)&argu)) {
 		svcerr_decode(transp);
 		return;
 	}
 
-	bzero((char *)&resu, sizeof (resu));
+	bzero(&resu, sizeof (resu));
 	do_reply = (*func)((char *)&argu, (void *)&resu, rqstp);
 
 	if (do_reply && !(de->de_flags & NLM_DISP_NOREPLY)) {

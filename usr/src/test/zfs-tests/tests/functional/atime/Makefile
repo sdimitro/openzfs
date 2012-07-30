@@ -15,24 +15,31 @@
 
 include $(SRC)/Makefile.master
 
-SRCS = truncate.cfg
-
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-CFGDIR = $(ROOTOPTPKG)/stf/cfg
+TESTDIR = $(ROOTOPTPKG)/tests/functional/atime
 
-CMDS = $(SRCS:%=$(CFGDIR)/%)
+PROGS = cleanup \
+	setup \
+	atime_001_pos \
+	atime_002_neg
+
+FILES = atime.cfg \
+	atime_common.kshlib
+
+CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555
 
-all: $(SRCS)
+all lint clean clobber:
 
 install: $(CMDS)
 
-clean lint clobber:
+$(CMDS): $(TESTDIR)
 
-$(CMDS): $(CFGDIR) $(SRCS)
-
-$(CFGDIR):
+$(TESTDIR):
 	$(INS.dir)
 
-$(CFGDIR)/%: %
+$(TESTDIR)/%: %.ksh
+	$(INS.rename)
+
+$(TESTDIR)/%: %
 	$(INS.file)

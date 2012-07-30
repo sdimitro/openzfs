@@ -15,7 +15,7 @@
 
 include $(SRC)/Makefile.master
 
-SRCS = all.run
+SRCS = delphix.run
 
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 RUNFILES = $(ROOTOPTPKG)/runfiles

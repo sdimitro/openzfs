@@ -25,8 +25,8 @@
 # Use is subject to license terms.
 #
 
-. $STF_SUITE/cfg/truncate.cfg
-. ${STF_SUITE}/include/libtest.kshlib
+. $STF_SUITE/tests/functional/truncate/truncate.cfg
+. $STF_SUITE/include/libtest.shlib
 
 #
 # DESCRIPTION:
@@ -42,22 +42,22 @@ verify_runnable "both"
 
 function cleanup
 {
-	[[ -e $TESTDIR ]] && log_must $RM -rf ${TESTDIR}/*
+	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
+	[[ -f $srcfile ]] && $RM -f $srcfile
 }
 
 log_assert "Ensure zeroed file gets written correctly during a sync operation"
 
-srcfilename="$STF_SUITE/commands.cfg"
+srcfile="/tmp/cosmo.$$"
+log_must $DD if=/dev/urandom of=$srcfile bs=1024k count=1
 
 log_onexit cleanup
+log_must $CP $srcfile $TESTDIR/$TESTFILE
+log_must $CP /dev/null $TESTDIR/$TESTFILE
+log_must $SYNC
+if [[ -s $TESTDIR/$TESTFILE ]]; then
+	log_note "$($LS -l $TESTDIR/$TESTFILE)"
+	log_fail "testfile not truncated"
+fi
 
-log_note "Copying $srcfilename to $TESTFILE"
-log_must $CP $srcfilename ${TESTDIR}/${TESTFILE}
-
-log_note "Copying /dev/null to $TESTFILE"
-log_must $CP /dev/null ${TESTDIR}/${TESTFILE}
-
-log_note "Now 'sync' the filesystem"
-(cd $TESTDIR; log_must $SYNC)
-
-log_pass "Successful truncation within ZFS while a sync operation is in progress."
+log_pass "Successful truncation while a sync operation is in progress."

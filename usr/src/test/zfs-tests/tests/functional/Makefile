@@ -15,6 +15,9 @@
 
 .PARALLEL: $(SUBDIRS)
 
-SUBDIRS = truncate
+SUBDIRS = acl \
+	atime \
+	bootfs \
+	truncate
 
 include $(SRC)/test/Makefile.com

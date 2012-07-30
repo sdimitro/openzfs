@@ -344,7 +344,7 @@ function _endlog
 
 function _printline
 {
-	print `/usr/bin/date +%H:%M:%S` "$@"
+	print "$@"
 }
 
 # Output an error message

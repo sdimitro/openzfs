@@ -15,7 +15,7 @@
 
 include $(SRC)/Makefile.master
 
-SRCS = all.run
+SRCS = delphix.run openindiana.run
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
 RUNFILES = $(ROOTOPTPKG)/runfiles

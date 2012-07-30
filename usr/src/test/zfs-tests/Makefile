@@ -15,6 +15,6 @@
 
 .PARALLEL: $(SUBDIRS)
 
-SUBDIRS = cmd runfiles stf tests
+SUBDIRS = cmd include runfiles tests
 
 include $(SRC)/test/Makefile.com

@@ -13,30 +13,33 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SUBDIRS = include cfg
-
-include $(SRC)/test/Makefile.com
-
 include $(SRC)/Makefile.master
 
-SRCS = commands.cfg default.cfg
-
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-STFDIR = $(ROOTOPTPKG)/stf
+TESTDIR = $(ROOTOPTPKG)/tests/functional/acl/cifs
 
-CMDS = $(SRCS:%=$(STFDIR)/%)
+PROGS = cleanup \
+	setup \
+	cifs_attr_001_pos \
+	cifs_attr_002_pos \
+	cifs_attr_003_pos
+
+FILES = cifs.kshlib
+
+CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555
 
-all: $(SRCS)
+all lint clean clobber:
 
 install: $(CMDS)
 
-clean lint clobber:
+$(CMDS): $(TESTDIR)
 
-$(CMDS): $(STFDIR) $(SRCS)
-
-$(STFDIR):
+$(TESTDIR):
 	$(INS.dir)
 
-$(STFDIR)/%: %
+$(TESTDIR)/%: %
 	$(INS.file)
+
+$(TESTDIR)/%: %.ksh
+	$(INS.rename)

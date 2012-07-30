@@ -25,8 +25,8 @@
 # Use is subject to license terms.
 #
 
-. $STF_SUITE/cfg/truncate.cfg
-. $STF_SUITE/include/libtest.kshlib
+. $STF_SUITE/tests/functional/truncate/truncate.cfg
+. $STF_SUITE/include/libtest.shlib
 
 #
 # DESCRIPTION:

@@ -21,12 +21,16 @@ set name=info.classification \
 set name=variant.arch value=$(ARCH)
 dir path=opt/zfs-tests
 dir path=opt/zfs-tests/bin
+dir path=opt/zfs-tests/include
 dir path=opt/zfs-tests/runfiles
-dir path=opt/zfs-tests/stf
-dir path=opt/zfs-tests/stf/cfg
-dir path=opt/zfs-tests/stf/include
 dir path=opt/zfs-tests/tests
 dir path=opt/zfs-tests/tests/functional
+dir path=opt/zfs-tests/tests/functional/acl
+dir path=opt/zfs-tests/tests/functional/acl/cifs
+dir path=opt/zfs-tests/tests/functional/acl/nontrivial
+dir path=opt/zfs-tests/tests/functional/acl/trivial
+dir path=opt/zfs-tests/tests/functional/atime
+dir path=opt/zfs-tests/tests/functional/bootfs
 dir path=opt/zfs-tests/tests/functional/truncate
 file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
 file path=opt/zfs-tests/bin/devname2devid mode=0555
@@ -49,14 +53,149 @@ file path=opt/zfs-tests/bin/zfstest mode=0555
 file path=opt/zfs-tests/bin/zpool mode=0555
 file path=opt/zfs-tests/bin/zpool_smi mode=0555
 file path=opt/zfs-tests/bin/zpool_version mode=0555
-file path=opt/zfs-tests/runfiles/all.run mode=0444
-file path=opt/zfs-tests/stf/cfg/truncate.cfg mode=0555
-file path=opt/zfs-tests/stf/commands.cfg mode=0555
-file path=opt/zfs-tests/stf/default.cfg mode=0555
-file path=opt/zfs-tests/stf/include/libtest.kshlib mode=0555
-file path=opt/zfs-tests/stf/include/libtest.shlib mode=0555
+file path=opt/zfs-tests/include/commands.cfg mode=0555
+file path=opt/zfs-tests/include/default.cfg mode=0555
+file path=opt/zfs-tests/include/libtest.kshlib mode=0555
+file path=opt/zfs-tests/include/libtest.shlib mode=0555
+file path=opt/zfs-tests/runfiles/delphix.run mode=0444
+file path=opt/zfs-tests/runfiles/openindiana.run mode=0444
+file path=opt/zfs-tests/tests/functional/acl/acl.cfg mode=0555
+file path=opt/zfs-tests/tests/functional/acl/acl_common.kshlib mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/cifs.kshlib mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_001_pos mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_002_pos mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_003_pos mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/setup mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/setup mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_001_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_002_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_aclmode_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_compact_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_delete_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_inherit_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_inherit_002_neg \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_inherit_002_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_inherit_003_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_inherit_004_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_owner_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_rwacl_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_rwx_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_rwx_002_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_rwx_003_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_rwx_004_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_xattr_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_xattr_002_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_cp_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_cp_002_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_cpio_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_cpio_002_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_find_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_ls_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_mv_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_tar_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_tar_002_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/setup mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_chmod_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_compress_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_cp_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_cp_002_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_cp_003_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_find_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_find_002_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_ls_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_ls_002_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_mv_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pack_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pax_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pax_002_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pax_003_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pax_004_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pax_005_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_pax_006_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_tar_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_tar_002_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/atime/atime.cfg mode=0555
+file path=opt/zfs-tests/tests/functional/atime/atime_001_pos mode=0555
+file path=opt/zfs-tests/tests/functional/atime/atime_002_neg mode=0555
+file path=opt/zfs-tests/tests/functional/atime/atime_common.kshlib mode=0555
+file path=opt/zfs-tests/tests/functional/atime/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/atime/setup mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_001_pos mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_002_neg mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_003_pos mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_004_neg mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_005_neg mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_006_pos mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_007_neg mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_008_neg mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/setup mode=0555
+file path=opt/zfs-tests/tests/functional/truncate/truncate.cfg mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/truncate_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/truncate_002_pos mode=0555
 license cr_Sun license=cr_Sun

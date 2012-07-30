@@ -20,6 +20,7 @@ TESTDIR = $(ROOTOPTPKG)/tests/functional/truncate
 
 PROGS = cleanup \
 	setup \
+	truncate.cfg \
 	truncate_001_pos \
 	truncate_002_pos
 
@@ -34,6 +35,9 @@ $(CMDS): $(TESTDIR)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/%.cfg: %.cfg
+	$(INS.file)
 
 $(TESTDIR)/%: %.ksh
 	$(INS.rename)

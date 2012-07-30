@@ -1,3 +1,4 @@
+#!/usr/bin/ksh -p
 #
 # CDDL HEADER START
 #
@@ -20,14 +21,10 @@
 #
 
 #
-# Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
-export TESTFILE=testfile.$$
-export TRUNC_FILESIZE=${TRUNC_FILESIZE-"67108864"} # 64 Mb
-export TRUNC_BLKSIZE=${TRUNC_BLKSIZE-"512"}
-export TRUNC_SEED=${TRUNC_SEED-""}
-export TRUNC_FILEOFFSET=${TRUNC_FILEOFFSET-""}
-export TRUNC_COUNT=${TRUNC_COUNT-"16384"}	   # FILESIZE/BLKSIZE/8
-export STF_TIMEOUT=3600
+. $STF_SUITE/include/libtest.shlib
+
+default_cleanup

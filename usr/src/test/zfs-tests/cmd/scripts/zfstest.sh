@@ -15,6 +15,9 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
+export STF_SUITE="/opt/zfs-tests"
+export STF_TOOLS="/opt/test-runner/stf"
+
 function fail
 {
 	echo $1
@@ -23,11 +26,12 @@ function fail
 
 function find_disks
 {
-	typeset all_disks=$(echo '' | sudo format | awk '/c[0-9]/ {print $2}')
-	typeset used_disks=$(zpool status | awk \
+	local all_disks=$(echo '' | sudo /usr/sbin/format | awk \
+	    '/c[0-9]/ {print $2}')
+	local used_disks=$(/sbin/zpool status | awk \
 	    '/c[0-9]*t[0-9a-f]*d[0-9]/ {print $1}' | sed 's/s[0-9]//g')
 
-	typeset disk used avail_disks
+	local disk used avail_disks
 	for disk in $all_disks; do
 		for used in $used_disks; do
 			[[ "$disk" = "$used" ]] && continue 2
@@ -39,14 +43,44 @@ function find_disks
 	echo $avail_disks
 }
 
+function find_rpool
+{
+	local ds=$(/usr/sbin/mount | awk '/^\/ / {print $3}')
+	echo ${ds%%/*}
+}
+
+function find_runfile
+{
+	local distro=
+	[[ -d /opt/delphix && -h /etc/delphix/version ]] && distro=delphix
+	grep OpenIndiana /etc/motd >/dev/null && distro=openindiana
+
+	[[ -z $distro ]] && fail "Couldn't determine distro"
+	echo $STF_SUITE/runfiles/$distro.run
+}
+
+function verify_id
+{
+	[[ $(id -u) = "0" ]] && fail "This script must not be run as root."
+
+	sudo -n id >/dev/null 2>&1
+	[[ $? -eq 0 ]] || fail "User must be able to sudo without a password."
+
+	local -i priv_cnt=$(ppriv $$ | egrep "[EIP]: basic$|L: all$" | wc -l)
+	[[ $priv_cnt -ne 4 ]] && fail "User must only have basic privileges."
+}
+
+verify_id
+
 export DISKS=$(find_disks)
-export KEEP="rpool"
-export ZFSTEST_BIN="/opt/zfs-tests/bin"
-export STF_SUITE="/opt/zfs-tests/stf"
-export STF_TOOLS="/opt/test-runner/stf"
+export KEEP=$(find_rpool)
+runfile=$(find_runfile)
 
-. $STF_SUITE/default.cfg
+. $STF_SUITE/include/default.cfg
 
-/opt/test-runner/bin/run -c /opt/zfs-tests/runfiles/all.run
+num_disks=$(echo $DISKS | awk '{print NF}')
+[[ $num_disks -lt 3 ]] && fail "Not enough disks to run ZFS Test Suite"
+
+/opt/test-runner/bin/run -c $runfile
 
 exit $?

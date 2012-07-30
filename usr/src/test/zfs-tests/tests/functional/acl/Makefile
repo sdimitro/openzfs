@@ -13,19 +13,31 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-[DEFAULT]
-pre =
-verbose = False
-quiet = False
-pre_user = root
-user = root
-timeout = 60
-post_user = root
-post =
-outputdir = /var/tmp/test_results
+.PARALLEL: $(SUBDIRS)
 
-[/opt/zfs-tests/tests/functional/truncate]
-tests = ['truncate_001_pos', 'truncate_002_pos']
-pre = /opt/zfs-tests/tests/functional/truncate/setup
-post = /opt/zfs-tests/tests/functional/truncate/cleanup
+include $(SRC)/Makefile.master
 
+ROOTOPTPKG = $(ROOT)/opt/zfs-tests
+TESTDIR = $(ROOTOPTPKG)/tests/functional/acl
+
+PROGS = acl.cfg \
+	acl_common.kshlib
+
+CMDS = $(PROGS:%=$(TESTDIR)/%)
+$(CMDS) := FILEMODE = 0555
+
+all lint clean clobber:
+
+install: $(CMDS)
+
+$(CMDS): $(TESTDIR)
+
+$(TESTDIR):
+	$(INS.dir)
+
+$(TESTDIR)/%: %
+	$(INS.file)
+
+SUBDIRS = cifs nontrivial trivial
+
+include $(SRC)/test/Makefile.com

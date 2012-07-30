@@ -15,24 +15,32 @@
 
 include $(SRC)/Makefile.master
 
-SRCS = libtest.kshlib libtest.shlib
-
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-INCLUDEDIR = $(ROOTOPTPKG)/stf/include
+TESTDIR = $(ROOTOPTPKG)/tests/functional/bootfs
 
-CMDS = $(SRCS:%=$(INCLUDEDIR)/%)
+PROGS = bootfs_001_pos \
+	bootfs_002_neg \
+	bootfs_003_pos \
+	bootfs_004_neg \
+	bootfs_005_neg \
+	bootfs_006_pos \
+	bootfs_007_neg \
+	bootfs_008_neg
+
+CMDS = $(PROGS:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555
 
-all: $(SRCS)
+all lint clean clobber:
 
 install: $(CMDS)
 
-clean lint clobber:
+$(CMDS): $(TESTDIR)
 
-$(CMDS): $(INCLUDEDIR) $(SRCS)
-
-$(INCLUDEDIR):
+$(TESTDIR):
 	$(INS.dir)
 
-$(INCLUDEDIR)/%: %
+$(TESTDIR)/%.cfg: %.cfg
 	$(INS.file)
+
+$(TESTDIR)/%: %.ksh
+	$(INS.rename)

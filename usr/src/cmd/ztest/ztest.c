@@ -359,24 +359,11 @@ ztest_info_t ztest_info[] = {
 	{ ztest_fault_inject,			1,	&zopt_sometimes	},
 	{ ztest_ddt_repair,			1,	&zopt_sometimes	},
 	{ ztest_dmu_snapshot_hold,		1,	&zopt_sometimes	},
-#if 0
-	/*
-	 * There is a period between the time spa_change_guid() is called and
-	 * when the labels with the new guid are synced to disk during which
-	 * spa_guid() and the guid in the vdev labels don't match. If
-	 * vdev_reopen() is called during this time, it will call
-	 * vdev_validate() which will mark the vdev as corrupt due to the vdev
-	 * discrepancy.
-	 *
-	 * This test is temporarily disabled in DelphixOS until this is
-	 * resolved (bug 14097).
-	 */
 	{ ztest_reguid,				1,	&zopt_sometimes },
-#endif
 	{ ztest_spa_rename,			1,	&zopt_rarely	},
 	{ ztest_scrub,				1,	&zopt_rarely	},
 	{ ztest_dsl_dataset_promote_busy,	1,	&zopt_rarely	},
-	{ ztest_vdev_attach_detach,		1,	&zopt_rarely },
+	{ ztest_vdev_attach_detach,		1,	&zopt_rarely	},
 	{ ztest_vdev_LUN_growth,		1,	&zopt_rarely	},
 	{ ztest_vdev_add_remove,		1,
 	    &ztest_opts.zo_vdevtime				},
@@ -427,6 +414,13 @@ static spa_t *ztest_spa = NULL;
 static ztest_ds_t *ztest_ds;
 
 static mutex_t ztest_vdev_lock;
+
+/*
+ * The ztest_name_lock protects the pool and dataset namespace used by
+ * the individual tests. To modify the namespace, consumers must grab
+ * this lock as writer. Grabbing the lock as reader will ensure that the
+ * namespace does not change while the lock is held.
+ */
 static rwlock_t ztest_name_lock;
 
 static boolean_t ztest_dump_core = B_TRUE;
@@ -4910,10 +4904,16 @@ ztest_reguid(ztest_ds_t *zd, uint64_t id)
 {
 	spa_t *spa = ztest_spa;
 	uint64_t orig, load;
+	int error;
 
 	orig = spa_guid(spa);
 	load = spa_load_guid(spa);
-	if (spa_change_guid(spa) != 0)
+
+	(void) rw_wrlock(&ztest_name_lock);
+	error = spa_change_guid(spa);
+	(void) rw_unlock(&ztest_name_lock);
+
+	if (error != 0)
 		return;
 
 	if (ztest_opts.zo_verbose >= 3) {
@@ -5594,6 +5594,12 @@ ztest_freeze(void)
 	ASSERT(spa_freeze_txg(spa) == UINT64_MAX);
 	VERIFY3U(0, ==, ztest_dataset_open(0));
 	ztest_dataset_close(0);
+
+	spa->spa_debug = B_TRUE;
+	ztest_spa = spa;
+	txg_wait_synced(spa_get_dsl(spa), 0);
+	ztest_reguid(NULL, 0);
+
 	spa_close(spa, FTAG);
 	kernel_fini();
 }

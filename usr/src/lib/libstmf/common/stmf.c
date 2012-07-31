@@ -435,7 +435,6 @@ done:
 static int
 viewEntryCompare(const void *p1, const void *p2)
 {
-
 	stmfViewEntry *v1 = (stmfViewEntry *)p1, *v2 = (stmfViewEntry *)p2;
 	if (v1->veIndex > v2->veIndex)
 		return (1);
@@ -453,7 +452,6 @@ viewEntryCompare(const void *p1, const void *p2)
 static int
 guidCompare(const void *p1, const void *p2)
 {
-
 	stmfGuid *g1 = (stmfGuid *)p1, *g2 = (stmfGuid *)p2;
 	int i;
 
@@ -478,6 +476,7 @@ guidCompare(const void *p1, const void *p2)
 int
 stmfAddToHostGroup(stmfGroupName *hostGroupName, stmfDevid *hostName)
 {
+	char *hostid = NULL;
 	int ret;
 	int fd;
 
@@ -508,8 +507,15 @@ stmfAddToHostGroup(stmfGroupName *hostGroupName, stmfDevid *hostName)
 		goto done;
 	}
 
-	ret = psAddHostGroupMember((char *)hostGroupName,
-	    (char *)hostName->ident);
+	if ((hostid = calloc(1, hostName->identLength + 1)) == NULL) {
+		ret = STMF_ERROR_NOMEM;
+		goto done;
+	}
+
+	bcopy(hostName->ident, hostid, hostName->identLength);
+	hostid[hostName->identLength] = '\0';
+
+	ret = psAddHostGroupMember((char *)hostGroupName, hostid);
 	switch (ret) {
 		case STMF_PS_SUCCESS:
 			ret = STMF_STATUS_SUCCESS;
@@ -538,6 +544,7 @@ stmfAddToHostGroup(stmfGroupName *hostGroupName, stmfDevid *hostName)
 	}
 
 done:
+	free(hostid);
 	(void) close(fd);
 	return (ret);
 }
@@ -553,6 +560,7 @@ done:
 int
 stmfAddToTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName)
 {
+	char *targetid = NULL;
 	int ret;
 	int fd;
 
@@ -583,8 +591,15 @@ stmfAddToTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName)
 		goto done;
 	}
 
-	ret = psAddTargetGroupMember((char *)targetGroupName,
-	    (char *)targetName->ident);
+	if ((targetid = calloc(1, targetName->identLength + 1)) == NULL) {
+		ret = STMF_ERROR_NOMEM;
+		goto done;
+	}
+
+	bcopy(targetName->ident, targetid, targetName->identLength);
+	targetid[targetName->identLength] = '\0';
+
+	ret = psAddTargetGroupMember((char *)targetGroupName, targetid);
 	switch (ret) {
 		case STMF_PS_SUCCESS:
 			ret = STMF_STATUS_SUCCESS;
@@ -613,6 +628,7 @@ stmfAddToTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName)
 	}
 
 done:
+	free(targetid);
 	(void) close(fd);
 	return (ret);
 }
@@ -5963,6 +5979,7 @@ stmfOnlineLogicalUnit(stmfGuid *lu)
 int
 stmfRemoveFromHostGroup(stmfGroupName *hostGroupName, stmfDevid *hostName)
 {
+	char *hostid = NULL;
 	int ret;
 	int fd;
 
@@ -5993,8 +6010,15 @@ stmfRemoveFromHostGroup(stmfGroupName *hostGroupName, stmfDevid *hostName)
 		goto done;
 	}
 
-	ret = psRemoveHostGroupMember((char *)hostGroupName,
-	    (char *)hostName->ident);
+	if ((hostid = calloc(1, hostName->identLength + 1)) == NULL) {
+		ret = STMF_ERROR_NOMEM;
+		goto done;
+	}
+
+	bcopy(hostName->ident, hostid, hostName->identLength);
+	hostid[hostName->identLength] = '\0';
+
+	ret = psRemoveHostGroupMember((char *)hostGroupName, hostid);
 	switch (ret) {
 		case STMF_PS_SUCCESS:
 			ret = STMF_STATUS_SUCCESS;
@@ -6023,6 +6047,7 @@ stmfRemoveFromHostGroup(stmfGroupName *hostGroupName, stmfDevid *hostName)
 	}
 
 done:
+	free(hostid);
 	(void) close(fd);
 	return (ret);
 }
@@ -6038,6 +6063,7 @@ done:
 int
 stmfRemoveFromTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName)
 {
+	char *targetid = NULL;
 	int ret;
 	int fd;
 
@@ -6068,8 +6094,15 @@ stmfRemoveFromTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName)
 		goto done;
 	}
 
-	ret = psRemoveTargetGroupMember((char *)targetGroupName,
-	    (char *)targetName->ident);
+	if ((targetid = calloc(1, targetName->identLength + 1)) == NULL) {
+		ret = STMF_ERROR_NOMEM;
+		goto done;
+	}
+
+	bcopy(targetName->ident, targetid, targetName->identLength);
+	targetid[targetName->identLength] = '\0';
+
+	ret = psRemoveTargetGroupMember((char *)targetGroupName, targetid);
 	switch (ret) {
 		case STMF_PS_SUCCESS:
 			ret = STMF_STATUS_SUCCESS;
@@ -6098,6 +6131,7 @@ stmfRemoveFromTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName)
 	}
 
 done:
+	free(targetid);
 	(void) close(fd);
 	return (ret);
 }

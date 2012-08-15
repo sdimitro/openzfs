@@ -37,7 +37,7 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright (c) 2011 by Delphix. All rights reserved. */
+/* Copyright (c) 2012 by Delphix. All rights reserved. */
 
 #include "ndmp_impl.h"
 
@@ -66,9 +66,13 @@ static ndmp_handler_t *ndmp_get_interface(ndmp_message message);
 static ndmp_handler_t *
 ndmp_get_interface(ndmp_message message)
 {
-	int class = (message >> 8) % INT_MAXCMD;
-	ndmp_handler_t *ni = &ndmp_msghdl_tab[class];
+	int class = (message >> 8);
+	ndmp_handler_t *ni;
 
+	if (class >= INT_MAXCLASS)
+		return (NULL);
+
+	ni = &ndmp_msghdl_tab[class];
 	if ((message & 0xff) >= ni->hd_cnt)
 		return (NULL);
 
@@ -89,11 +93,15 @@ static ndmp_msg_handler_t *
 ndmp_get_handler(ndmp_session_t *session, ndmp_message message,
     ndmp_header_message_type type, boolean_t isreq, const char **messagestr)
 {
-	int class = (message >> 8) % INT_MAXCMD;
+	int class = (message >> 8);
 	ndmp_msg_handler_t *handler = NULL;
 	int ver = session->ns_version;
+	ndmp_handler_t *ni;
 
-	ndmp_handler_t *ni = ndmp_get_interface(message);
+	if (class >= INT_MAXCLASS)
+		return (NULL);
+
+	ni = ndmp_get_interface(message);
 
 	if (ni == NULL)
 		return (NULL);

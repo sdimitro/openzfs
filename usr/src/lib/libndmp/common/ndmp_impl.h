@@ -146,6 +146,7 @@ typedef void *(*funct_t)(void *);
 #define	NDMP_EOM_MAGIC	"PRCMEOM"
 #define	KILOBYTE	1024
 
+#define	INT_MAXCLASS	11
 #define	INT_MAXCMD	12
 
 typedef struct scsi_device {
@@ -639,7 +640,7 @@ extern void ndmp_log_local(ndmp_session_t *, int, const char *, ...);
 extern void ndmp_debug(ndmp_session_t *, const char *, ...);
 
 
-extern ndmp_handler_t ndmp_msghdl_tab[];
+extern ndmp_handler_t ndmp_msghdl_tab[INT_MAXCLASS];
 
 extern void ndmp_create_md5_digest(unsigned char *, const char *,
     unsigned char *);

@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright (c) 2011 by Delphix. All rights reserved. */
+/* Copyright (c) 2012 by Delphix. All rights reserved. */
 
 #include "ndmp_impl.h"
 
@@ -130,7 +130,7 @@
  * for LINT.
  */
 #ifndef	lint
-ndmp_handler_t ndmp_msghdl_tab[] = {
+ndmp_handler_t ndmp_msghdl_tab[INT_MAXCLASS] = {
 	{
 		/* NONE - 0x000 */
 		0,

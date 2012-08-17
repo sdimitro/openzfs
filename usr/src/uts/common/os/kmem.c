@@ -1013,8 +1013,7 @@ size_t	kmem_max_cached = KMEM_BIG_MAXBUF_32BIT; /* maximum kmem_alloc cache */
 #ifdef DEBUG
 int kmem_flags = KMF_AUDIT | KMF_DEADBEEF | KMF_REDZONE | KMF_CONTENTS;
 #else
-/* enable some lightweight checks to try and catch bug 18988 */
-int kmem_flags = KMF_LITE;
+int kmem_flags = 0;
 #endif
 int kmem_ready;
 

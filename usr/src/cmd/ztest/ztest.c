@@ -2101,6 +2101,7 @@ ztest_prealloc(ztest_ds_t *zd, uint64_t object, uint64_t offset, uint64_t size)
 static void
 ztest_io(ztest_ds_t *zd, uint64_t object, uint64_t offset)
 {
+	int err;
 	ztest_block_tag_t wbt;
 	dmu_object_info_t doi;
 	enum ztest_io_type io_type;
@@ -2156,13 +2157,15 @@ ztest_io(ztest_ds_t *zd, uint64_t object, uint64_t offset)
 
 	case ZTEST_IO_REWRITE:
 		(void) rw_rdlock(&ztest_name_lock);
-		VERIFY0(ztest_dsl_prop_set_uint64(zd->zd_name,
+		err = ztest_dsl_prop_set_uint64(zd->zd_name,
 		    ZFS_PROP_CHECKSUM, spa_dedup_checksum(ztest_spa),
-		    B_FALSE));
-		VERIFY0(ztest_dsl_prop_set_uint64(zd->zd_name,
+		    B_FALSE);
+		VERIFY(err == 0 || err == ENOSPC);
+		err = ztest_dsl_prop_set_uint64(zd->zd_name,
 		    ZFS_PROP_COMPRESSION,
 		    ztest_random_dsl_prop(ZFS_PROP_COMPRESSION),
-		    B_FALSE));
+		    B_FALSE);
+		VERIFY(err == 0 || err == ENOSPC);
 		(void) rw_unlock(&ztest_name_lock);
 
 		VERIFY0(dmu_read(zd->zd_os, object, offset, blocksize, data,

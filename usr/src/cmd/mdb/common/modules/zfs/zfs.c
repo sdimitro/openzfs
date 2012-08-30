@@ -46,6 +46,7 @@
 
 #ifdef _KERNEL
 #define	ZFS_OBJ_NAME	"zfs"
+extern int64_t mdb_get_lbolt(void);
 #else
 #define	ZFS_OBJ_NAME	"libzpool.so.1"
 #endif
@@ -53,8 +54,6 @@
 #ifndef _KERNEL
 int aok;
 #endif
-
-extern int64_t mdb_get_lbolt(void);
 
 static int
 getmember(uintptr_t addr, const char *type, mdb_ctf_id_t *idp,
@@ -1792,8 +1791,12 @@ zio_print_cb(uintptr_t addr, const void *data, void *priv)
 				mdb_printf("%-16p ", zio->io_waiter);
 			else
 				mdb_printf("%-16s ", "-");
+#ifdef _KERNEL
 			mdb_printf("%llu\n",
 			    mdb_get_lbolt() - zio->io_timestamp);
+#else
+			mdb_printf("%-16s ", "-");
+#endif
 		}
 	}
 
@@ -1873,10 +1876,11 @@ zio_print(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		return (DCMD_ERR);
 	}
 
-	if (!(flags & DCMD_PIPE_OUT) && DCMD_HDRSPEC(flags))
+	if (!(flags & DCMD_PIPE_OUT) && DCMD_HDRSPEC(flags)) {
 		mdb_printf("%<u>%-*s %-5s %-16s %-16s %-16s%</u>\n",
 		    ZIO_MAXWIDTH, "ADDRESS", "TYPE", "STAGE", "WAITER",
 		    "TIME_ELAPSED");
+	}
 
 	if (zio_print_cb(addr, &zio, &zpa) != WALK_NEXT)
 		return (DCMD_ERR);

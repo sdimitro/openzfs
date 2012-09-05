@@ -385,8 +385,8 @@ dump_resize(char *path, uint64_t size, int opts)
 {
 	kstat_ctl_t *kc = NULL;
 	kstat_t *ks;
-	kstat_named_t *arc_max;
-	uint64_t blksz, dumpsz;
+	kstat_named_t *arcstat;
+	uint64_t blksz, dumpsz, slop, arc_meta_limit;
 	libzfs_handle_t *hdl;
 	zfs_handle_t *zhp;
 	char *dataset = NULL;
@@ -400,10 +400,10 @@ dump_resize(char *path, uint64_t size, int opts)
 	    (kstat_read(kc, ks, NULL) == -1))
 		return;
 
-	arc_max = kstat_data_lookup(ks, "c_max");
-	assert(arc_max != NULL);
-	assert(arc_max->data_type == KSTAT_DATA_UINT64);
-	dumpsz = arc_max->value.ui64 / 8 + 2 * DUMP_LOGSIZE + DUMP_ERPTSIZE;
+	arcstat = kstat_data_lookup(ks, "arc_meta_limit");
+	assert(arcstat != NULL);
+	assert(arcstat->data_type == KSTAT_DATA_UINT64);
+	arc_meta_limit = arcstat->value.ui64;
 	(void) kstat_close(kc);
 
 	if ((hdl = libzfs_init()) == NULL)
@@ -418,14 +418,20 @@ dump_resize(char *path, uint64_t size, int opts)
 	}
 
 	/*
-	 * We would like to base the size of the dump device on
-	 * arc_meta_limit but that value is not exposed via the kstat
-	 * interface.  We can leverage arc_c_max to derive the value of
-	 * arc_meta_limit (arc_c_max / 4) and set the preferred dump size
-	 * to be 1/2 of arc_meta_limit + some slop.
+	 * We need to ensure that the dump device has sufficient space
+	 * for any ereports and other metadata. Add 1/10th of the
+	 * arc_meta_limit as additional slop space to accommodate this.
 	 */
+	slop = 2 * DUMP_LOGSIZE + DUMP_ERPTSIZE + arc_meta_limit / 10;
+
+	/*
+	 * Set the size of the dump device to 1/2 (default value of
+	 * DUMP_COMPRESS_RATIO) of the arc_meta_limit plus some slop.
+	 * The minimum size is 2GB.
+	 */
+	dumpsz = arc_meta_limit / DUMP_COMPRESS_RATIO + slop;
 	blksz = zfs_prop_get_int(zhp, ZFS_PROP_VOLBLOCKSIZE);
-	dumpsz = P2ROUNDUP(dumpsz, blksz);
+	dumpsz = P2ROUNDUP(MAX(dumpsz, 2ULL << 30), blksz);
 
 	/*
 	 * If the dump device is configured to always resize then we allow

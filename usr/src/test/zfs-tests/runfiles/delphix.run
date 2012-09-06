@@ -70,3 +70,11 @@ tests = ['truncate_001_pos', 'truncate_002_pos']
 pre = /opt/zfs-tests/tests/functional/truncate/setup
 post = /opt/zfs-tests/tests/functional/truncate/cleanup
 
+# nopwrite has some tests that can run long (varying_compression, volume)
+[/opt/zfs-tests/tests/functional/nopwrite]
+tests = ['nopwrite_copies', 'nopwrite_mtime', 'nopwrite_negative',
+    'nopwrite_promoted_clone', 'nopwrite_recsize', 'nopwrite_sync',
+    'nopwrite_varying_compression', 'nopwrite_volume']
+pre = /opt/zfs-tests/tests/functional/nopwrite/setup
+post = /opt/zfs-tests/tests/functional/nopwrite/cleanup
+timeout = 180

@@ -15,10 +15,36 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
+export OS_TESTS="/opt/os-tests"
+
 function fail
 {
 	echo $1
 	exit ${2:-1}
 }
 
-/opt/test-runner/bin/run -c /opt/os-tests/runfiles/all.run
+function find_runfile
+{
+	local distro=
+	[[ -d /opt/delphix && -h /etc/delphix/version ]] && distro=delphix
+	grep OpenIndiana /etc/motd >/dev/null && distro=openindiana
+
+	[[ -z $distro ]] && fail "Couldn't determine distro"
+	echo $OS_TESTS/runfiles/$distro.run
+}
+
+while getopts c: c; do
+	case $c in
+	'c')
+		runfile=$OPTARG
+		[[ -f $runfile ]] || fail "Cannot read file: $runfile"
+		;;
+	esac
+done
+shift $((OPTIND - 1))
+
+[[ -z $runfile ]] && runfile=$(find_runfile)
+
+/opt/test-runner/bin/run -c $runfile
+
+exit $?

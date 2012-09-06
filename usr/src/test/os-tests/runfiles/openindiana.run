@@ -13,12 +13,14 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
+[DEFAULT]
+pre =
+verbose = False
+quiet = False
+user = root
+timeout = 60
+post =
+outputdir = /var/tmp/test_results
 
-SUBDIRS = acl \
-	atime \
-	bootfs \
-	nopwrite \
-	truncate
+[/opt/os-tests/tests/poll_test]
 
-include $(SRC)/test/Makefile.com

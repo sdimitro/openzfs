@@ -1,3 +1,5 @@
+#!/usr/bin/bash
+
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -13,12 +15,9 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
+. ${STF_SUITE}/include/libtest.shlib
+. ${STF_SUITE}/tests/functional/nopwrite/nopwrite.shlib
 
-SUBDIRS = acl \
-	atime \
-	bootfs \
-	nopwrite \
-	truncate
+disk=${DISKS%% *}
 
-include $(SRC)/test/Makefile.com
+default_volume_setup $disk

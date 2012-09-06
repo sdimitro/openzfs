@@ -31,6 +31,7 @@ dir path=opt/zfs-tests/tests/functional/acl/nontrivial
 dir path=opt/zfs-tests/tests/functional/acl/trivial
 dir path=opt/zfs-tests/tests/functional/atime
 dir path=opt/zfs-tests/tests/functional/bootfs
+dir path=opt/zfs-tests/tests/functional/nopwrite
 dir path=opt/zfs-tests/tests/functional/truncate
 file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
 file path=opt/zfs-tests/bin/devname2devid mode=0555
@@ -57,6 +58,8 @@ file path=opt/zfs-tests/include/commands.cfg mode=0555
 file path=opt/zfs-tests/include/default.cfg mode=0555
 file path=opt/zfs-tests/include/libtest.kshlib mode=0555
 file path=opt/zfs-tests/include/libtest.shlib mode=0555
+file path=opt/zfs-tests/include/math.shlib mode=0555
+file path=opt/zfs-tests/include/properties.shlib mode=0555
 file path=opt/zfs-tests/runfiles/delphix.run mode=0444
 file path=opt/zfs-tests/runfiles/openindiana.run mode=0444
 file path=opt/zfs-tests/tests/functional/acl/acl.cfg mode=0555
@@ -193,6 +196,19 @@ file path=opt/zfs-tests/tests/functional/bootfs/bootfs_005_neg mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_006_pos mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_007_neg mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_008_neg mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite.shlib mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_copies mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_mtime mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_negative mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_promoted_clone \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_recsize mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_sync mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_varying_compression \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/nopwrite_volume mode=0555
+file path=opt/zfs-tests/tests/functional/nopwrite/setup mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/setup mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/truncate.cfg mode=0555

@@ -72,9 +72,19 @@ function verify_id
 
 verify_id
 
+while getopts c: c; do
+	case $c in
+	'c')
+		runfile=$OPTARG
+		[[ -f $runfile ]] || fail "Cannot read file: $runfile"
+		;;
+	esac
+done
+shift $((OPTIND - 1))
+
 export DISKS=$(find_disks)
 export KEEP=$(find_rpool)
-runfile=$(find_runfile)
+[[ -z $runfile ]] && runfile=$(find_runfile)
 
 . $STF_SUITE/include/default.cfg
 

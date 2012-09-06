@@ -15,25 +15,35 @@
 
 include $(SRC)/Makefile.master
 
-SRCS = delphix.run \
-	openindiana.run
+ROOTOPTPKG = $(ROOT)/opt/zfs-tests
+TESTDIR = $(ROOTOPTPKG)/tests/functional/nopwrite
 
-ROOTOPTPKG = $(ROOT)/opt/os-tests
-RUNFILES = $(ROOTOPTPKG)/runfiles
+PROGS = cleanup \
+	nopwrite.shlib \
+	nopwrite_copies \
+	nopwrite_mtime \
+	nopwrite_negative \
+	nopwrite_promoted_clone \
+	nopwrite_recsize \
+	nopwrite_sync \
+	nopwrite_varying_compression \
+	nopwrite_volume \
+	setup
 
-CMDS = $(SRCS:%=$(RUNFILES)/%)
-$(CMDS) := FILEMODE = 0444
+CMDS = $(PROGS:%=$(TESTDIR)/%)
+$(CMDS) := FILEMODE = 0555
 
-all: $(SRCS)
+all lint clean clobber:
 
 install: $(CMDS)
 
-clean lint clobber:
+$(CMDS): $(TESTDIR)
 
-$(CMDS): $(RUNFILES) $(SRCS)
-
-$(RUNFILES):
+$(TESTDIR):
 	$(INS.dir)
 
-$(RUNFILES)/%: %
+$(TESTDIR)/%.shlib: %.shlib
 	$(INS.file)
+
+$(TESTDIR)/%: %.bash
+	$(INS.rename)

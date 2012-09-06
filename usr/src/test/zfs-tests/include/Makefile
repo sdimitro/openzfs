@@ -17,7 +17,12 @@ include $(SRC)/test/Makefile.com
 
 include $(SRC)/Makefile.master
 
-SRCS = commands.cfg default.cfg libtest.kshlib libtest.shlib
+SRCS = commands.cfg \
+	default.cfg \
+	libtest.kshlib \
+	libtest.shlib \
+	math.shlib \
+	properties.shlib
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
 INCLUDEDIR = $(ROOTOPTPKG)/include

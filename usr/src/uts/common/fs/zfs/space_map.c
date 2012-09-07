@@ -335,29 +335,7 @@ space_map_load(space_map_t *sm, space_map_ops_t *ops, uint8_t maptype,
 	}
 
 	if (error == 0) {
-		/*
-		 * As a result of a previous bug, it was possible to
-		 * create extra free records in the space_map that were not
-		 * accounted for in the space map object. We detect that
-		 * condition here by checking to see if the free space
-		 * from the space_map entries is larger than the free
-		 * space reported by the space map object. If we encounter
-		 * this condition then force the space_map to condense the
-		 * next time it syncs out. The associated metaslab is
-		 * responsible for tracking any adjustments that should be
-		 * made to the space map object.
-		 */
-		if (maptype == SM_FREE && sm->sm_space > space) {
-			uint64_t alloc = sm->sm_size - sm->sm_space;
-
-			zfs_dbgmsg("space_map_load [%llu]: sm_space %llu, "
-			    "space %llu, smo_alloc %llu, "
-			    "adjusted smo_alloc %llu", sm->sm_start,
-			    sm->sm_space, space, smo->smo_alloc, alloc);
-			sm->sm_condense = B_TRUE;
-		} else {
-			VERIFY3U(sm->sm_space, ==, space);
-		}
+		VERIFY3U(sm->sm_space, ==, space);
 
 		sm->sm_loaded = B_TRUE;
 		sm->sm_ops = ops;

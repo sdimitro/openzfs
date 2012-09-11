@@ -22,6 +22,7 @@
 #
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 <include system-library.man3.inc>
@@ -661,6 +662,7 @@ link path=lib/libelfsign.so target=libelfsign.so.1
 $(i386_ONLY)link path=lib/libfdisk.so target=libfdisk.so.1
 link path=lib/libgen.so target=libgen.so.1
 link path=lib/libintl.so target=libintl.so.1
+link path=lib/libipadm.so target=libipadm.so.1
 link path=lib/libipmp.so target=./libipmp.so.1
 link path=lib/libkmf.so target=libkmf.so.1
 link path=lib/libkmfberder.so target=libkmfberder.so.1

@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -3447,7 +3448,7 @@ i_ipadm_validate_create_addr(ipadm_handle_t iph, ipadm_addrobj_t ipaddr,
 		return (status);
 	if (!a_exists && p_exists)
 		return (IPADM_OP_DISABLE_OBJ);
-	if ((flags & IPADM_OPT_PERSIST) && a_exists && !p_exists) {
+	if ((flags & IPADM_OPT_PERSIST) && af_exists && !p_exists) {
 		/*
 		 * If address has to be created persistently,
 		 * and the interface does not exist in the persistent

@@ -39,20 +39,6 @@ $mapfile_version 2
 
 SYMBOL_VERSION SUNWprivate_1.1 {
     global:
-
-# libzfs2 routines:
-
-	libzfs2_fini;
-	libzfs2_init;
-	zfs2_exists;
-	zfs2_receive;
-	zfs2_send;
-	zfs2_send_space;
-	zfs2_snaprange_space;
-	zfs2_snapshot;
-
-# legacy libzfs routines:
-
 	fletcher_2_native;
 	fletcher_2_byteswap;
 	fletcher_4_native;
@@ -217,7 +203,6 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zpool_log_history;
 	zpool_mount_datasets;
 	zpool_name_to_prop;
-	zpool_log_history;
 	zpool_obj_to_path;
 	zpool_open;
 	zpool_open_canfail;

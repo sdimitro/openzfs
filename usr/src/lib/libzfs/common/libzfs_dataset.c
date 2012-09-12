@@ -3343,7 +3343,6 @@ zfs_snapshot_cb(zfs_handle_t *zhp, void *arg)
 int
 zfs_snapshot_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, nvlist_t *props)
 {
-	char pool[ZFS_MAXNAMELEN] = "";
 	int ret;
 	char errbuf[1024];
 	nvpair_t *elem;
@@ -3355,11 +3354,6 @@ zfs_snapshot_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, nvlist_t *props)
 	elem = NULL;
 	while ((elem = nvlist_next_nvpair(snaps, elem)) != NULL) {
 		const char *snapname = nvpair_name(elem);
-
-		if (pool[0] == '\0') {
-			(void) strlcpy(pool, snapname, sizeof (pool));
-			pool[strcspn(pool, "/@")] = '\0';
-		}
 
 		/* validate the target name */
 		if (!zfs_validate_name(hdl, snapname, ZFS_TYPE_SNAPSHOT,

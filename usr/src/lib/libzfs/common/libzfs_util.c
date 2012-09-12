@@ -49,61 +49,6 @@
 #include "zfs_prop.h"
 #include "zfeature_common.h"
 
-/*
- * These routines are for backwards compatibility and should be removed
- * once the Delphix stack uses libzfs_core.
- */
-int
-libzfs2_init(void)
-{
-	return (libzfs_core_init());
-}
-
-void
-libzfs2_fini(void)
-{
-	libzfs_core_fini();
-}
-
-int
-zfs2_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **resultp)
-{
-	return (lzc_snapshot(snaps, props, resultp));
-}
-
-int
-zfs2_snaprange_space(const char *firstsnap, const char *lastsnap,
-    uint64_t *usedp)
-{
-	return (lzc_snaprange_space(firstsnap, lastsnap, usedp));
-}
-
-int
-zfs2_send(const char *snapname, const char *fromsnap, int fd)
-{
-	return (lzc_send(snapname, fromsnap, fd));
-}
-
-int
-zfs2_receive(const char *snapname, nvlist_t *props, const char *origin,
-    boolean_t force, int fd)
-{
-	return (lzc_receive(snapname, props, origin, force, fd));
-}
-
-int
-zfs2_send_space(const char *snapname, const char *fromsnap,
-    uint64_t *resultp)
-{
-	return (lzc_send_space(snapname, fromsnap, resultp));
-}
-
-boolean_t
-zfs2_exists(const char *dataset)
-{
-	return (lzc_exists(dataset));
-}
-
 int
 libzfs_errno(libzfs_handle_t *hdl)
 {

@@ -133,7 +133,7 @@ zprop_register_hidden(int prop, const char *name, zprop_type_t type,
 {
 	zprop_register_impl(prop, name, type, 0, NULL, attr,
 	    objset_types, NULL, colname,
-	    type == PROP_TYPE_NUMBER ? B_TRUE : B_FALSE, B_FALSE, NULL);
+	    type == PROP_TYPE_NUMBER, B_FALSE, NULL);
 }
 
 

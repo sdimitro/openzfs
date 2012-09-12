@@ -247,8 +247,9 @@ lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **errlist)
  *
  * Snapshots that do not exist will be silently ignored.
  *
- * If 'defer' is not set, and a snapshot has user holds or clones, the destroy operation will fail
- * and none of the snapshots will be destroyed.
+ * If 'defer' is not set, and a snapshot has user holds or clones, the
+ * destroy operation will fail and none of the snapshots will be
+ * destroyed.
  *
  * If 'defer' is set, and a snapshot has user holds or clones, it will be
  * marked for deferred destruction, and will be destroyed when the last hold

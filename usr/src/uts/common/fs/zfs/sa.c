@@ -25,10 +25,6 @@
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
-/*
- * Copyright (c) 2011 by Delphix. All rights reserved.
- */
-
 #include <sys/zfs_context.h>
 #include <sys/types.h>
 #include <sys/param.h>

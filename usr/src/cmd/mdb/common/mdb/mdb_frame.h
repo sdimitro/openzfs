@@ -67,6 +67,7 @@ typedef struct mdb_frame {
 	struct mdb_lex_state *f_lstate;	/* Current lex state */
 	uintmax_t f_dot;		/* Value of '.' */
 	mdb_bool_t pipe;		/* frame has pipe context */
+	uint_t f_cbactive;		/* true iff a callback is active */
 } mdb_frame_t;
 
 #ifdef _MDB

@@ -14795,6 +14795,7 @@ dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 	dtrace_toxranges++;
 }
 
+/* ARGSUSED */
 static int
 dtrace_kstat_update(kstat_t *ksp, int flag)
 {

@@ -22,8 +22,9 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 #include <mdb/mdb_modapi.h>
 #include <mdb/mdb_ks.h>
@@ -74,11 +75,9 @@ update_tables(void)
 		return (0);
 	}
 
-	if (mdb_ctf_vread(&shared_info, "shared_info_t",
-	    shared_info_addr, 0) == -1) {
-		mdb_warn("failed to read shared_info");
+	if (mdb_ctf_vread(&shared_info, "shared_info_t", "shared_info_t",
+	    shared_info_addr, 0) == -1)
 		return (0);
-	}
 
 	return (1);
 }

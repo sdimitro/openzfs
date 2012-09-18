@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 #include <mdb/mdb_modapi.h>
 #include <mdb/mdb_ks.h>
@@ -109,8 +112,8 @@ update_tables(void)
 	/*
 	 * It's normal for this to fail with a domain dump.
 	 */
-	if (mdb_ctf_vread(&shared_info, "shared_info_t",
-	    shared_info_addr, 0) != -1)
+	if (mdb_ctf_vread(&shared_info, "shared_info_t", "shared_info_t",
+	    shared_info_addr, MDB_CTF_VREAD_QUIET) != -1)
 		have_shared_info = 1;
 
 	return (1);
@@ -255,18 +258,20 @@ evtchn_pending(int i)
 	return (!!TEST_EVTCHN_BIT(i, &shared_info.evtchn_pending[0]));
 }
 
+typedef struct mdb_xpv_psm_autovec {
+	dev_info_t *av_dip;
+} mdb_xpv_psm_autovec_t;
+
 static void
 print_bus(int irq)
 {
 	char parent[7];
 	uintptr_t dip_addr;
 	struct dev_info	dev_info;
-	struct autovec avhp;
+	mdb_xpv_psm_autovec_t avhp;
 
-	bzero(&avhp, sizeof (avhp));
-
-	if (mdb_ctf_vread(&avhp, "struct autovec",
-	    (uintptr_t)avec_tbl[irq].avh_link, 0) == -1)
+	if (mdb_ctf_vread(&avhp, "struct autovec", "mdb_xpv_psm_autovec_t",
+	    (uintptr_t)avec_tbl[irq].avh_link, MDB_CTF_VREAD_QUIET) == -1)
 		goto fail;
 
 	dip_addr = (uintptr_t)avhp.av_dip;

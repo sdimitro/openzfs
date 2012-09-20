@@ -102,7 +102,7 @@ struct nlm_knc {
 #define	NLM_BMAP_WORDS  (NLM_BMAP_NITEMS / BT_NBIPUL)
 
 /*
- * Given an interger x, the macro returs
+ * Given an integer x, the macro returns
  * -1 if x is negative,
  *  0 if x is zero
  *  1 if x is positive

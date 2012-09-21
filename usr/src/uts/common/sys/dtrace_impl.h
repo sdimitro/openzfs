@@ -26,6 +26,7 @@
 
 /*
  * Copyright (c) 2011, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_DTRACE_IMPL_H
@@ -268,27 +269,30 @@ typedef struct dtrace_aggregation {
  * the EPID, the consumer can determine the data layout.  (The data buffer
  * layout is shown schematically below.)  By assuring that one can determine
  * data layout from the EPID, the metadata stream can be separated from the
- * data stream -- simplifying the data stream enormously.
+ * data stream -- simplifying the data stream enormously.  The ECB always
+ * proceeds the recorded data as part of the dtrace_rechdr_t structure that
+ * includes the EPID and a high-resolution timestamp used for output ordering
+ * consistency.
  *
- *      base of data buffer --->  +------+--------------------+------+
- *                                | EPID | data               | EPID |
- *                                +------+--------+------+----+------+
- *                                | data          | EPID | data      |
- *                                +---------------+------+-----------+
- *                                | data, cont.                      |
- *                                +------+--------------------+------+
- *                                | EPID | data               |      |
- *                                +------+--------------------+      |
- *                                |                ||                |
- *                                |                ||                |
- *                                |                \/                |
- *                                :                                  :
- *                                .                                  .
- *                                .                                  .
- *                                .                                  .
- *                                :                                  :
- *                                |                                  |
- *     limit of data buffer --->  +----------------------------------+
+ *      base of data buffer --->  +--------+--------------------+--------+
+ *                                | rechdr | data               | rechdr |
+ *                                +--------+------+--------+----+--------+
+ *                                | data          | rechdr | data        |
+ *                                +---------------+--------+-------------+
+ *                                | data, cont.                          |
+ *                                +--------+--------------------+--------+
+ *                                | rechdr | data               |        |
+ *                                +--------+--------------------+        |
+ *                                |                ||                    |
+ *                                |                ||                    |
+ *                                |                \/                    |
+ *                                :                                      :
+ *                                .                                      .
+ *                                .                                      .
+ *                                .                                      .
+ *                                :                                      :
+ *                                |                                      |
+ *     limit of data buffer --->  +--------------------------------------+
  *
  * When evaluating an ECB, dtrace_probe() determines if the ECB's needs of the
  * principal buffer (both scratch and payload) exceed the available space.  If

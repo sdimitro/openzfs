@@ -25,6 +25,10 @@
  * Copyright (c) 2011 by Delphix. All rights reserved.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>

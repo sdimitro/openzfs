@@ -84,6 +84,9 @@ dt_regset_assert_free(dt_regset_t *drp)
 		}
 	}
 
+	/*
+	 * We set this during dtest runs to check for register leaks.
+	 */
 	if (fail && getenv("DTRACE_DEBUG_REGSET") != NULL)
 		abort();
 }

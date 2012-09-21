@@ -920,10 +920,10 @@ typedef struct dtrace_ecbdesc {
  * DTrace Metadata Description Structures
  *
  * DTrace separates the trace data stream from the metadata stream.  The only
- * metadata tokens placed in the data stream are the dtrace_record_header_t
- * (EPID + timestamp) or (in the case of aggregations) aggregation identifiers.
- * To determine the structure of the data, DTrace consumers pass the token to
- * the kernel, and receive in return a corresponding description of the enabled
+ * metadata tokens placed in the data stream are the dtrace_rechdr_t (EPID +
+ * timestamp) or (in the case of aggregations) aggregation identifiers.  To
+ * determine the structure of the data, DTrace consumers pass the token to the
+ * kernel, and receive in return a corresponding description of the enabled
  * probe (via the dtrace_eprobedesc structure) or the aggregation (via the
  * dtrace_aggdesc structure).  Both of these structures are expressed in terms
  * of record descriptions (via the dtrace_recdesc structure) that describe the
@@ -1062,17 +1062,17 @@ typedef struct dtrace_bufdesc {
  * the epid and a timestamp.  The timestamp is split into two 4-byte parts
  * so that we do not require 8-byte alignment.
  */
-typedef struct dtrace_record_header {
+typedef struct dtrace_rechdr {
 	dtrace_epid_t dtrh_epid;		/* enabled probe id */
 	uint32_t dtrh_timestamp_hi;		/* high bits of hrtime_t */
 	uint32_t dtrh_timestamp_lo;		/* low bits of hrtime_t */
-} dtrace_record_header_t;
+} dtrace_rechdr_t;
 
-#define	DTRACE_RECORD_GET_TIMESTAMP(dtrh)			\
+#define	DTRACE_RECORD_LOAD_TIMESTAMP(dtrh)			\
 	((dtrh)->dtrh_timestamp_lo +				\
 	((uint64_t)(dtrh)->dtrh_timestamp_hi << 32))
 
-#define	DTRACE_RECORD_SET_TIMESTAMP(dtrh, hrtime) {		\
+#define	DTRACE_RECORD_STORE_TIMESTAMP(dtrh, hrtime) {		\
 	(dtrh)->dtrh_timestamp_lo = (uint32_t)hrtime;		\
 	(dtrh)->dtrh_timestamp_hi = hrtime >> 32;		\
 }

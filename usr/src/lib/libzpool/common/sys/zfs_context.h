@@ -61,7 +61,6 @@ extern "C" {
 #include <dirent.h>
 #include <time.h>
 #include <procfs.h>
-#include <sys/debug.h>
 #include <libsysevent.h>
 #include <sys/note.h>
 #include <sys/types.h>
@@ -78,6 +77,8 @@ extern "C" {
 #include <sys/u8_textprep.h>
 #include <sys/sysevent/eventdefs.h>
 #include <sys/sysevent/dev.h>
+#include <sys/sunddi.h>
+#include <sys/debug.h>
 
 /*
  * Debugging

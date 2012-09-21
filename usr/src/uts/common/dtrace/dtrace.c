@@ -2508,7 +2508,7 @@ dtrace_speculation_commit(dtrace_state_t *state, processorid_t cpu,
 	slimit = saddr + src->dtb_offset;
 	while (saddr < slimit) {
 		size_t size;
-		dtrace_record_header_t *dtrh = (dtrace_record_header_t *)saddr;
+		dtrace_rechdr_t *dtrh = (dtrace_rechdr_t *)saddr;
 
 		if (dtrh->dtrh_epid == DTRACE_EPIDNONE) {
 			saddr += sizeof (dtrace_epid_t);
@@ -2518,10 +2518,10 @@ dtrace_speculation_commit(dtrace_state_t *state, processorid_t cpu,
 		size = state->dts_ecbs[dtrh->dtrh_epid - 1]->dte_size;
 
 		ASSERT3U(saddr + size, <=, slimit);
-		ASSERT3U(size, >=, sizeof (dtrace_record_header_t));
-		ASSERT3U(DTRACE_RECORD_GET_TIMESTAMP(dtrh), ==, UINT64_MAX);
+		ASSERT3U(size, >=, sizeof (dtrace_rechdr_t));
+		ASSERT3U(DTRACE_RECORD_LOAD_TIMESTAMP(dtrh), ==, UINT64_MAX);
 
-		DTRACE_RECORD_SET_TIMESTAMP(dtrh, timestamp);
+		DTRACE_RECORD_STORE_TIMESTAMP(dtrh, timestamp);
 
 		saddr += size;
 	}
@@ -6036,17 +6036,16 @@ dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 		ASSERT(tomax != NULL);
 
 		if (ecb->dte_size != 0) {
-			dtrace_record_header_t dtrh;
+			dtrace_rechdr_t dtrh;
 			if (!(mstate.dtms_present & DTRACE_MSTATE_TIMESTAMP)) {
 				mstate.dtms_timestamp = dtrace_gethrtime();
 				mstate.dtms_present |= DTRACE_MSTATE_TIMESTAMP;
 			}
-			ASSERT3U(ecb->dte_size, >=,
-			    sizeof (dtrace_record_header_t));
+			ASSERT3U(ecb->dte_size, >=, sizeof (dtrace_rechdr_t));
 			dtrh.dtrh_epid = ecb->dte_epid;
-			DTRACE_RECORD_SET_TIMESTAMP(&dtrh,
+			DTRACE_RECORD_STORE_TIMESTAMP(&dtrh,
 			    mstate.dtms_timestamp);
-			*((dtrace_record_header_t *)(tomax + offs)) = dtrh;
+			*((dtrace_rechdr_t *)(tomax + offs)) = dtrh;
 		}
 
 		mstate.dtms_epid = ecb->dte_epid;
@@ -6212,7 +6211,7 @@ dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 
 			switch (act->dta_kind) {
 			case DTRACEACT_SPECULATE: {
-				dtrace_record_header_t *dtrh;
+				dtrace_rechdr_t *dtrh;
 
 				ASSERT(buf == &state->dts_buffer[cpuid]);
 				buf = dtrace_speculation_buffer(state,
@@ -6239,16 +6238,17 @@ dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 					continue;
 
 				ASSERT3U(ecb->dte_size, >=,
-				    sizeof (dtrace_record_header_t));
+				    sizeof (dtrace_rechdr_t));
 				dtrh = ((void *)(tomax + offs));
 				dtrh->dtrh_epid = ecb->dte_epid;
 				/*
-				 * When the speculation is committed, its
-				 * data's timestamps will all be set to the
-				 * commit time.  Until then, it is set to a
-				 * sentinel value, for debugability.
+				 * When the speculation is committed, all of
+				 * the records in the speculative buffer will
+				 * have their timestamps set to the commit
+				 * time.  Until then, it is set to a sentinel
+				 * value, for debugability.
 				 */
-				DTRACE_RECORD_SET_TIMESTAMP(dtrh, UINT64_MAX);
+				DTRACE_RECORD_STORE_TIMESTAMP(dtrh, UINT64_MAX);
 				continue;
 			}
 
@@ -9462,7 +9462,7 @@ dtrace_ecb_add(dtrace_state_t *state, dtrace_probe_t *probe)
 	 * The default size is the size of the default action: recording
 	 * the header.
 	 */
-	ecb->dte_size = ecb->dte_needed = sizeof (dtrace_record_header_t);
+	ecb->dte_size = ecb->dte_needed = sizeof (dtrace_rechdr_t);
 	ecb->dte_alignment = sizeof (dtrace_epid_t);
 
 	epid = state->dts_epid++;
@@ -9566,10 +9566,10 @@ dtrace_ecb_resize(dtrace_ecb_t *ecb)
 	uint32_t aggbase = UINT32_MAX;
 
 	/*
-	 * If we record anything, we always record the dtrace_record_header_t.
-	 * (And we always record it first.)
+	 * If we record anything, we always record the dtrace_rechdr_t.  (And
+	 * we always record it first.)
 	 */
-	ecb->dte_size = sizeof (dtrace_record_header_t);
+	ecb->dte_size = sizeof (dtrace_rechdr_t);
 	ecb->dte_alignment = sizeof (dtrace_epid_t);
 
 	for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
@@ -9632,9 +9632,9 @@ dtrace_ecb_resize(dtrace_ecb_t *ecb)
 
 	if ((act = ecb->dte_action) != NULL &&
 	    !(act->dta_kind == DTRACEACT_SPECULATE && act->dta_next == NULL) &&
-	    ecb->dte_size == sizeof (dtrace_record_header_t)) {
+	    ecb->dte_size == sizeof (dtrace_rechdr_t)) {
 		/*
-		 * If the size is still sizeof (record_header_t), then all
+		 * If the size is still sizeof (dtrace_rechdr_t), then all
 		 * actions store no data; set the size to 0.
 		 */
 		ecb->dte_size = 0;
@@ -10013,7 +10013,7 @@ dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 			break;
 
 		case DTRACEACT_SPECULATE:
-			if (ecb->dte_size > sizeof (dtrace_record_header_t))
+			if (ecb->dte_size > sizeof (dtrace_rechdr_t))
 				return (EINVAL);
 
 			if (dp == NULL)

@@ -613,11 +613,7 @@ if ($opt_x) {
 die "$PNAME: failed to open $PNAME.$$.log: $!\n"
     unless (!$opt_l || open(LOG, ">$PNAME.$$.log"));
 
-
-#
-# Cause a hard failure if we leak registers during code generation.
-#
-$ENV{'DTRACE_DEBUG_REGSET'} = '1';
+$ENV{'DTRACE_DEBUG_REGSET'} = 'true';
 
 if ($opt_g) {
 	$ENV{'UMEM_DEBUG'} = 'default,verbose';

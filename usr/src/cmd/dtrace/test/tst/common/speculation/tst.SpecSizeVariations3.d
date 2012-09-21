@@ -23,6 +23,7 @@
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+
 /*
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
@@ -37,7 +38,7 @@
  */
 
 #pragma D option quiet
-#pragma D option specsize=56
+#pragma D option specsize=48
 
 BEGIN
 {

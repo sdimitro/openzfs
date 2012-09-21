@@ -2151,8 +2151,8 @@ nextepid:
 
 /*
  * Reduce memory usage by shrinking the buffer if it's no more than half full.
- * Note, we need to preserve the alignment of the data at dtbd_oldest,
- * which is only 4-byte aligned.
+ * Note, we need to preserve the alignment of the data at dtbd_oldest, which is
+ * only 4-byte aligned.
  */
 static void
 dt_realloc_buf(dtrace_hdl_t *dtp, dtrace_bufdesc_t *buf, int cursize)
@@ -2181,30 +2181,34 @@ dt_realloc_buf(dtrace_hdl_t *dtp, dtrace_bufdesc_t *buf, int cursize)
 static int
 dt_unring_buf(dtrace_hdl_t *dtp, dtrace_bufdesc_t *buf)
 {
-	if (buf->dtbd_oldest != 0) {
-		int misalign = buf->dtbd_oldest & (sizeof (uint64_t) - 1);
-		char *newdata = dt_alloc(dtp, buf->dtbd_size + misalign);
-		char *ndp = newdata;
+	int misalign;
+	char *newdata, *ndp;
 
-		if (newdata == NULL)
-			return (-1);
+	if (buf->dtbd_oldest == 0)
+		return (0);
 
-		assert(0 == (buf->dtbd_size & (sizeof (uint64_t) - 1)));
+	misalign = buf->dtbd_oldest & (sizeof (uint64_t) - 1);
+	newdata = ndp = dt_alloc(dtp, buf->dtbd_size + misalign);
 
-		bzero(ndp, misalign);
-		ndp += misalign;
+	if (newdata == NULL)
+		return (-1);
 
-		bcopy(buf->dtbd_data + buf->dtbd_oldest, ndp,
-		    buf->dtbd_size - buf->dtbd_oldest);
-		ndp += buf->dtbd_size - buf->dtbd_oldest;
+	assert(0 == (buf->dtbd_size & (sizeof (uint64_t) - 1)));
 
-		bcopy(buf->dtbd_data, ndp, buf->dtbd_oldest);
+	bzero(ndp, misalign);
+	ndp += misalign;
 
-		dt_free(dtp, buf->dtbd_data);
-		buf->dtbd_oldest = 0;
-		buf->dtbd_data = newdata;
-		buf->dtbd_size += misalign;
-	}
+	bcopy(buf->dtbd_data + buf->dtbd_oldest, ndp,
+	    buf->dtbd_size - buf->dtbd_oldest);
+	ndp += buf->dtbd_size - buf->dtbd_oldest;
+
+	bcopy(buf->dtbd_data, ndp, buf->dtbd_oldest);
+
+	dt_free(dtp, buf->dtbd_data);
+	buf->dtbd_oldest = 0;
+	buf->dtbd_data = newdata;
+	buf->dtbd_size += misalign;
+
 	return (0);
 }
 
@@ -2352,6 +2356,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 	 * first pass, and that we only process ERROR enablings _not_ induced
 	 * by BEGIN enablings in the second pass.
 	 */
+
 	dt_begin_t begin;
 	processorid_t cpu = dtp->dt_beganon;
 	int rval, i;
@@ -2457,12 +2462,13 @@ dt_buf_oldest(void *elem, void *arg)
 	size_t offs = buf->dtbd_oldest;
 
 	while (offs < buf->dtbd_size) {
-		dtrace_record_header_t *dtrh =
-		    (dtrace_record_header_t *)(buf->dtbd_data + offs);
+		dtrace_rechdr_t *dtrh =
+		    /* LINTED - alignment */
+		    (dtrace_rechdr_t *)(buf->dtbd_data + offs);
 		if (dtrh->dtrh_epid == DTRACE_EPIDNONE) {
 			offs += sizeof (dtrace_epid_t);
 		} else {
-			return (DTRACE_RECORD_GET_TIMESTAMP(dtrh));
+			return (DTRACE_RECORD_LOAD_TIMESTAMP(dtrh));
 		}
 	}
 
@@ -2504,22 +2510,17 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	if (dtp->dt_options[DTRACEOPT_TEMPORAL] == DTRACEOPT_UNSET) {
 		/*
 		 * The output will not be in the order it was traced.  Rather,
-		 * we will consume all of the data from one CPU's buffer, then
-		 * retrieve the next CPU's buffer and consume it.  However,
-		 * we want to handle records from BEGIN and END probes specially
-		 * to ensure that they are consumed first and last,
+		 * we will consume all of the data from each CPU's buffer in
+		 * turn.  We apply special handling for the records from BEGIN
+		 * and END probes so that they are consumed first and last,
 		 * respectively.
-		 */
-
-		/*
+		 *
 		 * If we have just begun, we want to first process the CPU that
 		 * executed the BEGIN probe (if any).
 		 */
-		if (dtp->dt_active && dtp->dt_beganon != -1) {
-			if ((rval = dt_consume_begin(dtp,
-			    fp, pf, rf, arg)) != 0)
-				return (rval);
-		}
+		if (dtp->dt_active && dtp->dt_beganon != -1 &&
+		    (rval = dt_consume_begin(dtp, fp, pf, rf, arg)) != 0)
+			return (rval);
 
 		for (i = 0; i < max_ncpus; i++) {
 			dtrace_bufdesc_t *buf;

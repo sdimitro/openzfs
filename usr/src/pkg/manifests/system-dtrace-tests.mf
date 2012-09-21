@@ -485,8 +485,8 @@ file path=opt/SUNWdtrt/tst/common/builtinvar/tst.tid.d mode=0444
 file path=opt/SUNWdtrt/tst/common/builtinvar/tst.tid1.d mode=0444
 file path=opt/SUNWdtrt/tst/common/builtinvar/tst.timestamp.d mode=0444
 file path=opt/SUNWdtrt/tst/common/builtinvar/tst.vtimestamp.d mode=0444
-file path=opt/SUNWdtrt/tst/common/cg/err.D_NOREG.noreg.d
-file path=opt/SUNWdtrt/tst/common/cg/err.baddif.d
+file path=opt/SUNWdtrt/tst/common/cg/err.D_NOREG.noreg.d mode=0444
+file path=opt/SUNWdtrt/tst/common/cg/err.baddif.d mode=0444
 file path=opt/SUNWdtrt/tst/common/clauses/err.D_IDENT_UNDEF.aggfun.d mode=0444
 file path=opt/SUNWdtrt/tst/common/clauses/err.D_IDENT_UNDEF.aggtup.d mode=0444
 file path=opt/SUNWdtrt/tst/common/clauses/err.D_IDENT_UNDEF.arrtup.d mode=0444
@@ -1253,7 +1253,6 @@ file path=opt/SUNWdtrt/tst/common/preprocessor/tst.preexpifelse.d mode=0444
 file path=opt/SUNWdtrt/tst/common/preprocessor/tst.preexpifelse.d.out \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/preprocessor/tst.withinprobe.d mode=0444
-file path=opt/SUNWdtrt/tst/common/print/err.D_PRINT_DYN.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/err.D_PRINT_VOID.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/err.D_PROTO_LEN.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/print/tst.array.d mode=0444
@@ -1802,7 +1801,6 @@ file path=opt/SUNWdtrt/tst/common/tick-n/tst.tickus.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/tick-n/tst.tickusec.d mode=0444
 file path=opt/SUNWdtrt/tst/common/tick-n/tst.tickusec.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/err.D_PROTO_LEN.bad.d mode=0444
-file path=opt/SUNWdtrt/tst/common/trace/err.D_TRACE_DYN.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/err.D_TRACE_VOID.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/tst.dyn.d mode=0444
 file path=opt/SUNWdtrt/tst/common/trace/tst.misc.d mode=0444
@@ -1999,6 +1997,9 @@ file path=opt/SUNWdtrt/tst/common/usdt/tst.guess32.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.guess64.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.header.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.include.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe.exe mode=0555
+file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe1.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe2.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.linkpriv.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.linkunpriv.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.multiple.ksh mode=0444

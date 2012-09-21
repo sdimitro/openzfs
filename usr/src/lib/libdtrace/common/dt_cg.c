@@ -1357,7 +1357,7 @@ typedef struct dt_xlmemb {
 	dt_ident_t *dtxl_idp;		/* translated ident */
 	dt_irlist_t *dtxl_dlp;		/* instruction list */
 	dt_regset_t *dtxl_drp;		/* register set */
-	int dtxl_sreg;			/* location of the transation input */
+	int dtxl_sreg;			/* location of the translation input */
 	int dtxl_dreg;			/* location of our allocated buffer */
 } dt_xlmemb_t;
 

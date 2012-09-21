@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -739,6 +740,15 @@ drv_ioc_prop_common(dld_ioc_macprop_t *prop, intptr_t arg, boolean_t set,
 			*(link_tagmode_t *)kprop->pr_val = dlp->dl_tagmode;
 			kprop->pr_perm_flags = MAC_PROP_PERM_RW;
 			err = 0;
+		}
+		break;
+	case MAC_PROP_ALIAS:
+		if (set) {
+			err = dls_mgmt_set_alias(linkid, kprop->pr_val);
+		} else {
+			kprop->pr_perm_flags = MAC_PROP_PERM_RW;
+			err = dls_mgmt_get_alias(linkid, kprop->pr_val,
+			    kprop->pr_valsize);
 		}
 		break;
 	default: {

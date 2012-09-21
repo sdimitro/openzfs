@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 #ifndef	_SYS_DLS_H
 #define	_SYS_DLS_H
@@ -143,6 +146,8 @@ extern int		dls_mgmt_get_linkinfo(datalink_id_t, char *,
 extern int		dls_mgmt_get_linkid(const char *, datalink_id_t *);
 extern datalink_id_t	dls_mgmt_get_next(datalink_id_t, datalink_class_t,
 			    datalink_media_t, uint32_t);
+extern int		dls_mgmt_get_alias(datalink_id_t, char *, size_t);
+extern int		dls_mgmt_set_alias(datalink_id_t, char *);
 extern int		dls_devnet_macname2linkid(const char *,
 			    datalink_id_t *);
 

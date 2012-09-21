@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 /*
  * Datalink management routines.
@@ -93,6 +96,7 @@ static door_handle_t	dls_mgmt_dh = NULL;
 typedef struct dls_devnet_s {
 	datalink_id_t	dd_linkid;
 	char		dd_linkname[MAXLINKNAMELEN];
+	char		dd_linkalias[MAXLINKALIASLEN];
 	char		dd_mac[MAXNAMELEN];
 	kstat_t		*dd_ksp;	/* kstat in owner_zid */
 	kstat_t		*dd_zone_ksp;	/* in dd_zid if != owner_zid */
@@ -596,6 +600,52 @@ dls_mgmt_get_phydev(datalink_id_t linkid, dev_t *devp)
 
 	*devp = makedevice((major_t)maj, (minor_t)inst);
 	return (0);
+}
+
+int
+dls_mgmt_get_alias(datalink_id_t linkid, char *alias, size_t alias_size)
+{
+	dls_devnet_t *ddp;
+	int err = 0;
+
+	rw_enter(&i_dls_devnet_lock, RW_READER);
+	if ((err = mod_hash_find(i_dls_devnet_id_hash,
+	    (mod_hash_key_t)(uintptr_t)linkid, (mod_hash_val_t *)&ddp)) != 0) {
+		err = ENOENT;
+	} else {
+		mutex_enter(&ddp->dd_mutex);
+		if (strlcpy(alias, ddp->dd_linkalias, alias_size) >= alias_size)
+			err = EINVAL;
+		mutex_exit(&ddp->dd_mutex);
+	}
+	rw_exit(&i_dls_devnet_lock);
+	return (err);
+}
+
+int
+dls_mgmt_set_alias(datalink_id_t linkid, char *alias)
+{
+	dls_devnet_t *ddp;
+	int err = 0;
+
+	rw_enter(&i_dls_devnet_lock, RW_READER);
+	if ((err = mod_hash_find(i_dls_devnet_id_hash,
+	    (mod_hash_key_t)(uintptr_t)linkid, (mod_hash_val_t *)&ddp)) != 0) {
+		err = ENOENT;
+	} else {
+		mutex_enter(&ddp->dd_mutex);
+		if (alias == NULL) {
+			ddp->dd_linkalias[0] = '\0';
+		} else {
+			if (strlcpy(ddp->dd_linkalias, alias,
+			    sizeof (ddp->dd_linkalias)) >=
+			    sizeof (ddp->dd_linkalias))
+				err = E2BIG;
+		}
+		mutex_exit(&ddp->dd_mutex);
+	}
+	rw_exit(&i_dls_devnet_lock);
+	return (err);
 }
 
 /*

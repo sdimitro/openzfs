@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -197,10 +198,17 @@ extern "C" {
 
 /*
  * MAXLINKNAMELEN defines the longest possible permitted datalink name,
- * including the terminating NUL.  Note that this must not be larger
- * than related networking constants such as LIFNAMSIZ.
+ * including the terminating NUL.  Note that this must not be larger than
+ * related networking constants such as LIFNAMSIZ.
  */
 #define	MAXLINKNAMELEN	32
+/*
+ * A link alias implements the ifAlias MIB object defined in RFC 2233 which is
+ * limited to 64 characters.  It is meant to be an administratively assigned
+ * arbitrary string, in contrast to the link name which is subject to the
+ * naming conventioned defined in dlpi(7P).
+ */
+#define	MAXLINKALIASLEN	65
 
 #ifndef NADDR
 #define	NADDR 13

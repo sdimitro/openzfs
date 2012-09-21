@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <stdlib.h>
@@ -151,7 +152,8 @@ static pd_getf_t	get_zone, get_autopush, get_rate_mod, get_rate,
 			get_bridge_pvid, get_protection, get_rxrings,
 			get_txrings, get_cntavail,
 			get_allowedips, get_allowedcids, get_pool,
-			get_rings_range, get_linkmode_prop, get_macaddress;
+			get_rings_range, get_linkmode_prop, get_macaddress,
+			get_macalias;
 
 static pd_setf_t	set_zone, set_rate, set_powermode, set_radio,
 			set_public_prop, set_resource, set_stp_prop,
@@ -160,8 +162,8 @@ static pd_setf_t	set_zone, set_rate, set_powermode, set_radio,
 static pd_checkf_t	check_zone, check_autopush, check_rate, check_hoplimit,
 			check_encaplim, check_uint32, check_maxbw, check_cpus,
 			check_stp_prop, check_bridge_pvid, check_allowedips,
-			check_allowedcids, check_rings,
-			check_pool, check_prop;
+			check_allowedcids, check_rings, check_pool,
+			check_macalias, check_prop;
 
 struct prop_desc {
 	/*
@@ -364,6 +366,8 @@ static link_attr_t link_attr[] = {
 	{ MAC_PROP_IB_LINKMODE,	sizeof (uint32_t),	"linkmode"},
 
 	{ MAC_PROP_MACADDRESS,	sizeof (mac_addrprop_t), "mac-address"},
+
+	{ MAC_PROP_ALIAS,	MAXLINKALIASLEN,	"alias"},
 
 	{ MAC_PROP_PRIVATE,	0,			"driver-private"}
 };
@@ -731,7 +735,11 @@ static prop_desc_t	prop_table[] = {
 	{ "mac-address", { "", 0}, NULL, 0,
 	    NULL, NULL, get_macaddress, NULL, 0,
 	    DATALINK_CLASS_PHYS|DATALINK_CLASS_AGGR|DATALINK_CLASS_VNIC|
-	    DATALINK_CLASS_SIMNET, DATALINK_ANY_MEDIATYPE }
+	    DATALINK_CLASS_SIMNET, DATALINK_ANY_MEDIATYPE },
+
+	{ "alias", { "", 0}, NULL, 0,
+	    set_public_prop, NULL, get_macalias, check_macalias, PD_CHECK_ALLOC,
+	    DATALINK_CLASS_ALL, DATALINK_ANY_MEDIATYPE }
 };
 
 #define	DLADM_MAX_PROPS	(sizeof (prop_table) / sizeof (prop_desc_t))
@@ -4606,5 +4614,50 @@ get_macaddress(dladm_handle_t handle, prop_desc_t *pdp, datalink_id_t linkid,
 	(void) _link_ntoa(addrprop.ma_addr, prop_val[0], addrprop.ma_len,
 	    IFT_OTHER);
 	*val_cnt = 1;
+	return (DLADM_STATUS_OK);
+}
+
+/* ARGSUSED */
+static dladm_status_t
+get_macalias(dladm_handle_t handle, prop_desc_t *pdp, datalink_id_t linkid,
+    char **prop_val, uint_t *val_cnt, datalink_media_t media, uint_t flags,
+    uint_t *perm_flags)
+{
+	dladm_status_t	status;
+
+	if (flags & DLD_PROP_DEFAULT)
+		return (DLADM_STATUS_NOTDEFINED);
+
+	if ((status = i_dladm_get_public_prop(handle, linkid, pdp->pd_name,
+	    flags, perm_flags, prop_val[0], MAXLINKALIASLEN)) !=
+	    DLADM_STATUS_OK)
+		return (status);
+	*val_cnt = 1;
+	return (DLADM_STATUS_OK);
+}
+
+/* ARGSUSED */
+static dladm_status_t
+check_macalias(dladm_handle_t handle, struct prop_desc *pd,
+    datalink_id_t linkid, char **prop_val, uint_t *val_cntp, uint_t flags,
+    val_desc_t **vdpp, datalink_media_t media)
+{
+	char *alias;
+
+	if (*val_cntp != 1)
+		return (DLADM_STATUS_BADARG);
+
+	if (prop_val != NULL) {
+		if ((alias = calloc(1, MAXLINKALIASLEN)) == NULL)
+			return (DLADM_STATUS_NOMEM);
+		if (strlcpy(alias, prop_val[0], MAXLINKALIASLEN) >=
+		    MAXLINKALIASLEN) {
+			free(alias);
+			return (DLADM_STATUS_BADARG);
+		}
+		(*vdpp)->vd_val = (uintptr_t)prop_val[0];
+	} else {
+		(*vdpp)->vd_val = NULL; /* reset */
+	}
 	return (DLADM_STATUS_OK);
 }

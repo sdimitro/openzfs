@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <assert.h>
@@ -833,38 +834,40 @@ parse_fail:
 static boolean_t
 process_link_line(char *buf, dlmgmt_link_t *linkp)
 {
-	int	i, len, llen;
-	char	*str, *lasts;
+	char	*name, *plist, *plistend;
 	char	tmpbuf[MAXLINELEN];
 
 	bzero(linkp, sizeof (*linkp));
 	linkp->ll_linkid = DATALINK_INVALID_LINKID;
 
-	/*
-	 * Use a copy of buf for parsing so that we can do whatever we want.
-	 */
+	/* Use a copy of buf for parsing so that we can do whatever we want. */
 	(void) strlcpy(tmpbuf, buf, MAXLINELEN);
 
 	/*
-	 * Skip leading spaces, blank lines, and comments.
+	 * The format of a link line is:
+	 * <name>\t<prop>;...
+	 * The file may also comtain blank and comment lines (beginning with
+	 * '#').
 	 */
-	len = strlen(tmpbuf);
-	for (i = 0; i < len; i++) {
-		if (!isspace(tmpbuf[i]))
-			break;
-	}
-	if (i == len || tmpbuf[i] == '#')
+	name = tmpbuf;
+
+	/* Skip leading spaces */
+	while (isspace(name[0]))
+		name++;
+
+	/* Discard blank or comment lines */
+	if (name[0] == '\0' || name[0] == '#')
 		return (B_TRUE);
 
-	str = tmpbuf + i;
-	/*
-	 * Find the link name and assign it to the link structure.
-	 */
-	if (strtok_r(str, " \n\t", &lasts) == NULL)
+	/* Isolate the link name and property list. */
+	if ((plist = strpbrk(name, " \t")) == NULL)
 		goto fail;
+	plist[0] = '\0';
+	plist++;
 
-	llen = strlen(str);
 	/*
+	 * Assign the link name to the link structure.
+	 *
 	 * Note that a previous version of the persistent datalink.conf file
 	 * stored the linkid as the first field.  In that case, the name will
 	 * be obtained through parse_linkprops from a property with the format
@@ -872,26 +875,29 @@ process_link_line(char *buf, dlmgmt_link_t *linkp)
 	 * rewrite_needed so that dlmgmt_db_init() can rewrite the file with
 	 * the new format after it's done reading in the data.
 	 */
-	if (isdigit(str[0])) {
-		linkp->ll_linkid = atoi(str);
+	if (isdigit(name[0])) {
+		linkp->ll_linkid = atoi(name);
 		rewrite_needed = B_TRUE;
 	} else {
-		if (strlcpy(linkp->ll_link, str, sizeof (linkp->ll_link)) >=
+		if (strlcpy(linkp->ll_link, name, sizeof (linkp->ll_link)) >=
 		    sizeof (linkp->ll_link))
 			goto fail;
 	}
 
-	str += llen + 1;
-	if (str >= tmpbuf + len)
-		goto fail;
-
 	/*
-	 * Now find the list of link properties.
+	 * Parse the list of link properties.
+	 *
+	 * Start by removing trailing space from the end of the property list.
+	 * Each property entry ends with a ';', so the last character on the
+	 * line should be a ';'.  If there is anything other than whitespace
+	 * following the last ';', then this is a corrupt line.
 	 */
-	if ((str = strtok_r(str, " \n\t", &lasts)) == NULL)
+	if ((plistend = strrchr(plist, ';')) == NULL)
 		goto fail;
-
-	if (parse_linkprops(str, linkp) < 0)
+	if (!isspace(plistend[1]))
+		goto fail;
+	plistend[1] = '\0';
+	if (parse_linkprops(plist, linkp) < 0)
 		goto fail;
 
 	return (B_TRUE);

@@ -1291,12 +1291,11 @@ dmu_sync_done(zio_t *zio, arc_buf_t *buf, void *varg)
 		if (dr->dt.dl.dr_nopwrite) {
 			blkptr_t *bp = zio->io_bp;
 			blkptr_t *bp_orig = &zio->io_bp_orig;
+			uint8_t chksum = BP_GET_CHECKSUM(bp_orig);
 
 			ASSERT(BP_EQUAL(bp, bp_orig));
 			ASSERT(zio->io_prop.zp_compress != ZIO_COMPRESS_OFF);
-			ASSERT(BP_GET_CHECKSUM(bp_orig) ==
-			    spa_dedup_checksum(zio->io_spa));
-			ASSERT(dr->dt.dl.dr_nopwrite);
+			ASSERT(zio_checksum_table[chksum].ci_dedup);
 		}
 		dr->dt.dl.dr_overridden_by = *zio->io_bp;
 		dr->dt.dl.dr_override_state = DR_OVERRIDDEN;
@@ -1641,11 +1640,6 @@ dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp, zio_prop_t *zp)
 		 */
 		nopwrite = (!dedup && zio_checksum_table[checksum].ci_dedup &&
 		    compress != ZIO_COMPRESS_OFF && zfs_nopwrite_enabled);
-		if (nopwrite) {
-			zio_compress_info_t *ci = &zio_compress_table[compress];
-			ASSERT(compress != ZIO_COMPRESS_EMPTY ||
-			    ci->ci_compress != NULL);
-		}
 	}
 
 	zp->zp_checksum = checksum;

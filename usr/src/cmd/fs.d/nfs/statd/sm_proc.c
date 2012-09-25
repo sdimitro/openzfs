@@ -20,8 +20,6 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2012 by Delphix. All rights reserved.
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -37,6 +35,11 @@
  * University Acknowledgment- Portions of this document are derived from
  * software developed by the University of California, Berkeley, and its
  * contributors.
+ */
+
+/*
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>

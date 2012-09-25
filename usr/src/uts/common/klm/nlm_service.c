@@ -1,6 +1,4 @@
 /*
- * Copyright 2012 by Delphix. All rights reserved.
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2008 Isilon Inc http://www.isilon.com/
  * Authors: Doug Rabson <dfr@rabson.org>
  * Developed with Red Inc: Alfred Perlstein <alfred@freebsd.org>
@@ -25,6 +23,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ */
+
+/*
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -427,7 +430,7 @@ nlm_do_lock(nlm4_lockargs *argp, nlm4_res *resp, struct svc_req *sr,
 	 */
 	nvp = nlm_fh_to_vhold(host, &argp->alock.fh);
 	if (nvp == NULL) {
-		resp->stat.stat = nlm4_stale_fh;
+		status = nlm4_stale_fh;
 		goto doreply;
 	}
 
@@ -436,7 +439,7 @@ nlm_do_lock(nlm4_lockargs *argp, nlm4_res *resp, struct svc_req *sr,
 	 */
 	if (argp->alock.l_len != 0 && argp->alock.l_offset + argp->alock.l_len
 	    <= argp->alock.l_offset) {
-		resp->stat.stat = nlm4_failed;
+		status = nlm4_failed;
 		goto doreply;
 	}
 

@@ -11,7 +11,7 @@
 
 /*
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*

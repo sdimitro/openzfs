@@ -18,9 +18,10 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <sys/param.h>
@@ -49,12 +50,12 @@
  * cached for the client's NLM service is stale and that we need to establish
  * a new RPC client.
  */
-#define NLM_STALE_CLNT(_status)			\
+#define	NLM_STALE_CLNT(_status)			\
 	((_status) == RPC_PROGUNAVAIL ||	\
-	 (_status) == RPC_PROGVERSMISMATCH ||	\
-	 (_status) == RPC_PROCUNAVAIL ||	\
-	 (_status) == RPC_CANTCONNECT ||	\
-	 (_status) == RPC_XPRTFAILED)
+	(_status) == RPC_PROGVERSMISMATCH ||	\
+	(_status) == RPC_PROCUNAVAIL ||		\
+	(_status) == RPC_CANTCONNECT ||		\
+	(_status) == RPC_XPRTFAILED)
 
 static struct kmem_cache *nlm_rpch_cache = NULL;
 

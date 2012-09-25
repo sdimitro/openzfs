@@ -20,7 +20,7 @@
 #
 #
 # Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 FSTYPE	  =	nfs
@@ -39,6 +39,11 @@ SRCS	  =	$(LOCAL:%.o=%.c) ../lib/daemon.c ../lib/nfs_tbind.c \
 LDLIBS	 +=	-lnsl -lscf
 CPPFLAGS +=	-I../lib
 C99MODE	  =	$(C99_ENABLE)
+
+CERRWARN += -_gcc=-Wno-parentheses
+CERRWARN += -_gcc=-Wno-switch
+CERRWARN += -_gcc=-Wno-unused-variable
+CERRWARN += -_gcc=-Wno-uninitialized
 
 $(TYPEPROG):	$(OBJS)
 		$(LINK.c) -o $@ $(OBJS) $(LDLIBS)

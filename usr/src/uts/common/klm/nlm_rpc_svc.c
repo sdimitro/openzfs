@@ -1,6 +1,4 @@
 /*
- * Copyright 2012 by Delphix. All rights reserved.
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2008 Isilon Inc http://www.isilon.com/
  * Authors: Doug Rabson <dfr@rabson.org>
  * Developed with Red Inc: Alfred Perlstein <alfred@freebsd.org>
@@ -25,6 +23,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ */
+
+/*
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -127,8 +130,7 @@ nlm_test_1_svc(struct nlm_testargs *argp, nlm_testres *resp,
 	nlm4_testargs args4;
 	nlm4_testres res4;
 
-	if (!nlm_valid_nlm_lock(&argp->alock))
-	{
+	if (!nlm_valid_nlm_lock(&argp->alock)) {
 		resp->cookie = argp->cookie;
 		resp->stat.stat = nlm_denied;
 		return (TRUE);
@@ -166,8 +168,7 @@ nlm_lock_1_svc(nlm_lockargs *argp, nlm_res *resp,
 	nlm4_lockargs args4;
 	nlm4_res res4;
 
-	if (!nlm_valid_nlm_lock(&argp->alock))
-	{
+	if (!nlm_valid_nlm_lock(&argp->alock)) {
 		resp->cookie = argp->cookie;
 		resp->stat.stat = nlm_denied;
 		return (TRUE);
@@ -232,8 +233,7 @@ nlm_cancel_1_svc(struct nlm_cancargs *argp, nlm_res *resp,
 	nlm4_cancargs args4;
 	nlm4_res res4;
 
-	if (!nlm_valid_nlm_lock(&argp->alock))
-	{
+	if (!nlm_valid_nlm_lock(&argp->alock)) {
 		resp->cookie = argp->cookie;
 		resp->stat.stat = nlm_denied;
 		return (TRUE);
@@ -260,8 +260,7 @@ nlm_unlock_1_svc(struct nlm_unlockargs *argp, nlm_res *resp,
 	nlm4_unlockargs args4;
 	nlm4_res res4;
 
-	if (!nlm_valid_nlm_lock(&argp->alock))
-	{
+	if (!nlm_valid_nlm_lock(&argp->alock)) {
 		resp->cookie = argp->cookie;
 		resp->stat.stat = nlm_denied;
 		return (TRUE);
@@ -286,8 +285,7 @@ nlm_granted_1_svc(struct nlm_testargs *argp, nlm_res *resp,
 	nlm4_testargs args4;
 	nlm4_res res4;
 
-	if (!nlm_valid_nlm_lock(&argp->alock))
-	{
+	if (!nlm_valid_nlm_lock(&argp->alock)) {
 		resp->cookie = argp->cookie;
 		resp->stat.stat = nlm_denied;
 		return (TRUE);

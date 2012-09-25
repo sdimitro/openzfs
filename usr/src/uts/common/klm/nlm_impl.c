@@ -1,6 +1,4 @@
 /*
- * Copyright 2012 by Delphix. All rights reserved.
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2008 Isilon Inc http://www.isilon.com/
  * Authors: Doug Rabson <dfr@rabson.org>
  * Developed with Red Inc: Alfred Perlstein <alfred@freebsd.org>
@@ -25,6 +23,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ */
+
+/*
+ * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -1484,7 +1487,7 @@ nlm_netbuf_addrs_cmp(struct netbuf *nb1, struct netbuf *nb2)
 		break;
 	default:
 		VERIFY(0);
-		break;
+		/* NOTREACHED */
 	}
 
 	return (SIGN(res));

@@ -1,6 +1,4 @@
 /*
- * Copyright 2012 by Delphix. All rights reserved.
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2008 Isilon Inc http://www.isilon.com/
  * Authors: Doug Rabson <dfr@rabson.org>
  * Developed with Red Inc: Alfred Perlstein <alfred@freebsd.org>
@@ -25,6 +23,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ */
+
+/*
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -561,7 +564,7 @@ nlm_safemap(const vnode_t *vp)
 		if (nslp->nsl_state == NLM_SL_BLOCKED &&
 		    nslp->nsl_vp == vp &&
 		    (nslp->nsl_lock.l_offset != 0 ||
-		     nslp->nsl_lock.l_len != 0)) {
+		    nslp->nsl_lock.l_len != 0)) {
 			safe = 0;
 			break;
 		}

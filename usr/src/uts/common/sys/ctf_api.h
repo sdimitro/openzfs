@@ -230,7 +230,8 @@ extern int ctf_write(ctf_file_t *, int);
 #ifdef _KERNEL
 
 struct module;
-extern ctf_file_t *ctf_modopen(struct module *, int *);
+struct modctl;
+extern ctf_file_t *ctf_modopen(struct module *, struct modctl *, int *);
 
 #endif
 

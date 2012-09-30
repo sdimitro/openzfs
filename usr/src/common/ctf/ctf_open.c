@@ -778,6 +778,7 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 	} else
 		(void) ctf_setmodel(fp, CTF_MODEL_NATIVE);
 
+	fp->ctf_modname = NULL;
 	fp->ctf_refcnt = 1;
 	return (fp);
 
@@ -858,6 +859,11 @@ ctf_close(ctf_file_t *fp)
 	if (fp->ctf_ptrtab != NULL) {
 		ctf_free(fp->ctf_ptrtab,
 		    sizeof (ushort_t) * (fp->ctf_typemax + 1));
+	}
+
+	if (fp->ctf_modname != NULL) {
+		ctf_free((char *)fp->ctf_modname,
+		    strlen(fp->ctf_modname) + 1);
 	}
 
 	ctf_hash_destroy(&fp->ctf_structs);

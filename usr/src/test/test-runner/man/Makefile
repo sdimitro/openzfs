@@ -13,8 +13,26 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
+include $(SRC)/Makefile.master
 
-SUBDIRS = cmd runfiles tests doc
+MANSRCS = run.1
 
-include $(SRC)/test/Makefile.com
+ROOTOPTPKG = $(ROOT)/opt/test-runner
+MANDIR = $(ROOTOPTPKG)/man/man1
+
+FILES = $(MANSRCS:%=$(MANDIR)/%)
+$(FILES) := FILEMODE = 0444
+
+all: $(MANSRCS)
+
+install: $(FILES)
+
+clean lint clobber:
+
+$(FILES): $(MANDIR) $(MANSRCS)
+
+$(MANDIR):
+	$(INS.dir)
+
+$(MANDIR)/%: %
+	$(INS.file)

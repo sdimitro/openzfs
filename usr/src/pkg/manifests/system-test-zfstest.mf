@@ -78,6 +78,7 @@ dir path=opt/zfs-tests/tests/functional/cli_root/zpool_upgrade
 dir path=opt/zfs-tests/tests/functional/cli_root/zpool_upgrade/blockfiles
 dir path=opt/zfs-tests/tests/functional/nopwrite
 dir path=opt/zfs-tests/tests/functional/truncate
+file path=opt/zfs-tests/README mode=0444
 file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
 file path=opt/zfs-tests/bin/devname2devid mode=0555
 file path=opt/zfs-tests/bin/dir_rd_update mode=0555

@@ -13,8 +13,20 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
+include $(SRC)/Makefile.master
 
-SUBDIRS = cmd runfiles tests doc
+READMES = README
 
-include $(SRC)/test/Makefile.com
+ROOTOPTPKG = $(ROOT)/opt/os-tests
+
+FILES = $(READMES:%=$(ROOTOPTPKG)/%)
+$(FILES) := FILEMODE = 0444
+
+all: $(READMES)
+
+install: $(FILES)
+
+clean lint clobber:
+
+$(ROOTOPTPKG)/%: %
+	$(INS.file)

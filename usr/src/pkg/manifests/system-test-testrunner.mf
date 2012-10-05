@@ -21,12 +21,15 @@ set name=info.classification \
 set name=variant.arch value=$(ARCH)
 dir path=opt/test-runner
 dir path=opt/test-runner/bin
+dir path=opt/test-runner/man
+dir path=opt/test-runner/man/man1
 dir path=opt/test-runner/stf
 dir path=opt/test-runner/stf/contrib
 dir path=opt/test-runner/stf/contrib/include
 dir path=opt/test-runner/stf/include
 dir path=opt/test-runner/tests
 file path=opt/test-runner/bin/run mode=0555
+file path=opt/test-runner/man/man1/run.1 mode=0444
 file path=opt/test-runner/stf/contrib/include/logapi.shlib mode=0555
 file path=opt/test-runner/stf/include/stf.shlib mode=0555
 file path=opt/test-runner/tests/badopts mode=0555

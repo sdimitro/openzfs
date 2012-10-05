@@ -36,8 +36,8 @@ function find_disks
 		for used in $used_disks; do
 			[[ "$disk" = "$used" ]] && continue 2
 		done
-		[[ -z $avail_disks ]] && avail_disks="$disk"
 		[[ -n $avail_disks ]] && avail_disks="$avail_disks $disk"
+		[[ -z $avail_disks ]] && avail_disks="$disk"
 	done
 
 	echo $avail_disks

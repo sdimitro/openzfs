@@ -19,7 +19,6 @@ include $(SRC)/Makefile.master
 
 SRCS = commands.cfg \
 	default.cfg \
-	libtest.kshlib \
 	libtest.shlib \
 	math.shlib \
 	properties.shlib

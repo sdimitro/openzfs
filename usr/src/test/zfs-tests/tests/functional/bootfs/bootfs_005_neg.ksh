@@ -26,7 +26,6 @@
 #
 
 . $STF_SUITE/include/libtest.shlib
-. $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.cfg
 . $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.kshlib
 
 #
@@ -49,8 +48,7 @@ function cleanup {
 	#
 	typeset pool_name
 	for config in $CONFIGS; do
-		pool_name=$($ENV| $GREP "ZPOOL_VERSION_${config}_NAME" \
-		    | $AWK -F= '{print $2}')
+		pool_name=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
 		if poolexists $pool_name; then
 			log_must $ZPOOL destroy $pool_name
 		fi
@@ -61,25 +59,18 @@ function cleanup {
 	fi
 }
 
-$ZPOOL set 2>&1 | $GREP bootfs > /dev/null
-if [ $? -ne 0 ]
-then
-        log_unsupported "bootfs pool property not supported on this release."
-fi
-
 log_assert "Boot properties cannot be set on pools with older versions"
 
 # These are configs from zpool_upgrade.cfg - see that file for more info.
 CONFIGS="1 2 3"
 
 log_onexit cleanup
-log_must $ZPOOL create $TESTPOOL $DISKS
+log_must $ZPOOL create -f $TESTPOOL $DISKS
 
 for config in $CONFIGS
 do
 	create_old_pool $config
-	POOL_NAME=$($ENV| $GREP "ZPOOL_VERSION_${config}_NAME"\
-		| $AWK -F= '{print $2}')
+	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
 	log_must $ZFS create $POOL_NAME/$TESTFS
 	log_mustnot $ZPOOL set bootfs=$POOL_NAME/$TESTFS $POOL_NAME
 	log_must destroy_upgraded_pool $config

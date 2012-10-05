@@ -235,7 +235,7 @@ class Cmd(object):
 
         user = ' (run as %s)' % self.user if len(self.user) else ''
         msga = 'Test: %s%s ' % (self.pathname, user)
-        msgb = '[%s] [%6s]' % (self.result.runtime, self.result.result)
+        msgb = '[%s] [%s]' % (self.result.runtime, self.result.result)
         pad = ' ' * (80 - (len(msga) + len(msgb)))
         logger.info('%s%s%s' % (msga, pad, msgb))
 
@@ -361,6 +361,13 @@ class TestGroup(Test):
         the TestGroup entirely, or simply delete the relevant tests in the
         group, if that's all that's required.
         """
+        # If the pre or post scripts are relative pathnames, convert to
+        # absolute, so they stand a chance of passing verification.
+        if len(self.pre) and not os.path.isabs(self.pre):
+            self.pre = os.path.join(self.pathname, self.pre)
+        if len(self.post) and not os.path.isabs(self.post):
+            self.post = os.path.join(self.pathname, self.post)
+
         auxfiles = [self.pre, self.post]
         users = [self.pre_user, self.user, self.post_user]
 
@@ -388,7 +395,7 @@ class TestGroup(Test):
             if not verify_file(os.path.join(self.pathname, test)):
                 del self.tests[self.tests.index(test)]
                 logger.info("Warning: Test '%s' removed from TestGroup '%s' "
-                            "because it failed verification." % (f,
+                            "because it failed verification." % (test,
                             self.pathname))
 
         return len(self.tests) is not 0
@@ -482,9 +489,16 @@ class TestRun(object):
             testgroup = TestGroup(dirname)
             for prop in Test.props:
                 setattr(testgroup, prop, getattr(options, prop))
-            if testgroup.verify(self.logger):
-                self.testgroups[dirname] = testgroup
-                self.testgroups[dirname].tests = sorted(filenames)
+
+            # Prevent pre/post scripts from running as regular tests
+            for f in [testgroup.pre, testgroup.post]:
+                if f in filenames:
+                    del filenames[filenames.index(f)]
+
+            self.testgroups[dirname] = testgroup
+            self.testgroups[dirname].tests = sorted(filenames)
+
+            testgroup.verify(self.logger)
 
     def read(self, logger, options):
         """
@@ -513,8 +527,10 @@ class TestRun(object):
                         setattr(testgroup, prop, config.get(section, prop))
                     except ConfigParser.NoOptionError:
                         pass
-                # repopulate tests using eval to convert the string to a list
+
+                # Repopulate tests using eval to convert the string to a list
                 testgroup.tests = eval(config.get(section, 'tests'))
+
                 if testgroup.verify(logger):
                     self.testgroups[section] = testgroup
             else:
@@ -549,8 +565,11 @@ class TestRun(object):
             config.add_section(testgroup)
             config.set(testgroup, 'tests', self.testgroups[testgroup].tests)
 
-        with open(options.template, 'w') as f:
-            return config.write(f)
+        try:
+            with open(options.template, 'w') as f:
+                return config.write(f)
+        except IOError:
+            fail('Could not open \'%s\' for writing.' % options.template)
 
     def complete_outputdirs(self, options):
         """
@@ -597,19 +616,21 @@ class TestRun(object):
 
         testlogger = logging.getLogger(__name__)
         testlogger.setLevel(logging.DEBUG)
-        try:
-            old = os.umask(0)
-            os.makedirs(self.outputdir, mode=0777)
-            os.umask(old)
-        except OSError, e:
-            fail('%s' % e)
-        filename = os.path.join(self.outputdir, 'log')
 
-        logfile = logging.FileHandler(filename)
-        logfile.setLevel(logging.DEBUG)
-        logfilefmt = logging.Formatter('%(message)s')
-        logfile.setFormatter(logfilefmt)
-        testlogger.addHandler(logfile)
+        if options.cmd is not 'wrconfig':
+            try:
+                old = os.umask(0)
+                os.makedirs(self.outputdir, mode=0777)
+                os.umask(old)
+            except OSError, e:
+                fail('%s' % e)
+            filename = os.path.join(self.outputdir, 'log')
+
+            logfile = logging.FileHandler(filename)
+            logfile.setLevel(logging.DEBUG)
+            logfilefmt = logging.Formatter('%(message)s')
+            logfile.setFormatter(logfilefmt)
+            testlogger.addHandler(logfile)
 
         if not options.quiet:
             cons = logging.StreamHandler()
@@ -717,7 +738,7 @@ def fail(retstr, ret=1):
 
 
 def options_cb(option, opt_str, value, parser):
-    path_options = ['runfile', 'outputdir', 'template', 'pre', 'post']
+    path_options = ['runfile', 'outputdir', 'template']
 
     if option.dest is 'runfile' and '-w' in parser.rargs or \
         option.dest is 'template' and '-c' in parser.rargs:

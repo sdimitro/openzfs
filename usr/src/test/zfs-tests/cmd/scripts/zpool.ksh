@@ -25,7 +25,7 @@
 # Use is subject to license terms.
 #
 
-. ${STF_SUITE}/include/libtest.kshlib
+. ${STF_SUITE}/include/libtest.shlib
 
 ZPOOL=/usr/sbin/zpool
 

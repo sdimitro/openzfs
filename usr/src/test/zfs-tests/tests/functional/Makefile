@@ -18,6 +18,7 @@
 SUBDIRS = acl \
 	atime \
 	bootfs \
+	cli_root \
 	nopwrite \
 	truncate
 

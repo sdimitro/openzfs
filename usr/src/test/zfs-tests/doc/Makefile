@@ -24,9 +24,12 @@ $(FILES) := FILEMODE = 0444
 
 all: $(READMES)
 
-install: $(FILES)
+install: $(ROOTOPTPKG) $(FILES)
 
 clean lint clobber:
+
+$(ROOTOPTPKG):
+	$(INS.dir)
 
 $(ROOTOPTPKG)/%: %
 	$(INS.file)

@@ -1487,7 +1487,7 @@ nlm_netbuf_addrs_cmp(struct netbuf *nb1, struct netbuf *nb2)
 		break;
 	default:
 		VERIFY(0);
-		/* NOTREACHED */
+		return (0);
 	}
 
 	return (SIGN(res));

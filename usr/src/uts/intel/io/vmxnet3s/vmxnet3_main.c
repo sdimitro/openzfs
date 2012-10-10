@@ -1223,6 +1223,8 @@ vmxnet3_macpropinfo(void *data, const char *pr_name, mac_prop_id_t pr_num,
    case MAC_PROP_MTU:
       mac_prop_info_set_range_uint32(prh, VMXNET3_MIN_MTU, VMXNET3_MAX_MTU);
       break;
+   default:
+      break;
    }
 }
 

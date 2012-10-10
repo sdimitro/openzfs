@@ -1679,7 +1679,7 @@ arc_buf_size(arc_buf_t *buf)
  * Called from the DMU to determine if the current buffer should be
  * evicted. In order to ensure proper locking, the eviction must be initiated
  * from the DMU. Return true if the buffer is associated with user data and
- * duplicates buffers still exist.
+ * duplicate buffers still exist.
  */
 boolean_t
 arc_buf_eviction_needed(arc_buf_t *buf)

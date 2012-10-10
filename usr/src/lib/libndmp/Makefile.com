@@ -81,6 +81,10 @@ INCS +=		-I$(SRCDIR)
 CPPFLAGS +=	$(INCS) -D_LARGEFILE64_SOURCE=1 -D_REENTRANT
 CPPFLAGS +=	-D_FILE_OFFSET_BITS=64
 
+CERRWARN +=	-_gcc=-Wno-char-subscripts
+CERRWARN +=	-_gcc=-Wno-uninitialized
+CERRWARN +=	-_gcc=-Wno-unused-variable
+
 LDLIBS   += -lsocket -lnsl -lmd5 -lumem -lc
 
 SRCS= $(NDMP_OBJ:%.o=$(SRCDIR)/%.c)

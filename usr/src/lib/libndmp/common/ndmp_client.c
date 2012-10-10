@@ -218,7 +218,7 @@ ndmp_check_reply(ndmp_session_t *session, const char *request,
 	if (err == NDMP_NO_ERR)
 		return (0);
 
-	if (err > NDMP_MAX_ERR || err < 0)
+	if (err > NDMP_MAX_ERR)
 		errstr = "unknown error";
 	else
 		errstr = ndmp_errstr[err];

@@ -1127,6 +1127,8 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 	int i;
 	char typename[64];
 	char mdbtypename[64];
+	ctf_encoding_t tgt_encoding, mod_encoding;
+	boolean_t signed_int = B_FALSE;
 
 	if (mdb_ctf_type_name(tgtid, typename, sizeof (typename)) == NULL) {
 		(void) mdb_snprintf(typename, sizeof (typename),
@@ -1178,26 +1180,69 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 
 	switch (modkind) {
 	case CTF_K_INTEGER:
+		signed_int = B_TRUE; /* this is modified again below */
+		/* FALLTHROUGH */
 	case CTF_K_FLOAT:
+		if (mdb_ctf_type_encoding(tgtid, &tgt_encoding) != 0) {
+			mdb_ctf_warn(flags,
+			    "couldn't determine encoding of type %s (%s)\n",
+			    typename, tgtname);
+			return (-1); /* errno is set for us */
+		}
+
+		if (mdb_ctf_type_encoding(modid, &mod_encoding) != 0) {
+			mdb_ctf_warn(flags, "couldn't determine encoding of "
+			    "mdb module type %s\n", mdbtypename);
+			return (-1); /* errno is set for us */
+		}
+
+		if (tgt_encoding.cte_format != mod_encoding.cte_format) {
+			mdb_ctf_warn(flags, "encoding mismatch between type "
+			    "%s (%s) and mdb module type %s\n",
+			    typename, tgtname, mdbtypename);
+			return (set_errno(EMDB_INCOMPAT));
+		}
+
+		signed_int =
+		    (signed_int && (tgt_encoding.cte_format & CTF_INT_SIGNED));
+		/* FALLTHROUGH */
 	case CTF_K_POINTER:
 		/*
 		 * If the sizes don't match we need to be tricky to make
 		 * sure that the caller gets the correct data.
 		 */
 		if (modsz < tgtsz) {
-			if (!(flags & MDB_CTF_VREAD_IGNORE_GROW)) {
-				mdb_ctf_warn(flags,
-				    "unexpected size of type %s (%s)\n",
-				    typename, tgtname);
-				return (set_errno(EMDB_INCOMPAT));
-			}
-#ifdef _BIG_ENDIAN
-			bcopy(tgtbuf + tgtsz - modsz, modbuf, modsz);
-#else
-			bcopy(tgtbuf, modbuf, modsz);
-#endif
+			mdb_ctf_warn(flags, "size of type %s (%s) is too "
+			    "large for mdb module type %s\n",
+			    typename, tgtname, mdbtypename);
+			return (set_errno(EMDB_INCOMPAT));
 		} else if (modsz > tgtsz) {
-			bzero(modbuf, modsz);
+			/*
+			 * Fill modbuf with 1's for sign extension if target
+			 * buf is a signed integer and its value is negative.
+			 *
+			 *   S = sign bit (in most-significant byte)
+			 *
+			 *      BIG ENDIAN DATA
+			 *    +--------+--------+--------+--------+
+			 *    |S       |        |        |        |
+			 *    +--------+--------+--------+--------+
+			 *     0        1  ...            sz-1     sz
+			 *
+			 *      LITTLE ENDIAN DATA
+			 *    +--------+--------+--------+--------+
+			 *    |        |        |        |S       |
+			 *    +--------+--------+--------+--------+
+			 *     0        1  ...            sz-1     sz
+			 */
+#ifdef _BIG_ENDIAN
+			if (signed_int && (tgtbuf[0] & 0x80) != 0)
+#else
+			if (signed_int && (tgtbuf[tgtsz - 1] & 0x80) != 0)
+#endif
+				(void) memset(modbuf, 0xFF, modsz);
+			else
+				bzero(modbuf, modsz);
 #ifdef _BIG_ENDIAN
 			bcopy(tgtbuf, modbuf + modsz - tgtsz, tgtsz);
 #else
@@ -1385,10 +1430,6 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
  * the enum value it expects even if the target has renumbered the enum.
  * Warning: it will therefore only work with enums are only used to store
  * legitimate enum values (not several values or-ed together).
- *
- * Warning: Integer primitives (char, short, int, long long) will be silently
- * widened to the caller's type, without sign extension.  Therefore,
- * widening will not work correctly on signed numbers.
  *
  * By default, if mdb_ctf_vread() can not find any members or enum values,
  * it will print a descriptive message (with mdb_warn()) and fail.

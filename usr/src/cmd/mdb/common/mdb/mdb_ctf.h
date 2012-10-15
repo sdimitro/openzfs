@@ -116,7 +116,6 @@ extern int mdb_ctf_offsetof_by_name(const char *, const char *);
 extern ssize_t mdb_ctf_offset_to_name(mdb_ctf_id_t, ulong_t, char *, size_t,
     int, mdb_ctf_id_t *, ulong_t *);
 
-#define	MDB_CTF_VREAD_IGNORE_GROW	0x01
 #define	MDB_CTF_VREAD_IGNORE_ABSENT	0x02
 #define	MDB_CTF_VREAD_IGNORE_UNIONS	0x04
 #define	MDB_CTF_VREAD_IGNORE_ENUMS	0x08

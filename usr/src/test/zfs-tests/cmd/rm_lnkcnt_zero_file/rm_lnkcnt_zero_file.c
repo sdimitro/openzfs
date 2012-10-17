@@ -25,6 +25,10 @@
  */
 
 /*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
+/*
  * --------------------------------------------------------------------
  * The purpose of this test is to see if the bug reported (#4723351) for
  * UFS exists when using a ZFS file system.
@@ -41,6 +45,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <strings.h>
 
 static const int TRUE = 1;
 static char *filebase;
@@ -56,11 +61,13 @@ static void *
 mover(void *a)
 {
 	char buf[256];
-	int idx, ret;
+	int idx, len, ret;
+
+	len = strlen(filebase) + 5;
 
 	while (TRUE) {
 		idx = pickidx();
-		(void) sprintf(buf, "%s.%03d", filebase, idx);
+		(void) snprintf(buf, len, "%s.%03d", filebase, idx);
 		ret = rename(filebase, buf);
 		if (ret < 0 && errno != ENOENT)
 			(void) perror("renaming file");
@@ -74,11 +81,13 @@ static void *
 cleaner(void *a)
 {
 	char buf[256];
-	int idx, ret;
+	int idx, len, ret;
+
+	len = strlen(filebase) + 5;
 
 	while (TRUE) {
 		idx = pickidx();
-		(void) sprintf(buf, "%s.%03d", filebase, idx);
+		(void) snprintf(buf, len, "%s.%03d", filebase, idx);
 		ret = remove(buf);
 		if (ret < 0 && errno != ENOENT)
 			(void) perror("removing file");

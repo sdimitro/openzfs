@@ -13,8 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = mmapwrite
+PROG = mmapwrite
 
-LDLIBS += -lpthread
-
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

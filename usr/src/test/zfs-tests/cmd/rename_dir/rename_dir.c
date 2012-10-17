@@ -25,6 +25,10 @@
  */
 
 /*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
+/*
  * Assertion:
  * Create two directory trees in zfs filesystem, and rename
  * directory across the directory structure. ZFS can handle
@@ -44,12 +48,10 @@
 #include <stdio.h>
 #include <strings.h>
 
-void
+int
 main()
 {
 	int i = 1;
-	char buf[256];
-	char *msg = "rename() fails to handle race situation\n";
 
 	switch (fork()) {
 	case -1:
@@ -64,9 +66,7 @@ main()
 			if (rename("1/2/3/c", "a/b/c") == 0)
 				c_count++;
 			if (c_count) {
-				(void) strlcat(buf, "c_count: %d,", 256);
-				(void) strlcat(buf, msg, 256);
-				(void) fprintf(stderr, buf, c_count);
+				(void) fprintf(stderr, "c_count: %d", c_count);
 			}
 		}
 		break;
@@ -78,11 +78,11 @@ main()
 			if (rename("a/b/c/d/e/1", "1") == 0)
 				p_count++;
 			if (p_count) {
-				(void) strlcat(buf, "p_count: %d,", 256);
-				(void) strlcat(buf, msg, 256);
-				(void) fprintf(stderr, buf, p_count);
+				(void) fprintf(stderr, "p_count: %d", p_count);
 			}
 		}
 		break;
 	}
+
+	return (0);
 }

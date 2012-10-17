@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 #include "../file_common.h"
 
 /*
@@ -45,11 +49,14 @@ usage(char *progname)
 int
 main(int argc, char *argv[])
 {
-	char *filename, *buf;
-	size_t filesize;
-	off_t start_off, off_len;
+	char *filename = NULL;
+	char *buf;
+	size_t filesize = 0;
+	off_t start_off = 0;
+	off_t off_len = 0;
 	int  fd, ch;
 	struct flock fl;
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
 	while ((ch = getopt(argc, argv, "l:s:n:")) != EOF) {
 		switch (ch) {
@@ -75,7 +82,7 @@ main(int argc, char *argv[])
 
 	buf = (char *)malloc(filesize);
 
-	if ((fd = open(filename, O_RDWR|O_CREAT|O_TRUNC)) < 0) {
+	if ((fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, mode)) < 0) {
 		perror("open");
 		return (1);
 	}

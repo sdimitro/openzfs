@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = mktree
+PROG = mktree
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

@@ -23,6 +23,12 @@ lint    :=      TARGET = lint
 
 all clean clobber install lint: $(SUBDIRS)
 
+lint_PROG:
+	$(LINT.c) $(PROG).c $(LDLIBS)
+
+lint_SRCS:
+	$(LINT.c) $(SRCS) $(LDLIBS)
+
 $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)
 

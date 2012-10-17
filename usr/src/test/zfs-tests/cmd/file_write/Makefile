@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = file_write
+PROG = file_write
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

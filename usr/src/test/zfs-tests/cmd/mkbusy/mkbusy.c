@@ -51,11 +51,11 @@ daemonize(void)
 	if ((pid = fork()) < 0) {
 		fail("fork", 1);
 	} else if (pid != 0) {
-		(void) fprintf(stdout, "%d\n", pid);
+		(void) fprintf(stdout, "%ld\n", pid);
 		exit(0);
 	}
 
-	setsid();
+	(void) setsid();
 	(void) close(0);
 	(void) close(1);
 	(void) close(2);
@@ -69,7 +69,7 @@ main(int argc, char *argv[])
 	boolean_t	fflag = B_FALSE;
 	boolean_t	rflag = B_FALSE;
 	struct stat	sbuf;
-	char		*fpath;
+	char		*fpath = NULL;
 	char		*prog = argv[0];
 
 	while ((c = getopt(argc, argv, "fr")) != -1) {
@@ -133,11 +133,11 @@ main(int argc, char *argv[])
 
 		if ((fpath = (char *)malloc(dlen + 1 + flen + 1)) == NULL)
 			fail("malloc", 1);
-		memset(fpath, '\0', dlen + 1 + flen + 1);
+		(void) memset(fpath, '\0', dlen + 1 + flen + 1);
 
-		strncpy(fpath, dname, dlen);
+		(void) strncpy(fpath, dname, dlen);
 		fpath[dlen] = '/';
-		strncat(fpath, fname, flen);
+		(void) strncat(fpath, fname, flen);
 		free(dname);
 		free(fname);
 	} else if ((sbuf.st_mode & S_IFMT) == S_IFREG ||
@@ -173,8 +173,8 @@ main(int argc, char *argv[])
 
 	if (fflag == B_FALSE)
 		daemonize();
-	pause();
+	(void) pause();
 
-	/*NOTREACHED*/
+	/* NOTREACHED */
 	return (0);
 }

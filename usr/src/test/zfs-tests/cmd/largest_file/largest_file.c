@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 #include "../file_common.h"
 #include <sys/param.h>
 #include <signal.h>
@@ -56,6 +60,7 @@ main(int argc, char **argv)
 	int		err = 0;
 	char		mybuf[5];
 	char		*testfile;
+	mode_t		mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
 	if (argc != 2) {
 		usage(argv[0]);
@@ -65,7 +70,7 @@ main(int argc, char **argv)
 
 	testfile = strdup(argv[1]);
 
-	fd = open(testfile, O_CREAT | O_RDWR);
+	fd = open(testfile, O_CREAT | O_RDWR, mode);
 	if (fd < 0) {
 		perror("Failed to create testfile");
 		err = errno;

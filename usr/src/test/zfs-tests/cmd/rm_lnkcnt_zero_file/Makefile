@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = rm_lnkcnt_zero_file
+PROG = rm_lnkcnt_zero_file
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -208,10 +212,10 @@ do_write(int fd)
 	}
 	if (vflag) {
 		(void) fprintf(stderr,
-		    "Wrote to offset %ld\n", (offset + roffset));
+		    "Wrote to offset %lld\n", (offset + roffset));
 		if (rflag) {
 			(void) fprintf(stderr,
-			    "Read back from offset %ld\n", (offset + roffset));
+			    "Read back from offset %lld\n", (offset + roffset));
 		}
 	}
 
@@ -232,7 +236,7 @@ do_trunc(int fd)
 
 	if (vflag) {
 		(void) fprintf(stderr,
-		    "Truncated at offset %ld\n",
+		    "Truncated at offset %lld\n",
 		    (offset + roffset));
 	}
 }

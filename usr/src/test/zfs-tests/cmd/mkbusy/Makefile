@@ -13,6 +13,10 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = mkbusy
+PROG = mkbusy
+
+include $(SRC)/cmd/Makefile.cmd
+
+LINTFLAGS += -erroff=E_FUNC_SET_NOT_USED
 
 include ../Makefile.subdirs

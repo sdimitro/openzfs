@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <stdlib.h>
@@ -288,7 +288,7 @@ poll_with_fds_test(int testfd)
  * amount of time.
  */
 static void
-dev_poll_no_fd_test(int pollfd, int testfd)
+dev_poll_no_fd_test(int pollfd)
 {
 	const char	*testName = __func__;
 	time_t		elapsed;
@@ -365,14 +365,12 @@ dev_poll_with_fds_test(int pollfd, int testfd)
 	test_passed(testName);
 }
 
+/* ARGSUSED */
 static void *
 poll_thread(void *data)
 {
-	int	err;
 	int	pollfd;
 	int	testfd;
-	char	*file = tmpnam(NULL);
-	int	ret;
 
 	pollfd = open("/dev/poll", O_RDWR);
 
@@ -389,13 +387,14 @@ poll_thread(void *data)
 	poll_no_fd_test();
 	poll_with_fds_test(testfd);
 
-	dev_poll_no_fd_test(pollfd, testfd);
+	dev_poll_no_fd_test(pollfd);
 	dev_poll_with_fds_test(pollfd, testfd);
 
-	close(testfd);
-	close(pollfd);
+	(void) close(testfd);
+	(void) close(pollfd);
 
 	pthread_exit(0);
+	return (NULL);
 }
 
 /*
@@ -427,14 +426,14 @@ trigger_wakeup(void)
 			result = waitpid(child, &status, 0);
 
 			if (result == -1 && errno != EINTR) {
-				(void) printf("Waitpid for %d failed: %s\n",
+				(void) printf("Waitpid for %ld failed: %s\n",
 				    child, strerror(errno));
 				exit(-1);
 			}
 		} while (result != child);
 
 		if (status != 0) {
-			(void) printf("Child pid %d failed: %d\n",
+			(void) printf("Child pid %ld failed: %d\n",
 			    child, status);
 			exit(-1);
 		}
@@ -463,6 +462,7 @@ change_date(void)
  * The helper thread runs in a loop changing the time and
  * forcing wakeups every 2 seconds.
  */
+/* ARGSUSED */
 static void *
 helper_thread(void *data)
 {
@@ -471,11 +471,12 @@ helper_thread(void *data)
 
 	debug_log("Helper thread started ...\n");
 
+	/* CONSTCOND */
 	while (1) {
-		pthread_mutex_lock(&exitLock);
-		pthread_cond_reltimedwait_np(&exitCond, &exitLock, &ts);
+		(void) pthread_mutex_lock(&exitLock);
+		(void) pthread_cond_reltimedwait_np(&exitCond, &exitLock, &ts);
 		exit = terminated;
-		pthread_mutex_unlock(&exitLock);
+		(void) pthread_mutex_unlock(&exitLock);
 
 		if (exit) {
 			break;
@@ -489,15 +490,16 @@ helper_thread(void *data)
 	debug_log("Helper thread exiting ...\n");
 
 	pthread_exit(0);
+	return (NULL);
 }
 
 static void
 stop_threads(void)
 {
-	pthread_mutex_lock(&exitLock);
+	(void) pthread_mutex_lock(&exitLock);
 	terminated = 1;
-	pthread_cond_broadcast(&exitCond);
-	pthread_mutex_unlock(&exitLock);
+	(void) pthread_cond_broadcast(&exitCond);
+	(void) pthread_mutex_unlock(&exitLock);
 }
 
 static void
@@ -523,9 +525,9 @@ run_tests(void)
 		exit(-1);
 	}
 
-	pthread_join(pollThread, NULL);
+	(void) pthread_join(pollThread, NULL);
 	stop_threads();
-	pthread_join(helperThread, NULL);
+	(void) pthread_join(helperThread, NULL);
 }
 
 int

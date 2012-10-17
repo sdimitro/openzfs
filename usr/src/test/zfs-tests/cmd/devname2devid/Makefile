@@ -13,8 +13,10 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = devname2devid
+PROG = devname2devid
 
-include ../Makefile.subdirs
+include $(SRC)/cmd/Makefile.cmd
 
 LDLIBS += -ldevid
+
+include ../Makefile.subdirs

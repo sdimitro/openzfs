@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = randfree_file
+PROG = randfree_file
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

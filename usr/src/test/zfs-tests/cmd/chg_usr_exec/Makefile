@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = chg_usr_exec
+PROG = chg_usr_exec
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

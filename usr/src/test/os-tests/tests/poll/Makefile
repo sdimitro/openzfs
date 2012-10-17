@@ -13,31 +13,42 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-include $(SRC)/Makefile.master
 include $(SRC)/cmd/Makefile.cmd
+include $(SRC)/test/Makefile.com
 
-SRCS = poll_test
+PROG = poll_test
+OBJS = $(PROG:%=%.o)
+SRCS = $(OBJS:%.o=%.c)
 
 LDLIBS += -lsocket
-
 C99MODE = -xc99=%all
 
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 TESTDIR = $(ROOTOPTPKG)/tests
 
-CMDS = $(SRCS:%=$(TESTDIR)/%)
+CMDS = $(PROG:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555
 
-all: $(SRCS)
+all: $(PROG)
 
-install: $(CMDS)
+$(PROG): $(OBJS)
+	$(LINK.c) $(OBJS) -o $@ $(LDLIBS)
+	$(POST_PROCESS)
 
-clean lint:
+%.o: ../%.c
+	$(COMPILE.c) $<
 
-clobber:
-	-$(RM) $(SRCS)
+install: all $(CMDS)
 
-$(CMDS): $(TESTDIR) $(SRCS)
+lint: lint_SRCS
+
+clobber: clean
+	-$(RM) $(PROG)
+
+clean:
+	-$(RM) $(OBJS)
+
+$(CMDS): $(TESTDIR) $(PROG)
 
 $(TESTDIR):
 	$(INS.dir)

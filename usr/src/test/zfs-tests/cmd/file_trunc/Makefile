@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = file_trunc
+PROG = file_trunc
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

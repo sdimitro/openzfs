@@ -13,6 +13,7 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-SRCS = dir_rd_update
+PROG = dir_rd_update
 
+include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.subdirs

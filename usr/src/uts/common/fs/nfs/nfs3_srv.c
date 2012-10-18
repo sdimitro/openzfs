@@ -553,7 +553,8 @@ out:
 	 * The passed argument exportinfo is released by the
 	 * caller, common_dispatch
 	 */
-	exi_rele(exi);
+	if (exi != NULL)
+		exi_rele(exi);
 
 	if (curthread->t_flag & T_WOULDBLOCK) {
 		curthread->t_flag &= ~T_WOULDBLOCK;

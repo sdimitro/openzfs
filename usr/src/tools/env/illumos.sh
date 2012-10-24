@@ -21,6 +21,7 @@
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2010, 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 Joshua M. Clulow <josh@sysmgr.org>
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 # Configuration variables for the runtime environment of the nightly
@@ -38,7 +39,7 @@
 #       checks for changes in ELF runpaths (-r)
 #       build and use this workspace's tools in $SRC/tools (-t)
 #
-# - This file is sourced by "bldenv.sh" and "nightly.sh" and should not 
+# - This file is sourced by "bldenv.sh" and "nightly.sh" and should not
 #   be executed directly.
 # - This script is only interpreted by ksh93 and explicitly allows the
 #   use of ksh93 language extensions.
@@ -71,7 +72,7 @@ function maxjobs
 
 	ncpu=$(builtin getconf ; getconf 'NPROCESSORS_ONLN')
 	(( maxjobs=ncpu + 2 ))
-	
+
 	# Throttle number of parallel jobs launched by dmake to a value which
 	# gurantees that all jobs have enough memory. This was added to avoid
 	# excessive paging/swapping in cases of virtual machine installations
@@ -86,7 +87,7 @@ function maxjobs
 		# the value matched by ([[:digit:]]+), i.e. the amount of
 		# memory installed
 		physical_memory="10#${.sh.match[1]}"
-		
+
 		((
 			max_jobs_per_memory=round(physical_memory/min_mem_per_job) ,
 			maxjobs=fmax(2, fmin(maxjobs, max_jobs_per_memory))
@@ -117,7 +118,7 @@ export CLONE_WS='ssh://anonhg@hg.illumos.org/illumos-gate'
 # Some scripts optionally send mail messages to MAILTO.
 #
 export STAFFER="$LOGNAME"
-export MAILTO="$STAFFER"
+export MAILTO="$STAFFER"@delphix.com
 
 # If you wish the mail messages to be From: an arbitrary address, export
 # MAILFROM.
@@ -228,4 +229,8 @@ export SPRO_VROOT="$SPRO_ROOT"
 #POST_NIGHTLY=
 
 # Uncomment this to disable support for SMB printing.
-# export ENABLE_SMB_PRINTING='#'
+export ENABLE_SMB_PRINTING='#'
+
+export GCC_ROOT=/opt/gcc/4.4.4
+export CW_GCC_DIR=${GCC_ROOT}/bin
+export __GNUC4=""

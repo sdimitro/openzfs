@@ -40,9 +40,6 @@ spa_get_bootprop(char *propname)
 	int proplen;
 	char *value;
 
-	if (zfs_deadman_enabled == -1)
-		zfs_deadman_enabled = 0;
-
 	proplen = BOP_GETPROPLEN(bootops, propname);
 	if (proplen <= 0)
 		return (NULL);
@@ -60,4 +57,14 @@ void
 spa_free_bootprop(char *propname)
 {
 	kmem_free(propname, strlen(propname) + 1);
+}
+
+void
+spa_arch_init(void)
+{
+	/*
+	 * The deadman is disabled by default on sparc.
+	 */
+	if (zfs_deadman_enabled == -1)
+		zfs_deadman_enabled = 0;
 }

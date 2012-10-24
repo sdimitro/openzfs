@@ -26,6 +26,7 @@
 
 #include <sys/zfs_context.h>
 #include <sys/spa_impl.h>
+#include <sys/spa_boot.h>
 #include <sys/zio.h>
 #include <sys/zio_checksum.h>
 #include <sys/zio_compress.h>
@@ -1681,7 +1682,9 @@ spa_init(int mode)
 
 	spa_mode_global = mode;
 
-#ifndef _KERNEL
+#ifdef _KERNEL
+	spa_arch_init();
+#else
 	if (spa_mode_global != FREAD && dprintf_find_string("watch")) {
 		arc_procfd = open("/proc/self/ctl", O_WRONLY);
 		if (arc_procfd == -1) {

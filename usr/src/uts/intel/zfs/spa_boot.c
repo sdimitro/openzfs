@@ -40,6 +40,21 @@ spa_get_bootprop(char *propname)
 {
 	char *value;
 
+	if (ddi_prop_lookup_string(DDI_DEV_T_ANY, ddi_root_node(),
+	    DDI_PROP_DONTPASS, propname, &value) != DDI_SUCCESS)
+		return (NULL);
+	return (value);
+}
+
+void
+spa_free_bootprop(char *value)
+{
+	ddi_prop_free(value);
+}
+
+void
+spa_arch_init(void)
+{
 	/*
 	 * Configure the default settings for the zfs deadman unless
 	 * overriden by /etc/system.
@@ -53,15 +68,4 @@ spa_get_bootprop(char *propname)
 		else
 			zfs_deadman_enabled = 1;
 	}
-
-	if (ddi_prop_lookup_string(DDI_DEV_T_ANY, ddi_root_node(),
-	    DDI_PROP_DONTPASS, propname, &value) != DDI_SUCCESS)
-		return (NULL);
-	return (value);
-}
-
-void
-spa_free_bootprop(char *value)
-{
-	ddi_prop_free(value);
 }

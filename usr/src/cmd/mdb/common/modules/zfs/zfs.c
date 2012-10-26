@@ -381,7 +381,7 @@ typedef struct mdb_dmu_buf_impl {
 		uint64_t db_object;
 	} db;
 	void *db_objset;
-	int db_level;
+	uint64_t db_level;
 	uint64_t db_blkid;
 	struct {
 		uint64_t rc_count;

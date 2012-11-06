@@ -191,9 +191,8 @@ CTFFINDMOD=	$(ONBLD_TOOLS)/bin/ctffindmod
 XREF=		$(ONBLD_TOOLS)/bin/xref
 FIND=		/usr/bin/find
 PERL=		/usr/bin/perl
-PYTHON_24=	/usr/bin/python2.4
 PYTHON_26=	/usr/bin/python2.6
-PYTHON=		$(PYTHON_24)
+PYTHON=		$(PYTHON_26)
 SORT=		/usr/bin/sort
 TOUCH=		/usr/bin/touch
 WC=		/usr/bin/wc
@@ -480,7 +479,16 @@ DEBUGFORMAT=	-xdebugformat=stabs
 #
 CTF_FLAGS_sparc	= -g -Wc,-Qiselect-T1 $(C99MODE) $(CNOGLOBAL) $(CDWARFSTR)
 CTF_FLAGS_i386	= -g $(C99MODE) $(CNOGLOBAL) $(CDWARFSTR)
-CTF_FLAGS	= $(CTF_FLAGS_$(MACH)) $(DEBUGFORMAT)
+
+CTF_FLAGS_sparcv9	= $(CTF_FLAGS_sparc)
+CTF_FLAGS_amd64		= $(CTF_FLAGS_i386)
+
+# Sun Studio produces broken userland code when saving arguments.
+$(__GNUC)CTF_FLAGS_amd64 += $(SAVEARGS)
+
+CTF_FLAGS_32	= $(CTF_FLAGS_$(MACH)) $(DEBUGFORMAT)
+CTF_FLAGS_64	= $(CTF_FLAGS_$(MACH64)) $(DEBUGFORMAT)
+CTF_FLAGS	= $(CTF_FLAGS_32)
 
 #
 # Flags used with genoffsets

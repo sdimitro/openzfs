@@ -84,23 +84,19 @@ extern int zfs_mg_alloc_failures;
 
 /*
  * The following actions directly effect the spa's sync-to-convergence logic.
- * The values below define the sync pass when we start performing
- * the action. Care should be taken when changing these values as they
- * directly impact spa_sync() performance.
+ * The values below define the sync pass when we start performing the action.
+ * Care should be taken when changing these values as they directly impact
+ * spa_sync() performance. Tuning these values may introduce subtle performance
+ * pathologies and should only be done in the context of performance analysis.
+ * These tunables will eventually be removed and replaced with #defines once
+ * enough analysis has been done to determine optimal values.
  *
- *	SYNC_PASS_DEFERRED_FREE = 2 -- defer frees starting in this pass
- *	SYNC_PASS_DONT_COMPRESS = 5 -- don't compress starting in this pass
- *	SYNC_PASS_REWRITE       = 2 -- rewrite new bps starting in this pass
- *
- * The SYNC_PASS_DEFERRED_FREE pass must be greater than 1 to ensure that
+ * The 'zfs_sync_pass_deferred_free' pass must be greater than 1 to ensure that
  * regular blocks are not deferred.
- *
- * XXX - Once optimal values are obtained we should remove these knobs
- * and hard-code the values using defines.
  */
-int zfs_sync_pass_deferred_free = 2;
-int zfs_sync_pass_dont_compress = 5;
-int zfs_sync_pass_rewrite = 2;
+int zfs_sync_pass_deferred_free = 2; /* defer frees starting in this pass */
+int zfs_sync_pass_dont_compress = 5; /* don't compress starting in this pass */
+int zfs_sync_pass_rewrite = 2; /* rewrite new bps starting in this pass */
 
 /*
  * An allocating zio is one that either currently has the DVA allocate

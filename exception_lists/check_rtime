@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 # This file provides exceptions to the usual rules applied to ELF objects by
@@ -47,7 +48,6 @@ SKIP		^usr/src/			# no objects in source code
 
 # Individual files that we don't examine
 SKIP		^boot/grub/bin/grub$
-SKIP		^usr/apache/libexec/mod_ipp.so$	# Apache loadable module
 # USIII specific extns. cause ldd noise on USII bld. m/c
 SKIP		^usr/lib/fps/sun4u/UltraSPARC.*/fptest$
 SKIP		^usr/MACH(lib)/lddstub$		# lddstub has no dependencies

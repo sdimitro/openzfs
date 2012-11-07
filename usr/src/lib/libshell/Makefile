@@ -24,6 +24,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2012, Joyent, Inc. All rights reserved.
+#
+
 SHELL=/usr/bin/ksh93
 
 include		../Makefile.lib
@@ -64,6 +68,5 @@ $(SUBDIRS):	FRC
 FRC:
 
 include Makefile.demo
-include Makefile.doc
 
 include ../Makefile.targ

@@ -23,6 +23,8 @@
     Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
     Use is subject to license terms.
 
+    Copyright (c) 2012 by Delphix. All rights reserved.
+
     The purpose of the limited_net profile is to provide a set of
     active services that allow one to connect to the machine via ssh
     (requires sshd). The services which are deactivated here are those
@@ -183,9 +185,6 @@
   </service>
   <service name='application/management/wbem' version='1' type='service'>
     <instance name='default' enabled='true' />
-  </service>
-  <service name='application/print/ipp-listener' version='1' type='service'>
-    <instance name='default' enabled='false' />
   </service>
   <service name='application/print/ppd-cache-update' version='1' type='service'>
     <instance name='default' enabled='true' />

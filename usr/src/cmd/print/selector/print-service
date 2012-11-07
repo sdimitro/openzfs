@@ -22,6 +22,9 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 #
@@ -57,7 +60,6 @@ my $SVCPROP = '/usr/bin/svcprop';
 my $SVCCFG = '/usr/sbin/svccfg';
 my $SVC_LP_SCHEDULER = 'print/server';
 my $SVC_LP_LPD = 'print/rfc1179';
-my $SVC_LP_IPP = 'print/ipp-listener';
 my $SVC_LP_PPD = 'print/ppd-cache-update';
 my $SVC_CUPS_SCHEDULER = 'cups/scheduler';
 my $SVC_CUPS_LPD = 'cups/in-lpd';
@@ -235,23 +237,21 @@ sub select_service {
 		(-f '/etc/printers.conf') && (! -f '/etc/lp/printers.conf') &&
 			rename('/etc/printers.conf', '/etc/lp/printers.conf');
 		print("disabling LP services...\n");
-		svcadm("disable", $SVC_LP_SCHEDULER, $SVC_LP_IPP, $SVC_LP_LPD,
-				  $SVC_LP_PPD);
+		svcadm("disable", $SVC_LP_SCHEDULER, $SVC_LP_LPD, $SVC_LP_PPD);
 		print("enabling CUPS services...\n");
 		svcadm("enable", $SVC_CUPS_SCHEDULER, $SVC_CUPS_LPD);
 		svccfg("cups/scheduler:default",
 			"setprop general/active = boolean: true");
-		system("pkill -USR1 -f '/desktop-print-management-applet'"); 
+		system("pkill -USR1 -f '/desktop-print-management-applet'");
 	} else {
 		print("disabling CUPS services...\n");
 		svcadm("disable", $SVC_CUPS_SCHEDULER, $SVC_CUPS_LPD);
 		print("enabling LP services...\n");
-		svcadm("enable", $SVC_LP_SCHEDULER, $SVC_LP_IPP, $SVC_LP_LPD,
-				  $SVC_LP_PPD);
+		svcadm("enable", $SVC_LP_SCHEDULER, $SVC_LP_LPD, $SVC_LP_PPD);
 		(-f '/etc/lp/printers.conf') &&
 			rename('/etc/lp/printers.conf', '/etc/printers.conf');
 		svccfg("cups/scheduler:default", "delprop general/active");
-		system("pkill -USR1 -f '/desktop-print-management-applet'"); 
+		system("pkill -USR1 -f '/desktop-print-management-applet'");
 	}
 
 	# import the new print queue configuration (if migrating)

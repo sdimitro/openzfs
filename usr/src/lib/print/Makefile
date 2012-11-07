@@ -22,7 +22,9 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
+
+#
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 SUBDIRS = \
@@ -32,9 +34,7 @@ SUBDIRS = \
 	libpapi-lpd \
 	libipp-core \
 	libhttp-core \
-	libpapi-ipp \
-	libipp-listener \
-	mod_ipp
+	libpapi-ipp
 
 all :=                  TARGET = all
 clean :=                TARGET = clean
@@ -89,6 +89,4 @@ libpapi-dynamic:	libpapi-common
 libpapi-lpd:		libpapi-dynamic
 libipp-core:		libpapi-common
 libpapi-ipp:		libpapi-common libipp-core libhttp-core
-libipp-listener:	libpapi-dynamic libipp-core
-mod_ipp:		libipp-listener
 

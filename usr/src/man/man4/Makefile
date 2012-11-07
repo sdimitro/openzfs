@@ -12,7 +12,7 @@
 #
 # Copyright 2011, Richard Lowe
 # Copyright 2011 Nexenta Systems, Inc. All rights reserved.
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 include ../../Makefile.master
@@ -114,7 +114,6 @@ COMMON_MANFILES = 	Intro.4				\
 		 	mech.4				\
 		 	meddb.4				\
 		 	mnttab.4			\
-		 	mod_ipp.4			\
 		 	mpapi.conf.4			\
 		 	nca.if.4			\
 		 	ncad_addr.4			\

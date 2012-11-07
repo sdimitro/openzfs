@@ -2922,6 +2922,7 @@ $endif
 	zone_enter;
 	zone_getattr;
 	zone_get_id;
+	zone_get_zoneids;
 	zone_list;
 	zone_list_datalink;
 	zonept;

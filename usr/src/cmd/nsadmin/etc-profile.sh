@@ -22,6 +22,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2012, OmniTI Computer Consulting, Inc. All rights reserved.
+#
+
 # The profile that all logins get before using their own .profile.
 
 trap ""  2 3
@@ -29,7 +33,8 @@ export LOGNAME PATH
 
 if [ "$TERM" = "" ]
 then
-	if /bin/i386
+	CAN_I386=`/usr/bin/isalist | grep i386`
+	if [ -n "$CAN_I386" ]
 	then
 		TERM=sun-color
 	else

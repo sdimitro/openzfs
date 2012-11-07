@@ -21,6 +21,7 @@
 
 
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 
 # This file provides exceptions to the usual rules applied to shared
 # objects by interface_check. All strings are Perl regular expressions
@@ -43,7 +44,6 @@
 # Plugins are not required to have versioned file names, and are not required
 # to be internally versioned.
 #
-PLUGIN		^usr/apache/libexec
 PLUGIN		^usr/lib/devfsadm
 PLUGIN		^usr/lib/efcode/.*\.so$
 PLUGIN		^usr/lib/elfedit

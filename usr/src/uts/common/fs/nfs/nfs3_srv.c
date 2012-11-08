@@ -928,6 +928,7 @@ rfs3_read(READ3args *args, READ3res *resp, struct exportinfo *exi,
 	struct vattr *vap;
 	struct vattr va;
 	struct iovec iov, *iovp = NULL;
+	int iovcnt;
 	struct uio uio;
 	u_offset_t offset;
 	mblk_t *mp = NULL;
@@ -1128,8 +1129,9 @@ rfs3_read(READ3args *args, READ3res *resp, struct exportinfo *exi,
 		 * segment associated with the reply has been ACKed by the
 		 * client.
 		 */
-		mp = rfs_read_alloc(args->count, &iovp, &uio.uio_iovcnt);
+		mp = rfs_read_alloc(args->count, &iovp, &iovcnt);
 		uio.uio_iov = iovp;
+		uio.uio_iovcnt = iovcnt;
 	}
 
 	uio.uio_segflg = UIO_SYSSPACE;
@@ -1203,7 +1205,7 @@ done:
 	VN_RELE(vp);
 
 	if (iovp != NULL)
-		kmem_free(iovp, uio.uio_iovcnt * sizeof (struct iovec));
+		kmem_free(iovp, iovcnt * sizeof (struct iovec));
 
 	return;
 
@@ -1227,7 +1229,7 @@ out1:
 	vattr_to_post_op_attr(vap, &resp->resfail.file_attributes);
 
 	if (iovp != NULL)
-		kmem_free(iovp, uio.uio_iovcnt * sizeof (struct iovec));
+		kmem_free(iovp, iovcnt * sizeof (struct iovec));
 }
 
 void

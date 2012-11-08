@@ -3143,6 +3143,7 @@ rfs4_op_read(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	vnode_t *vp;
 	struct vattr va;
 	struct iovec iov, *iovp = NULL;
+	int iovcnt;
 	struct uio uio;
 	u_offset_t offset;
 	bool_t *deleg = &cs->deleg;
@@ -3313,10 +3314,11 @@ rfs4_op_read(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 		 * mp will contain the data to be sent out in the read reply.
 		 * It will be freed after the reply has been sent.
 		 */
-		mp = rfs_read_alloc(args->count, &iovp, &uio.uio_iovcnt);
+		mp = rfs_read_alloc(args->count, &iovp, &iovcnt);
 		ASSERT(mp != NULL);
 		ASSERT(alloc_err == 0);
 		uio.uio_iov = iovp;
+		uio.uio_iovcnt = iovcnt;
 	}
 
 	uio.uio_segflg = UIO_SYSSPACE;
@@ -3375,7 +3377,7 @@ out:
 		nbl_end_crit(vp);
 
 	if (iovp != NULL)
-		kmem_free(iovp, uio.uio_iovcnt * sizeof (struct iovec));
+		kmem_free(iovp, iovcnt * sizeof (struct iovec));
 
 	DTRACE_NFSV4_2(op__read__done, struct compound_state *, cs,
 	    READ4res *, resp);

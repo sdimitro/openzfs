@@ -3,6 +3,7 @@
  */
 /*
  * Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 /*
  * Copyright (c) 1983 Regents of the University of California.
@@ -27,6 +28,7 @@
 #define	LOOPBACK_IF	"lo0"
 #define	NONE_STR	"none"
 #define	ARP_MOD_NAME	"arp"
+#define	IPADM_UPGRADE	"IPADM_UPGRADE"
 #define	LIFC_DEFAULT	(LIFC_NOXMIT | LIFC_TEMPORARY | LIFC_ALLZONES |\
 			LIFC_UNDER_IPMP)
 
@@ -100,6 +102,7 @@ static char		name[LIFNAMSIZ];
 /* foreach interface saved name */
 static char		origname[LIFNAMSIZ];
 static int		setaddr;
+static int		ipadm_flags = IPADM_OPT_ACTIVE;
 static boolean_t	setaddr_done = _B_FALSE;
 static boolean_t	ipsec_policy_set;
 static boolean_t	ipsec_auth_covered;
@@ -120,7 +123,7 @@ static ipadm_addrobj_t	ipaddr;
 int	s, s4, s6;
 int	af = AF_INET;	/* default address family */
 int	debug = 0;
-int	all = 0;	/* setifdhcp() needs to know this */
+int	all = 0;
 int	verbose = 0;
 int	v4compat = 0;	/* Compatible printing format */
 
@@ -621,6 +624,14 @@ ifconfig(int argc, char *argv[], int af, struct ifaddrs *ifa)
 		return;
 	}
 
+	/*
+	 * If we're upgrading to ipadm configuration, then turn on the
+	 * IPADM_OPT_PERSIST flag for libipadm calls.  This will cause libipadm
+	 * calls to operate on persistent ipadm configuration.
+	 */
+	if (getenv(IPADM_UPGRADE) != NULL)
+		ipadm_flags |= IPADM_OPT_PERSIST;
+
 	if (strcmp(*argv, "auto-dhcp") == 0 || strcmp(*argv, "dhcp") == 0) {
 		/*
 		 * Some errors are ignored in the case where more than one
@@ -633,7 +644,7 @@ ifconfig(int argc, char *argv[], int af, struct ifaddrs *ifa)
 		} else if (ret != DHCP_EXIT_SUCCESS) {
 			exit(ret);
 		}
-		return;
+		goto create_addr;
 	}
 
 	/*
@@ -758,8 +769,9 @@ ifconfig(int argc, char *argv[], int af, struct ifaddrs *ifa)
 			 * Both source and destination address are in `ipaddr'.
 			 * Add the address by calling libipadm.
 			 */
-			istatus = ipadm_create_addr(iph, ipaddr,
-			    IPADM_OPT_ACTIVE);
+			if (ipadm_flags & IPADM_OPT_PERSIST)
+				ipadm_flags |= IPADM_OPT_UP;
+			istatus = ipadm_create_addr(iph, ipaddr, ipadm_flags);
 			if (istatus != IPADM_SUCCESS)
 				goto createfailed;
 			ipadm_destroy_addrobj(ipaddr);
@@ -827,12 +839,15 @@ ifconfig(int argc, char *argv[], int af, struct ifaddrs *ifa)
 		argc--, argv++;
 	}
 
+create_addr:
 	if (setaddr && ipaddr != NULL) {
 		/*
 		 * Only the source address was provided, which was already
 		 * set in `ipaddr'. Add the address by calling libipadm.
 		 */
-		istatus = ipadm_create_addr(iph, ipaddr, IPADM_OPT_ACTIVE);
+		if (ipadm_flags & IPADM_OPT_PERSIST)
+			ipadm_flags |= IPADM_OPT_UP;
+		istatus = ipadm_create_addr(iph, ipaddr, ipadm_flags);
 		if (istatus != IPADM_SUCCESS)
 			goto createfailed;
 		ipadm_destroy_addrobj(ipaddr);
@@ -2008,8 +2023,8 @@ removeif(char *str, int64_t param)
 		ipadmerr_exit(istatus, "removeif");
 
 	for (ainfop = ainfo; ainfop != NULL; ainfop = IA_NEXT(ainfop))
-		if (sockaddrcmp(
-		    (struct sockaddr_storage *)ainfop->ia_ifa.ifa_addr, &laddr))
+		if (sockaddrcmp(ainfop->ia_ifa.ifa_addr,
+		    (struct sockaddr *)&laddr))
 			break;
 
 	if (ainfop != NULL) {
@@ -2021,7 +2036,7 @@ removeif(char *str, int64_t param)
 		}
 		if (ainfop->ia_aobjname[0] != '\0') {
 			istatus = ipadm_delete_addr(iph, ainfop->ia_aobjname,
-			    IPADM_OPT_ACTIVE);
+			    ipadm_flags);
 			if (istatus != IPADM_SUCCESS) {
 				ipadmerr_exit(istatus,
 				    "could not delete address");
@@ -2883,7 +2898,7 @@ ifstatus(const char *ifname)
 				(void) printf("\n\tall-zones");
 			} else if (getzonenamebyid(lifr.lifr_zoneid, zone_name,
 			    sizeof (zone_name)) < 0) {
-				(void) printf("\n\tzone %d", lifr.lifr_zoneid);
+				(void) printf("\n\tzone %ld", lifr.lifr_zoneid);
 			} else {
 				(void) printf("\n\tzone %s", zone_name);
 			}
@@ -3628,7 +3643,7 @@ inetunplumb(char *arg, int64_t param)
 {
 	ipadm_status_t	istatus;
 
-	istatus = ipadm_delete_if(iph, name, afp->af_af, IPADM_OPT_ACTIVE);
+	istatus = ipadm_delete_if(iph, name, afp->af_af, ipadm_flags);
 	if (istatus != IPADM_SUCCESS) {
 		(void) fprintf(stderr, "ifconfig: cannot unplumb %s: %s\n",
 		    name, ipadm_status2str(istatus));
@@ -3649,7 +3664,7 @@ inetplumb(char *arg, int64_t param)
 {
 	ipadm_status_t	istatus;
 
-	istatus = ipadm_create_if(iph, name, afp->af_af, IPADM_OPT_ACTIVE);
+	istatus = ipadm_create_if(iph, name, afp->af_af, ipadm_flags);
 	if (istatus != IPADM_SUCCESS) {
 		(void) fprintf(stderr, "ifconfig: cannot plumb %s: %s\n",
 		    name, ipadm_status2str(istatus));
@@ -3694,7 +3709,7 @@ static int
 create_ipmp(const char *grname, int af, const char *ifname, boolean_t implicit)
 {
 	static int ipmp_daemon_started;
-	uint32_t flags = IPADM_OPT_IPMP|IPADM_OPT_ACTIVE;
+	uint32_t flags = ipadm_flags | IPADM_OPT_IPMP;
 	ipadm_status_t istatus;
 
 	if (debug) {
@@ -4304,6 +4319,7 @@ ni_entry(const char *linkname, void *arg)
 static int
 setifdhcp(const char *caller, const char *ifname, int argc, char *argv[])
 {
+	ipadm_status_t		istatus;
 	dhcp_ipc_request_t	*request;
 	dhcp_ipc_reply_t	*reply	= NULL;
 	int			timeout = DHCP_IPC_WAIT_DEFAULT;
@@ -4311,6 +4327,7 @@ setifdhcp(const char *caller, const char *ifname, int argc, char *argv[])
 	int			error;
 	boolean_t		is_primary = _B_FALSE;
 	boolean_t		started = _B_FALSE;
+	int32_t			ipadm_wait;
 
 	for (argv++; --argc > 0; argv++) {
 
@@ -4350,11 +4367,30 @@ setifdhcp(const char *caller, const char *ifname, int argc, char *argv[])
 		}
 	}
 
+	if (af == AF_INET && type == DHCP_START) {
+		istatus = ipadm_create_addrobj(IPADM_ADDR_DHCP, name, &ipaddr);
+		if (istatus != IPADM_SUCCESS)
+			ipadmerr_exit(istatus, "setifdhcp");
+
+		if (timeout != DHCP_IPC_WAIT_DEFAULT) {
+			if (timeout == DHCP_IPC_WAIT_FOREVER)
+				ipadm_wait = IPADM_DHCP_WAIT_FOREVER;
+			else
+				ipadm_wait = timeout;
+			istatus = ipadm_set_wait_time(ipaddr, ipadm_wait);
+			if (istatus != IPADM_SUCCESS)
+				ipadmerr_exit(istatus, "setifdhcp");
+		}
+
+		setaddr++;
+		return (DHCP_EXIT_SUCCESS);
+	}
+
 	/*
-	 * Only try to start agent on start or inform; in all other cases it
-	 * has to already be running for anything to make sense.
+	 * Only try to start agent on inform; in all other cases it has to
+	 * already be running for anything to make sense.
 	 */
-	if (type == DHCP_START || type == DHCP_INFORM) {
+	if (type == DHCP_INFORM) {
 		if (dhcp_start_agent(DHCP_IPC_MAX_WAIT) == -1) {
 			(void) fprintf(stderr, "%s: unable to start %s\n",
 			    caller, DHCP_AGENT_PATH);

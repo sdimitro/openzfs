@@ -22,6 +22,8 @@
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
 
 PROG= dladm
 CFGFILES= secobj.conf
@@ -29,6 +31,9 @@ CFGFILES= secobj.conf
 ROOTFS_PROG=	$(PROG)
 ROOTCFGDIR=	$(ROOTETC)/dladm
 ROOTCFGFILES=	$(CFGFILES:%=$(ROOTCFGDIR)/%)
+
+SVCMETHOD=	net-datalink
+MANIFEST=	network-datalink.xml
 
 include ../Makefile.cmd
 
@@ -44,6 +49,7 @@ CERRWARN += -_gcc=-Wno-uninitialized
 # For headers from librstp.
 LINTFLAGS +=	-erroff=E_TRAILING_COMMA_IN_ENUM
 
+ROOTMANIFESTDIR= $(ROOTSVCNETWORK)
 $(ROOTCFGDIR)/secobj.conf := FILEMODE= 660
 
 lint :=	ZLAZYLOAD=
@@ -51,13 +57,17 @@ lint :=	ZNOLAZYLOAD=
 
 .KEEP_STATE:
 
-all: $(ROOTFS_PROG) 
+all: $(ROOTFS_PROG)
 
-install: all $(ROOTSBINPROG) $(ROOTCFGDIR) $(ROOTCFGFILES)
+install: all $(ROOTSBINPROG) $(ROOTCFGDIR) $(ROOTCFGFILES) $(ROOTMANIFEST) \
+	$(ROOTSVCMETHOD)
 	$(RM) $(ROOTUSRSBINPROG)
 	-$(SYMLINK) ../../sbin/$(PROG) $(ROOTUSRSBINPROG)
 
+check:	$(CHKMANIFEST)
+
 clean:
+	$(RM) $(PROG)
 
 lint:	lint_PROG
 

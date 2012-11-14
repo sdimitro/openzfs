@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <unistd.h>
@@ -70,29 +71,32 @@ get_netmask4(const struct in_addr *n_addrp, struct in_addr *s_addrp)
 }
 
 /*
- * Checks if the IP addresses `ssp1' and `ssp2' are equal.
+ * Checks if the IP addresses `sa1' and `sa2' are equal.
  */
 boolean_t
-sockaddrcmp(const struct sockaddr_storage *ssp1,
-    const struct sockaddr_storage *ssp2)
+sockaddrcmp(const struct sockaddr *sa1, const struct sockaddr *sa2)
 {
 	struct in_addr addr1, addr2;
 	const struct in6_addr *addr6p1, *addr6p2;
 
-	if (ssp1->ss_family != ssp2->ss_family)
+	if (sa1->sa_family != sa2->sa_family)
 		return (B_FALSE);
 
-	if (ssp1 == ssp2)
+	if (sa1 == sa2)
 		return (B_TRUE);
 
-	switch (ssp1->ss_family) {
+	switch (sa1->sa_family) {
 	case AF_INET:
-		addr1 = ((const struct sockaddr_in *)ssp1)->sin_addr;
-		addr2 = ((const struct sockaddr_in *)ssp2)->sin_addr;
+		/* LINTED E_BAD_PTR_CAST_ALIGN */
+		addr1 = ((const struct sockaddr_in *)sa1)->sin_addr;
+		/* LINTED E_BAD_PTR_CAST_ALIGN */
+		addr2 = ((const struct sockaddr_in *)sa2)->sin_addr;
 		return (addr1.s_addr == addr2.s_addr);
 	case AF_INET6:
-		addr6p1 = &((const struct sockaddr_in6 *)ssp1)->sin6_addr;
-		addr6p2 = &((const struct sockaddr_in6 *)ssp2)->sin6_addr;
+		/* LINTED E_BAD_PTR_CAST_ALIGN */
+		addr6p1 = &((const struct sockaddr_in6 *)sa1)->sin6_addr;
+		/* LINTED E_BAD_PTR_CAST_ALIGN */
+		addr6p2 = &((const struct sockaddr_in6 *)sa2)->sin6_addr;
 		return (IN6_ARE_ADDR_EQUAL(addr6p1, addr6p2));
 	}
 	return (B_FALSE);

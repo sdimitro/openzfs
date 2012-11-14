@@ -21,6 +21,8 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include "mpd_defs.h"
@@ -3247,7 +3249,8 @@ getgroupinfo(const char *grname, ipmp_groupinfo_t **grinfopp)
 		 * better algorithm here.)
 		 */
 		for (j = 0; j < i; j++) {
-			if (sockaddrcmp(&addrs[j], &addrp->al_addr))
+			if (sockaddrcmp((struct sockaddr *)&addrs[j],
+			    (struct sockaddr *)&addrp->al_addr))
 				break;
 		}
 		if (j == i) {
@@ -3385,7 +3388,8 @@ getgraddrinfo(const char *grname, struct sockaddr_storage *ssp,
 	 * prefer an up address (if one exists).
 	 */
 	for (addrp = pg->pg_addrs; addrp != NULL; addrp = addrp->al_next) {
-		if (sockaddrcmp(ssp, &addrp->al_addr)) {
+		if (sockaddrcmp((struct sockaddr *)ssp,
+		    (struct sockaddr *)&addrp->al_addr)) {
 			addrmatchp = addrp;
 			if (addrmatchp->al_flags & IFF_UP)
 				break;

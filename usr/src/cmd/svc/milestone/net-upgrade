@@ -1,0 +1,202 @@
+#!/sbin/sh
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+#
+# Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2012 Milan Jurik. All rights reserved.
+#
+# Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T.
+# All rights reserved.
+#
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
+# This is the start method for the network/physical:upgrade SMF service
+# instance.  It is responsible for upgrading persistent IP interface
+# configuration from /etc/hostname*.<ifname> and /etc/dhcp.<ifname> files to
+# ipadm configuration.
+#
+# It does this by configuring IP interfaces as network/physical:default
+# previously did (by feeding the contents of /etc/hostname*.<ifname> files to
+# ifconfig commands) with one difference:  It sets the IPADM_UPGRADE
+# environment variable, which causes ifconfig's calls into libipadm to apply to
+# the ipadm persistent configuration.
+#
+# After this method has successfully completed, it preserves the old upgraded
+# configuration by renaming files using the convention
+# /etc/upgraded.hostname*.<ifname> and /etc/upgraded.dhcp.<ifname>.
+#
+
+. /lib/svc/share/smf_include.sh
+. /lib/svc/share/net_include.sh
+
+#
+# In a shared-IP zone we need this service to be up, but all of the work it
+# tries to do is irrelevant (and will actually lead to the service failing if
+# we try to do it), so just bail out.  In the global zone and exclusive-IP
+# zones we proceed.
+#
+smf_configure_ip || exit $SMF_EXIT_OK
+
+smf_netstrategy
+
+legacyerr="\
+You can either remove the stray file(s) and re-create the desired\n\
+configuration using ipadm(1M), or re-initialize the upgrade process.  To do\n\
+the latter, first reset the upgrade/done property of this service to false as\n\
+follows:\n\n\
+/usr/sbin/svccfg -s network/physical:upgrade setprop upgrade/done=false\n\
+/usr/sbin/svcadm refresh network/physical:upgrade\n\n\
+You will need to clear this service to continue as follows:\n\
+/usr/sbin/svcadm clear network/physical:upgrade"
+
+#
+# is_upgradable <ifname> inet|inet6
+#
+# Returns 0 if the interface configuration is upgradable.  We don't upgrade IP
+# tunnel interfaces plumbed by net-iptun and any interfaces that are part of
+# IPMP configuration (IPMP isn't handled by ipadm yet).
+#
+is_upgradable()
+{
+	ifname=$1
+	family=$2
+
+	if is_iptun $ifname || is_ipmp $ifname $family || \
+	    is_ipmp_under $ifname $family; then
+		return 1
+	fi
+	return 0
+}
+
+upgrade_done()
+{
+	fileprefix=$1
+	family=$2
+
+	mv /etc/$fileprefix.$ifname /etc/upgraded.$fileprefix.$ifname || \
+	    return 1
+	echo "/etc/upgraded.$fileprefix.$ifname"
+	if [[ $family == inet && -f /etc/dhcp.$ifname ]]; then
+		mv /etc/dhcp.$ifname /etc/upgraded.dhcp.$ifname || return 1
+		echo "/etc/upgraded.dhcp.$ifname"
+	fi
+	return 0
+}
+
+#
+# upgrade_all inet|inet6
+#
+upgrade_all()
+{
+	family=$1
+	ret=0
+	fileprefix=hostname
+
+	if [[ $family == inet6 ]]; then
+		fileprefix=${fileprefix}6
+	fi
+
+	for ifname in `get_interface_names /etc/$fileprefix`; do
+		if ! is_upgradable $ifname $family; then
+			echo "Skipping /etc/$fileprefix.$ifname"
+			continue
+		fi
+
+		echo "Upgrading $ifname $family..."
+		if if_configure $ifname $family; then
+			files=`upgrade_done $fileprefix $family`
+			ret=$?
+			if [[ $ret -eq 0 ]]; then
+				echo "Done.  Original file(s) saved as:\n$files"
+			else
+				echo "Failed to rename old $family \c"
+				echo "configuration for $ifname."
+				echo "To recover, remove or rename \c"
+				echo "/etc/*.$ifname files and clear this \c"
+				echo "service."
+			fi
+		else
+			echo "Failed."
+			ret=1
+		fi
+	done
+
+	return $ret
+}
+
+#
+# If we've already done the upgrade, then there is nothing for this service to
+# do functionally.  We just do some sanity checking to make sure there are no
+# stray /etc/* files.
+#
+upgrade_done=`/usr/bin/svcprop -p upgrade/done $SMF_FMRI`
+if [[ $upgrade_done == true ]]; then
+	fail=false
+
+	#
+	# After upgrade has completed, any files left over must either be
+	# associated with interface configuration that was not upgradable, or
+	# files that were subsequently added.  For the latter case, we fail the
+	# service.
+	#
+	for ifname in `get_interface_names /etc/hostname`; do
+		if is_upgradable $ifname inet; then
+			echo "Unexpected legacy configuration file found: \c"
+			echo "/etc/hostname.$ifname"
+			fail=true
+		fi
+	done
+	for ifname in `get_interface_names /etc/hostname6`; do
+		if is_upgradable $ifname inet6; then
+			echo "Unexpected legacy configuration file found: \c"
+			echo "/etc/hostname6.$ifname"
+			fail=true
+		fi
+	done
+	for ifname in `get_interface_names /etc/dhcp`; do
+		if is_upgradable $ifname inet; then
+			echo "Unexpected legacy configuration file found: \c"
+			echo "/etc/dhcp.$ifname"
+			fail=true
+		fi
+	done
+
+	if $fail; then
+		echo $legacyerr
+		exit $SMF_EXIT_ERR_CONFIG
+	fi
+	exit $SMF_EXIT_OK
+fi
+
+#
+# This environment variable is consumed by ifconfig.  It causes ifconfig to
+# call into the libipadm API using the IPADM_OPT_PERSIST flag which causes
+# configuration changes to be applied to the persistent configuration.
+#
+export IPADM_UPGRADE=1
+
+if upgrade_all inet && upgrade_all inet6; then
+	/usr/sbin/svccfg -s $SMF_FMRI setprop upgrade/done=true
+	/usr/sbin/svcadm refresh $SMF_FMRI
+	exit $SMF_EXIT_OK
+fi
+
+exit $SMF_EXIT_ERR_FATAL

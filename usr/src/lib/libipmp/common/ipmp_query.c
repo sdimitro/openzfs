@@ -20,6 +20,8 @@
  *
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -980,7 +982,8 @@ ipmp_snap_getaddrinfo(ipmp_snap_t *snap, const char *grname,
 
 	for (adlp = snap->sn_adinfolistp; adlp != NULL; adlp = adlp->adl_next) {
 		if (strcmp(grname, adlp->adl_adinfop->ad_group) == 0 &&
-		    sockaddrcmp(addrp, &adlp->adl_adinfop->ad_addr))
+		    sockaddrcmp((struct sockaddr *)addrp,
+		    (struct sockaddr *)&adlp->adl_adinfop->ad_addr))
 			break;
 	}
 

@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <arpa/inet.h>
@@ -282,7 +283,8 @@ find_static_address(const struct sockaddr_storage *addr, const nwamd_ncu_t *ncu)
 		    ipadm_get_addr(nifap->ipaddr, &saddr) != IPADM_SUCCESS)
 			continue;
 
-		if (sockaddrcmp(addr, &saddr))
+		if (sockaddrcmp((struct sockaddr *)addr,
+		    (struct sockaddr *)&saddr))
 			return (nifap);
 	}
 	return (NULL);
@@ -335,8 +337,10 @@ find_configured_address(const struct sockaddr_storage *addr,
 	nlog(LOG_DEBUG, "find_configured_address: %s",
 	    nwamd_sockaddr2str((struct sockaddr *)addr, str, sizeof (str)));
 	for (nifap = nifa; nifap != NULL; nifap = nifap->next) {
-		if (sockaddrcmp(addr, &nifap->conf_addr) ||
-		    sockaddrcmp(addr, &nifap->conf_stateless_addr))
+		if (sockaddrcmp((struct sockaddr *)addr,
+		    (struct sockaddr *)&nifap->conf_addr) ||
+		    sockaddrcmp((struct sockaddr *)addr,
+		    (struct sockaddr *)&nifap->conf_stateless_addr))
 			return (nifap);
 	}
 	return (NULL);
@@ -604,14 +608,12 @@ addrinfo_for_addr(const struct sockaddr_storage *caddr, const char *ifname,
 
 	*ainfo = NULL;
 	for (ainfop = addrinfo; ainfop != NULL; ainfop = IA_NEXT(ainfop)) {
-		struct sockaddr_storage addr;
-
-		(void) memcpy(&addr, ainfop->ia_ifa.ifa_addr, sizeof (addr));
 		/*
 		 * If addresses match, rearrange pointers so that addrinfo
 		 * does not contain a, and return a.
 		 */
-		if (sockaddrcmp(&addr, caddr)) {
+		if (sockaddrcmp(ainfop->ia_ifa.ifa_addr,
+		    (struct sockaddr *)caddr)) {
 			if (last != NULL)
 				last->ia_ifa.ifa_next = ainfop->ia_ifa.ifa_next;
 			else
@@ -967,17 +969,14 @@ nwamd_ncu_handle_if_state_event(nwamd_event_t event)
 			    &ai)) {
 				ipadm_addr_info_t *a;
 				for (a = ai; a != NULL; a = IA_NEXT(a)) {
-					struct sockaddr_storage stor;
-
-					(void) memcpy(&stor, a->ia_ifa.ifa_addr,
-					    sizeof (stor));
 					/*
 					 * Since multiple addrinfo can have
 					 * the same ipaddr, find the one for
 					 * the address that generated this
 					 * state event.
 					 */
-					if (sockaddrcmp(addr, &stor)) {
+					if (sockaddrcmp((struct sockaddr *)addr,
+					    a->ia_ifa.ifa_addr)) {
 						flags = a->ia_ifa.ifa_flags;
 						(void) memcpy(&ai_addr,
 						    a->ia_ifa.ifa_addr,
@@ -1063,7 +1062,8 @@ nwamd_ncu_handle_if_state_event(nwamd_event_t event)
 		 * in that case.
 		 */
 		if (!addr_added && !(flags & IFF_DUPLICATE)) {
-			if (aip != 0 && sockaddrcmp(addr, aip)) {
+			if (aip != 0 && sockaddrcmp((struct sockaddr *)addr,
+			    (struct sockaddr *)aip)) {
 				nlog(LOG_INFO,
 				    "nwamd_ncu_handle_if_state_event: "
 				    "address %s is not really gone from %s, "

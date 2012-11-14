@@ -25,6 +25,8 @@
 # Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T.
 # All rights reserved.
 #
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
 
 NET_INADDR_ANY="0.0.0.0"
 NET_IN6ADDR_ANY_INIT="::0"
@@ -39,12 +41,12 @@ warn_failed_ifs() {
 #   Simulates cat in sh so it doesn't need to be on the root filesystem.
 #
 shcat() {
-        while [ $# -ge 1 ]; do
-                while read i; do
-                        echo "$i"
-                done < $1
-                shift
-        done
+	while [ $# -ge 1 ]; do
+		while read i; do
+			echo "$i"
+		done < $1
+		shift
+	done
 }
 
 net_record_err()
@@ -301,13 +303,13 @@ get_group()
 #
 # This is used to determine whether to bring the interface up
 #
-not_vrrp_interface() {
+vrrp_interface() {
 	macaddrtype=`/sbin/dladm show-vnic $1 -o MACADDRTYPE -p 2>/dev/null`
 
 	case "$macaddrtype" in
-	'vrrp'*''$2'')	vrrp=1
+	'vrrp'*''$2'')	vrrp=0
 			;;
-        *)		vrrp=0
+        *)		vrrp=1
 			;;
 	esac
 	return $vrrp
@@ -338,15 +340,14 @@ doDHCPhostname()
 #
 # Examples:
 #	inet_process_hostname /sbin/ifconfig hme0 < /etc/hostname.hme0
-#	
+#
 #	inet_process_hostname /sbin/ifparse -f < /etc/hostname.hme0
 #
 # If there is only line in an hostname file we assume it contains
-# the old style address which results in the interface being brought up 
-# and the netmask and broadcast address being set ($inet_oneline_epilogue).
+# the old style address which results in the interface being brought up.
 #
 # Note that if the interface is a VRRP interface, do not bring the address
-# up ($inet_oneline_epilogue_no_up).
+# up.
 #
 # If there are multiple lines we assume the file contains a list of
 # commands to the processor with neither the implied bringing up of the
@@ -355,7 +356,6 @@ doDHCPhostname()
 # Return non-zero if any command fails so that the caller may alert
 # users to errors in the configuration.
 #
-inet_oneline_epilogue_no_up="netmask + broadcast +"
 inet_oneline_epilogue="netmask + broadcast + up"
 
 inet_process_hostname()
@@ -398,18 +398,12 @@ inet_process_hostname()
 			# configuring the newly plumbed interface.
 			#
 			[ -z "$ifcmds" ] && return $retval
-			if [ $multiple_lines = false ]; then
+			if [ $multiple_lines = false ] && \
+			    ! vrrp_interface $2 $3; then
 				#
 				# The traditional one-line hostname file.
-				# Note that we only bring it up if the
-				# interface is not a VRRP VNIC.
 				#
-				if not_vrrp_interface $2 $3; then
-					estr="$inet_oneline_epilogue"
-				else
-					estr="$inet_oneline_epilogue_no_up"
-				fi
-				ifcmds="$ifcmds $estr"
+				ifcmds="$ifcmds up"
 			fi
 
 			#
@@ -440,7 +434,7 @@ inet_process_hostname()
 #
 inet6_process_hostname()
 {
-    	retval=0
+	retval=0
 	while read one rest; do
 		#
 	    	# See comment in inet_process_hostname for details.
@@ -592,53 +586,41 @@ ipadm_from_gz_if()
 }
 
 #
-# if_configure type class interface_list
+# if_configure <ifname> inet|inet6 [ipmp]
 #
-# Configure all of the interfaces of type `type' (e.g., "inet6") in
-# `interface_list' according to their /etc/hostname[6].* files.  `class'
-# describes the class of interface (e.g., "IPMP"), as a diagnostic aid.
-# For inet6 interfaces, the interface is also brought up.
+# Configure the interfaces of type `type' (e.g., "inet6") according to its
+# /etc/hostname[6].<ifname> file.  DHCP is configured for IPv4 if
+# /etc/dhcp.<ifname> exists.
 #
 if_configure()
 {
-	fail=
-	type=$1
-	class=$2
-	process_func=${type}_process_hostname
-	shift 2
+	ifname=$1
+	type=$2
+	plumb=plumb
+	hostpfx=/etc/hostname
 
-	if [ "$type" = inet ]; then
-	        desc="IPv4"
-		hostpfx="/etc/hostname"
-	else
-	        desc="IPv6"
-		hostpfx="/etc/hostname6"
+	if [[ $# -eq 3 ]]; then
+		plumb=ipmp
 	fi
-	[ -n "$class" ] && desc="$class $desc"
 
-	echo "configuring $desc interfaces:\c"
-	while [ $# -gt 0 ]; do
-		$process_func /sbin/ifconfig $1 $type < $hostpfx.$1 >/dev/null
-		if [ $? != 0 ]; then
-			ipadm_from_gz_if $1
-			if [ $? != 0 ]; then
-				fail="$fail $1"
-			fi
-		elif [ "$type" = inet6 ]; then
-			#
-			# only bring the interface up if it is not a
-			# VRRP VNIC
-			#
-			if not_vrrp_interface $1 $type; then
-			    	/sbin/ifconfig $1 inet6 up || fail="$fail $1"
-			fi
-		fi
-		echo " $1\c"
-		shift
-	done
-	echo "."
+	if [[ "$type" = inet6 ]]; then
+		hostpfx="${hostpfx}6"
+	fi
 
-	[ -n "$fail" ] && warn_failed_ifs "configure $desc" "$fail"
+	/sbin/ifconfig $ifname $family $plumb || return 1
+
+	process_func=${type}_process_hostname
+	$process_func /sbin/ifconfig $ifname $type < $hostpfx.$ifname
+	if [[ $? != 0 ]]; then
+		ipadm_from_gz_if $ifname || return 1
+	fi
+
+	if [[ $type = inet && -f /etc/dhcp.$ifname ]]; then
+		cmdline=`shcat /etc/dhcp\.${ifname}`
+		/sbin/ifconfig $ifname dhcp start $cmdline || return 1
+	fi
+
+	return 0
 }
 
 #
@@ -649,7 +631,7 @@ if_configure()
 # (default and nwam) that have distinct method scripts that each need
 # to do these things.
 #
-net_reconfigure ()
+net_reconfigure()
 {
 	#
 	# Is this a reconfigure boot?  If not, then there's nothing
@@ -888,4 +870,128 @@ nwam_get_loc_list_prop()
 	slist=`echo $clist | sed -e s/","/" "/g`
 	echo $slist
 	return $rtn
+}
+
+#
+# Get the list of interface names defined by $file_pattern.<name> files by
+# using '.' as the input field separator.  There are three main use cases for this function:
+# 1. To get the list of IPv4 interfaces to be plumbed
+#    get_interface_names /etc/hostname
+# 2. To get the list of IPv6 interfaces to be plumbed
+#    get_interface_names /etc/hostname6
+# 3. To get the list of interfaces configured for DHCP
+#    get_interface_names /etc/dhcp
+#
+get_interface_names()
+{
+	file_pattern=$1
+
+	files="`echo $file_pattern.*[0-9] 2>/dev/null`"
+	if [ "$files" != "$file_pattern.*[0-9]" ]; then
+		ORIGIFS="$IFS"
+		IFS="$IFS."
+		set -- $files
+		IFS="$ORIGIFS"
+
+		while [ $# -ge 2 ]; do
+			shift
+			ifname=$1
+
+			# '.' can be part of an interface name
+			while [ $# -gt 1 -a "$2" != "$file_pattern" ]; do
+				ifname="$ifname.$2"
+				shift
+			done
+
+			echo $ifname
+			shift
+		done
+	fi
+}
+
+is_iptun()
+{
+	intf=$1
+	# Is this a persistent IP tunnel link?
+	/sbin/dladm show-iptun -P $intf > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		return 0
+	fi
+	# Is this an implicit IP tunnel (i.e., ip.tun0)
+	ORIGIFS="$IFS"
+	IFS="$IFS."
+	set -- $intf
+	IFS="$ORIGIFS"
+	if [ $# -eq 2 -a \( "$1" = "ip" -o "$1" = "ip6" \) ]; then
+		#
+		# It looks like one, but another type of link might be
+		# using a name that looks like an implicit IP tunnel.
+		# If dladm show-link -P finds it, then it's not an IP
+		# tunnel.
+		#
+		/sbin/dladm show-link -Pp $intf > /dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+	return 1
+}
+
+#
+# is_ipmp <ifname> [inet|inet6]
+#
+# returns 0 if the given interface is configured as an IPMP interface or is an
+# IPMP underlying interface.
+#
+is_ipmp()
+{
+	ifname=$1
+	type=$2
+
+	if [[ $type == inet ]]; then
+		filename=/etc/hostname.$ifname
+	else
+		filename=/etc/hostname6.$ifname
+	fi
+
+	if [[ ! -f $filename ]]; then
+		return 1
+	fi
+
+	read one rest < $filename
+	if [[ "$one" == ipmp ]]; then
+		return 0
+	fi
+	return 1
+}
+
+#
+# is_ipmp_under <ifname> [inet|inet6]
+#
+# Returns 0 if the given interface is an IPMP underlying interface.  An
+# interface is an underlying interface if it is configured with the group
+# keyword but is not the IPMP meta interface.
+#
+is_ipmp_under()
+{
+	ifname=$1
+	type=$2
+
+	if [[ $type == inet ]]; then
+		filename=/etc/hostname.$ifname
+	else
+		filename=/etc/hostname6.$ifname
+	fi
+
+	if [[ ! -f $filename ]]; then
+		return 1
+	fi
+
+	if ! is_ipmp $ifname $type && \
+	    grep "group " $filename > /dev/null; then
+		return 0
+	fi
+	return 1
 }

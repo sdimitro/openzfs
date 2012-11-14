@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef _LIBINETUTIL_H
@@ -51,8 +52,8 @@ typedef struct {
 
 extern boolean_t	ifparse_ifspec(const char *, ifspec_t *);
 extern void		get_netmask4(const struct in_addr *, struct in_addr *);
-extern boolean_t	sockaddrcmp(const struct sockaddr_storage *,
-			    const struct sockaddr_storage *);
+extern boolean_t	sockaddrcmp(const struct sockaddr *,
+			    const struct sockaddr *);
 extern int		plen2mask(uint_t, sa_family_t, struct sockaddr *);
 extern int		mask2plen(const struct sockaddr *);
 extern boolean_t	sockaddrunspec(const struct sockaddr *);

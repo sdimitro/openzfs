@@ -20,6 +20,7 @@
 #
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 include ../../Makefile.cmd
@@ -120,6 +121,7 @@ SVCMETHOD=\
 	net-physical \
 	net-routing-setup \
 	net-svc \
+	net-upgrade \
 	rmtmpfiles \
 	vtdaemon
 

@@ -2563,7 +2563,8 @@ ipadm_create_addr(ipadm_handle_t iph, ipadm_addrobj_t addr, uint32_t flags)
 			status = ipadm_errno2status(errno);
 			goto fail;
 		}
-		if (sockaddrcmp(&lifr.lifr_addr, &addr->ipadm_static_addr))
+		if (sockaddrcmp((struct sockaddr *)&lifr.lifr_addr,
+		    (struct sockaddr *)&addr->ipadm_static_addr))
 			return (IPADM_SUCCESS);
 	}
 
@@ -3415,9 +3416,6 @@ i_ipadm_validate_create_addr(ipadm_handle_t iph, ipadm_addrobj_t ipaddr,
 
 	if (!legacy && ipaddr->ipadm_lifnum != 0)
 		return (IPADM_INVALID_ARG);
-
-	if (legacy && ipaddr->ipadm_atype != IPADM_ADDR_STATIC)
-		return (IPADM_NOTSUP);
 
 	ifname = ipaddr->ipadm_ifname;
 

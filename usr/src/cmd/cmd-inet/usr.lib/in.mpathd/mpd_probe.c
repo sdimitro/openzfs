@@ -1,6 +1,8 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -2717,7 +2719,8 @@ own_address(struct in6_addr addr)
 
 	addr2storage(af, &addr, &ss);
 	for (addrp = localaddrs; addrp != NULL; addrp = addrp->al_next) {
-		if (sockaddrcmp(&ss, &addrp->al_addr))
+		if (sockaddrcmp((struct sockaddr *)&ss,
+		    (struct sockaddr *)&addrp->al_addr))
 			return (_B_TRUE);
 	}
 	return (_B_FALSE);

@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 SYNCPROG=	syncinit syncloop syncstat
@@ -84,8 +85,8 @@ LINTCLEAN=	6to4relay arp in.rlogind in.rshd in.telnetd in.tftpd \
 # they're all clean, replace the dependency of the lint target
 # with SUBDIRS.  Also (sigh) deal with the commented-out build lines
 # for the lint rule.
-LINTSUBDIRS=	bootconfchk ilbadm in.rdisc in.routed in.talkd inetadm \
-		inetconv ipmpstat ipqosconf ipsecutils kssl/kssladm \
+LINTSUBDIRS=	bootconfchk ifconfig ilbadm in.rdisc in.routed in.talkd \
+		inetadm inetconv ipmpstat ipqosconf ipsecutils kssl/kssladm \
 		kssl/ksslcfg nwamadm nwamcfg ping routeadm sppptun traceroute \
 		wificonfig
 # And as programs are verified not to attempt to write into constants,

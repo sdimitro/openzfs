@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <errno.h>
@@ -1254,25 +1255,27 @@ i_ipadm_create_if(ipadm_handle_t iph, char *ifname, sa_family_t af,
 {
 	ipadm_status_t	status;
 	boolean_t	p_exists;
-	sa_family_t	other_af;
 
 	/*
-	 * Return error, if the interface already exists in either the active
-	 * or the persistent configuration.
+	 * Return IPADM_IF_EXISTS if the interface already exists in the
+	 * active or persistent configuration.
 	 */
 	if (ipadm_if_enabled(iph, ifname, af))
 		return (IPADM_IF_EXISTS);
 
-	if (!(iph->iph_flags & IPH_LEGACY)) {
-		status = i_ipadm_if_pexists(iph, ifname, af, &p_exists);
-		if (status != IPADM_SUCCESS)
-			return (status);
-		other_af = (af == AF_INET ? AF_INET6 : AF_INET);
-		if (p_exists) {
-			if (!ipadm_if_enabled(iph, ifname, other_af))
-				return (IPADM_OP_DISABLE_OBJ);
-			else
-				ipadm_flags &= ~IPADM_OPT_PERSIST;
+	status = i_ipadm_if_pexists(iph, ifname, af, &p_exists);
+	if (status != IPADM_SUCCESS)
+		return (status);
+	if (p_exists) {
+		if (iph->iph_flags & IPH_LEGACY) {
+			/*
+			 * We need to allow "ifconfig plumb" to succeed even if
+			 * a persistent IP interface already exists.
+			 */
+			ipadm_flags &= ~IPADM_OPT_PERSIST;
+		} else {
+			return ((ipadm_flags & IPADM_OPT_PERSIST) ?
+			    IPADM_IF_EXISTS : IPADM_OP_DISABLE_OBJ);
 		}
 	}
 

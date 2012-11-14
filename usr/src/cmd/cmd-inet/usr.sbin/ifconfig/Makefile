@@ -22,6 +22,8 @@
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
 
 PROG =		ifconfig
 ROOTFS_PROG =	$(PROG)
@@ -40,7 +42,6 @@ CPPFLAGS +=	-I$(CMDINETCOMMONDIR) -I$(SRC)/common/net/dhcp
 CERRWARN +=	-_gcc=-Wno-uninitialized
 CERRWARN +=	-_gcc=-Wno-parentheses
 LDLIBS +=       -ldhcpagent -ldlpi -linetutil -lipmp -ldladm -lipadm
-LINTFLAGS +=	-m
 
 ROOTUSRSBINLINKS = $(PROG:%=$(ROOTUSRSBIN)/%)
 
@@ -56,7 +57,11 @@ _D_UNIX98_EXTN= -D_XOPEN_SOURCE=500 -D__EXTENSIONS__
 
 $(OBJS)		:= CPPFLAGS +=	$(_D_UNIX98_EXTN)
 
-LINTFLAGS +=	$(_D_UNIX98_EXTN)
+# The UNIX98 defines above cause lint to output warnings about lint library
+# declarations conflicting with those in the header files.  We switch these
+# warnings off when running lint.
+LINTFLAGS +=	-erroff=E_INCONS_VAL_TYPE_DECL2 -erroff=E_INCONS_ARG_DECL2
+LINTFLAGS +=	-m $(_D_UNIX98_EXTN)
 
 .KEEP_STATE:
 

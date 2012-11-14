@@ -3647,8 +3647,8 @@ zfs_do_send(int argc, char **argv)
 	if (flags.replicate && fromname == NULL)
 		flags.doall = B_TRUE;
 
-	err = zfs_send(zhp, fromname, toname, &flags, STDOUT_FILENO, NULL,
-	    0, extraverbose ? &dbgnv : NULL, NULL);
+	err = zfs_send(zhp, fromname, toname, &flags, STDOUT_FILENO, NULL, 0,
+	    extraverbose ? &dbgnv : NULL);
 
 	if (extraverbose && dbgnv != NULL) {
 		/*

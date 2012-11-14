@@ -590,7 +590,7 @@ typedef struct sendflags {
 typedef boolean_t (snapfilter_cb_t)(zfs_handle_t *, void *);
 
 extern int zfs_send(zfs_handle_t *, const char *, const char *,
-    sendflags_t *, int, snapfilter_cb_t, void *, nvlist_t **, uint64_t *);
+    sendflags_t *, int, snapfilter_cb_t, void *, nvlist_t **);
 
 extern int zfs_promote(zfs_handle_t *);
 extern int zfs_hold(zfs_handle_t *, const char *, const char *, boolean_t,

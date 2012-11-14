@@ -2426,7 +2426,7 @@ be_send_fs_callback(zfs_handle_t *zhp, void *data)
 
 		/* Send dataset */
 		if (zfs_send(zhp, NULL, bt->obe_snap_name, &send_flags,
-		    srpipe[1], NULL, NULL, NULL, NULL) != 0) {
+		    srpipe[1], NULL, NULL, NULL) != 0) {
 			_exit(1);
 		}
 		ZFS_CLOSE(zhp);

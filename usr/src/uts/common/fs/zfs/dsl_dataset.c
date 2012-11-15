@@ -3128,6 +3128,16 @@ dsl_dataset_clone_swap_check(void *arg1, void *arg2, dmu_tx_t *tx)
 {
 	struct cloneswaparg *csa = arg1;
 
+	/*
+	 * Don't check in open context, because
+	 * dsl_dataset_modified_since_lastsnap() could call
+	 * dsl_prop_register() which can't tell that we already have the
+	 * dp_config_rwlock.  This should be fixed by restructuring use
+	 * of the dp_config_rwlock.
+	 */
+	if (!dmu_tx_is_syncing(tx))
+		return (0);
+
 	/* they should both be heads */
 	if (dsl_dataset_is_snapshot(csa->cds) ||
 	    dsl_dataset_is_snapshot(csa->ohds))

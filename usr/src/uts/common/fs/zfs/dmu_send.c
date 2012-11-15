@@ -677,6 +677,16 @@ recv_existing_check(void *arg1, void *arg2, dmu_tx_t *tx)
 	int err;
 	uint64_t val;
 
+	/*
+	 * Don't check in open context, because
+	 * dsl_dataset_modified_since_lastsnap() could call
+	 * dsl_prop_register() which can't tell that we already have the
+	 * dp_config_rwlock.  This should be fixed by restructuring use
+	 * of the dp_config_rwlock.
+	 */
+	if (!dmu_tx_is_syncing(tx))
+		return (0);
+
 	/* must not have any changes since most recent snapshot */
 	if (!rbsa->force && dsl_dataset_modified_since_lastsnap(ds))
 		return (ETXTBSY);

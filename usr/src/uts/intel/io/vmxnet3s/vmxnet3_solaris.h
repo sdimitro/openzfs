@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/conf.h>
 #include <sys/debug.h>
+#include <sys/cmn_err.h>
 #include <sys/stropts.h>
 #include <sys/stream.h>
 #include <sys/strlog.h>

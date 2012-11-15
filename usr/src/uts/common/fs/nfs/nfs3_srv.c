@@ -401,7 +401,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 
 		if (dvp == NULL) {
 			error = ESTALE;
-			goto out;
+			goto out1;
 		}
 	}
 
@@ -554,8 +554,7 @@ out:
 	 * The passed argument exportinfo is released by the
 	 * caller, common_dispatch
 	 */
-	if (exi != NULL)
-		exi_rele(exi);
+	exi_rele(exi);
 
 	if (curthread->t_flag & T_WOULDBLOCK) {
 		curthread->t_flag &= ~T_WOULDBLOCK;

@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <mdb/mdb_param.h>
@@ -450,7 +451,10 @@ typedef struct memstat {
 	uint64_t	ms_vnode;	/* Pages of named (vnode) memory  */
 	uint64_t	ms_exec;	/* Pages of exec/library memory	  */
 	uint64_t	ms_cachelist;	/* Pages on the cachelist (free)  */
-	uint64_t	ms_total;	/* Pages on page hash		  */
+	uint64_t	ms_balloon;	/* Pages allocated to NULL vnode  */
+	uint64_t	ms_free;	/* Pages on the freelist	  */
+	uint64_t	ms_other;	/* Uncategorized pages		  */
+	uint64_t	ms_total;	/* Total counted pages		  */
 	vn_htable_t	*ms_vn_htable;	/* Pointer to hash table	  */
 	struct vnode	ms_vn;		/* vnode buffer			  */
 } memstat_t;
@@ -471,8 +475,14 @@ memstat_callback(page_t *page, page_t *pp, memstat_t *stats)
 {
 	struct vnode *vp = &stats->ms_vn;
 
-	if (pp->p_vnode == NULL || pp->p_vnode == stats->ms_unused_vp)
-		return (WALK_NEXT);
+	if (pp->p_vnode == stats->ms_unused_vp)
+		stats->ms_free++;
+	else if (pp->p_vnode == NULL && PP_ISFREE(pp))
+		stats->ms_free++;
+	else if (pp->p_vnode == NULL && pp->p_state == 0 && PAGE_EXCL(pp))
+		stats->ms_balloon++;
+	else if (pp->p_vnode == NULL)
+		stats->ms_other++;
 	else if (MS_PP_ISKAS(pp, stats))
 		stats->ms_kmem++;
 	else if (MS_PP_ISZFS_DATA(pp, stats))
@@ -497,17 +507,13 @@ memstat_callback(page_t *page, page_t *pp, memstat_t *stats)
 int
 memstat(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
-	pgcnt_t total_pages, physmem;
+	pgcnt_t total_pages;
 	ulong_t freemem;
 	memstat_t stats;
 	GElf_Sym sym;
 	vn_htable_t ht;
 	struct vnode *kvps;
 	uintptr_t vn_size = 0;
-#if defined(__i386) || defined(__amd64)
-	bln_stats_t bln_stats;
-	ssize_t bln_size;
-#endif
 
 	bzero(&stats, sizeof (memstat_t));
 
@@ -531,12 +537,6 @@ memstat(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	/* Total physical memory */
 	if (mdb_readvar(&total_pages, "total_pages") == -1) {
 		mdb_warn("unable to read total_pages");
-		return (DCMD_ERR);
-	}
-
-	/* Artificially limited memory */
-	if (mdb_readvar(&physmem, "physmem") == -1) {
-		mdb_warn("unable to read physmem");
 		return (DCMD_ERR);
 	}
 
@@ -575,7 +575,7 @@ memstat(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	}
 
 #define	MS_PCT_TOTAL(x)	((ulong_t)((((5 * total_pages) + ((x) * 1000ull))) / \
-		((physmem) * 10)))
+		((stats.ms_total) * 10)))
 
 	mdb_printf("Page Summary                Pages                MB"
 	    "  %%Tot\n");
@@ -608,44 +608,30 @@ memstat(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	    stats.ms_cachelist,
 	    (uint64_t)stats.ms_cachelist * PAGESIZE / (1024 * 1024),
 	    MS_PCT_TOTAL(stats.ms_cachelist));
+	mdb_printf("Free (freelist)  %16lu  %16llu  %3lu%%\n",
+	    stats.ms_free,
+	    (uint64_t)stats.ms_free * PAGESIZE / (1024 * 1024),
+	    MS_PCT_TOTAL(stats.ms_free));
 
-	/*
-	 * occasionally, we double count pages above.  To avoid printing
-	 * absurdly large values for freemem, we clamp it at zero.
-	 */
-	if (physmem > stats.ms_total)
-		freemem = physmem - stats.ms_total;
-	else
-		freemem = 0;
-
-#if defined(__i386) || defined(__amd64)
-	/* Are we running under Xen?  If so, get balloon memory usage. */
-	if ((bln_size = mdb_readvar(&bln_stats, "bln_stats")) != -1) {
-		if (freemem > bln_stats.bln_hv_pages)
-			freemem -= bln_stats.bln_hv_pages;
-		else
-			freemem = 0;
-	}
-#endif
-
-	mdb_printf("Free (freelist)  %16lu  %16llu  %3lu%%\n", freemem,
-	    (uint64_t)freemem * PAGESIZE / (1024 * 1024),
-	    MS_PCT_TOTAL(freemem));
-
-#if defined(__i386) || defined(__amd64)
-	if (bln_size != -1) {
+	if (stats.ms_balloon != 0) {
 		mdb_printf("Balloon          %16lu  %16llu  %3lu%%\n",
-		    bln_stats.bln_hv_pages,
-		    (uint64_t)bln_stats.bln_hv_pages * PAGESIZE / (1024 * 1024),
-		    MS_PCT_TOTAL(bln_stats.bln_hv_pages));
+		    stats.ms_balloon,
+		    stats.ms_balloon * PAGESIZE / (1024 * 1024),
+		    MS_PCT_TOTAL(stats.ms_balloon));
 	}
-#endif
+
+	if (stats.ms_other != 0) {
+		mdb_printf("Other            %16lu  %16llu  %3lu%%\n",
+		    stats.ms_other,
+		    stats.ms_other * PAGESIZE / (1024 * 1024),
+		    MS_PCT_TOTAL(stats.ms_other));
+	}
 
 	mdb_printf("\nTotal            %16lu  %16lu\n",
-	    physmem,
-	    (uint64_t)physmem * PAGESIZE / (1024 * 1024));
+	    stats.ms_total,
+	    (uint64_t)stats.ms_total * PAGESIZE / (1024 * 1024));
 
-	if (physmem != total_pages) {
+	if (stats.ms_total != total_pages) {
 		mdb_printf("Physical         %16lu  %16lu\n",
 		    total_pages,
 		    (uint64_t)total_pages * PAGESIZE / (1024 * 1024));

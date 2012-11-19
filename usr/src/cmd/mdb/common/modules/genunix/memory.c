@@ -508,7 +508,6 @@ int
 memstat(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	pgcnt_t total_pages;
-	ulong_t freemem;
 	memstat_t stats;
 	GElf_Sym sym;
 	vn_htable_t ht;

@@ -54,19 +54,20 @@ int zfs_txg_synctime_ms = 1000;			/* target ms to sync a txg */
  * dictate when we start to delay and by how much. We start to delay once
  * we've committed to write X/1024th of the write limit where X is determined
  * by zfs_throttle_delay_fraction. The amount we initially and eventually
- * delay is expressed in units clock ticks (increments of 10ms) and set via
- * the zfs_throttle_start_ticks and zfs_throttle_final_ticks tunables
- * respectively. The delay is then a linear interpolation between the two
- * points proporional to the amount accumulated data.
+ * delay is expressed in nanoseconds and set via the zfs_throttle_start_ns
+ * and zfs_throttle_final_ns tunables respectively. The delay is then a
+ * linear interpolation between the two points proporional to the amount of
+ * accumulated data. The resolution -- or granularity -- of the delay is
+ * defined by zfs_throttle_resolution.
  *                                                          ^
  *                                                          |
- *              zfs_throttle_final_ticks ---------------->  o
+ *                 zfs_throttle_final_ns ---------------->  o
  *                                                        .'|
  *                                                      .'  v
  *                                                    .'
  *                                               ^  .'
  *                                               |.'
- *              zfs_throttle_start_ticks -->  <- o ->
+ *                 zfs_throttle_start_ns -->  <- o ->
  *                                               |
  *                                               v
  *                                               :
@@ -78,7 +79,7 @@ int zfs_txg_synctime_ms = 1000;			/* target ms to sync a txg */
  *              zfs_throttle_delay_fraction -----|
  *
  * The default settings mimic what has historically been hard-coded: start to
- * delay at 7/8ths of the limit and always delay for exactly 1 tick.
+ * delay at 7/8ths of the limit and always delay for exactly 10ms.
  *
  *                                                    o .. o
  *                                                    :
@@ -86,9 +87,10 @@ int zfs_txg_synctime_ms = 1000;			/* target ms to sync a txg */
  *             |......................................:    |
  *             0                                         1024
  */
-int zfs_throttle_delay_fraction = 896;		/* out of 1024: default 7/8 */
-int zfs_throttle_start_ticks = 1;
-int zfs_throttle_final_ticks = 1;
+uint_t zfs_throttle_delay_fraction = 896;	/* out of 1024: default 7/8 */
+hrtime_t zfs_throttle_start_ns = 0;
+hrtime_t zfs_throttle_final_ns = MSEC2NSEC(10);
+hrtime_t zfs_throttle_resolution = MSEC2NSEC(10);
 
 uint64_t zfs_write_limit_min = 32 << 20;	/* min write limit is 32MB */
 uint64_t zfs_write_limit_max = 0;		/* max data payload per txg */
@@ -551,12 +553,13 @@ dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)
 	 * Weight the throughput calculation towards the current value:
 	 * 	thru = 3/4 old_thru + 1/4 new_thru
 	 *
-	 * Note: write_time is in nanosecs, so write_time/MICROSEC
-	 * yields millisecs
+	 * Note: write_time is in nanosecs while dp_throughput is expressed in
+	 * bytes per millisecond.
 	 */
 	ASSERT(zfs_write_limit_min > 0);
-	if (data_written > zfs_write_limit_min / 8 && write_time > MICROSEC) {
-		uint64_t throughput = data_written / (write_time / MICROSEC);
+	if (data_written > zfs_write_limit_min / 8 &&
+	    write_time > MSEC2NSEC(1)) {
+		uint64_t throughput = data_written / NSEC2MSEC(write_time);
 
 		if (dp->dp_throughput)
 			dp->dp_throughput = throughput / 4 +
@@ -649,26 +652,28 @@ dsl_pool_tempreserve_space(dsl_pool_t *dp, uint64_t space, dmu_tx_t *tx)
 
 	atomic_add_64(&dp->dp_tempreserved[tx->tx_txg & TXG_MASK], space);
 
+	txg_constrain_throughput(dp, tx->tx_txg);
+
 	/*
 	 * If this transaction group is over zfs_throttle_delay_fraction /
-	 * 1024ths capacity, delay the caller by a number of ticks between
-	 * zfs_throttle_start_ticks and zfs_throttle_final_ticks proportional
-	 * to how close we are to the target capacity.  This will slow down
-	 * the "fill" rate until the sync process can catch up with us.
+	 * 1024ths capacity, delay the caller by between zfs_throttle_start_ns
+	 * and zfs_throttle_final_ns proportional to how close we are to the
+	 * target capacity. This will slow down the "fill" rate until the sync
+	 * process can catch up with us.
 	 */
 	if (reserved && reserved >
 	    zfs_throttle_delay_fraction * write_limit / 1024) {
-		int t = zfs_throttle_final_ticks - zfs_throttle_start_ticks;
+		hrtime_t t = zfs_throttle_final_ns - zfs_throttle_start_ns;
 		uint64_t past = 1024 * reserved -
 		    zfs_throttle_delay_fraction * write_limit;
 		uint64_t total = 1024 * write_limit -
 		    zfs_throttle_delay_fraction * write_limit;
 
-		t = (int)(past * t / total);
-		t += zfs_throttle_start_ticks;
-		t = MIN(t, zfs_throttle_final_ticks);
+		t = (hrtime_t)(past * t / total);
+		t += zfs_throttle_start_ns;
+		t = MIN(t, zfs_throttle_final_ns);
 
-		txg_delay(dp, tx->tx_txg, t);
+		txg_delay(dp, tx->tx_txg, t, zfs_throttle_resolution);
 	}
 
 	return (0);

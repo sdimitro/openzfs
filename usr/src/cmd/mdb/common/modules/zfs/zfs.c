@@ -46,7 +46,7 @@
 
 #ifdef _KERNEL
 #define	ZFS_OBJ_NAME	"zfs"
-extern int64_t mdb_get_lbolt(void);
+extern int64_t mdb_gethrtime(void);
 #else
 #define	ZFS_OBJ_NAME	"libzpool.so.1"
 #endif
@@ -1736,7 +1736,6 @@ typedef struct mdb_zio {
 	enum zio_type io_type;
 	enum zio_stage io_stage;
 	void *io_waiter;
-	uint64_t io_timestamp;
 	void *io_spa;
 	struct {
 		struct {
@@ -1746,15 +1745,26 @@ typedef struct mdb_zio {
 	int io_error;
 } mdb_zio_t;
 
+typedef struct mdb_zio_timestamp {
+	hrtime_t io_timestamp;
+} mdb_zio_timestamp_t;
+
 static int zio_child_cb(uintptr_t addr, const void *unknown, void *arg);
 
 static int
-zio_print_cb(uintptr_t addr, const mdb_zio_t *zio, zio_print_args_t *zpa)
+zio_print_cb(uintptr_t addr, zio_print_args_t *zpa)
 {
 	mdb_ctf_id_t type_enum, stage_enum;
 	int indent = zpa->zpa_current_depth;
 	const char *type, *stage;
 	uintptr_t laddr;
+	mdb_zio_t zio;
+	mdb_zio_timestamp_t zio_timestamp = { 0 };
+
+	if (mdb_ctf_vread(&zio, ZFS_STRUCT "zio", "mdb_zio_t", addr, 0) == -1)
+		return (WALK_ERR);
+	(void) mdb_ctf_vread(&zio_timestamp, ZFS_STRUCT "zio",
+	    "mdb_zio_timestamp_t", addr, MDB_CTF_VREAD_QUIET);
 
 	if (indent > ZIO_MAXINDENT)
 		indent = ZIO_MAXINDENT;
@@ -1765,13 +1775,13 @@ zio_print_cb(uintptr_t addr, const mdb_zio_t *zio, zio_print_args_t *zpa)
 		return (WALK_ERR);
 	}
 
-	if ((type = mdb_ctf_enum_name(type_enum, zio->io_type)) != NULL)
+	if ((type = mdb_ctf_enum_name(type_enum, zio.io_type)) != NULL)
 		type += sizeof ("ZIO_TYPE_") - 1;
 	else
 		type = "?";
 
-	if (zio->io_error == 0) {
-		stage = mdb_ctf_enum_name(stage_enum, zio->io_stage);
+	if (zio.io_error == 0) {
+		stage = mdb_ctf_enum_name(stage_enum, zio.io_stage);
 		if (stage != NULL)
 			stage += sizeof ("ZIO_STAGE_") - 1;
 		else
@@ -1786,16 +1796,22 @@ zio_print_cb(uintptr_t addr, const mdb_zio_t *zio, zio_print_args_t *zpa)
 		} else {
 			mdb_printf("%*s%-*p %-5s %-16s ", indent, "",
 			    ZIO_MAXWIDTH - indent, addr, type, stage);
-			if (zio->io_waiter)
-				mdb_printf("%-16p ", zio->io_waiter);
+			if (zio.io_waiter)
+				mdb_printf("%-16p ", zio.io_waiter);
 			else
 				mdb_printf("%-16s ", "-");
 #ifdef _KERNEL
-			mdb_printf("%llu\n",
-			    mdb_get_lbolt() - zio->io_timestamp);
+			if (zio_timestamp.io_timestamp != 0) {
+				mdb_printf("%llums", (mdb_gethrtime() -
+				    zio_timestamp.io_timestamp) /
+				    1000000);
+			} else {
+				mdb_printf("%-12s ", "-");
+			}
 #else
-			mdb_printf("%-16s ", "-");
+			mdb_printf("%-12s ", "-");
 #endif
+			mdb_printf("\n");
 		}
 	}
 
@@ -1824,7 +1840,6 @@ static int
 zio_child_cb(uintptr_t addr, const void *unknown, void *arg)
 {
 	zio_link_t zl;
-	mdb_zio_t zio;
 	uintptr_t ziop;
 	zio_print_args_t *zpa = arg;
 
@@ -1838,17 +1853,13 @@ zio_child_cb(uintptr_t addr, const void *unknown, void *arg)
 	else
 		ziop = (uintptr_t)zl.zl_child;
 
-	if (mdb_ctf_vread(&zio, ZFS_STRUCT "zio", "mdb_zio_t", ziop, 0) == -1)
-		return (WALK_ERR);
-
-	return (zio_print_cb(ziop, &zio, arg));
+	return (zio_print_cb(ziop, arg));
 }
 
 /* ARGSUSED */
 static int
 zio_print(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
-	mdb_zio_t zio;
 	zio_print_args_t zpa = { 0 };
 
 	if (!(flags & DCMD_ADDRSPEC))
@@ -1870,16 +1881,13 @@ zio_print(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		zpa.zpa_max_depth = 1;
 	}
 
-	if (mdb_ctf_vread(&zio, ZFS_STRUCT "zio", "mdb_zio_t", addr, 0) == -1)
-		return (DCMD_ERR);
-
 	if (!(flags & DCMD_PIPE_OUT) && DCMD_HDRSPEC(flags)) {
-		mdb_printf("%<u>%-*s %-5s %-16s %-16s %-16s%</u>\n",
+		mdb_printf("%<u>%-*s %-5s %-16s %-16s %-12s%</u>\n",
 		    ZIO_MAXWIDTH, "ADDRESS", "TYPE", "STAGE", "WAITER",
 		    "TIME_ELAPSED");
 	}
 
-	if (zio_print_cb(addr, &zio, &zpa) != WALK_NEXT)
+	if (zio_print_cb(addr, &zpa) != WALK_NEXT)
 		return (DCMD_ERR);
 
 	return (DCMD_OK);

@@ -22,6 +22,9 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 /*
  * Simulated network device (simnet) driver: simulates a pseudo GLDv3 network
@@ -1176,7 +1179,7 @@ simnet_m_setprop(void *arg, const char *pr_name, mac_prop_id_t wldp_pr_num,
 	switch (wldp_pr_num) {
 	case MAC_PROP_MTU:
 		(void) memcpy(&mtu, wldp_buf, sizeof (mtu));
-		if (mtu > ETHERMIN && mtu < SIMNET_MAX_MTU)
+		if (mtu >= ETHERMIN && mtu <= SIMNET_MAX_MTU)
 			return (mac_maxsdu_update(sdev->sd_mh, mtu));
 		else
 			return (EINVAL);
@@ -1341,7 +1344,10 @@ simnet_m_propinfo(void *arg, const char *pr_name, mac_prop_id_t wldp_pr_num,
 {
 	simnet_dev_t *sdev = arg;
 
-	if (sdev->sd_type == DL_ETHER)
+	if (wldp_pr_num == MAC_PROP_MTU)
+		mac_prop_info_set_range_uint32(prh, ETHERMIN, SIMNET_MAX_MTU);
+
+	if (sdev->sd_type != DL_ETHER)
 		return;
 
 	switch (wldp_pr_num) {

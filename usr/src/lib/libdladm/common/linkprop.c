@@ -4655,7 +4655,7 @@ check_macalias(dladm_handle_t handle, struct prop_desc *pd,
 			free(alias);
 			return (DLADM_STATUS_BADARG);
 		}
-		(*vdpp)->vd_val = (uintptr_t)prop_val[0];
+		(*vdpp)->vd_val = (uintptr_t)alias;
 	} else {
 		(*vdpp)->vd_val = NULL; /* reset */
 	}

@@ -3020,7 +3020,7 @@ top:
 				cb->l2rcb_zb = *zb;
 				cb->l2rcb_flags = zio_flags;
 
-				ASSERT(addr > VDEV_LABEL_START_SIZE &&
+				ASSERT(addr >= VDEV_LABEL_START_SIZE &&
 				    addr + size < vd->vdev_psize -
 				    VDEV_LABEL_END_SIZE);
 

@@ -4,6 +4,8 @@
  Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  Use is subject to license terms.
 
+ Copyright (c) 2012 by Delphix. All rights reserved.
+
  CDDL HEADER START
 
  The contents of this file are subject to the terms of the
@@ -23,8 +25,6 @@
  information: Portions Copyright [yyyy] [name of copyright owner]
 
  CDDL HEADER END
-
-	ident	"%Z%%M%	%I%	%E% SMI"
 
 	NOTE:  This service manifest is not editable; its contents will
 	be overwritten by package or patch operations, including
@@ -52,7 +52,8 @@
 		grouping='optional_all'
 		restart_on='none'
 		type='service'>
-		<service_fmri value='svc:/network/physical' />
+		<service_fmri value='svc:/network/physical:default' />
+		<service_fmri value='svc:/network/physical:nwam' />
 	</dependency>
 
 	<exec_method

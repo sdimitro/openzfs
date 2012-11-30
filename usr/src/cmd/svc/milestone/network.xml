@@ -4,6 +4,8 @@
  Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  Use is subject to license terms.
 
+ Copyright (c) 2012 by Delphix. All rights reserved.
+
  CDDL HEADER START
 
  The contents of this file are subject to the terms of the
@@ -23,8 +25,6 @@
  information: Portions Copyright [yyyy] [name of copyright owner]
 
  CDDL HEADER END
-
-	ident	"@(#)ident	"%Z%%M%	%I%	%E% SMI"
 -->
 
 <service_bundle type='manifest' name='SUNWcsr:network'>
@@ -48,10 +48,11 @@
 
 	<dependency
 		name='physical'
-		grouping='require_all'
+		grouping='require_any'
 		restart_on='none'
 		type='service'>
-		<service_fmri value='svc:/network/physical' />
+		<service_fmri value='svc:/network/physical:physical' />
+		<service_fmri value='svc:/network/physical:nwam' />
 	</dependency>
 
 	<exec_method

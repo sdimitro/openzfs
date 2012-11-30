@@ -217,4 +217,30 @@ if smf_is_globalzone && [ -z "$inet_list" ] && [ -n "$nic" ]; then
 	esac
 fi
 
+#
+# We now wait a few seconds to allow asynchronous configuration events such as
+# DHCP lease acquisition and duplicate address detection to complete.
+#
+i=0
+while [[ $i -lt 5 ]]; do
+	done=true
+
+	/sbin/ipadm show-addr -p -o type,state,addr | \
+	    while IFS=: read type state addr; do
+		#
+		# DHCP addresses with lease acquisition pending have an addr
+		# field of "?", and addresses with ongoing DAD have a state
+		# of "tentative".
+		#
+		[[ $type == dhcp && $addr == ? || $state == tentative ]] && \
+		    done=false
+	done
+
+	# Exit if there are no addresses to wait for
+	$done && exit $SMF_EXIT_OK
+
+	i=`expr $i + 1`
+	sleep 1
+done
+
 exit $SMF_EXIT_OK

@@ -51,7 +51,7 @@
 		grouping='require_any'
 		restart_on='none'
 		type='service'>
-		<service_fmri value='svc:/network/physical:physical' />
+		<service_fmri value='svc:/network/physical:default' />
 		<service_fmri value='svc:/network/physical:nwam' />
 	</dependency>
 

@@ -1197,8 +1197,10 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 		}
 
 		if (tgt_encoding.cte_format != mod_encoding.cte_format) {
-			mdb_ctf_warn(flags, "encoding mismatch between type "
+			mdb_ctf_warn(flags,
+			    "encoding mismatch (%#x != %#x) between type "
 			    "%s (%s) and mdb module type %s\n",
+			    tgt_encoding.cte_format, mod_encoding.cte_format,
 			    typename, tgtname, mdbtypename);
 			return (set_errno(EMDB_INCOMPAT));
 		}

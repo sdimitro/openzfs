@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_REFCOUNT_H
@@ -50,15 +51,17 @@ typedef struct reference {
 
 typedef struct refcount {
 	kmutex_t rc_mtx;
+	boolean_t rc_tracked;
 	list_t rc_list;
 	list_t rc_removed;
-	int64_t rc_count;
-	int64_t rc_removed_count;
+	uint64_t rc_count;
+	uint64_t rc_removed_count;
 } refcount_t;
 
-/* Note: refcount_t must be initialized with refcount_create() */
+/* Note: refcount_t must be initialized with refcount_create[_untracked]() */
 
 void refcount_create(refcount_t *rc);
+void refcount_create_untracked(refcount_t *rc);
 void refcount_destroy(refcount_t *rc);
 void refcount_destroy_many(refcount_t *rc, uint64_t number);
 int refcount_is_zero(refcount_t *rc);

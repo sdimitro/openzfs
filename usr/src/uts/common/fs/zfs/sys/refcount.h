@@ -82,6 +82,7 @@ typedef struct refcount {
 } refcount_t;
 
 #define	refcount_create(rc) ((rc)->rc_count = 0)
+#define	refcount_create_untracked(rc) ((rc)->rc_count = 0)
 #define	refcount_destroy(rc) ((rc)->rc_count = 0)
 #define	refcount_destroy_many(rc, number) ((rc)->rc_count = 0)
 #define	refcount_is_zero(rc) ((rc)->rc_count == 0)

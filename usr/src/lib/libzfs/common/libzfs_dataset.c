@@ -1973,10 +1973,7 @@ get_clones_cb(zfs_handle_t *zhp, void *arg)
 	    NULL, NULL, 0, B_TRUE) != 0)
 		goto out;
 	if (strcmp(gca->buf, gca->origin) == 0) {
-		if (nvlist_add_boolean(gca->value, zfs_get_name(zhp)) != 0) {
-			zfs_close(zhp);
-			return (no_memory(zhp->zfs_hdl));
-		}
+		fnvlist_add_boolean(gca->value, zfs_get_name(zhp));
 		gca->numclones--;
 	}
 

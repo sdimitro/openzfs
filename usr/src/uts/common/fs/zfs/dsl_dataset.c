@@ -1202,6 +1202,7 @@ dsl_dataset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)
 			char fsname[MAXNAMELEN];
 			char *snapname = nvpair_name(pair);
 			char *atp;
+			void *cookie;
 
 			atp = strchr(snapname, '@');
 			if (atp == NULL) {
@@ -1210,9 +1211,11 @@ dsl_dataset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)
 			}
 			(void) strlcpy(fsname, snapname, atp - snapname + 1);
 
-			error = zil_suspend(fsname);
+			error = zil_suspend(fsname, &cookie);
 			if (error != 0)
 				break;
+			fnvlist_add_uint64(suspended, fsname,
+			    (uintptr_t)cookie);
 		}
 	}
 
@@ -1229,17 +1232,8 @@ dsl_dataset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)
 	if (suspended != NULL) {
 		for (pair = nvlist_next_nvpair(suspended, NULL); pair != NULL;
 		    pair = nvlist_next_nvpair(suspended, pair)) {
-			char fsname[MAXNAMELEN];
-			char *snapname = nvpair_name(pair);
-			char *atp;
-
-			atp = strchr(snapname, '@');
-			if (atp == NULL) {
-				error = EINVAL;
-				break;
-			}
-			(void) strlcpy(fsname, snapname, atp - snapname + 1);
-			zil_resume(fsname);
+			zil_resume((void *)(uintptr_t)
+			    fnvpair_value_uint64(pair));
 		}
 	}
 
@@ -1311,6 +1305,7 @@ dsl_dataset_snapshot_tmp(const char *fsname, const char *snapname,
 	int error;
 	spa_t *spa;
 	boolean_t needsuspend;
+	void *cookie;
 
 	ddsta.ddsta_fsname = fsname;
 	ddsta.ddsta_snapname = snapname;
@@ -1324,7 +1319,7 @@ dsl_dataset_snapshot_tmp(const char *fsname, const char *snapname,
 	spa_close(spa, FTAG);
 
 	if (needsuspend) {
-		error = zil_suspend(fsname);
+		error = zil_suspend(fsname, &cookie);
 		if (error != 0)
 			return (error);
 	}
@@ -1333,7 +1328,7 @@ dsl_dataset_snapshot_tmp(const char *fsname, const char *snapname,
 	    dsl_dataset_snapshot_tmp_sync, &ddsta, 3);
 
 	if (needsuspend)
-		zil_resume(fsname);
+		zil_resume(cookie);
 	return (error);
 }
 

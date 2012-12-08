@@ -1708,6 +1708,9 @@ zil_free(zilog_t *zilog)
 {
 	zilog->zl_stop_sync = 1;
 
+	ASSERT0(zilog->zl_suspend);
+	ASSERT0(zilog->zl_suspending);
+
 	ASSERT(list_is_empty(&zilog->zl_lwb_list));
 	list_destroy(&zilog->zl_lwb_list);
 
@@ -1803,6 +1806,8 @@ zil_close(zilog_t *zilog)
 	mutex_exit(&zilog->zl_lock);
 }
 
+static char *suspend_tag = "zil suspending";
+
 /*
  * Suspend an intent log.  While in suspended mode, we still honor
  * synchronous semantics, but we rely on txg_wait_synced() to do it.
@@ -1820,16 +1825,20 @@ zil_close(zilog_t *zilog)
  * zvol_state_t), and use their mechanism to prevent their hold from being
  * dropped (e.g. VFS_HOLD()).  However, that would be even more pain for
  * very little gain.
+ *
+ * if cookiep == NULL, this does both the suspend & resume.
+ * Otherwise, it returns with the dataset "long held", and the cookie
+ * should be passed into zil_resume().
  */
 int
-zil_suspend(const char *osname)
+zil_suspend(const char *osname, void **cookiep)
 {
 	objset_t *os;
 	zilog_t *zilog;
 	const zil_header_t *zh;
 	int error;
 
-	error = dmu_objset_hold(osname, FTAG, &os);
+	error = dmu_objset_hold(osname, suspend_tag, &os);
 	if (error != 0)
 		return (error);
 	zilog = dmu_objset_zil(os);
@@ -1839,29 +1848,42 @@ zil_suspend(const char *osname)
 
 	if (zh->zh_flags & ZIL_REPLAY_NEEDED) {		/* unplayed log */
 		mutex_exit(&zilog->zl_lock);
-		dmu_objset_rele(os, FTAG);
+		dmu_objset_rele(os, suspend_tag);
 		return (EBUSY);
 	}
-	if (zilog->zl_suspend++ != 0) {
+
+	/*
+	 * Don't put a long hold in the cases where we can avoid it.  This
+	 * is when there is no cookie so we are doing a suspend & resume
+	 * (i.e. called from zil_vdev_offline()), and there's nothing to do
+	 * for the suspend because it's already suspended, or there's no ZIL.
+	 */
+	if (cookiep == NULL && !zilog->zl_suspending &&
+	    (zilog->zl_suspend > 0 || BP_IS_HOLE(&zh->zh_log))) {
+		mutex_exit(&zilog->zl_lock);
+		dmu_objset_rele(os, suspend_tag);
+		return (0);
+	}
+
+	dsl_dataset_long_hold(dmu_objset_ds(os), suspend_tag);
+	dsl_pool_rele(dmu_objset_pool(os), suspend_tag);
+
+	zilog->zl_suspend++;
+
+	if (zilog->zl_suspend > 1) {
 		/*
 		 * Someone else is already suspending it.
 		 * Just wait for them to finish.
 		 */
 
-		if (zilog->zl_suspending) {
-			dsl_dataset_long_hold(dmu_objset_ds(os), FTAG);
-			dsl_pool_rele(dmu_objset_pool(os), FTAG);
+		while (zilog->zl_suspending)
+			cv_wait(&zilog->zl_cv_suspend, &zilog->zl_lock);
+		mutex_exit(&zilog->zl_lock);
 
-			while (zilog->zl_suspending)
-				cv_wait(&zilog->zl_cv_suspend, &zilog->zl_lock);
-			mutex_exit(&zilog->zl_lock);
-
-			dsl_dataset_long_rele(dmu_objset_ds(os), FTAG);
-			dsl_dataset_rele(dmu_objset_ds(os), FTAG);
-		} else {
-			mutex_exit(&zilog->zl_lock);
-			dmu_objset_rele(os, FTAG);
-		}
+		if (cookiep == NULL)
+			zil_resume(os);
+		else
+			*cookiep = os;
 		return (0);
 	}
 
@@ -1871,13 +1893,12 @@ zil_suspend(const char *osname)
 	 * to clean up.
 	 */
 	if (BP_IS_HOLE(&zh->zh_log)) {
+		ASSERT(cookiep != NULL); /* fast path already handled */
+
+		*cookiep = os;
 		mutex_exit(&zilog->zl_lock);
-		dmu_objset_rele(os, FTAG);
 		return (0);
 	}
-
-	dsl_dataset_long_hold(dmu_objset_ds(os), FTAG);
-	dsl_pool_rele(dmu_objset_pool(os), FTAG);
 
 	zilog->zl_suspending = B_TRUE;
 	mutex_exit(&zilog->zl_lock);
@@ -1891,25 +1912,25 @@ zil_suspend(const char *osname)
 	cv_broadcast(&zilog->zl_cv_suspend);
 	mutex_exit(&zilog->zl_lock);
 
-	dsl_dataset_long_rele(dmu_objset_ds(os), FTAG);
-	dsl_dataset_rele(dmu_objset_ds(os), FTAG);
+	if (cookiep == NULL)
+		zil_resume(os);
+	else
+		*cookiep = os;
 	return (0);
 }
 
 void
-zil_resume(const char *fsname)
+zil_resume(void *cookie)
 {
-	objset_t *os;
-	if (dmu_objset_hold(fsname, FTAG, &os) == 0) {
-		zilog_t *zilog = dmu_objset_zil(os);
+	objset_t *os = cookie;
+	zilog_t *zilog = dmu_objset_zil(os);
 
-		mutex_enter(&zilog->zl_lock);
-		ASSERT(zilog->zl_suspend != 0);
-		zilog->zl_suspend--;
-		mutex_exit(&zilog->zl_lock);
-
-		dmu_objset_rele(os, FTAG);
-	}
+	mutex_enter(&zilog->zl_lock);
+	ASSERT(zilog->zl_suspend != 0);
+	zilog->zl_suspend--;
+	mutex_exit(&zilog->zl_lock);
+	dsl_dataset_long_rele(dmu_objset_ds(os), suspend_tag);
+	dsl_dataset_rele(dmu_objset_ds(os), suspend_tag);
 }
 
 typedef struct zil_replay_arg {
@@ -2087,9 +2108,8 @@ zil_vdev_offline(const char *osname, void *arg)
 {
 	int error;
 
-	error = zil_suspend(osname);
+	error = zil_suspend(osname, NULL);
 	if (error != 0)
 		return (EEXIST);
-	zil_resume(osname);
 	return (0);
 }

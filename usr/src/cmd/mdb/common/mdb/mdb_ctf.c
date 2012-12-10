@@ -1180,23 +1180,35 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 
 	switch (modkind) {
 	case CTF_K_INTEGER:
-		signed_int = B_TRUE; /* this is modified again below */
-		/* FALLTHROUGH */
 	case CTF_K_FLOAT:
+		/*
+		 * Must determine if the target and module types have the same
+		 * encoding before we can copy them.
+		 */
 		if (mdb_ctf_type_encoding(tgtid, &tgt_encoding) != 0) {
 			mdb_ctf_warn(flags,
 			    "couldn't determine encoding of type %s (%s)\n",
 			    typename, tgtname);
 			return (-1); /* errno is set for us */
 		}
-
 		if (mdb_ctf_type_encoding(modid, &mod_encoding) != 0) {
 			mdb_ctf_warn(flags, "couldn't determine encoding of "
 			    "mdb module type %s\n", mdbtypename);
 			return (-1); /* errno is set for us */
 		}
 
-		if (tgt_encoding.cte_format != mod_encoding.cte_format) {
+		if (modkind == CTF_K_INTEGER) {
+			if ((tgt_encoding.cte_format & CTF_INT_SIGNED) !=
+			    (mod_encoding.cte_format & CTF_INT_SIGNED)) {
+				mdb_ctf_warn(flags,
+				    "signedness mismatch between type "
+				    "%s (%s) and mdb module type %s\n",
+				    typename, tgtname, mdbtypename);
+				return (set_errno(EMDB_INCOMPAT));
+			}
+			signed_int =
+			    (tgt_encoding.cte_format & CTF_INT_SIGNED != 0);
+		} else if (tgt_encoding.cte_format != mod_encoding.cte_format) {
 			mdb_ctf_warn(flags,
 			    "encoding mismatch (%#x != %#x) between type "
 			    "%s (%s) and mdb module type %s\n",
@@ -1204,9 +1216,6 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 			    typename, tgtname, mdbtypename);
 			return (set_errno(EMDB_INCOMPAT));
 		}
-
-		signed_int =
-		    (signed_int && (tgt_encoding.cte_format & CTF_INT_SIGNED));
 		/* FALLTHROUGH */
 	case CTF_K_POINTER:
 		/*

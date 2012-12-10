@@ -3002,10 +3002,6 @@ zfs_aces_walk_step(mdb_walk_state_t *wsp)
 	return (status);
 }
 
-typedef struct mdb_zfs_refcount_t {
-	int64_t rc_count;
-} mdb_zfs_refcount_t;
-
 typedef struct mdb_zfs_rrwlock {
 	kthread_t	*rr_writer;
 	boolean_t	rr_writer_wanted;

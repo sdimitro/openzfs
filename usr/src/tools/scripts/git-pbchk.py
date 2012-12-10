@@ -17,6 +17,7 @@
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2008, 2012 Richard Lowe
+# Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
 import getopt
@@ -210,7 +211,7 @@ def gen_files(root, parent, paths, exclude):
 def comchk(root, parent, flist, output):
     output.write("Comments:\n")
 
-    return Comments.comchk(git_comments(parent), check_db=True,
+    return Comments.comchk(git_comments(parent), check_db=False,
                            output=output)
 
 

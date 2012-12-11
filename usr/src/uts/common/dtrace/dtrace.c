@@ -196,16 +196,6 @@ static dtrace_genid_t	dtrace_retained_gen;	/* current retained enab gen */
 static dtrace_dynvar_t	dtrace_dynhash_sink;	/* end of dynamic hash chains */
 static int		dtrace_dynvar_failclean; /* dynvars failed to clean */
 
-static struct {
-	kstat_named_t probe_time;		/* nanosecs in dtrace_probe() */
-	kstat_named_t probes_fired;		/* calls to dtrace_probe() */
-} dtrace_kstat_template = {
-	{ "probe_time",			KSTAT_DATA_UINT64 },
-	{ "probes_fired",		KSTAT_DATA_UINT64 },
-};
-static dtrace_cpustat_t	*dtrace_cpustats;
-static kstat_t		*dtrace_kstat;
-
 /*
  * DTrace Locking
  * DTrace is protected by three (relatively coarse-grained) locks:
@@ -5892,13 +5882,7 @@ dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	cpuid = CPU->cpu_id;
 	onintr = CPU_ON_INTR(CPU);
 
-	if (dtrace_kstat != NULL) {
-#ifdef _ILP32
-		atomic_add_64(&dtrace_cpustats[cpuid].dtcs_probes_fired, 1);
-#else
-		dtrace_cpustats[cpuid].dtcs_probes_fired++;
-#endif
-	}
+	CPU->cpu_dtrace_probes++;
 
 	if (!onintr && probe->dtpr_predcache != DTRACE_CACHEIDNONE &&
 	    probe->dtpr_predcache == curthread->t_predcache) {
@@ -6483,14 +6467,7 @@ dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	if (vtime)
 		curthread->t_dtrace_start = end;
 
-	if (dtrace_kstat != NULL) {
-#ifdef _ILP32
-		atomic_add_64(&dtrace_cpustats[cpuid].dtcs_probe_time,
-		    end - now);
-#else
-		dtrace_cpustats[cpuid].dtcs_probe_time += end - now;
-#endif
-	}
+	CPU->cpu_dtrace_nsec += end - now;
 
 	dtrace_interrupt_enable(cookie);
 }
@@ -14795,35 +14772,6 @@ dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 	dtrace_toxranges++;
 }
 
-/* ARGSUSED */
-static int
-dtrace_kstat_update(kstat_t *ksp, int flag)
-{
-	uint64_t probe_time = 0;
-	uint64_t probes_fired = 0;
-	int i;
-
-	if (flag == KSTAT_WRITE)
-		return (EACCES);
-
-	for (i = 0; i < ncpus; i++) {
-#ifdef _ILP32
-		probe_time +=
-		    atomic_add_64_nv(&dtrace_cpustats[i].dtcs_probe_time, 0);
-		probes_fired +=
-		    atomic_add_64_nv(&dtrace_cpustats[i].dtcs_probes_fired, 0);
-#else
-		probe_time += dtrace_cpustats[i].dtcs_probe_time;
-		probes_fired += dtrace_cpustats[i].dtcs_probes_fired;
-#endif
-	}
-
-	dtrace_kstat_template.probe_time.value.ui64 = probe_time;
-	dtrace_kstat_template.probes_fired.value.ui64 = probes_fired;
-
-	return (0);
-}
-
 /*
  * DTrace Driver Cookbook Functions
  */
@@ -14979,19 +14927,6 @@ dtrace_attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 			(void) dtrace_enabling_match(enab, NULL);
 
 		mutex_exit(&cpu_lock);
-	}
-
-	dtrace_kstat = kstat_create("dtrace", 0, NULL,
-	    "misc", KSTAT_TYPE_NAMED,
-	    sizeof (dtrace_kstat_template) / sizeof (kstat_named_t),
-	    KSTAT_FLAG_VIRTUAL);
-	if (dtrace_kstat != NULL) {
-		dtrace_kstat->ks_update = dtrace_kstat_update;
-		dtrace_kstat->ks_data = &dtrace_kstat_template;
-		kstat_install(dtrace_kstat);
-
-		dtrace_cpustats = kmem_zalloc(ncpus * sizeof (*dtrace_cpustats),
-		    KM_SLEEP);
 	}
 
 	mutex_exit(&dtrace_lock);
@@ -16031,11 +15966,6 @@ dtrace_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
 	ASSERT(dtrace_vtime_references == 0);
 	ASSERT(dtrace_opens == 0);
 	ASSERT(dtrace_retained == NULL);
-
-	if (dtrace_kstat != NULL) {
-		kstat_delete(dtrace_kstat);
-		kmem_free(dtrace_cpustats, ncpus * sizeof (*dtrace_cpustats));
-	}
 
 	mutex_exit(&dtrace_lock);
 	mutex_exit(&dtrace_provider_lock);

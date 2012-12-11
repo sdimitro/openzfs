@@ -1,9 +1,28 @@
 '\" te
-.\"  Copyright (c) 2004, Sun Microsystems, Inc.  All Rights Reserved
-.\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License. You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.
-.\"  See the License for the specific language governing permissions and limitations under the License. When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with
-.\" the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH MPSTAT 1M "Mar 23, 2009"
+.\"
+.\" CDDL HEADER START
+.\"
+.\" The contents of this file are subject to the terms of the
+.\" Common Development and Distribution License (the "License").
+.\" You may not use this file except in compliance with the License.
+.\"
+.\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+.\" or http://www.opensolaris.org/os/licensing.
+.\" See the License for the specific language governing permissions
+.\" and limitations under the License.
+.\"
+.\" When distributing Covered Code, include this CDDL HEADER in each
+.\" file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+.\" If applicable, add the following below this CDDL HEADER, with the
+.\" fields enclosed by brackets "[]" replaced with your own identifying
+.\" information: Portions Copyright [yyyy] [name of copyright owner]
+.\"
+.\" CDDL HEADER END
+.\"
+.\" Copyright (c) 2004, Sun Microsystems, Inc.  All Rights Reserved
+.\" Copyright (c) 2012 by Delphix. All rights reserved.
+.\"
+.TH MPSTAT 1M "Dec 11, 2012"
 .SH NAME
 mpstat \- report per-processor or per-processor-set statistics
 .SH SYNOPSIS
@@ -171,11 +190,11 @@ percent system time
 .sp
 .ne 2
 .na
-\fB\fBwt\fR\fR
+\fB\fBdt\fR\fR
 .ad
 .RS 14n
-the I/O wait time is no longer calculated as a percentage of \fBCPU\fR time,
-and this statistic will always return zero.
+Percent dtrace time.  This is a lower bound on the amount of time spent
+executing dtrace probes.  This time is a subset of the \fBsys\fR time.
 .RE
 
 .sp
@@ -293,14 +312,14 @@ interval in two reports. The command shows the processor set membership of each
 example% \fBmpstat -ap 5 2\fR
 
 
-SET minf mjf xcal intr ithr csw icsw migr smtx srw syscl usr sys wt idl sze
+SET minf mjf xcal intr ithr csw icsw migr smtx srw syscl usr sys dt idl sze
   0    6   0  355  291  190  22    0    0    0   0    43   0   2  0  43   1
   1   24  17  534  207  200  70    1    0    2   0   600   4   1  0  84   2
   2   19   7  353  325  318  44    0    0    5   0   345   1   1  0  94   3
   3   36   2  149  237  236  14    0    0    4   0    97   0   0  0  98   2
-SET minf mjf xcal intr ithr csw icsw migr smtx srw syscl usr sys wt idl sze
-  0    1   0  720  405  304  55    0    0   18   0    12   0  15  0  81   1
-  1    0  69 1955  230  200 313   33    4   41   9  7086  34  10  0  19   2
+SET minf mjf xcal intr ithr csw icsw migr smtx srw syscl usr sys dt idl sze
+  0    1   0  720  405  304  55    0    0   18   0    12   0  15  2  81   1
+  1    0  69 1955  230  200 313   33    4   41   9  7086  34  10  1  19   2
   2    0  46  685  314  300 203   11    0   54   1  5287  36   6  0  28   3
   3    0   0   14  386  384   0    0    0    0   0     0   0   0  0 100   2
 .fi
@@ -346,7 +365,7 @@ pending disk I/O operations.
 .LP
 Run the \fBiostat\fR command with the \fB-x\fR option to report I/O service
 times in \fBsvc_t\fR output. The \fBiostat\fR utility also reports the same
-\fBwt\fR, user (\fBus\fR), and system (\fBsy\fR) statistics. See
+user (\fBus\fR), system (\fBsy\fR), and dtrace (\fBdt\fR) statistics. See
 \fBiostat\fR(1M) for more information.
 .sp
 .LP

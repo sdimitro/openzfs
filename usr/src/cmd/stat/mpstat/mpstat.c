@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 #include <sys/pset.h>
 #include <sys/types.h>
@@ -204,10 +207,10 @@ print_header(int display_agg, int show_set)
 {
 	if (display_agg == 1)
 		(void) printf("SET minf mjf xcal  intr ithr  csw icsw migr "
-		    "smtx  srw syscl  usr sys  wt idl sze");
+		    "smtx  srw syscl  usr sys  dt idl sze");
 	else {
 		(void) printf("CPU minf mjf xcal  intr ithr  csw icsw migr "
-		    "smtx  srw syscl  usr sys  wt idl");
+		    "smtx  srw syscl  usr sys  dt idl");
 		if (show_set == 1)
 			(void) printf(" set");
 	}
@@ -268,7 +271,8 @@ print_cpu(struct cpu_snapshot *c1, struct cpu_snapshot *c2)
 	    kstat_delta(old_sys, &c2->cs_sys, "syscall") / etime,
 	    kstat_delta(old_sys, &c2->cs_sys, "cpu_ticks_user") * percent,
 	    kstat_delta(old_sys, &c2->cs_sys, "cpu_ticks_kernel") * percent,
-	    kstat_delta(old_sys, &c2->cs_sys, "cpu_ticks_wait") * percent,
+	    kstat_delta(old_sys, &c2->cs_sys, "cpu_nsec_dtrace") *
+	    100.0 / NANOSEC / etime,
 	    kstat_delta(old_sys, &c2->cs_sys, "cpu_ticks_idle") * percent);
 
 	if (show_set)
@@ -353,7 +357,7 @@ agg_sys(struct pset_snapshot *p, kstat_t *ks)
 		agg_stat(ks, &p->ps_cpus[i]->cs_sys, "syscall");
 		agg_stat(ks, &p->ps_cpus[i]->cs_sys, "cpu_ticks_user");
 		agg_stat(ks, &p->ps_cpus[i]->cs_sys, "cpu_ticks_kernel");
-		agg_stat(ks, &p->ps_cpus[i]->cs_sys, "cpu_ticks_wait");
+		agg_stat(ks, &p->ps_cpus[i]->cs_sys, "cpu_nsec_dtrace");
 		agg_stat(ks, &p->ps_cpus[i]->cs_sys, "cpu_ticks_idle");
 	}
 
@@ -454,7 +458,8 @@ print_pset(struct pset_snapshot *p1, struct pset_snapshot *p2)
 	    kstat_delta(&old_sys, &new_sys, "syscall") / etime,
 	    kstat_delta(&old_sys, &new_sys, "cpu_ticks_user") * percent,
 	    kstat_delta(&old_sys, &new_sys, "cpu_ticks_kernel") * percent,
-	    kstat_delta(&old_sys, &new_sys, "cpu_ticks_wait") * percent,
+	    kstat_delta(&old_sys, &new_sys, "cpu_nsec_dtrace") *
+	    100.0 / NANOSEC / etime,
 	    kstat_delta(&old_sys, &new_sys, "cpu_ticks_idle") * percent,
 	    p2->ps_nr_cpus);
 

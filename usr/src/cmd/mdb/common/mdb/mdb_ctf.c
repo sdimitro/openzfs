@@ -1207,7 +1207,7 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 				return (set_errno(EMDB_INCOMPAT));
 			}
 			signed_int =
-			    (tgt_encoding.cte_format & CTF_INT_SIGNED != 0);
+			    ((tgt_encoding.cte_format & CTF_INT_SIGNED) != 0);
 		} else if (tgt_encoding.cte_format != mod_encoding.cte_format) {
 			mdb_ctf_warn(flags,
 			    "encoding mismatch (%#x != %#x) between type "

@@ -29,6 +29,7 @@
 
 /*
  * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*
@@ -383,13 +384,17 @@ TAILQ_HEAD(nlm_host_list, nlm_host);
  *  ns_sem: a semaphore for serialization network operations to statd
  *  ns_knc: a kneconfig describing transport that is used for communication
  *  ns_addr: an address of local statd we're talking to
- *  ns_handle: an RPC handle used for talking to local statd
+ *  ns_handle: an RPC handle used for talking to local statd using the status
+ *      monitor protocol (SM_PROG)
+ *  ns_addr_handle: an RPC handle used for talking to local statd using the
+ *      address registration protocol (NSM_ADDR_PROGRAM)
  */
 struct nlm_nsm {
 	ksema_t			ns_sem;
-	struct knetconfig	ns_knc;		/* (c) */
-	struct netbuf		ns_addr;	/* (c) */
-	CLIENT			*ns_handle;	/* (c) */
+	struct knetconfig	ns_knc;		 /* (c) */
+	struct netbuf		ns_addr;	 /* (c) */
+	CLIENT			*ns_handle;	 /* (c) */
+	CLIENT			*ns_addr_handle; /* (c) */
 };
 
 /*

@@ -39,6 +39,7 @@
 
 /*
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #ifndef	_SM_STATD_H
@@ -186,7 +187,8 @@ extern void	record_name(char *name, int op);
 extern void	sm_crash(void);
 extern void	statd_init();
 extern void	merge_hosts(void);
-extern CLIENT	*create_client(char *, int, int, struct timeval *);
+extern void	merge_ips(void);
+extern CLIENT	*create_client(char *, int, int, char *, struct timeval *);
 extern char	*xmalloc(unsigned);
 
 /*

@@ -569,3 +569,20 @@ out:
 	free((void*)(uintptr_t)zc.zc_nvlist_dst);
 	return (error);
 }
+
+/*
+ * Roll back this filesystem or volume to its most recent snapshot.
+ *
+ * Return 0 on success or an errno on failure.
+ */
+int
+lzc_rollback(const char *fsname)
+{
+	nvlist_t *args;
+	int err;
+
+	args = fnvlist_alloc();
+	err = lzc_ioctl(ZFS_IOC_ROLLBACK, fsname, args, NULL);
+	nvlist_free(args);
+	return (err);
+}

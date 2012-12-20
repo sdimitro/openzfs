@@ -58,6 +58,7 @@ int lzc_send_space(const char *snapname, const char *fromsnap,
 
 boolean_t lzc_exists(const char *dataset);
 
+int lzc_rollback(const char *fsname);
 
 #ifdef	__cplusplus
 }

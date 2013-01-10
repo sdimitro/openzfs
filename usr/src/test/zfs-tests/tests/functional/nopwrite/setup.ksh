@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/ksh
 
 #
 # This file and its contents are supplied under the terms of the
@@ -16,5 +16,8 @@
 #
 
 . ${STF_SUITE}/include/libtest.shlib
+. ${STF_SUITE}/tests/functional/nopwrite/nopwrite.shlib
 
-default_cleanup
+disk=${DISKS%% *}
+
+default_volume_setup $disk

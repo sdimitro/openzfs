@@ -58,10 +58,6 @@ log_assert $assert_mesg
 create_pool "$TESTPOOL" "$DISK"
 log_must $ZFS create $EFI_BOOTFS
 
-if [[ $WRAPPER != *"smi"* ]]; then
-	log_mustnot $ZPOOL set bootfs=$EFI_BOOTFS $TESTPOOL
-else
-	log_must $ZPOOL set bootfs=$EFI_BOOTFS $TESTPOOL
-fi
+log_mustnot $ZPOOL set bootfs=$EFI_BOOTFS $TESTPOOL
 
 log_pass $assert_mesg

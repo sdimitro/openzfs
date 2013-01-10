@@ -45,5 +45,5 @@ $(TESTDIR):
 $(TESTDIR)/%.shlib: %.shlib
 	$(INS.file)
 
-$(TESTDIR)/%: %.bash
+$(TESTDIR)/%: %.ksh
 	$(INS.rename)

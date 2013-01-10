@@ -1,4 +1,4 @@
-# !/bin/bash
+# !/bin/ksh
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -43,7 +43,7 @@ function get_prop_mb
 {
 	typeset prop=$1
 	typeset dataset=$2
-	typeset -i value=$(get_prop $prop $dataset)
+	typeset -l value=$(get_prop $prop $dataset)
 	((value = value / mb_block))
 	$ECHO $value
 }
@@ -54,17 +54,17 @@ datasets="$TESTPOOL/$TESTFS1 $TESTPOOL/$TESTFS1/$TESTFS2 \
 log_assert "verify zfs written and written@ property"
 log_onexit cleanup
 
-typeset -i i=1
-typeset -i blocks=50
-typeset -i expected_written=0
-typeset -i expected_writtenat=0
-typeset -i written=0
-typeset -i total=0
-typeset -i snap1_size=0
-typeset -i snap2_size=0
-typeset -i snap3_size=0
-typeset -i metadata=0
-typeset -i mb_block=0
+typeset -l i=1
+typeset -l blocks=50
+typeset -l expected_written=0
+typeset -l expected_writtenat=0
+typeset -l written=0
+typeset -l total=0
+typeset -l snap1_size=0
+typeset -l snap2_size=0
+typeset -l snap3_size=0
+typeset -l metadata=0
+typeset -l mb_block=0
 ((mb_block = 1024 * 1024))
 # approximate metadata on dataset when empty is 32KB
 ((metadata = 32 * 1024))
@@ -168,10 +168,10 @@ after_clone=$(get_prop written $TESTPOOL/$TESTFS1)
     log_fail "unexpected written for clone $before_clone $after_clone"
 
 log_note "deleted snapshot"
-typeset -i before_written1=$(get_prop_mb written@snap1 $TESTPOOL/$TESTFS1)
-typeset -i before_written3=$(get_prop_mb written@snap3 $TESTPOOL/$TESTFS1)
-typeset -i snap_before_written2=$(get_prop_mb written $TESTPOOL/$TESTFS1@snap2)
-typeset -i snap_before_written3=$(get_prop_mb written $TESTPOOL/$TESTFS1@snap3)
+typeset -l before_written1=$(get_prop_mb written@snap1 $TESTPOOL/$TESTFS1)
+typeset -l before_written3=$(get_prop_mb written@snap3 $TESTPOOL/$TESTFS1)
+typeset -l snap_before_written2=$(get_prop_mb written $TESTPOOL/$TESTFS1@snap2)
+typeset -l snap_before_written3=$(get_prop_mb written $TESTPOOL/$TESTFS1@snap3)
 log_must $ZFS destroy $TESTPOOL/$TESTFS1@snap2
 log_mustnot snapexists $TESTPOOL/$TESTFS1@snap2
 log_must $SYNC
@@ -179,7 +179,7 @@ written1=$(get_prop_mb written@snap1 $TESTPOOL/$TESTFS1)
 written3=$(get_prop_mb written@snap3 $TESTPOOL/$TESTFS1)
 [[ $before_written1 -eq $written1 && $before_written3 -eq $written3 ]] || \
     log_fail "unexpected written values $before_written1 $written1"
-typeset -i expected_written3
+typeset -l expected_written3
 ((expected_written3 = snap_before_written2 + snap_before_written3))
 prev_written=$(get_prop_mb written $TESTPOOL/$TESTFS1@snap3)
 within_percent $prev_written $expected_written3 99.5 || \
@@ -228,5 +228,3 @@ for ds in $datasets; do
 done
 
 log_pass "zfs written and written@ property fields print correct values"
-
-

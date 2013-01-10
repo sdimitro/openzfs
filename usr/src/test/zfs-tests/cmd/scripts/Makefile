@@ -18,13 +18,7 @@ include $(SRC)/Makefile.master
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
 ROOTBIN = $(ROOTOPTPKG)/bin
 
-PROGS = zfs \
-	zfs_crypto \
-	zfs_version \
-	zfstest \
-	zpool \
-	zpool_smi \
-	zpool_version
+PROGS = zfstest
 
 CMDS = $(PROGS:%=$(ROOTBIN)/%)
 $(CMDS) := FILEMODE = 0555
@@ -39,7 +33,4 @@ $(ROOTBIN):
 	$(INS.dir)
 
 $(ROOTBIN)/%: %.ksh
-	$(INS.rename)
-
-$(ROOTBIN)/%: %.sh
 	$(INS.rename)

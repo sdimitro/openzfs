@@ -131,6 +131,7 @@ class Cmd(object):
         Kill a running command due to timeout, or ^C from the keyboard. If
         sudo is required, this user was verified previously.
         """
+        self.killed = True
         do_sudo = len(self.user) != 0
         signal = '-TERM'
 
@@ -143,8 +144,6 @@ class Cmd(object):
             kp.wait()
         except:
             pass
-
-        self.killed = True
 
     def update_cmd_privs(self, cmd, user):
         """
@@ -168,22 +167,24 @@ class Cmd(object):
         """
         out = Output(proc.stdout)
         err = Output(proc.stderr)
+        res = []
         while proc.returncode is None:
             proc.poll()
             res = select([out, err], [], [], .1)
             for fd in res[0]:
                 fd.read()
-        fd.read(drain=1)
+        for fd in res[0]:
+            fd.read(drain=1)
 
         return out.lines, err.lines
 
-    def run(self, dryrun):
+    def run(self, options):
         """
         This is the main function that runs each individual test.
         Determine whether or not the command requires sudo, and modify it
         if needed. Run the command, and update the result object.
         """
-        if dryrun is True:
+        if options.dryrun is True:
             print self
             return
 
@@ -223,7 +224,7 @@ class Cmd(object):
         self.result.runtime = '%02d:%02d' % (m, s)
         self.result.result = 'SKIP'
 
-    def log(self, logger):
+    def log(self, logger, options):
         """
         This function is responsible for writing all output. This includes
         the console output, the logfile of all results (with timestamped
@@ -237,7 +238,16 @@ class Cmd(object):
         msga = 'Test: %s%s ' % (self.pathname, user)
         msgb = '[%s] [%s]' % (self.result.runtime, self.result.result)
         pad = ' ' * (80 - (len(msga) + len(msgb)))
-        logger.info('%s%s%s' % (msga, pad, msgb))
+
+        # If -q is specified, only print a line for tests that didn't pass.
+        # This means passing tests need to be logged as DEBUG, or the one
+        # line summary will only be printed in the logfile for failures.
+        if not options.quiet:
+            logger.info('%s%s%s' % (msga, pad, msgb))
+        elif self.result.result is not 'PASS':
+            logger.info('%s%s%s' % (msga, pad, msgb))
+        else:
+            logger.debug('%s%s%s' % (msga, pad, msgb))
 
         lines = self.result.stdout + self.result.stderr
         for dt, line in sorted(lines):
@@ -302,7 +312,7 @@ class Test(Cmd):
 
         return True
 
-    def run(self, logger, dryrun):
+    def run(self, logger, options):
         """
         Create Cmd instances for the pre/post scripts. If the pre script
         doesn't pass, skip this Test. Run the post script regardless.
@@ -318,20 +328,20 @@ class Test(Cmd):
 
         cont = True
         if len(pretest.pathname):
-            pretest.run(dryrun)
+            pretest.run(options)
             cont = pretest.result.result is 'PASS'
-            pretest.log(logger)
+            pretest.log(logger, options)
 
         if cont:
-            test.run(dryrun)
+            test.run(options)
         else:
             test.skip()
 
-        test.log(logger)
+        test.log(logger, options)
 
         if len(posttest.pathname):
-            posttest.run(dryrun)
-            posttest.log(logger)
+            posttest.run(options)
+            posttest.log(logger, options)
 
 
 class TestGroup(Test):
@@ -400,7 +410,7 @@ class TestGroup(Test):
 
         return len(self.tests) is not 0
 
-    def run(self, logger, dryrun):
+    def run(self, logger, options):
         """
         Create Cmd instances for the pre/post scripts. If the pre script
         doesn't pass, skip all the tests in this TestGroup. Run the post
@@ -415,24 +425,24 @@ class TestGroup(Test):
 
         cont = True
         if len(pretest.pathname):
-            pretest.run(dryrun)
+            pretest.run(options)
             cont = pretest.result.result is 'PASS'
-            pretest.log(logger)
+            pretest.log(logger, options)
 
         for fname in self.tests:
             test = Cmd(os.path.join(self.pathname, fname),
                        outputdir=os.path.join(self.outputdir, fname),
                        timeout=self.timeout, user=self.user)
             if cont:
-                test.run(dryrun)
+                test.run(options)
             else:
                 test.skip()
 
-            test.log(logger)
+            test.log(logger, options)
 
         if len(posttest.pathname):
-            posttest.run(dryrun)
-            posttest.log(logger)
+            posttest.run(options)
+            posttest.log(logger, options)
 
 
 class TestRun(object):
@@ -609,7 +619,7 @@ class TestRun(object):
         timestamped combined stdout and stderr of each run. The second
         logger is optional console output, which will contain only the one
         line summary. The loggers are initialized at two different levels
-        to facilitate segreagating the output.
+        to facilitate segregating the output.
         """
         if options.dryrun is True:
             return
@@ -632,12 +642,11 @@ class TestRun(object):
             logfile.setFormatter(logfilefmt)
             testlogger.addHandler(logfile)
 
-        if not options.quiet:
-            cons = logging.StreamHandler()
-            cons.setLevel(logging.INFO)
-            consfmt = logging.Formatter('%(message)s')
-            cons.setFormatter(consfmt)
-            testlogger.addHandler(cons)
+        cons = logging.StreamHandler()
+        cons.setLevel(logging.INFO)
+        consfmt = logging.Formatter('%(message)s')
+        cons.setFormatter(consfmt)
+        testlogger.addHandler(cons)
 
         return testlogger
 
@@ -650,9 +659,9 @@ class TestRun(object):
         except OSError:
             fail('Could not change to directory %s' % self.outputdir)
         for test in sorted(self.tests.keys()):
-            self.tests[test].run(self.logger, options.dryrun)
+            self.tests[test].run(self.logger, options)
         for testgroup in sorted(self.testgroups.keys()):
-            self.testgroups[testgroup].run(self.logger, options.dryrun)
+            self.testgroups[testgroup].run(self.logger, options)
 
     def summary(self):
         if Result.total is 0:

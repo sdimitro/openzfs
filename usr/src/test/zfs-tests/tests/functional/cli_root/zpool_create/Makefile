@@ -68,6 +68,3 @@ $(TESTDIR)/%: %
 
 $(TESTDIR)/%: %.ksh
 	$(INS.rename)
-
-$(TESTDIR)/%: %.bash
-	$(INS.rename)

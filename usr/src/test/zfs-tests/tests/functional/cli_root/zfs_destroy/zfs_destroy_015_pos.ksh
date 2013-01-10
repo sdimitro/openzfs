@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ksh
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -33,6 +33,7 @@ function cleanup
 	datasetexists $TESTPOOL/$TESTFS1 && $ZFS destroy -R $TESTPOOL/$TESTFS1
 	datasetexists $TESTPOOL/$TESTFS2 && $ZFS destroy -R $TESTPOOL/$TESTFS2
 	poolexists $TESTPOOL2 && $ZPOOL destroy $TESTPOOL2
+	$RM -rf $VIRTUAL_DISK
 }
 
 log_assert "zfs destroy for multiple snapshot is handled correctly"
@@ -83,10 +84,9 @@ log_must $ZFS destroy $TESTPOOL/$TESTFS1@$snaplist
 for i in {1..100}; do
 	log_mustnot snapexists $TESTPOOL/$TESTFS1@snap$i
 done
-
 log_note "zfs destroy multiple snapshots with hold"
 snaplist=""
-for i in {1..100}; do
+for i in 1 2 3 4 5; do
 	log_must $ZFS snapshot $TESTPOOL/$TESTFS1@snap$i
 	log_must $ZFS hold keep $TESTPOOL/$TESTFS1@snap$i
 	snaplist=$snaplist,snap$i
@@ -96,8 +96,12 @@ log_mustnot $ZFS destroy $TESTPOOL/$TESTFS1@$snaplist
 for i in 1 2 3 4 5; do
 	log_must $ZFS release keep $TESTPOOL/$TESTFS1@snap$i
 done
+log_must $ZFS destroy $TESTPOOL/$TESTFS1@$snaplist
 
 log_note "zfs destroy for multiple snapshots having clones"
+for i in 1 2 3 4 5; do
+	log_must $ZFS snapshot $TESTPOOL/$TESTFS1@snap$i
+done
 snaplist=""
 for i in 1 2 3 4 5; do
 	log_must $ZFS clone $TESTPOOL/$TESTFS1@snap$i $TESTPOOL/$TESTFS1/clone$i
@@ -134,8 +138,9 @@ log_must snapexists $TESTPOOL/$TESTFS1/$TESTFS2@fs12snap
 log_must snapexists $TESTPOOL/$TESTFS1@snap3
 
 log_note "zfs destroy for snapshots from different pools"
-DISK=$($ECHO "$DISKS" | $NAWK '{print $(NF-1)}')
-log_must $ZPOOL create $TESTPOOL2 $DISK
+VIRTUAL_DISK=/var/tmp/disk
+log_must $DD if=/dev/urandom of=$VIRTUAL_DISK bs=1M count=64
+log_must $ZPOOL create $TESTPOOL2 $VIRTUAL_DISK
 log_must poolexists $TESTPOOL2
 
 log_must $ZFS create $TESTPOOL2/$TESTFS1

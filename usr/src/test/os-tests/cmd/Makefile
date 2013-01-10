@@ -33,5 +33,5 @@ $(CMDS): $(ROOTBIN)
 $(ROOTBIN):
 	$(INS.dir)
 
-$(ROOTBIN)/%: %.sh
+$(ROOTBIN)/%: %.ksh
 	$(INS.rename)

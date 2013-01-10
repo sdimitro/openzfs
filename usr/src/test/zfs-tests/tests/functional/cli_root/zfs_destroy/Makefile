@@ -34,7 +34,8 @@ PROGS = cleanup \
 	zfs_destroy_012_pos \
 	zfs_destroy_013_neg \
 	zfs_destroy_014_pos \
-	zfs_destroy_015_pos
+	zfs_destroy_015_pos \
+	zfs_destroy_016_pos
 
 FILES = zfs_destroy_common.kshlib \
 	zfs_destroy.cfg
@@ -55,7 +56,4 @@ $(TESTDIR)/%: %
 	$(INS.file)
 
 $(TESTDIR)/%: %.ksh
-	$(INS.rename)
-
-$(TESTDIR)/%: %.bash
 	$(INS.rename)

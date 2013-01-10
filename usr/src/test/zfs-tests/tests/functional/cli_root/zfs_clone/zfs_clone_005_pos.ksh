@@ -61,12 +61,6 @@ log_assert "'zfs clone -o property=value -V size volume' can successfully" \
 log_must $ZFS snapshot $SNAPFS1
 typeset -i i=0
 while (( $i < ${#RW_VOL_CLONE_PROP[*]} )); do
-	if [[ $WRAPPER == *"crypto"* ]] && \
-		[[ ${RW_VOL_CLONE_PROP[$i]} == *"checksum"* ]]; then
-		(( i = i + 1 ))
-		continue
-	fi
-
 	log_must $ZFS clone -o ${RW_VOL_CLONE_PROP[$i]} $SNAPFS1 $TESTPOOL/$TESTCLONE
 	datasetexists $TESTPOOL/$TESTCLONE || \
 		log_fail "zfs clone $TESTPOOL/$TESTCLONE fail."

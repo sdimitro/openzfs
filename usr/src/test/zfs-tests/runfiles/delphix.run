@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 [DEFAULT]
@@ -38,7 +38,8 @@ tests = ['zfs_acl_chmod_001_neg', 'zfs_acl_chmod_002_pos',
     'zfs_acl_chmod_xattr_001_pos', 'zfs_acl_chmod_xattr_002_pos',
     'zfs_acl_cp_001_pos', 'zfs_acl_cp_002_pos', 'zfs_acl_cpio_001_pos',
     'zfs_acl_cpio_002_pos', 'zfs_acl_find_001_pos', 'zfs_acl_ls_001_pos',
-    'zfs_acl_mv_001_pos', 'zfs_acl_tar_001_pos', 'zfs_acl_tar_002_pos']
+    'zfs_acl_mv_001_pos', 'zfs_acl_tar_001_pos', 'zfs_acl_tar_002_pos',
+    'zfs_acl_aclmode_restricted_001_neg']
 
 [/opt/zfs-tests/tests/functional/acl/trivial]
 tests = ['zfs_acl_chmod_001_pos', 'zfs_acl_compress_001_pos',
@@ -47,7 +48,8 @@ tests = ['zfs_acl_chmod_001_pos', 'zfs_acl_compress_001_pos',
     'zfs_acl_ls_002_neg', 'zfs_acl_mv_001_pos', 'zfs_acl_pack_001_pos',
     'zfs_acl_pax_001_pos', 'zfs_acl_pax_002_pos', 'zfs_acl_pax_003_pos',
     'zfs_acl_pax_004_pos', 'zfs_acl_pax_005_pos', 'zfs_acl_pax_006_pos',
-    'zfs_acl_tar_001_pos', 'zfs_acl_tar_002_neg']
+    'zfs_acl_tar_001_pos', 'zfs_acl_tar_002_neg',
+    'zfs_acl_aclmode_restricted_001_pos']
 
 [/opt/zfs-tests/tests/functional/atime]
 tests = ['atime_001_pos', 'atime_002_neg']
@@ -88,7 +90,8 @@ tests = ['zfs_destroy_001_pos', 'zfs_destroy_002_pos', 'zfs_destroy_003_pos',
     'zfs_destroy_004_pos', 'zfs_destroy_005_neg', 'zfs_destroy_006_neg',
     'zfs_destroy_007_neg', 'zfs_destroy_008_pos', 'zfs_destroy_009_pos',
     'zfs_destroy_010_pos', 'zfs_destroy_011_pos', 'zfs_destroy_012_pos',
-    'zfs_destroy_013_neg', 'zfs_destroy_014_pos']
+    'zfs_destroy_013_neg', 'zfs_destroy_014_pos', 'zfs_destroy_015_pos',
+    'zfs_destroy_016_pos']
 
 [/opt/zfs-tests/tests/functional/cli_root/zfs_get]
 tests = ['zfs_get_001_pos', 'zfs_get_002_pos', 'zfs_get_003_pos',
@@ -108,6 +111,9 @@ tests = ['zfs_mount_001_pos', 'zfs_mount_002_pos', 'zfs_mount_003_pos',
 tests = ['zfs_promote_001_pos', 'zfs_promote_002_pos', 'zfs_promote_003_pos',
     'zfs_promote_004_pos', 'zfs_promote_005_pos', 'zfs_promote_006_neg',
     'zfs_promote_007_neg', 'zfs_promote_008_pos']
+
+[/opt/zfs-tests/tests/functional/cli_root/zfs_property]
+tests = ['zfs_written_property_001_pos']
 
 [/opt/zfs-tests/tests/functional/cli_root/zfs_receive]
 tests = ['zfs_receive_001_pos', 'zfs_receive_002_pos', 'zfs_receive_003_pos',
@@ -152,7 +158,7 @@ tests = ['zfs_share_001_pos', 'zfs_share_002_pos', 'zfs_share_003_pos',
 [/opt/zfs-tests/tests/functional/cli_root/zfs_snapshot]
 tests = ['zfs_snapshot_001_neg', 'zfs_snapshot_002_neg', 'zfs_snapshot_003_neg',
     'zfs_snapshot_004_neg', 'zfs_snapshot_005_neg', 'zfs_snapshot_006_pos',
-    'zfs_snapshot_007_neg', 'zfs_snapshot_008_neg']
+    'zfs_snapshot_007_neg', 'zfs_snapshot_008_neg', 'zfs_snapshot_009_pos']
 
 [/opt/zfs-tests/tests/functional/cli_root/zfs_unmount]
 tests = ['zfs_unmount_001_pos', 'zfs_unmount_002_pos', 'zfs_unmount_003_pos',

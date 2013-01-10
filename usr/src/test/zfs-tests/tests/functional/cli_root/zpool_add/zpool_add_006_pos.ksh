@@ -1,4 +1,4 @@
-#!/bin/bash -p
+#!/bin/ksh -p
 #
 # CDDL HEADER START
 #
@@ -70,9 +70,9 @@ function cleanup
 function setup_vdevs #<disk>
 {
 	typeset disk=$1
-	typeset -i count=0
-	typeset -i largest_num=0
-	typeset -i slicesize=0
+	typeset -l count=0
+	typeset -l largest_num=0
+	typeset -l slicesize=0
 	typeset vdev=""
 
 
@@ -81,7 +81,7 @@ function setup_vdevs #<disk>
 	#
 	create_pool foo $disk
 	log_must $ZFS create foo/fs
-	typeset -i fs_size=$(get_prop "available" foo/fs)
+	typeset -l fs_size=$(get_prop "available" foo/fs)
 	destroy_pool foo
 
 	#64m is the minmum size for pool

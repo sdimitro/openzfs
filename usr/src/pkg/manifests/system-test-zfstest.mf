@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/test/zfstest@$(PKGVERS)
@@ -93,13 +93,7 @@ file path=opt/zfs-tests/bin/randfree_file mode=0555
 file path=opt/zfs-tests/bin/readmmap mode=0555
 file path=opt/zfs-tests/bin/rename_dir mode=0555
 file path=opt/zfs-tests/bin/rm_lnkcnt_zero_file mode=0555
-file path=opt/zfs-tests/bin/zfs mode=0555
-file path=opt/zfs-tests/bin/zfs_crypto mode=0555
-file path=opt/zfs-tests/bin/zfs_version mode=0555
 file path=opt/zfs-tests/bin/zfstest mode=0555
-file path=opt/zfs-tests/bin/zpool mode=0555
-file path=opt/zfs-tests/bin/zpool_smi mode=0555
-file path=opt/zfs-tests/bin/zpool_version mode=0555
 file path=opt/zfs-tests/include/commands.cfg mode=0555
 file path=opt/zfs-tests/include/default.cfg mode=0555
 file path=opt/zfs-tests/include/libtest.shlib mode=0555
@@ -117,6 +111,9 @@ file path=opt/zfs-tests/tests/functional/acl/cifs/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/acl/cifs/setup mode=0555
 file path=opt/zfs-tests/tests/functional/acl/nontrivial/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/acl/nontrivial/setup mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_aclmode_restricted_001_neg \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_001_neg \
     mode=0555
 file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_chmod_002_pos \
@@ -189,6 +186,9 @@ file path=opt/zfs-tests/tests/functional/acl/nontrivial/zfs_acl_tar_002_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/acl/trivial/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/acl/trivial/setup mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_aclmode_restricted_001_pos \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_chmod_001_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/acl/trivial/zfs_acl_compress_001_pos \
@@ -391,6 +391,9 @@ file \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_015_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_016_pos \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_common.kshlib \
@@ -1400,4 +1403,5 @@ file path=opt/zfs-tests/tests/functional/truncate/truncate_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/truncate_002_pos mode=0555
 license cr_Sun license=cr_Sun
 license lic_CDDL license=lic_CDDL
+depend fmri=system/file-system/zfs/tests type=require
 depend fmri=system/test/testrunner type=require

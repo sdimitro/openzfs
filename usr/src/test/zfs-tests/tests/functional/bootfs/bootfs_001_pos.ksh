@@ -64,12 +64,6 @@ log_must $MKFILE 400m $VDEV
 create_pool "$TESTPOOL" "$VDEV"
 log_must $ZFS create $TESTPOOL/$TESTFS
 
-enc=$(get_prop encryption $TESTPOOL/$TESTFS)
-if [[ $? -eq 0 ]] && [[ -n "$enc" ]] && [[ "$enc" != "off" ]]; then
-	log_unsupported "bootfs pool property not supported when \
-encryption is set to on."
-fi
-
 log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap
 log_must $ZFS clone $TESTPOOL/$TESTFS@snap $TESTPOOL/clone
 

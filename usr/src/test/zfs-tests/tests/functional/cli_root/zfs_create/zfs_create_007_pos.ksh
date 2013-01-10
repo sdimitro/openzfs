@@ -63,8 +63,7 @@ typeset -i i=0
 typeset opts=""
 
 while (( $i < ${#RW_VOL_PROP[*]} )); do
-	if [[ $WRAPPER != *"crypto"* ]] || \
-		[[ ${RW_VOL_PROP[$i]} != *"checksum"* ]]; then
+	if [[ ${RW_VOL_PROP[$i]} != *"checksum"* ]]; then
 		opts="$opts -o ${RW_VOL_PROP[$i]}"
 	fi
 	(( i = i + 1 ))
@@ -79,8 +78,7 @@ datasetexists $TESTPOOL/$TESTVOL1 || \
 
 i=0
 while (( $i < ${#RW_VOL_PROP[*]} )); do
-	if [[ $WRAPPER != *"crypto"* ]] || \
-		[[ ${RW_VOL_PROP[$i]} != *"checksum"* ]]; then
+	if [[ ${RW_VOL_PROP[$i]} != *"checksum"* ]]; then
 		propertycheck $TESTPOOL/$TESTVOL ${RW_VOL_PROP[i]} || \
 			log_fail "${RW_VOL_PROP[i]} is failed to set."
 		propertycheck $TESTPOOL/$TESTVOL1 ${RW_VOL_PROP[i]} || \

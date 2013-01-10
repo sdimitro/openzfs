@@ -63,11 +63,6 @@ log_must $ZFS snapshot $SNAPFS
 
 typeset -i i=0
 while (( $i < ${#RW_FS_PROP[*]} )); do
-	if [[ $WRAPPER == *"crypto"* ]] && \
-		[[ ${RW_FS_PROP[$i]} == *"checksum"* ]]; then
-		(( i = i + 1 ))
-		continue
-	fi
 	log_must $ZFS clone -o ${RW_FS_PROP[$i]} $SNAPFS $TESTPOOL/$TESTCLONE
 	datasetexists $TESTPOOL/$TESTCLONE || \
 		log_fail "zfs clone $TESTPOOL/$TESTCLONE fail."

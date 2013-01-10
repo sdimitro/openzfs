@@ -18,11 +18,9 @@
 #
 # CDDL HEADER END
 #
-#
-# Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
-#
 
 #
+# Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
@@ -62,7 +60,7 @@ PARALLEL_HEADERS = sysheaders userheaders libheaders cmdheaders
 #
 # Directories that can be built in parallel
 #
-PARALLEL_DIRS = uts lib man test
+PARALLEL_DIRS = uts lib man
 
 # The check target also causes smf(5) service manifests to be validated.
 CHKMFSTSUBDIRS=	cmd

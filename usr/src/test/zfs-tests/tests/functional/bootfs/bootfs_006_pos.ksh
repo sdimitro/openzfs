@@ -55,12 +55,6 @@ function verify_bootfs { # $POOL
 	POOL=$1
 	log_must $ZFS create $POOL/$TESTFS
 
-	enc=$(get_prop encryption $POOL/$TESTFS)
-	if [[ $? -eq 0 ]] && [[ -n "$enc" ]] && [[ "$enc" != "off" ]]; then
-		log_unsupported "bootfs pool property not supported \
-when encryption is set to on."
-	fi
-
 	log_must $ZPOOL set bootfs=$POOL/$TESTFS $POOL
 	VAL=$($ZPOOL get bootfs $POOL | $TAIL -1 | $AWK '{print $3}' )
 	if [ $VAL != "$POOL/$TESTFS" ]

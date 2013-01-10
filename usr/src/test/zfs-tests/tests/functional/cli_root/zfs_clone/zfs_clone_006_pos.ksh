@@ -65,8 +65,7 @@ typeset opts=""
 log_must $ZFS snapshot $SNAPFS1
 
 while (( $i < ${#RW_VOL_CLONE_PROP[*]} )); do
-	if [[ $WRAPPER != *"crypto"* ]] || \
-		[[ ${RW_VOL_CLONE_PROP[$i]} != *"checksum"* ]]; then
+	if [[ ${RW_VOL_CLONE_PROP[$i]} != *"checksum"* ]]; then
 		opts="$opts -o ${RW_VOL_CLONE_PROP[$i]}"
 	fi
 	(( i = i + 1 ))
@@ -76,8 +75,7 @@ log_must $ZFS clone $opts $SNAPFS1 $TESTPOOL/$TESTCLONE
 
 i=0
 while (( $i < ${#RW_VOL_CLONE_PROP[*]} )); do
-	if [[ $WRAPPER != *"crypto"* ]] || \
-		[[ ${RW_VOL_CLONE_PROP[$i]} != *"checksum"* ]]; then
+	if [[ ${RW_VOL_CLONE_PROP[$i]} != *"checksum"* ]]; then
 		propertycheck $TESTPOOL/$TESTCLONE ${RW_VOL_CLONE_PROP[i]} || \
 			log_fail "${RW_VOL_CLONE_PROP[i]} is failed to set."
 	fi

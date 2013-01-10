@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ksh
 #
 # CDDL HEADER START
 #
@@ -36,7 +36,7 @@ verify_runnable "both"
 
 function local_cleanup
 {
-	local -i i=1
+	typeset -i i=1
 	for ds in $datasets; do
                 datasetexists $ds/$TESTCLONE.$i && \
 		    log_must $ZFS destroy -rf $ds/$TESTCLONE.$i
@@ -48,7 +48,7 @@ function local_cleanup
 # Set up filesystem with clones
 function setup_ds
 {
-	local -i i=1
+	typeset -i i=1
 	# create nested datasets
 	log_must $ZFS create -p $TESTPOOL/$TESTFS1/$TESTFS2/$TESTFS3
 
@@ -74,11 +74,10 @@ function setup_ds
 # Verify clone list
 function verify_clones
 {
-	local -i no_clones=$1
-	local unexpected=$2
-	local clone_snap=$3
-	local -a clones
-	local -i i=1
+	typeset -i no_clones=$1
+	typeset unexpected=$2
+	typeset clone_snap=$3
+	typeset -i i=1
 	for ds in $datasets; do
 		if [[ -n $clone_snap ]]; then
 			clone_snap=/$TESTCLONE.$i
@@ -87,7 +86,7 @@ function verify_clones
 		actual_clone=$($ZFS list -t all -o clones $snapshot | $TAIL -1)
 		save=$IFS
 		IFS=','
-		clones=()
+		typeset -a clones=()
 		for token in $actual_clone; do
 			clones=( "${clones[@]}" "$token" )
 		done
@@ -141,9 +140,9 @@ log_onexit local_cleanup
 datasets="$TESTPOOL/$TESTFS1 $TESTPOOL/$TESTFS1/$TESTFS2
     $TESTPOOL/$TESTFS1/$TESTFS2/$TESTFS3"
 
-declare -a d_clones
-declare -a deferred_snaps
-declare -i i
+typeset -a d_clones
+typeset -a deferred_snaps
+typeset -i i
 i=1
 log_must setup_ds
 

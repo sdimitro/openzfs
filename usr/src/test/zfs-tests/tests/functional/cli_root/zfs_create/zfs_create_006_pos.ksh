@@ -61,12 +61,6 @@ log_assert "'zfs create -o property=value -V size volume' can successfully \
 
 typeset -i i=0
 while (( $i < ${#RW_VOL_PROP[*]} )); do
-	if [[ $WRAPPER == *"crypto"* ]] && \
-		[[ ${RW_VOL_PROP[$i]} == *"checksum"* ]]; then
-		(( i = i + 1 ))
-		continue
-	fi
-
 	log_must $ZFS create -o ${RW_VOL_PROP[$i]} -V $VOLSIZE \
 		$TESTPOOL/$TESTVOL1
 	datasetexists $TESTPOOL/$TESTVOL1 || \

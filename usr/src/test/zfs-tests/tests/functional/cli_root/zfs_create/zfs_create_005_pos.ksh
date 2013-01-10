@@ -58,8 +58,7 @@ typeset -i i=0
 typeset opts=""
 
 while (( $i < ${#RW_FS_PROP[*]} )); do
-        if [[ $WRAPPER != *"crypto"* ]] || \
-                [[ ${RW_FS_PROP[$i]} != *"checksum"* ]]; then
+        if [[ ${RW_FS_PROP[$i]} != *"checksum"* ]]; then
 		opts="$opts -o ${RW_FS_PROP[$i]}"
 	fi
 	(( i = i + 1 ))
@@ -71,8 +70,7 @@ datasetexists $TESTPOOL/$TESTFS1 || \
 
 i=0
 while (( $i < ${#RW_FS_PROP[*]} )); do
-        if [[ $WRAPPER != *"crypto"* ]] || \
-                [[ ${RW_FS_PROP[$i]} != *"checksum"* ]]; then
+        if [[ ${RW_FS_PROP[$i]} != *"checksum"* ]]; then
 		propertycheck $TESTPOOL/$TESTFS1 ${RW_FS_PROP[i]} || \
 			log_fail "${RW_FS_PROP[i]} is failed to set."
 	fi

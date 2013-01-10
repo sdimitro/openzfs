@@ -74,8 +74,8 @@ function setup_all
 {
 	log_note "Create snapshots and mount them..."
 
-	for snap in $SNAPFS $SNAPFS1 ; do
-		if ! snapexists $snap ; then
+	for snap in $SNAPFS $SNAPFS1; do
+		if ! snapexists $snap; then
 			log_must $ZFS snapshot $snap
 		fi
 	done
@@ -94,9 +94,8 @@ function cleanup_all
 		(( i = i + 1 ))
 	done
 
-	for mtpt in $SNAPDIR $SNAPDIR1 ; do
-		[[ -d $mtpt ]] && \
-			log_must $RM -rf $mtpt
+	for mtpt in $SNAPDIR $SNAPDIR1; do
+		[[ -d $mtpt ]] && log_must $RM -rf $mtpt
 	done
 
 	return 0

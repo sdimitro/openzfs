@@ -21,16 +21,16 @@ export MEGS="64"
 
 function verify_nopwrite
 {
-	local origin=$1
-	local snap=$2
-	local clone=$3
-	local low=1
-	local high=99
+	typeset origin=$1
+	typeset snap=$2
+	typeset clone=$3
+	typeset low=1
+	typeset high=99
 
 	$SYNC
 	for i in origin snap clone; do
 		for j in used refer usedbychildren written; do
-			local ${i}_$j=$(get_prop $j $(eval echo \$$i))
+			typeset ${i}_$j=$(get_prop $j $(eval echo \$$i))
 		done
 	done
 
@@ -41,7 +41,7 @@ function verify_nopwrite
 	# percentages to be more forgiving.
 	#
 	if [[ "$(get_prop type $origin)" = "volume" ]]; then
-		local rr=$(get_prop refreserv $origin)
+		typeset rr=$(get_prop refreserv $origin)
 		((origin_used -= rr ))
 		low=2
 		high=98
@@ -60,7 +60,7 @@ function verify_nopwrite
 	# The comparisons below should pass regardless of nopwrite. They're
 	# here for sanity.
 	#
-	local deadlist=$($ZDB -Pddd $clone | $AWK '/Deadlist:/ {print $2}')
+	typeset deadlist=$($ZDB -Pddd $clone | $AWK '/Deadlist:/ {print $2}')
 	within_percent $deadlist $clone_written $high || return 1
 	within_percent $snap_refer $snap_written $high || return 1
 

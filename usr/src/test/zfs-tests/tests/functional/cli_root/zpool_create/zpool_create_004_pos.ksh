@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/ksh
 #
 # CDDL HEADER START
 #
@@ -78,8 +78,8 @@ function cleanup
 function setup_vdevs #<disk>
 {
 	typeset disk=$1
-	typeset -i largest_num=0
-	typeset -i slice_size=0
+	typeset -l largest_num=0
+	typeset -l slice_size=0
 	typeset vdev=""
 
 
@@ -88,7 +88,7 @@ function setup_vdevs #<disk>
 	#
 	create_pool foo $disk
 	log_must $ZFS create foo/fs
-	typeset -i fs_size=$(get_prop "available" foo/fs)
+	typeset -l fs_size=$(get_prop "available" foo/fs)
 	destroy_pool foo
 
 	(( largest_num = fs_size / (1024 * 1024 * ${POOL_MINSIZE}) ))
@@ -123,7 +123,7 @@ function setup_vdevs #<disk>
         log_must $ZFS create $TESTPOOL/$TESTFS
         log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 
-	typeset -i count=0
+	typeset -l count=0
 	typeset PIDLIST=""
 	while (( count < vdevs_num )); do
 		$MKFILE ${file_size}m ${TESTDIR}/file.$count &

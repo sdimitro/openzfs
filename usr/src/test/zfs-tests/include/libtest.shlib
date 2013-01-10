@@ -592,7 +592,7 @@ function dataset_set_defaultproperties
 			return 3
 		log_note "Compression set to '$COMPRESSION_PROP' on $dataset"
 	fi
-	if [[ -n $CHECKSUM_PROP && $WRAPPER != *"crypto"* ]]; then
+	if [[ -n $CHECKSUM_PROP ]]; then
 		dataset_setprop $dataset checksum $CHECKSUM_PROP || \
 			return 3
 		log_note "Checksum set to '$CHECKSUM_PROP' on $dataset"
@@ -608,7 +608,7 @@ function dataset_set_defaultproperties
 #
 function assert
 {
-	(($@)) || log_fail $@
+	(($@)) || log_fail "$@"
 }
 
 #
@@ -1449,13 +1449,6 @@ function check_vdev_state # pool disk state{online,offline,unavail}
 	typeset disk=${2#/dev/dsk/}
 	typeset state=$3
 
-	if [[ $WRAPPER == *"smi"* ]]; then
-		$ECHO $disk | $EGREP "^c[0-F]+([td][0-F]+)+$" > /dev/null 2>&1
-		if (($? == 0)); then
-			disk=${disk}s2
-		fi
-	fi
-
 	cur_state=$(get_device_state $pool $disk)
 
 	if [[ $state != ${cur_state} ]]; then
@@ -1535,24 +1528,6 @@ function cleanup_devices #vdevs
 
 	create_pool $pool $@
 	destroy_pool $pool
-
-	if [[ $WRAPPER == *"smi"* ]]; then
-		typeset device
-		for device in $@ ; do
-			if [[ $device == "/dev/dsk/"* ]]; then
-				device=${device#/dev/dsk/}
-			elif [[ $device == "/dev/rdsk/"* ]]; then
-				device=${device#/dev/rdsk/}
-			fi
-
-			$ECHO $device | $EGREP "^c[0-F]+([td][0-F]+)+$" \
-				> /dev/null 2>&1
-
-			if (($? == 0)); then
-				zero_partitions $device
-			fi
-		done
-	fi
 
 	return 0
 }

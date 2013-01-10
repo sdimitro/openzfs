@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/ksh
 
 #
 # This file and its contents are supplied under the terms of the
@@ -16,6 +16,7 @@
 #
 
 export OS_TESTS="/opt/os-tests"
+runner="/opt/test-runner/bin/run"
 
 function fail
 {
@@ -25,12 +26,14 @@ function fail
 
 function find_runfile
 {
-	local distro=
-	[[ -d /opt/delphix && -h /etc/delphix/version ]] && distro=delphix
-	grep OpenIndiana /etc/motd >/dev/null && distro=openindiana
+	typeset distro=
+	if [[ -d /opt/delphix && -h /etc/delphix/version ]]; then
+		distro=delphix
+	elif [[ 0 -ne $(grep -c OpenIndiana /etc/release 2>/dev/null) ]]; then
+		distro=openindiana
+	fi
 
-	[[ -z $distro ]] && fail "Couldn't determine distro"
-	echo $OS_TESTS/runfiles/$distro.run
+	[[ -n $distro ]] && echo $OS_TESTS/runfiles/$distro.run
 }
 
 while getopts c: c; do
@@ -44,7 +47,8 @@ done
 shift $((OPTIND - 1))
 
 [[ -z $runfile ]] && runfile=$(find_runfile)
+[[ -z $runfile ]] && fail "Couldn't determine distro"
 
-/opt/test-runner/bin/run -c $runfile
+$runner -c $runfile
 
 exit $?

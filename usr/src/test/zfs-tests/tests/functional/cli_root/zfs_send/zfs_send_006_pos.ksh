@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ksh
 #
 # CDDL HEADER START
 #
@@ -43,7 +43,7 @@ function cleanup
 
 function cal_percentage
 {
-	local value=$1
+	typeset value=$1
 	return=$($ECHO "$PERCENT * $value" | bc)
 	return=$($ECHO "$return / 100" | bc)
 	echo $return
@@ -51,13 +51,13 @@ function cal_percentage
 
 function get_estimate_size
 {
-	local snapshot=$1
-	local option=$2
-	local base_snapshot=${3:-""}
+	typeset snapshot=$1
+	typeset option=$2
+	typeset base_snapshot=${3:-""}
 	if [[ -z $3 ]];then
-		local total_size=$($ZFS send $option $snapshot 2>&1 | $TAIL -1)
+		typeset total_size=$($ZFS send $option $snapshot 2>&1 | $TAIL -1)
 	else
-		local total_size=$($ZFS send $option $base_snapshot $snapshot \
+		typeset total_size=$($ZFS send $option $base_snapshot $snapshot \
 		     2>&1 | $TAIL -1)
 	fi
 	if [[ $options == *"P"* ]]; then
@@ -73,15 +73,15 @@ function get_estimate_size
 
 function verify_size_estimates
 {
-	local options=$1
-	local file_size=$2
-	local refer_diff=$($ECHO "$refer_size - $estimate_size" | bc)
+	typeset options=$1
+	typeset file_size=$2
+	typeset refer_diff=$($ECHO "$refer_size - $estimate_size" | bc)
 	refer_diff=$($ECHO "$refer_diff / 1" | bc)
 	refer_diff=$($ECHO "$refer_diff" | $NAWK '{print ($1 < 0) ? ($1 * -1): $1'})
-	local file_diff=$($ECHO "$file_size - $estimate_size" | bc)
+	typeset file_diff=$($ECHO "$file_size - $estimate_size" | bc)
 	file_diff=$($ECHO "$file_diff / 1" | bc)
 	file_diff=$($ECHO "$file_diff" | $NAWK '{print ($1 < 0) ? ($1 * -1):$1'})
-	local expected_diff=$(cal_percentage $refer_size)
+	typeset expected_diff=$(cal_percentage $refer_size)
 
 	[[ -z $refer_diff && -z $file_diff && -z $expected_diff ]] && \
 	    log_fail "zfs send $options failed"
@@ -92,9 +92,9 @@ function verify_size_estimates
 
 log_assert "Verify 'zfs send -nvP' generates valid stream estimates"
 log_onexit cleanup
-declare -i block_count=0
-declare -i block_size
-declare -i PERCENT=1
+typeset -l block_count=0
+typeset -l block_size
+typeset -i PERCENT=1
 
 ((block_count=1024*1024))
 

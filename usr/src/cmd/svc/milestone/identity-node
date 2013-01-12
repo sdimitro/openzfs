@@ -27,7 +27,8 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
 
 . /lib/svc/share/smf_include.sh
 . /lib/svc/share/net_include.sh
@@ -36,16 +37,69 @@
 LD_LIBRARY_PATH=/lib; export LD_LIBRARY_PATH
 
 #
-# If DHCP was used on a primary interface then set the hostname
-# that was returned. If no hostname was returned, set the name
-# to be "unknown". The hostname must be set to something, because
-# tooltalk will hang unless the name can be locally resolved.
-# Sendmail also requires the name to be resolvable locally.
-# Later, in inetsvc, we create a name "unknown" and create a entry
-# in the local /etc/inet/hosts file pairing "unknown" with the IP
-# address assigned by DHCP.  The use of bootparams as a fallback
-# for all non-DHCP cases provides compatibility with the
-# behavior of the system before netstrategy was introduced.
+# Store the /etc/hosts loopback hostname mapping so that we can update it
+# when the hostname is later changed.
+#
+save_loopback_mapping()
+{
+	mapping=$1
+	/usr/sbin/svccfg -s $SMF_FMRI setprop config/loopback = $mapping || \
+	    return 1
+	/usr/sbin/svccfg -s $SMF_FMRI refresh
+}
+
+add_loopback_mapping()
+{
+	new_hostname=$1
+
+	if ! ggrep '\b'"$new_hostname"'\b' /etc/inet/hosts; then
+		tmp_hosts=$(mktemp -t hosts.XXXX)
+
+		gsed -e '/^127.0.0.1/ s/$/ '"$new_hostname"'/' \
+		    -e '/^::1/ s/$/ '"$new_hostname"'/' /etc/inet/hosts \
+		    >$tmp_hosts
+		if [[ $? -ne 0 ]]; then
+			return 1
+		fi
+
+		cp $tmp_hosts /etc/inet/hosts || return 1
+		rm -f $tmp_hosts
+	fi
+
+	save_loopback_mapping $new_hostname
+	return $?
+}
+
+update_loopback_mapping()
+{
+	old_hostname=$1
+	new_hostname=$2
+	tmp_hosts=$(mktemp -t hosts.XXXX)
+
+	if ! ggrep '\b'"$new_hostname"'\b' /etc/inet/hosts; then
+		gsed -e \
+		    '/^127.0.0.1/ s/\b'"$old_hostname"'\b/'"$new_hostname"'/g' \
+		    -e '/^::1/ s/\b'"$old_hostname"'\b/'"$new_hostname"'/g' \
+		    /etc/inet/hosts >$tmp_hosts
+		if [[ $? -ne 0 ]]; then
+			return 1
+		fi
+
+		cp $tmp_hosts /etc/inet/hosts || return 1
+		rm -f $tmp_hosts
+	fi
+
+	save_loopback_mapping $new_hostname
+	return $?
+}
+
+#
+# Set the hostname either from the local /etc/nodename file or from the network
+# (DHCP or RPC bootparams).  If no hostname was set via any of these methods,
+# then set it to "unknown" (it needs to be set to _something_ as expected by
+# countless applications).  We then ensure that an /etc/hosts loopback addres
+# mapping exists for the hostname, as many applications expect the hostname to
+# resolve to a local address.
 #
 # For non-global zones, fall back to the `uname -n` value provided by the
 # kernel if /etc/nodename does not exist, as is expected on an initial boot.
@@ -54,41 +108,60 @@ LD_LIBRARY_PATH=/lib; export LD_LIBRARY_PATH
 smf_netstrategy
 
 case "$_INIT_NET_STRATEGY" in
-	"dhcp") hostname=`/sbin/dhcpinfo Hostname` ;;
-	"rarp") hostname=`/sbin/hostconfig -h -p bootparams`
-		trap 'intr=1' 2 3
-		while [ -z "$hostname" -a ! -f /etc/.UNCONFIGURED -a \
-		    -z "$intr" ]; do
-			echo "re-trying host configuration..."
-			# Restrict this to IPv4 interfaces.
-			/sbin/ifconfig -adD4 auto-revarp up
-			hostname=`/sbin/hostconfig -h -p bootparams`
-		done
-		trap 2 3 ;;
-	"none") hostname="`shcat /etc/nodename 2>/dev/null`"
-       		if [ -z "$hostname" ]; then
-			if smf_is_globalzone; then
-				hostname=`/sbin/hostconfig -h -p bootparams`
-			else
-				hostname=`/sbin/uname -n`
-			fi
-		fi ;;
+"dhcp") hostname=$(/sbin/dhcpinfo Hostname) ;;
+"rarp") hostname=$(/sbin/hostconfig -h -p bootparams)
+	trap 'intr=1' 2 3
+	while [[ -z "$hostname" && ! -f /etc/.UNCONFIGURED && -z "$intr" ]]; do
+		echo "re-trying host configuration..."
+		# Restrict this to IPv4 interfaces.
+		/sbin/ifconfig -adD4 auto-revarp up
+		hostname=$(/sbin/hostconfig -h -p bootparams)
+	done
+	trap 2 3 ;;
+"none") hostname="$(shcat /etc/nodename 2>/dev/null)"
+	if [[ -z "$hostname" ]]; then
+		if smf_is_globalzone; then
+			hostname=$(/sbin/hostconfig -h -p bootparams)
+		else
+			hostname=$(/sbin/uname -n)
+		fi
+	fi ;;
 esac
 
-#
-# If the netstrategy was unsuccessful and we haven't got a locally configured
-# name, default to "unknown"
-#
-if [ -z "$hostname" ]; then
-	hostname="`shcat /etc/nodename 2>/dev/null`"
-	if [ -z "$hostname" ]; then
+local_override=$(/usr/bin/svcprop -p config/local_override $SMF_FMRI)
+if [[ -z "$hostname" || "$local_override" = "true" ]]; then
+	hostname="$(shcat /etc/nodename 2>/dev/null)"
+	if [[ -z "$hostname" ]]; then
 		hostname="unknown"
 	fi
 fi
 
 /sbin/uname -S $hostname
 
-echo "Hostname: `/sbin/uname -n`" > /dev/msglog
+#
+# Create or update the hostname /etc/hosts loopback mapping if the management
+# of the mapping is enabled.
+#
+enable_mapping=$(/usr/bin/svcprop -p config/enable_mapping $SMF_FMRI)
+if [[ "$enable_mapping" = "true" ]]; then
+	mapping=$(/usr/bin/svcprop -p config/loopback $SMF_FMRI)
+	if [[ "$mapping" = '""' ]]; then
+		#
+		# During the first boot after installation, there is no
+		# existing /etc/hosts mapping.
+		#
+		add_loopback_mapping $hostname || exit $SMF_ERR_FATAL
+	elif [[ "$mapping" != "$hostname" ]]; then
+		#
+		# The hostname has changed since this service was last enabled
+		# or refreshed.  We need to update the /etc/hosts mapping.
+		#
+		update_loopback_mapping $mapping $hostname || \
+		    exit $SMF_ERR_FATAL
+	fi
+fi
+
+echo "Hostname: $(/sbin/uname -n)" > /dev/msglog
 
 # Reset the library path now that we are past the critical stage
 unset LD_LIBRARY_PATH

@@ -4,7 +4,7 @@
  Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  Use is subject to license terms.
 
- Copyright (c) 2012 by Delphix. All rights reserved.
+ Copyright (c) 2013 by Delphix. All rights reserved.
 
  CDDL HEADER START
 
@@ -73,6 +73,23 @@
 			name='start'
 			exec='/lib/svc/method/identity-node'
 			timeout_seconds='60' />
+
+		<exec_method
+			type='method'
+			name='refresh'
+			exec='/lib/svc/method/identity-node'
+			timeout_seconds='60' />
+
+		<property_group name='config' type='application'>
+			<!-- Does the service manage the /etc/hosts mapping? -->
+			<propval name='enable_mapping' type='boolean'
+			    value='true' />
+			<!-- The loopback mapping in /etc/hosts -->
+			<propval name='loopback' type='astring' value='' />
+			<!-- Does /etc/nodename override DHCP? -->
+			<propval name='local_override' type='boolean'
+			    value='false' />
+		</property_group>
 
 		<template>
 			<common_name>

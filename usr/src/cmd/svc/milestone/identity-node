@@ -48,15 +48,21 @@ save_loopback_mapping()
 	/usr/sbin/svccfg -s $SMF_FMRI refresh
 }
 
+mapping_exists()
+{
+	sed '/^#/d' /etc/hosts | nawk '{$1=$1}1' OFS="\n" | grep '^'"$1"'$' > /dev/null
+	return $?
+}
+
 add_loopback_mapping()
 {
-	new_hostname=$1
+	new=$1
 
-	if ! ggrep '\b'"$new_hostname"'\b' /etc/inet/hosts; then
-		tmp_hosts=$(mktemp -t hosts.XXXX)
+	if ! mapping_exists $new; then
+		tmp_hosts=/tmp/hosts.$$
 
-		gsed -e '/^127.0.0.1/ s/$/ '"$new_hostname"'/' \
-		    -e '/^::1/ s/$/ '"$new_hostname"'/' /etc/inet/hosts \
+		sed -e '/^127.0.0.1/ s/$/ '"$new"'/' \
+		    -e '/^::1/ s/$/ '"$new"'/' /etc/inet/hosts \
 		    >$tmp_hosts
 		if [[ $? -ne 0 ]]; then
 			return 1
@@ -66,20 +72,21 @@ add_loopback_mapping()
 		rm -f $tmp_hosts
 	fi
 
-	save_loopback_mapping $new_hostname
+	save_loopback_mapping $new
 	return $?
 }
 
 update_loopback_mapping()
 {
-	old_hostname=$1
-	new_hostname=$2
-	tmp_hosts=$(mktemp -t hosts.XXXX)
+	old=$1
+	new=$2
+	tmp_hosts=/tmp/hosts.$$
 
-	if ! ggrep '\b'"$new_hostname"'\b' /etc/inet/hosts; then
-		gsed -e \
-		    '/^127.0.0.1/ s/\b'"$old_hostname"'\b/'"$new_hostname"'/g' \
-		    -e '/^::1/ s/\b'"$old_hostname"'\b/'"$new_hostname"'/g' \
+	if ! mapping_exists $new; then
+		sed -e '/^127.0.0.1/ s/\([ 	]\)'"$old"'\([ 	.]\)/\1'"$new"'\2/g' \
+		    -e '/^127.0.0.1/ s/\([ 	]\)'"$old"'$/\1'"$new"'/g' \
+		    -e '/^::1/ s/\([ 	]\)'"$old"'\([ 	.]\)/\1'"$new"'\2/g' \
+		    -e '/^::1/ s/\([ 	]\)'"$old"'$/\1'"$new"'/g' \
 		    /etc/inet/hosts >$tmp_hosts
 		if [[ $? -ne 0 ]]; then
 			return 1
@@ -89,7 +96,7 @@ update_loopback_mapping()
 		rm -f $tmp_hosts
 	fi
 
-	save_loopback_mapping $new_hostname
+	save_loopback_mapping $new
 	return $?
 }
 

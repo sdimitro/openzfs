@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #ifndef	_MDB_CTF_H
@@ -116,12 +116,7 @@ extern int mdb_ctf_offsetof_by_name(const char *, const char *);
 extern ssize_t mdb_ctf_offset_to_name(mdb_ctf_id_t, ulong_t, char *, size_t,
     int, mdb_ctf_id_t *, ulong_t *);
 
-#define	MDB_CTF_VREAD_IGNORE_ABSENT	0x02
-#define	MDB_CTF_VREAD_IGNORE_UNIONS	0x04
-#define	MDB_CTF_VREAD_IGNORE_ENUMS	0x08
 #define	MDB_CTF_VREAD_QUIET		0x100
-
-#define	MDB_CTF_VREAD_IGNORE_ALL	0x0f
 
 extern int mdb_ctf_vread(void *, const char *, const char *,
     uintptr_t, uint_t);

@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <mdb/mdb_ctf.h>
@@ -1086,8 +1086,6 @@ member_cb(const char *name, mdb_ctf_id_t modmid, ulong_t modoff, void *data)
 	    "member %s of type %s", name, mp->m_tgtname);
 
 	if (mdb_ctf_member_info(mp->m_tgtid, name, &tgtoff, &tgtmid) != 0) {
-		if (mp->m_flags & MDB_CTF_VREAD_IGNORE_ABSENT)
-			return (0);
 		mdb_ctf_warn(mp->m_flags,
 		    "could not find %s\n", tgtname);
 		return (set_errno(EMDB_CTFNOMEMB));
@@ -1284,8 +1282,6 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 		ev.ev_modbuf = (int *)modbuf;
 		ev.ev_name = mdb_ctf_enum_name(tgtid, i);
 		if (ev.ev_name == NULL) {
-			if (flags & MDB_CTF_VREAD_IGNORE_ENUMS)
-				return (0);
 			mdb_ctf_warn(flags,
 			    "unexpected value %u of enum type %s (%s)\n",
 			    i, typename, tgtname);
@@ -1295,8 +1291,6 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 		ret = mdb_ctf_enum_iter(modid, enum_cb, &ev);
 		if (ret == 0) {
 			/* value not found */
-			if (flags & MDB_CTF_VREAD_IGNORE_ENUMS)
-				return (0);
 			mdb_ctf_warn(flags,
 			    "unexpected value %s (%u) of enum type %s (%s)\n",
 			    ev.ev_name, i, typename, tgtname);
@@ -1324,15 +1318,12 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 		/*
 		 * Unions are a little tricky. The only time it's truly
 		 * safe to read in a union is if no part of the union or
-		 * any of its component types have changed. We allow the
-		 * consumer to ignore unions. The correct use of this
-		 * feature is to read the containing structure, figure
-		 * out which component of the union is valid, compute
+		 * any of its component types have changed.  The correct
+		 * use of this feature is to read the containing structure,
+		 * figure out which component of the union is valid, compute
 		 * the location of that in the target and then read in
 		 * that part of the structure.
 		 */
-		if (flags & MDB_CTF_VREAD_IGNORE_UNIONS)
-			return (0);
 
 		if (!type_equals(modid, tgtid)) {
 			mdb_ctf_warn(flags, "inexact match for union %s (%s)\n",

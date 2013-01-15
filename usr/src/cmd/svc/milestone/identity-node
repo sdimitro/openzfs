@@ -36,6 +36,12 @@
 # Make sure that the libraries essential to this stage of booting can be found.
 LD_LIBRARY_PATH=/lib; export LD_LIBRARY_PATH
 
+writable_root()
+{
+	2> /dev/null >> /etc/hosts
+	return $?
+}
+
 #
 # Store the /etc/hosts loopback hostname mapping so that we can update it
 # when the hostname is later changed.
@@ -50,7 +56,8 @@ save_loopback_mapping()
 
 mapping_exists()
 {
-	sed '/^#/d' /etc/hosts | nawk '{$1=$1}1' OFS="\n" | grep '^'"$1"'$' > /dev/null
+	sed '/^#/d' /etc/hosts | nawk '{$1=$1}1' OFS="\n" | grep '^'"$1"'$' > \
+	    /dev/null
 	return $?
 }
 
@@ -147,10 +154,13 @@ fi
 
 #
 # Create or update the hostname /etc/hosts loopback mapping if the management
-# of the mapping is enabled.
+# of the mapping is enabled.  We only do this if the root filesystem is
+# writable.  The only known case where this service is enabled while root is
+# read-only is when booted off of the miniroot during install.  In that case,
+# we don't really care if /etc/hosts contains the hostname or not.
 #
 enable_mapping=$(/usr/bin/svcprop -p config/enable_mapping $SMF_FMRI)
-if [[ "$enable_mapping" = "true" ]]; then
+if writable_root && [[ "$enable_mapping" = "true" ]]; then
 	mapping=$(/usr/bin/svcprop -p config/loopback $SMF_FMRI)
 	if [[ "$mapping" = '""' ]]; then
 		#

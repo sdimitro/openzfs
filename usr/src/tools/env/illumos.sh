@@ -21,7 +21,7 @@
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2010, 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 Joshua M. Clulow <josh@sysmgr.org>
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 # Configuration variables for the runtime environment of the nightly
@@ -233,4 +233,4 @@ export ENABLE_SMB_PRINTING='#'
 
 export GCC_ROOT=/opt/gcc/4.4.4
 export CW_GCC_DIR=${GCC_ROOT}/bin
-export __GNUC4=""
+export __GNUC=""

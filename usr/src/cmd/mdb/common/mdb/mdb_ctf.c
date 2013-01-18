@@ -1080,7 +1080,7 @@ member_cb(const char *name, mdb_ctf_id_t modmid, ulong_t modoff, void *data)
 	mdb_ctf_id_t tgtmid;
 	char *tgtbuf = mp->m_tgtbuf;
 	ulong_t tgtoff;
-	char tgtname[64];
+	char tgtname[128];
 
 	(void) mdb_snprintf(tgtname, sizeof (tgtname),
 	    "member %s of type %s", name, mp->m_tgtname);
@@ -1123,8 +1123,8 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 	int ret;
 	mdb_ctf_arinfo_t tar, mar;
 	int i;
-	char typename[64];
-	char mdbtypename[64];
+	char typename[128];
+	char mdbtypename[128];
 	ctf_encoding_t tgt_encoding, mod_encoding;
 	boolean_t signed_int = B_FALSE;
 
@@ -1494,6 +1494,14 @@ mdb_ctf_vread(void *modbuf, const char *target_typename,
 	return (vread_helper(modid, modbuf, tgtid, tgtbuf, NULL, flags));
 }
 
+/*
+ * Note: mdb_ctf_readsym() doesn't take separate parameters for the name
+ * of the target's type vs the mdb module's type.  Use with complicated
+ * types (e.g. structs) may result in unnecessary failure if a member of
+ * the struct has been changed in the target, but is not actually needed
+ * by the mdb module.  Use mdb_lookup_by_name() + mdb_ctf_vread() to
+ * avoid this problem.
+ */
 int
 mdb_ctf_readsym(void *buf, const char *typename, const char *name, uint_t flags)
 {

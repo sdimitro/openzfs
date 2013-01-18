@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -421,7 +421,8 @@ dbuf(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	}
 
 	mdb_printf("%p %8s %1u %9s %2llu %s\n", addr,
-	    objectname, db.db_level, blkidname, db.db_holds.rc_count, path);
+	    objectname, (int)db.db_level, blkidname,
+	    db.db_holds.rc_count, path);
 
 	return (DCMD_OK);
 }

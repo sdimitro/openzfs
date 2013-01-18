@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <mdb/mdb_modapi.h>
@@ -35,7 +35,12 @@
 
 #include "intr_common.h"
 
-static shared_info_t shared_info;
+typedef struct mdb_shared_info {
+	unsigned long evtchn_pending[sizeof (unsigned long) * NBBY];
+	unsigned long evtchn_mask[sizeof (unsigned long) * NBBY];
+} mdb_shared_info_t;
+
+static mdb_shared_info_t shared_info;
 static int have_shared_info;
 static uintptr_t evtchn_cpus_addr;
 static struct av_head avec_tbl[NR_IRQS];
@@ -112,7 +117,7 @@ update_tables(void)
 	/*
 	 * It's normal for this to fail with a domain dump.
 	 */
-	if (mdb_ctf_vread(&shared_info, "shared_info_t", "shared_info_t",
+	if (mdb_ctf_vread(&shared_info, "shared_info_t", "mdb_shared_info_t",
 	    shared_info_addr, MDB_CTF_VREAD_QUIET) != -1)
 		have_shared_info = 1;
 

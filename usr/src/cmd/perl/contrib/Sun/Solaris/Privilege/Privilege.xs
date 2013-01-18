@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
  */
 
 /* Solaris includes. */
@@ -128,6 +129,8 @@ CODE:
 	} else {
 		RETPRIVSET(RETVAL);
 	}
+OUTPUT:
+	RETVAL
 
 sysret
 setppriv(op, which, set)
@@ -144,6 +147,8 @@ CODE:
 	}
 	priv_emptyset(RETVAL);
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 Sun::Solaris::Privilege::Privset *
 priv_fillset()
@@ -154,6 +159,8 @@ CODE:
 	}
 	priv_fillset(RETVAL);
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 boolean_t
 priv_isemptyset(set)
@@ -193,6 +200,8 @@ CODE:
 	}
 	priv_intersect(set1, RETVAL);
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 Sun::Solaris::Privilege::Privset *
 priv_union(set1, set2)
@@ -205,6 +214,8 @@ CODE:
 	}
 	priv_union(set1, RETVAL);
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 Sun::Solaris::Privilege::Privset *
 priv_inverse(set1)
@@ -216,6 +227,8 @@ CODE:
 	}
 	priv_inverse(RETVAL);
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 
 sysret
@@ -232,6 +245,8 @@ CODE:
 		XSRETURN_UNDEF;
 	}
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 
 sysret
@@ -265,6 +280,8 @@ CODE:
 		XSRETURN_UNDEF;
 	}
 	RETPRIVSET(RETVAL);
+OUTPUT:
+	RETVAL
 
 char *
 priv_gettext(priv)

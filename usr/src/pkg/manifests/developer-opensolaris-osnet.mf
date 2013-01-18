@@ -21,6 +21,7 @@
 
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 
 set name=pkg.fmri value=pkg:/developer/opensolaris/osnet@$(PKGVERS)
 set name=pkg.description \
@@ -39,7 +40,6 @@ depend fmri=developer/java/jdk@0.5.11-0.133 type=require
 depend fmri=developer/lexer/flex@2.5.35-0.133 type=require
 depend fmri=developer/object-file@0.5.11-0.133 type=require
 depend fmri=developer/parser/bison@2.3-0.133 type=require
-depend fmri=developer/versioning/mercurial@1.3.1-0.133 type=require
 depend fmri=library/glib2@0.5.11-0.133 type=require
 depend fmri=library/libxml2@2.7.6-0.133 type=require
 depend fmri=library/libxslt@0.5.11-0.133 type=require
@@ -55,6 +55,5 @@ depend fmri=system/library/libdbus-glib@0.5.11-0.133 type=require
 depend fmri=system/library/libdbus@0.5.11-0.133 type=require
 depend fmri=system/library/math/header-math@0.5.11-0.133 type=require
 depend fmri=system/library/mozilla-nss/header-nss@0.5.11-0.133 type=require
-depend fmri=system/management/product-registry@0.5.11-0.133 type=require
 depend fmri=system/management/snmp/net-snmp@5.4.1-0.133 type=require
 depend fmri=text/gnu-gettext@0.16.1-0.133 type=require

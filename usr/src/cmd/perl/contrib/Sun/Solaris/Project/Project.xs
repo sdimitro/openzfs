@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1999, 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
  */
 /*
  * Project.xs contains XS wrappers for the project database maniplulation
@@ -236,6 +237,8 @@ PREINIT:
 	char	buf[PROJECT_BUFSZ];
 CODE:
 	RETVAL = inproj(user, proj, buf, sizeof (buf));
+OUTPUT:
+	RETVAL
 
 
 int

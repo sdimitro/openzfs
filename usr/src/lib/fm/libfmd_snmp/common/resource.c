@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+ */
+
 #include <fm/fmd_adm.h>
 #include <fm/fmd_snmp.h>
 #include <net-snmp/net-snmp-config.h>
@@ -202,7 +206,7 @@ rsrcinfo_update_one(const fmd_adm_rsrcinfo_t *rsrcinfo, void *arg)
 
 	data->d_valid = valid_stamp;
 
-	DEBUGMSGTL((MODNAME_STR, "timestamp updated for %lu/%s@%p: %lu\n",
+	DEBUGMSGTL((MODNAME_STR, "timestamp updated for %lu/%s@%p: %d\n",
 	    data->d_index, data->d_ari_fmri, data, data->d_valid));
 
 	if ((update_ctx->uc_type & UCT_ALL) ||

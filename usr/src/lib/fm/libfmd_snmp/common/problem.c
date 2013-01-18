@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+ */
+
 #include <sys/fm/protocol.h>
 #include <fm/fmd_adm.h>
 #include <fm/fmd_snmp.h>
@@ -536,7 +540,7 @@ sunFmProblemTable_nextpr(netsnmp_handler_registration *reginfo,
 		}
 		table_info->colnum++;
 		DEBUGMSGTL((MODNAME_STR, "nextpr: search for col %u empty "
-		    "uuid\n", table_info->colnum, uuid));
+		    "uuid\n", table_info->colnum));
 
 		if ((data = problem_lookup_uuid_next("")) == NULL) {
 			DEBUGMSGTL((MODNAME_STR, "nextpr: next match not found "

@@ -53,7 +53,10 @@ INCS += -I../../../uts/common/fs/zfs
 INCS += -I../../../common/zfs
 INCS += -I../../../common
 
+CLEANFILES += ../common/zfs.h
+
 $(LINTLIB) := SRCS=	$(SRCDIR)/$(LINTSRC)
+$(LINTLIB): ../common/zfs.h
 
 C99MODE=	-xc99=%all
 C99LMODE=	-Xc99=%all

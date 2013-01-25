@@ -23,6 +23,10 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
 /*	  All Rights Reserved  	*/
@@ -35,11 +39,6 @@
  * University Acknowledgment- Portions of this document are derived from
  * software developed by the University of California, Berkeley, and its
  * contributors.
- */
-
-/*
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -722,14 +721,12 @@ thr_send_notice(void *arg)
 	minfop = (moninfo_t *)arg;
 	if (statd_call_lockd(&minfop->id, minfop->state) == -1) {
 		if (debug && minfop->id.mon_id.mon_name)
-			(void) printf(
-		"problem with notifying %s failure, give up\n",
-			minfop->id.mon_id.mon_name);
+			(void) printf("problem with notifying %s failure, "
+			    "give up\n", minfop->id.mon_id.mon_name);
 	} else {
 		if (debug)
-			(void) printf(
-		"send_notice: %s, %d notified.\n",
-		minfop->id.mon_id.mon_name, minfop->state);
+			(void) printf("send_notice: %s, %d notified.\n",
+			    minfop->id.mon_id.mon_name, minfop->state);
 	}
 
 	free(minfop->id.mon_id.mon_name);
@@ -923,24 +920,22 @@ pr_name_addr(name_addr_entry_t *name_addr)
 	(void) printf("name-to-address translation table:\n");
 	for (entry = name_addr; entry != NULL; entry = entry->next) {
 		(void) printf("\t%s: ",
-				(entry->name ? entry->name : "(null)"));
+		    (entry->name ? entry->name : "(null)"));
 		for (addr = entry->addresses; addr; addr = addr->next) {
 			switch (addr->family) {
-				case AF_INET:
-					ipv4_addr = *(struct in_addr *)addr->ah.
-n_bytes;
-					(void) printf(" %s (fam %d)",
-							inet_ntoa(ipv4_addr),
-							addr->family);
-					break;
-				case AF_INET6:
-					ipv6_addr = (char *)addr->ah.n_bytes;
-					(void) printf(" %s (fam %d)",
-							inet_ntop(addr->family,
-ipv6_addr, abuf, sizeof (abuf)), addr->family);
-					break;
-				default:
-					return;
+			case AF_INET:
+				ipv4_addr = *(struct in_addr *)addr->ah.n_bytes;
+				(void) printf(" %s (fam %d)",
+				    inet_ntoa(ipv4_addr), addr->family);
+				break;
+			case AF_INET6:
+				ipv6_addr = (char *)addr->ah.n_bytes;
+				(void) printf(" %s (fam %d)",
+				    inet_ntop(addr->family, ipv6_addr, abuf,
+				    sizeof (abuf)), addr->family);
+				break;
+			default:
+				return;
 			}
 		}
 		printf("\n");
@@ -948,21 +943,15 @@ ipv6_addr, abuf, sizeof (abuf)), addr->family);
 }
 
 /*
- * Statd has trouble dealing with hostname aliases because two
- * different aliases for the same machine don't match each other
- * when using strcmp.  To deal with this, the hostnames must be
- * translated into some sort of universal identifier.  These
- * identifiers can be compared.  Universal network addresses are
- * currently used for this identifier because it is general and
- * easy to do.  Other schemes are possible and this routine
- * could be converted if required.
+ * First, try to compare the hostnames as strings.  If the hostnames does not
+ * match we might deal with the hostname aliases.  In this case two different
+ * aliases for the same machine don't match each other when using strcmp.  To
+ * deal with this, the hostnames must be translated into some sort of universal
+ * identifier.  These identifiers can be compared.  Universal network addresses
+ * are currently used for this identifier because it is general and easy to do.
+ * Other schemes are possible and this routine could be converted if required.
  *
- * In order to prevent this function from failing when the server
- * can't resolve the client host name we first try a simple
- * string compare of the two hosts.  If the string compare fails
- * we fall back to resolving the hosts to their universal network
- * identifiers.  If it can't find an address for some reason, 0
- * is returned.
+ * If it can't find an address for some reason, 0 is returned.
  */
 static int
 hostname_eq(char *host1, char *host2)
@@ -971,10 +960,11 @@ hostname_eq(char *host1, char *host2)
 	char *sysid2;
 	int rv;
 
-	/* First try a simple string compare. */
-	if (host1 != NULL && host2 != NULL && strcasecmp(host1, host2) == 0)
+	/* Compare hostnames as strings */
+	if (host1 != NULL && host2 != NULL && strcmp(host1, host2) == 0)
 		return (1);
 
+	/* Try harder if hostnames do not match */
 	sysid1 = get_system_id(host1);
 	sysid2 = get_system_id(host2);
 	if ((sysid1 == NULL) || (sysid2 == NULL))
@@ -1021,7 +1011,7 @@ get_system_id(char *hostname)
 	}
 	while ((ncp = getnetconfig(hp)) != (struct netconfig *)NULL) {
 		if ((strcmp(ncp->nc_protofmly, NC_INET) == 0) ||
-			(strcmp(ncp->nc_protofmly, NC_INET6) == 0)) {
+		    (strcmp(ncp->nc_protofmly, NC_INET6) == 0)) {
 			addrs = NULL;
 			rv = netdir_getbyname(ncp, &service, &addrs);
 			if (rv != 0) {
@@ -1083,7 +1073,7 @@ merge_hosts(void)
 	for (n = lifc->lifc_len / sizeof (struct lifreq); n > 0; n--, lifrp++) {
 
 		(void) strncpy(lifr.lifr_name, lifrp->lifr_name,
-				sizeof (lifr.lifr_name));
+		    sizeof (lifr.lifr_name));
 
 		af = lifrp->lifr_addr.ss_family;
 		sock = socket(af, SOCK_DGRAM, 0);
@@ -1095,7 +1085,7 @@ merge_hosts(void)
 		/* If it's the loopback interface, ignore */
 		if (ioctl(sock, SIOCGLIFFLAGS, (caddr_t)&lifr) < 0) {
 			syslog(LOG_ERR,
-				"statd: SIOCGLIFFLAGS failed, error: %m\n");
+			    "statd: SIOCGLIFFLAGS failed, error: %m\n");
 			goto finish;
 		}
 		if (lifr.lifr_flags & IFF_LOOPBACK)
@@ -1103,7 +1093,7 @@ merge_hosts(void)
 
 		if (ioctl(sock, SIOCGLIFADDR, (caddr_t)&lifr) < 0) {
 			syslog(LOG_ERR,
-				"statd: SIOCGLIFADDR failed, error: %m\n");
+			    "statd: SIOCGLIFADDR failed, error: %m\n");
 			goto finish;
 		}
 		sa = (struct sockaddr_storage *)&(lifr.lifr_addr);
@@ -1234,7 +1224,7 @@ str_cmp_unqual_hostname(char *rawname1, char *rawname2)
 
 	if (debug) {
 		(void) printf("str_cmp_unqual: rawname1= %s, rawname2= %s\n",
-				rawname1, rawname2);
+		    rawname1, rawname2);
 	}
 
 	unq_len1 = strcspn(rawname1, ".");
@@ -1242,12 +1232,12 @@ str_cmp_unqual_hostname(char *rawname1, char *rawname2)
 	domain = strchr(rawname1, '.');
 	if (domain != NULL) {
 		if ((strncmp(rawname1, SM_ADDR_IPV4, unq_len1) == 0) ||
-			(strncmp(rawname1, SM_ADDR_IPV6, unq_len1) == 0))
+		    (strncmp(rawname1, SM_ADDR_IPV6, unq_len1) == 0))
 		return (1);
 	}
 
 	if ((unq_len1 == unq_len2) &&
-			(strncmp(rawname1, rawname2, unq_len1) == 0)) {
+	    (strncmp(rawname1, rawname2, unq_len1) == 0)) {
 		return (0);
 	}
 
@@ -1270,7 +1260,7 @@ str_cmp_address_specifier(char *specifier1, char *specifier2)
 
 	if (debug) {
 		(void) printf("str_cmp_addr: specifier1= %s, specifier2= %s\n",
-				specifier1, specifier2);
+		    specifier1, specifier2);
 	}
 
 	/*
@@ -1311,8 +1301,8 @@ str_cmp_address_specifier(char *specifier1, char *specifier2)
 		++rawaddr2;
 
 		if (inet_pton(af1, rawaddr1, dst1) == 1 &&
-			inet_pton(af2, rawaddr1, dst2) == 1 &&
-			memcmp(dst1, dst2, len) == 0) {
+		    inet_pton(af2, rawaddr1, dst2) == 1 &&
+		    memcmp(dst1, dst2, len) == 0) {
 			return (0);
 		}
 	}

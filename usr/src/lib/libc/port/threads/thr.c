@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include "lint.h"
@@ -2233,8 +2234,8 @@ _ti_bind_guard(int flags)
 	self->ul_bindflags |= bindflag;
 	if ((flags & (THR_FLG_NOLOCK | THR_FLG_REENTER)) == THR_FLG_NOLOCK) {
 		sigoff(self);	/* see no signals while holding ld_lock */
-		self->ul_rtld++;	/* don't suspend while in ld.so.1 */
 		(void) mutex_lock(&udp->ld_lock);
+		self->ul_rtld++;	/* don't suspend while in ld.so.1 */
 	}
 	enter_critical(self);
 	self->ul_save_state = self->ul_cancel_disabled;
@@ -2258,8 +2259,8 @@ _ti_bind_clear(int flags)
 	exit_critical(self);
 	if ((flags & (THR_FLG_NOLOCK | THR_FLG_REENTER)) == THR_FLG_NOLOCK) {
 		if (MUTEX_OWNED(&udp->ld_lock, self)) {
-			(void) mutex_unlock(&udp->ld_lock);
 			self->ul_rtld--;
+			(void) mutex_unlock(&udp->ld_lock);
 			sigon(self);	/* reenable signals */
 		}
 	}

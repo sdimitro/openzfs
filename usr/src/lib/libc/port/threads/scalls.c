@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
 #include "lint.h"
 #include "thr_uberdata.h"
 #include <stdarg.h>
@@ -195,6 +199,21 @@ forkx(int flags)
 	(void) mutex_lock(&udp->atfork_lock);
 
 	/*
+	 * The udp->ld_lock is held while a thread is executing in the linker.
+	 * By holding this across fork, we ensure that linker activity doesn't
+	 * interleave with fork operations. While the linker itself is well-
+	 * behaved from the perspective of fork, the linker may call into
+	 * audit libraries, which execute arbitrary code in the context of the
+	 * linker. This code can't use facilities of the main process, so it's
+	 * common for an audit library to link to a memory allocation library.
+	 * These libraries typically suspend allocations during fork in order
+	 * to be fork safe.  By ensuring here that no thread is in the linker,
+	 * we ensure that atfork handlers don't deadlock with suspend_fork()
+	 * which waits for threads to exit the linker.
+	 */
+	(void) mutex_lock(&udp->ld_lock);
+
+	/*
 	 * Posix (SUSv3) requires fork() to be async-signal-safe.
 	 * This cannot be made to happen with fork handlers in place
 	 * (they grab locks).  To be in nominal compliance, don't run
@@ -258,6 +277,7 @@ forkx(int flags)
 			_postfork_parent_handler();
 	}
 
+	(void) mutex_unlock(&udp->ld_lock);
 	(void) mutex_unlock(&udp->atfork_lock);
 	self->ul_fork = 0;
 	sigon(self);

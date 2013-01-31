@@ -23,6 +23,7 @@
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+
 /*
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
@@ -36,6 +37,13 @@
  *
  * NOTES: This test behaves differently depending on the values
  * assigned to bufsize.
+ * 1. 0 > bufsize.
+ * 2. 0 == bufsize.
+ * 3. 0 < bufsize <= 7
+ * 4. 8 <= bufsize <= 31
+ * 5. 32 <= bufsize <= 47
+ * 6. 48 <= bufsize <= 71
+ * 7. 72 <= bufsize
  */
 
 #pragma D option quiet

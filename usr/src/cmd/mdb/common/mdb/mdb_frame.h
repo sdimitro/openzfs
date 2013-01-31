@@ -26,8 +26,6 @@
 #ifndef	_MDB_FRAME_H
 #define	_MDB_FRAME_H
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <mdb/mdb_module.h>
 #include <mdb/mdb_addrvec.h>
 #include <mdb/mdb_list.h>

@@ -1226,6 +1226,7 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 			    typename, tgtname, mdbtypename);
 			return (set_errno(EMDB_INCOMPAT));
 		} else if (modsz > tgtsz) {
+			/* BEGIN CSTYLED */
 			/*
 			 * Fill modbuf with 1's for sign extension if target
 			 * buf is a signed integer and its value is negative.
@@ -1244,6 +1245,7 @@ vread_helper(mdb_ctf_id_t modid, char *modbuf,
 			 *    +--------+--------+--------+--------+
 			 *     0        1  ...            sz-1     sz
 			 */
+			/* END CSTYLED */
 #ifdef _BIG_ENDIAN
 			if (signed_int && (tgtbuf[0] & 0x80) != 0)
 #else

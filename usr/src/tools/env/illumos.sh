@@ -234,3 +234,4 @@ export ENABLE_SMB_PRINTING='#'
 export GCC_ROOT=/opt/gcc/4.4.4
 export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
+export CW_NO_SHADOW=1

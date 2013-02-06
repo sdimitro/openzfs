@@ -25,6 +25,10 @@
  */
 
 /*
+ * Copyright (c) 2012 by Delphix. All rights reserved.
+ */
+
+/*
  * ASSERTION:
  *  Test trace() with no arguments.
  *

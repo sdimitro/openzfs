@@ -25,7 +25,9 @@
 # Use is subject to license terms.
 #
 
-#ident	"%Z%%M%	%I%	%E% SMI"
+#
+# Copyright (c) 2012 by Delphix. All rights reserved.
+#
 
 ############################################################################
 # ASSERTION:

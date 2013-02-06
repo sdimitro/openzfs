@@ -25,7 +25,7 @@
  */
 
 /*
- * Copyright (c) 2012 by Delphix.  All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 #pragma D option quiet

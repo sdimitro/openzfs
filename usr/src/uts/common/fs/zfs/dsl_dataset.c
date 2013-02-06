@@ -1235,6 +1235,7 @@ dsl_dataset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)
 			zil_resume((void *)(uintptr_t)
 			    fnvpair_value_uint64(pair));
 		}
+		fnvlist_free(suspended);
 	}
 
 	return (error);

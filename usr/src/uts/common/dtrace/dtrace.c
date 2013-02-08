@@ -158,12 +158,6 @@ hrtime_t	dtrace_unregister_defunct_reap = (hrtime_t)60 * NANOSEC;
  */
 const char	dtrace_zero[256] = { 0 };	/* zero-filled memory */
 
-typedef struct dtrace_cpustat {
-	uint64_t dtcs_probe_time;
-	uint64_t dtcs_probes_fired;
-	uint64_t dtcs_pad[6]; /* pad to 64 bytes to avoid false sharing */
-} dtrace_cpustat_t;
-
 /*
  * DTrace Internal Variables
  */

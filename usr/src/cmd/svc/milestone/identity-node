@@ -68,9 +68,9 @@ add_loopback_mapping()
 	if ! mapping_exists $new; then
 		tmp_hosts=/tmp/hosts.$$
 
-		sed -e '/^127.0.0.1/ s/$/ '"$new"'/' \
-		    -e '/^::1/ s/$/ '"$new"'/' /etc/inet/hosts \
-		    >$tmp_hosts
+		sed -e 's/^\(127.0.0.1[ 	]*\)\(*\)*/\1'"$new"' \2/g' \
+		    -e 's/^\(::1[ 	]*\)\(*\)*/\1'"$new"' \2/g' \
+		    /etc/inet/hosts >$tmp_hosts
 		if [[ $? -ne 0 ]]; then
 			return 1
 		fi
@@ -178,7 +178,14 @@ if writable_root && [[ "$enable_mapping" = "true" ]]; then
 	fi
 fi
 
-echo "Hostname: $(/sbin/uname -n)" > /dev/msglog
+#
+# We only print the hostname on the console when the service is started
+# (i.e. during boot).  There's no need to pollute the console when the
+# service is subsequently refreshed.
+#
+if [[ "$1" = "start" ]]; then
+	echo "Hostname: $(/sbin/uname -n)" > /dev/msglog
+fi
 
 # Reset the library path now that we are past the critical stage
 unset LD_LIBRARY_PATH

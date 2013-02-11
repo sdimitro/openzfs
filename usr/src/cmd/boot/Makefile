@@ -18,8 +18,10 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 include $(SRC)/cmd/Makefile.cmd
@@ -40,11 +42,7 @@ i386_SUBDIRS=		\
 sparc_SUBDIRS=		\
 	installboot
 
-COMMON_LINTSUBDIRS=	\
-	bootadm	
-
 i386_LINTSUBDIRS=	\
-	fiocompress	\
 	installgrub	\
 	symdef
 
@@ -72,7 +70,7 @@ _msg:=		TARGET= _msg
 .KEEP_STATE:
 
 SUBDIRS = $(COMMON_SUBDIRS) $($(MACH)_SUBDIRS)
-LINTSUBDIRS = $(COMMON_LINTSUBDIRS) $($(MACH)_LINTSUBDIRS)
+LINTSUBDIRS = $($(MACH)_LINTSUBDIRS)
 MSGSUBDIRS = $(COMMON_MSGSUBDIRS) $($(MACH)_MSGSUBDIRS)
 
 all clean clobber: $(SUBDIRS)

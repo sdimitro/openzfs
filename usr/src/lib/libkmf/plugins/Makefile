@@ -18,16 +18,23 @@
 #
 # CDDL HEADER END
 #
+
+#
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
+
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
+
 #
 # KMF Prototype Makefile
 #
 include	../../Makefile.lib
 
 SUBDIRS		=	kmf_nss kmf_openssl kmf_pkcs11
+LINTSUBDIRS	=	kmf_nss kmf_pkcs11
 
 HDRS=
 HDRDIR= include
@@ -38,7 +45,9 @@ clobber :=      TARGET= clobber
 install :=      TARGET= install
 lint :=         TARGET= lint
 
-all clean clobber install lint: $(SUBDIRS)
+all clean clobber install: $(SUBDIRS)
+
+lint: $(LINTSUBDIRS)
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)

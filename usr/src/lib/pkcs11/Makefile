@@ -18,9 +18,11 @@
 #
 # CDDL HEADER END
 #
-# Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+
 #
-# lib/pkcs11/Makefile
+# Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
 
 include ../Makefile.lib
 
@@ -39,6 +41,13 @@ SUBDIRS = \
 	pkcs11_softtoken \
 	pkcs11_tpm
 
+LINTSUBDIRS = \
+	libpkcs11	\
+	libsoftcrypto   \
+	libkcfd		\
+	pkcs11_kernel	\
+	pkcs11_softtoken
+
 all 	:=	TARGET= all
 clean 	:=	TARGET= clean
 clobber	:=	TARGET= clobber
@@ -47,7 +56,9 @@ lint :=		TARGET= lint
 
 .KEEP_STATE:
 
-all clean clobber install lint: $(SUBDIRS)
+all clean clobber install: $(SUBDIRS)
+
+lint: $(LINTSUBDIRS)
 
 install_h: $(ROOTHDRS)
 

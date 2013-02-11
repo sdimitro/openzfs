@@ -20,7 +20,7 @@
 #
 
 # Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 # Copyright (c) 2012, OmniTI Computer Consulting, Inc. All rights reserved.
 
 # include global definitions
@@ -175,7 +175,6 @@ COMMON_SUBDIRS = \
 	cmd/iscsiadm \
 	cmd/iscsid \
 	cmd/iscsitsvc \
-	cmd/isns \
 	cmd/itadm \
 	cmd/kbd \
 	cmd/killall \
@@ -277,7 +276,6 @@ COMMON_SUBDIRS = \
 	cmd/split \
 	cmd/srptadm \
 	cmd/srptsvc \
-	cmd/ssh \
 	cmd/stat \
 	cmd/stmfadm \
 	cmd/stmfsvc \
@@ -408,7 +406,6 @@ COMMON_SUBDIRS = \
 	lib/libpctx \
 	lib/libpicl \
 	lib/libpicltree \
-	lib/libpkg \
 	lib/libpool \
 	lib/libproc \
 	lib/libpthread \
@@ -424,7 +421,6 @@ COMMON_SUBDIRS = \
 	lib/libsecdb \
 	lib/libsendfile \
 	lib/libsip \
-	lib/libshare \
 	lib/libsldap \
 	lib/libslp \
 	lib/libsmbfs \
@@ -442,7 +438,6 @@ COMMON_SUBDIRS = \
 	lib/libuuid \
 	lib/libuutil \
 	lib/libvrrpadm \
-	lib/libwanboot \
 	lib/libwanbootutil \
 	lib/libxnet \
 	lib/libzfs \

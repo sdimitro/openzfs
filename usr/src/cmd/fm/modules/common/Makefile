@@ -18,16 +18,34 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 SUBDIRS = cpumem-retire \
 	disk-monitor	\
 	disk-transport	\
-	eversholt 	\
+	eversholt	\
 	ext-event-transport \
 	fabric-xlate \
+	fdd-msg \
+	io-retire	\
+	ip-transport	\
+	sensor-transport \
+	ses-log-transport \
+	sw-diag-response \
+	sp-monitor	\
+	syslog-msgs	\
+	zfs-diagnosis	\
+	zfs-retire
+
+LINTSUBDIRS = cpumem-retire \
+	disk-monitor	\
+	disk-transport	\
+	eversholt	\
+	ext-event-transport \
 	fdd-msg \
 	io-retire	\
 	ip-transport	\

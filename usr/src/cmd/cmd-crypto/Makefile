@@ -18,7 +18,10 @@
 #
 # CDDL HEADER END
 #
+
+#
 # Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 include ../Makefile.cmd
@@ -31,6 +34,14 @@ SUBDIRS1 = \
 	kmfcfg \
 	pktool \
 	tpmadm
+
+LINTSUBDIRS = \
+	cryptoadm \
+	decrypt \
+	digest \
+	elfsign \
+	kmfcfg \
+	pktool
 
 $(CLOSED_BUILD)SUBDIRS1 += \
 	$(CLOSED)/cmd/cmd-crypto/kcfd
@@ -51,7 +62,9 @@ _msg:=          TARGET= _msg
 
 .KEEP_STATE:
 
-all clean clobber lint _msg: $(SUBDIRS1) $($(MACH)_SUBDIRS)
+all clean clobber _msg: $(SUBDIRS1) $($(MACH)_SUBDIRS)
+
+lint: $(LINTSUBDIRS) $($(MACH)_SUBDIRS)
 
 install: $(SUBDIRS1) $(SUBDIRS2) $($(MACH)_SUBDIRS)
 

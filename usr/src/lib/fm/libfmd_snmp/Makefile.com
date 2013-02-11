@@ -18,9 +18,14 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+#
+
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 LIBRARY = libfmd_snmp.a
@@ -43,6 +48,8 @@ SRCS = $(LIBSRCS:%.c=../common/%.c)
 LIBS = $(DYNLIB) $(LINTLIB)
 
 SRCDIR =	../common
+
+C99MODE = $(C99_ENABLE)
 
 CPPFLAGS += -I../common -I.
 $(NOT_RELEASE_BUILD)CPPFLAGS += -DDEBUG

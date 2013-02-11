@@ -19,11 +19,14 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright 2003 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
+
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 include $(SRC)/cmd/Makefile.cmd
@@ -36,6 +39,12 @@ SUBDIR_PGMS=	wanboot-cgi\
 		encr \
 		ickey \
 		p12split \
+		netbootinfo
+LINTSUBDIRS=	keygen \
+		keymgmt \
+		hmac \
+		encr \
+		ickey \
 		netbootinfo
 
 SUBDIRS=	$(SUBDIR_SCR) $(SUBDIR_PGMS)
@@ -58,7 +67,7 @@ _msg:=          TARGET= _msg
 
 all install:	$(SUBDIRS)
 
-lint:		$(SUBDIR_PGMS)
+lint:		$(LINTSUBDIRS)
 
 clean:		$(SUBDIR_PGMS)
 

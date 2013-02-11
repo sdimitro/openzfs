@@ -19,11 +19,15 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#ident	"%Z%%M%	%I%	%E% SMI"
+
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
 
 .KEEP_STATE:
 
@@ -37,7 +41,9 @@ _msg := TARGET += _msg
 
 MACH:sh= mach
 
-all clean clobber install install_h lint: $(SUBDIRS)
+all clean clobber install install_h: $(SUBDIRS)
+
+lint: $(LINTSUBDIRS)
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; VERSION='$(VERSION)' $(MAKE) $(TARGET)

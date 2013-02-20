@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 /*
  * rstat service:  built with rstat.x
  */
@@ -960,7 +958,7 @@ init_net(void)
 		item->group, item->mib_id, item->length,
 		item->valp);
 #endif
-		if (item->group != MIB2_IP || item->mib_id != MIB2_IP_20)
+		if (item->group != MIB2_IP || item->mib_id != MIB2_IP_ADDR)
 			continue;
 		ap = (mib2_ipAddrEntry_t *)item->valp;
 		for (; (char *)ap < item->valp + item->length; ap++) {

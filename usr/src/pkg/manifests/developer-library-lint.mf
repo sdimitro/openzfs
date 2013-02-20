@@ -23,6 +23,7 @@
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/developer/library/lint@$(PKGVERS)
@@ -76,6 +77,7 @@ file path=lib/$(ARCH64)/llib-lpam.ln
 file path=lib/$(ARCH64)/llib-lpthread.ln
 file path=lib/$(ARCH64)/llib-lrcm.ln
 file path=lib/$(ARCH64)/llib-lresolv.ln
+file path=lib/$(ARCH64)/llib-lroute.ln
 file path=lib/$(ARCH64)/llib-lrpcsvc.ln
 file path=lib/$(ARCH64)/llib-lrt.ln
 file path=lib/$(ARCH64)/llib-lrtld_db.ln
@@ -159,6 +161,8 @@ file path=lib/llib-lrcm
 file path=lib/llib-lrcm.ln
 file path=lib/llib-lresolv
 file path=lib/llib-lresolv.ln
+file path=lib/llib-lroute
+file path=lib/llib-lroute.ln
 file path=lib/llib-lrpcsvc
 file path=lib/llib-lrpcsvc.ln
 file path=lib/llib-lrt
@@ -448,6 +452,8 @@ link path=usr/lib/$(ARCH64)/llib-lpthread.ln \
     target=../../../lib/$(ARCH64)/llib-lpthread.ln
 link path=usr/lib/$(ARCH64)/llib-lresolv.ln \
     target=../../../lib/$(ARCH64)/llib-lresolv.ln
+link path=usr/lib/$(ARCH64)/llib-lroute.ln \
+    target=../../../lib/$(ARCH64)/llib-lroute.ln
 link path=usr/lib/$(ARCH64)/llib-lrpcsvc.ln \
     target=../../../lib/$(ARCH64)/llib-lrpcsvc.ln
 link path=usr/lib/$(ARCH64)/llib-lrt.ln \
@@ -534,6 +540,8 @@ link path=usr/lib/llib-lpthread target=../../lib/llib-lpthread
 link path=usr/lib/llib-lpthread.ln target=../../lib/llib-lpthread.ln
 link path=usr/lib/llib-lresolv target=../../lib/llib-lresolv
 link path=usr/lib/llib-lresolv.ln target=../../lib/llib-lresolv.ln
+link path=usr/lib/llib-lroute target=../../lib/llib-lroute
+link path=usr/lib/llib-lroute.ln target=../../lib/llib-lroute.ln
 link path=usr/lib/llib-lrpcsvc target=../../lib/llib-lrpcsvc
 link path=usr/lib/llib-lrpcsvc.ln target=../../lib/llib-lrpcsvc.ln
 link path=usr/lib/llib-lrt target=../../lib/llib-lrt

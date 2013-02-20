@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /* Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -61,7 +62,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <inet/mib2.h>
 #include <inet/ip.h>
 
 #include <limits.h>
@@ -78,6 +78,7 @@
 #include <stdarg.h>
 #include <assert.h>
 #include <strings.h>
+#include <libroute.h>
 
 #include <libtsnet.h>
 #include <tsol/label.h>
@@ -241,8 +242,8 @@ static boolean_t	args_to_rtcmd(rtcmd_irep_t *rcip, char **argv,
 static void		bprintf(FILE *fp, int b, char *s);
 static boolean_t	compare_rtcmd(rtcmd_irep_t *srch_rt,
     rtcmd_irep_t *file_rt);
-static void		delRouteEntry(mib2_ipRouteEntry_t *rp,
-    mib2_ipv6RouteEntry_t *rp6, int seqno);
+static boolean_t	delRouteEntry(route_handle_t, route_entry_handle_t,
+    void *);
 static void		del_rtcmd_irep(rtcmd_irep_t *rcip);
 static void		flushroutes(int argc, char *argv[]);
 static boolean_t	getaddr(rtcmd_irep_t *rcip, int which, char *s,
@@ -261,7 +262,6 @@ static in_addr_t	inet_makesubnetmask(in_addr_t addr, in_addr_t mask);
 static int		keyword(const char *cp);
 static void		link_addr(const char *addr, struct sockaddr_dl *sdl);
 static char		*link_ntoa(const struct sockaddr_dl *sdl);
-static mib_item_t	*mibget(int sd);
 static char		*netname(struct sockaddr *sa);
 static int		newroute(char **argv);
 static rtcmd_irep_t	*new_rtcmd_irep(void);
@@ -326,14 +326,6 @@ static struct {
 	struct	rt_msghdr m_rtm;
 	char	m_space[BUF_SIZE];
 } m_rtmsg;
-
-/*
- * Sizes of data structures extracted from the base mib.
- * This allows the size of the tables entries to grow while preserving
- * binary compatibility.
- */
-static int ipRouteEntrySize;
-static int ipv6RouteEntrySize;
 
 #define	ROUNDUP_LONG(a) \
 	((a) > 0 ? (1 + (((a) - 1) | (sizeof (long) - 1))) : sizeof (long))
@@ -550,6 +542,13 @@ main(int argc, char **argv)
 	return (0);
 }
 
+/* ARGSUSED */
+static void
+rts_trace(route_handle_t rh, struct rt_msghdr *rtm, void *arg)
+{
+	print_rtmsg(rtm, rtm->rtm_msglen);
+}
+
 /*
  * Purge all entries in the routing tables not
  * associated with network interfaces.
@@ -557,14 +556,8 @@ main(int argc, char **argv)
 void
 flushroutes(int argc, char *argv[])
 {
-	int seqno;
-	int sd;	/* mib stream */
-	mib_item_t	*item;
-	mib2_ipRouteEntry_t *rp;
-	mib2_ipv6RouteEntry_t *rp6;
-	int oerrno;
-	int off = 0;
-	int on = 1;
+	route_handle_t rh;
+	int err;
 
 	if (argc > 1) {
 		argv++;
@@ -599,224 +592,68 @@ flushroutes(int argc, char *argv[])
 		return;
 	}
 
-	if (setsockopt(s, SOL_SOCKET, SO_USELOOPBACK, (char *)&off,
-	    sizeof (off)) < 0)
-		quit("setsockopt", errno);
+	if ((err = route_open(LIBROUTE_VERSION, &rh)) != 0)
+		quit("route_open", err);
+	if (verbose)
+		route_rts_trace(rh, rts_trace, NULL);
 
-	sd = open("/dev/ip", O_RDWR);
-	oerrno = errno;
-	if (sd < 0) {
-		switch (errno) {
-		case EACCES:
-			(void) fprintf(stderr,
-			    gettext("route: flush: insufficient privileges\n"));
-			exit(oerrno);
-			/* NOTREACHED */
-		default:
-			quit(gettext("can't open mib stream"), oerrno);
-			/* NOTREACHED */
-		}
-	}
-	if ((item = mibget(sd)) == NULL)
-		quit("mibget", errno);
-	if (verbose) {
-		(void) printf("Examining routing table from "
-		    "T_SVR4_OPTMGMT_REQ\n");
-	}
-	seqno = 0;		/* ??? */
 	switch (af) {
 	case AF_INET:
-		/* Extract ipRouteEntrySize */
-		for (; item != NULL; item = item->next_item) {
-			if (item->mib_id != 0)
-				continue;
-			if (item->group == MIB2_IP) {
-				ipRouteEntrySize =
-				    ((mib2_ip_t *)item->valp)->ipRouteEntrySize;
-				assert(IS_P2ALIGNED(ipRouteEntrySize,
-				    sizeof (mib2_ipRouteEntry_t *)));
-				break;
-			}
-		}
-		if (ipRouteEntrySize == 0) {
-			(void) fprintf(stderr,
-			    gettext("ipRouteEntrySize can't be determined.\n"));
-			exit(1);
-		}
-		for (; item != NULL; item = item->next_item) {
-			/*
-			 * skip all the other trash that comes up the mib stream
-			 */
-			if (item->group != MIB2_IP ||
-			    item->mib_id != MIB2_IP_ROUTE)
-				continue;
-			for (rp = (mib2_ipRouteEntry_t *)item->valp;
-			    (char *)rp < (char *)item->valp + item->length;
-			    /* LINTED */
-			    rp = (mib2_ipRouteEntry_t *)
-			    ((char *)rp + ipRouteEntrySize)) {
-				delRouteEntry(rp, NULL, seqno);
-				seqno++;
-			}
-			break;
-		}
+		if ((err = route_entry_walk(rh, delRouteEntry, NULL,
+		    ROUTE_WALK_IPV4 | ROUTE_WALK_REDIRECT)) != 0)
+			quit("route: flush:", err);
 		break;
 	case AF_INET6:
-		/* Extract ipv6RouteEntrySize */
-		for (; item != NULL; item = item->next_item) {
-			if (item->mib_id != 0)
-				continue;
-			if (item->group == MIB2_IP6) {
-				ipv6RouteEntrySize =
-				    ((mib2_ipv6IfStatsEntry_t *)item->valp)->
-				    ipv6RouteEntrySize;
-				assert(IS_P2ALIGNED(ipv6RouteEntrySize,
-				    sizeof (mib2_ipv6RouteEntry_t *)));
-				break;
-			}
-		}
-		if (ipv6RouteEntrySize == 0) {
-			(void) fprintf(stderr, gettext(
-			    "ipv6RouteEntrySize cannot be determined.\n"));
-			exit(1);
-		}
-		for (; item != NULL; item = item->next_item) {
-			/*
-			 * skip all the other trash that comes up the mib stream
-			 */
-			if (item->group != MIB2_IP6 ||
-			    item->mib_id != MIB2_IP6_ROUTE)
-				continue;
-			for (rp6 = (mib2_ipv6RouteEntry_t *)item->valp;
-			    (char *)rp6 < (char *)item->valp + item->length;
-			    /* LINTED */
-			    rp6 = (mib2_ipv6RouteEntry_t *)
-			    ((char *)rp6 + ipv6RouteEntrySize)) {
-				delRouteEntry(NULL, rp6, seqno);
-				seqno++;
-			}
-			break;
-		}
+		if ((err = route_entry_walk(rh, delRouteEntry, NULL,
+		    ROUTE_WALK_IPV6 | ROUTE_WALK_REDIRECT)) != 0)
+			quit("route: flush:", err);
 		break;
 	}
 
-	if (setsockopt(s, SOL_SOCKET, SO_USELOOPBACK, (char *)&on,
-	    sizeof (on)) < 0)
-		quit("setsockopt", errno);
+	route_close(rh);
 }
 
 /*
- * Given the contents of a mib_item_t of id type MIB2_IP_ROUTE or
- * MIB2_IP6_ROUTE, construct and send an RTM_DELETE routing socket message in
- * order to facilitate the flushing of RTF_GATEWAY routes.
+ * route_entry_walk() callback that deletes the given route if it is a gateway
+ * route as part of a flush operation.  route_entry_walk() expects its callback
+ * to return a boolean indicating whether or not it should continue walking.
+ * Because flush is a best-effort operation, this always returns B_TRUE.
  */
-static void
-delRouteEntry(mib2_ipRouteEntry_t *rp, mib2_ipv6RouteEntry_t *rp6, int seqno)
+/* ARGSUSED */
+static boolean_t
+delRouteEntry(route_handle_t rh, route_entry_handle_t reh, void *arg)
 {
-	char *cp;
-	int ire_type;
-	int rlen;
-	struct rt_msghdr *rtm;
-	struct sockaddr_in sin;
-	struct sockaddr_in6 sin6;
-	int slen;
+	int err;
+	uint_t plen;
+	struct sockaddr *dst, *gw;
+	boolean_t hostroute = B_FALSE;
 
-	if (rp != NULL)
-		ire_type = rp->ipRouteInfo.re_ire_type;
-	else
-		ire_type = rp6->ipv6RouteInfo.re_ire_type;
-	if (ire_type != IRE_DEFAULT &&
-	    ire_type != IRE_PREFIX &&
-	    ire_type != IRE_HOST &&
-	    ire_type != IRE_HOST_REDIRECT)
-		return;
+	if (!(route_entry_get_flags(reh) & ROUTE_ENTRY_GATEWAY))
+		return (B_TRUE);
 
-	rtm = &m_rtmsg.m_rtm;
-	(void) memset(rtm, 0, sizeof (m_rtmsg));
-	rtm->rtm_type = RTM_DELETE;
-	rtm->rtm_seq = seqno;
-	rtm->rtm_flags |= RTF_GATEWAY;
-	rtm->rtm_version = RTM_VERSION;
-	rtm->rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
-	cp = m_rtmsg.m_space;
-	if (rp != NULL) {
-		slen = sizeof (struct sockaddr_in);
-		if (rp->ipRouteMask == IP_HOST_MASK)
-			rtm->rtm_flags |= RTF_HOST;
-		(void) memset(&sin, 0, slen);
-		sin.sin_family = AF_INET;
-		sin.sin_addr.s_addr = rp->ipRouteDest;
-		(void) memmove(cp, &sin, slen);
-		cp += slen;
-		sin.sin_addr.s_addr = rp->ipRouteNextHop;
-		(void) memmove(cp, &sin, slen);
-		cp += slen;
-		sin.sin_addr.s_addr = rp->ipRouteMask;
-		(void) memmove(cp, &sin, slen);
-		cp += slen;
-	} else {
-		slen = sizeof (struct sockaddr_in6);
-		if (rp6->ipv6RoutePfxLength == IPV6_ABITS)
-			rtm->rtm_flags |= RTF_HOST;
-		(void) memset(&sin6, 0, slen);
-		sin6.sin6_family = AF_INET6;
-		sin6.sin6_addr = rp6->ipv6RouteDest;
-		(void) memmove(cp, &sin6, slen);
-		cp += slen;
-		sin6.sin6_addr = rp6->ipv6RouteNextHop;
-		(void) memmove(cp, &sin6, slen);
-		cp += slen;
-		(void) memset(&sin6.sin6_addr, 0, sizeof (sin6.sin6_addr));
-		(void) in_prefixlentomask(rp6->ipv6RoutePfxLength, IPV6_ABITS,
-		    (uchar_t *)&sin6.sin6_addr.s6_addr);
-		(void) memmove(cp, &sin6, slen);
-		cp += slen;
-	}
-	rtm->rtm_msglen = cp - (char *)&m_rtmsg;
-	if (debugonly) {
-		/*
-		 * In debugonly mode, the routing socket message to delete the
-		 * current entry is not actually sent.  However if verbose is
-		 * also set, the routing socket message that would have been
-		 * is printed.
-		 */
-		if (verbose)
-			print_rtmsg(rtm, rtm->rtm_msglen);
-		return;
+	if ((err = route_entry_get_destination(reh, &dst, &plen)) != 0 ||
+	    (err = route_entry_get_gateway(reh, &gw)) != 0) {
+		(void) fprintf(stderr, "route: %s: %s\n",
+		    gettext("unable to get route properties"), strerror(err));
+		return (B_TRUE);
 	}
 
-	rlen = write(s, (char *)&m_rtmsg, rtm->rtm_msglen);
-	if (rlen < (int)rtm->rtm_msglen) {
-		if (rlen < 0) {
-			(void) fprintf(stderr,
-			    gettext("route: write to routing socket: %s\n"),
-			    strerror(errno));
-		} else {
-			(void) fprintf(stderr, gettext("route: write to "
-			    "routing socket got only %d for rlen\n"), rlen);
-		}
-		return;
+	if (!debugonly && (err = route_entry_delete(reh)) != 0) {
+		(void) fprintf(stderr, "route: %s: %s\n",
+		    gettext("unable to delete route"), strerror(err));
+		return (B_TRUE);
 	}
-	if (qflag) {
-		/*
-		 * In quiet mode, nothing is printed at all (unless the write()
-		 * itself failed.
-		 */
-		return;
-	}
-	if (verbose) {
-		print_rtmsg(rtm, rlen);
-	} else {
-		struct sockaddr *sa = (struct sockaddr *)(rtm + 1);
 
-		(void) printf("%-20.20s ",
-		    rtm->rtm_flags & RTF_HOST ? routename(sa) :
-		    netname(sa));
-		/* LINTED */
-		sa = (struct sockaddr *)(salen(sa) + (char *)sa);
-		(void) printf("%-20.20s ", routename(sa));
+	if (!qflag && !verbose) {
+		hostroute = ((dst->sa_family == AF_INET && plen == IP_ABITS) ||
+		    plen == IPV6_ABITS);
+		(void) printf("%-20.20s ", hostroute ? routename(dst) :
+		    netname(dst));
+		(void) printf("%-20.20s ", routename(gw));
 		(void) printf("done\n");
 	}
+
+	return (B_TRUE);
 }
 
 /*
@@ -3051,152 +2888,6 @@ link_ntoa(const struct sockaddr_dl *sdl)
 	}
 	*out = 0;
 	return (obuf);
-}
-
-static mib_item_t *
-mibget(int sd)
-{
-	intmax_t		buf[512 / sizeof (intmax_t)];
-	int			flags;
-	int			i, j, getcode;
-	struct strbuf		ctlbuf, databuf;
-	struct T_optmgmt_req	*tor = (struct T_optmgmt_req *)buf;
-	struct T_optmgmt_ack	*toa = (struct T_optmgmt_ack *)buf;
-	struct T_error_ack	*tea = (struct T_error_ack *)buf;
-	struct opthdr		*req;
-	mib_item_t		*first_item = NULL;
-	mib_item_t		*last_item  = NULL;
-	mib_item_t		*temp;
-
-	tor->PRIM_type = T_SVR4_OPTMGMT_REQ;
-	tor->OPT_offset = sizeof (struct T_optmgmt_req);
-	tor->OPT_length = sizeof (struct opthdr);
-	tor->MGMT_flags = T_CURRENT;
-	req = (struct opthdr *)&tor[1];
-	req->level = MIB2_IP;		/* any MIB2_xxx value ok here */
-	req->name  = 0;
-	req->len   = 0;
-
-	ctlbuf.buf = (char *)buf;
-	ctlbuf.len = tor->OPT_length + tor->OPT_offset;
-	flags = 0;
-	if (putmsg(sd, &ctlbuf, NULL, flags) < 0) {
-		perror("mibget: putmsg (ctl)");
-		return (NULL);
-	}
-	/*
-	 * each reply consists of a ctl part for one fixed structure
-	 * or table, as defined in mib2.h.  The format is a T_OPTMGMT_ACK,
-	 * containing an opthdr structure.  level/name identify the entry,
-	 * len is the size of the data part of the message.
-	 */
-	req = (struct opthdr *)&toa[1];
-	ctlbuf.maxlen = sizeof (buf);
-	for (j = 1; ; j++) {
-		flags = 0;
-		getcode = getmsg(sd, &ctlbuf, NULL, &flags);
-		if (getcode < 0) {
-			perror("mibget: getmsg (ctl)");
-			if (verbose) {
-				(void) fprintf(stderr,
-				    "#   level   name    len\n");
-				i = 0;
-				for (last_item = first_item; last_item != NULL;
-				    last_item = last_item->next_item) {
-					(void) printf("%d  %4ld   %5ld   %ld\n",
-					    ++i, last_item->group,
-					    last_item->mib_id,
-					    last_item->length);
-				}
-			}
-			break;
-		}
-		if (getcode == 0 &&
-		    ctlbuf.len >= sizeof (struct T_optmgmt_ack) &&
-		    toa->PRIM_type == T_OPTMGMT_ACK &&
-		    toa->MGMT_flags == T_SUCCESS &&
-		    req->len == 0) {
-			if (verbose) {
-				(void) printf("mibget getmsg() %d returned EOD "
-				    "(level %lu, name %lu)\n", j, req->level,
-				    req->name);
-			}
-			return (first_item);		/* this is EOD msg */
-		}
-
-		if (ctlbuf.len >= sizeof (struct T_error_ack) &&
-		    tea->PRIM_type == T_ERROR_ACK) {
-			(void) fprintf(stderr, gettext("mibget %d gives "
-			    "T_ERROR_ACK: TLI_error = 0x%lx, UNIX_error = "
-			    "0x%lx\n"), j, tea->TLI_error, tea->UNIX_error);
-			errno = (tea->TLI_error == TSYSERR) ?
-			    tea->UNIX_error : EPROTO;
-			break;
-		}
-
-		if (getcode != MOREDATA ||
-		    ctlbuf.len < sizeof (struct T_optmgmt_ack) ||
-		    toa->PRIM_type != T_OPTMGMT_ACK ||
-		    toa->MGMT_flags != T_SUCCESS) {
-			(void) printf("mibget getmsg(ctl) %d returned %d, "
-			    "ctlbuf.len = %d, PRIM_type = %ld\n",
-			    j, getcode, ctlbuf.len, toa->PRIM_type);
-			if (toa->PRIM_type == T_OPTMGMT_ACK) {
-				(void) printf("T_OPTMGMT_ACK: "
-				    "MGMT_flags = 0x%lx, req->len = %ld\n",
-				    toa->MGMT_flags, req->len);
-			}
-			errno = ENOMSG;
-			break;
-		}
-
-		temp = malloc(sizeof (mib_item_t));
-		if (temp == NULL) {
-			perror("mibget: malloc");
-			break;
-		}
-		if (last_item != NULL)
-			last_item->next_item = temp;
-		else
-			first_item = temp;
-		last_item = temp;
-		last_item->next_item = NULL;
-		last_item->group = req->level;
-		last_item->mib_id = req->name;
-		last_item->length = req->len;
-		last_item->valp = malloc(req->len);
-		if (verbose) {
-			(void) printf("msg %d:  group = %4ld   mib_id = %5ld   "
-			    "length = %ld\n",
-			    j, last_item->group, last_item->mib_id,
-			    last_item->length);
-		}
-
-		databuf.maxlen = last_item->length;
-		databuf.buf    = (char *)last_item->valp;
-		databuf.len    = 0;
-		flags = 0;
-		getcode = getmsg(sd, NULL, &databuf, &flags);
-		if (getcode < 0) {
-			perror("mibget: getmsg (data)");
-			break;
-		} else if (getcode != 0) {
-			(void) printf("mibget getmsg(data) returned %d, "
-			    "databuf.maxlen = %d, databuf.len = %d\n",
-			    getcode, databuf.maxlen, databuf.len);
-			break;
-		}
-	}
-
-	/*
-	 * On error, free all the allocated mib_item_t objects.
-	 */
-	while (first_item != NULL) {
-		last_item = first_item;
-		first_item = first_item->next_item;
-		free(last_item);
-	}
-	return (NULL);
 }
 
 /*

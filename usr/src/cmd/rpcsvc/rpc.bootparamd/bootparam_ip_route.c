@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -290,7 +288,8 @@ get_ip_route(struct in_addr client_addr)
 	 */
 	for (item = item_list, found = B_FALSE; item != NULL && !found;
 	    item = item->next_item) {
-		if ((item->group == MIB2_IP) && (item->mib_id == MIB2_IP_20)) {
+		if ((item->group == MIB2_IP) &&
+		    (item->mib_id == MIB2_IP_ADDR)) {
 			/*
 			 * Try to find out which interface is up, configured,
 			 * not loopback, and on the same subnet as the client.
@@ -356,7 +355,8 @@ get_ip_route(struct in_addr client_addr)
 	 * The routing table group.
 	 */
 	for (item = item_list; item; item = item->next_item) {
-		if ((item->group == MIB2_IP) && (item->mib_id == MIB2_IP_21)) {
+		if ((item->group == MIB2_IP) &&
+		    (item->mib_id == MIB2_IP_ROUTE)) {
 			if (debug)
 				msgout("%lu records for ipRouteEntryTable",
 					item->length /
@@ -470,7 +470,8 @@ find_best_server_int(char **addr_list, char *client_name)
 	 */
 	for (item = item_list, found_client_int = B_FALSE;
 	    item != NULL && !found_client_int; item = item->next_item) {
-		if ((item->group == MIB2_IP) && (item->mib_id == MIB2_IP_20)) {
+		if ((item->group == MIB2_IP) &&
+		    (item->mib_id == MIB2_IP_ADDR)) {
 			/*
 			 * Try to find out which interface is up, configured,
 			 * not loopback, and on the same subnet as the client.

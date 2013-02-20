@@ -23,7 +23,7 @@
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 <include system-library.man3.inc>
@@ -208,6 +208,7 @@ file path=lib/$(ARCH64)/libpthread.so.1
 file path=lib/$(ARCH64)/librcm.so.1
 file path=lib/$(ARCH64)/libresolv.so.2
 file path=lib/$(ARCH64)/librestart.so.1
+file path=lib/$(ARCH64)/libroute.so.1
 file path=lib/$(ARCH64)/librpcsvc.so.1
 file path=lib/$(ARCH64)/librt.so.1
 file path=lib/$(ARCH64)/librtld.so.1
@@ -291,6 +292,7 @@ file path=lib/librcm.so.1
 file path=lib/libresolv.so.1
 file path=lib/libresolv.so.2
 file path=lib/librestart.so.1
+file path=lib/libroute.so.1
 file path=lib/librpcsvc.so.1
 file path=lib/librt.so.1
 file path=lib/librtld.so.1
@@ -619,6 +621,7 @@ link path=lib/$(ARCH64)/libpthread.so target=libpthread.so.1
 link path=lib/$(ARCH64)/librcm.so target=librcm.so.1
 link path=lib/$(ARCH64)/libresolv.so target=libresolv.so.2
 link path=lib/$(ARCH64)/librestart.so target=librestart.so.1
+link path=lib/$(ARCH64)/libroute.so target=libroute.so.1
 link path=lib/$(ARCH64)/librpcsvc.so target=librpcsvc.so.1
 link path=lib/$(ARCH64)/librt.so target=librt.so.1
 link path=lib/$(ARCH64)/librtld_db.so target=librtld_db.so.1
@@ -685,6 +688,7 @@ link path=lib/libproc.so target=libproc.so.1
 link path=lib/libpthread.so target=libpthread.so.1
 link path=lib/librcm.so target=./librcm.so.1
 link path=lib/libresolv.so target=libresolv.so.2
+link path=lib/libroute.so target=libroute.so.1
 link path=lib/librpcsvc.so target=librpcsvc.so.1
 link path=lib/librt.so target=librt.so.1
 link path=lib/librtld_db.so target=librtld_db.so.1
@@ -903,6 +907,10 @@ $(i386_ONLY)link path=usr/lib/$(ARCH64)/librestart.so \
     target=../../../lib/$(ARCH64)/librestart.so.1
 link path=usr/lib/$(ARCH64)/librestart.so.1 \
     target=../../../lib/$(ARCH64)/librestart.so.1
+link path=usr/lib/$(ARCH64)/libroute.so \
+    target=../../../lib/$(ARCH64)/libroute.so.1
+link path=usr/lib/$(ARCH64)/libroute.so.1 \
+    target=../../../lib/$(ARCH64)/libroute.so.1
 link path=usr/lib/$(ARCH64)/librpcsvc.so \
     target=../../../lib/$(ARCH64)/librpcsvc.so.1
 link path=usr/lib/$(ARCH64)/librpcsvc.so.1 \
@@ -1121,6 +1129,8 @@ link path=usr/lib/libresolv.so target=../../lib/libresolv.so.2
 link path=usr/lib/libresolv.so.1 target=../../lib/libresolv.so.1
 link path=usr/lib/libresolv.so.2 target=../../lib/libresolv.so.2
 link path=usr/lib/librestart.so.1 target=../../lib/librestart.so.1
+link path=usr/lib/libroute.so target=../../lib/libroute.so.1
+link path=usr/lib/libroute.so.1 target=../../libroute.so.1
 link path=usr/lib/librpcsvc.so target=../../lib/librpcsvc.so.1
 link path=usr/lib/librpcsvc.so.1 target=../../lib/librpcsvc.so.1
 link path=usr/lib/librt.so target=../../lib/librt.so.1

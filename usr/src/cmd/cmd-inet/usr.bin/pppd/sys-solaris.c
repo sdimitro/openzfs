@@ -3009,7 +3009,7 @@ have_route_to(addr)
 		if (rh->level == 0 && rh->name == 0) {
 			break;
 		}
-		if (rh->level != MIB2_IP || rh->name != MIB2_IP_21) {
+		if (rh->level != MIB2_IP || rh->name != MIB2_IP_ROUTE) {
 			while (r == MOREDATA) {
 				r = getmsg(ipfd, NULL, &dbuf, &flags);
 			}

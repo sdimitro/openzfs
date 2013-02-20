@@ -22,7 +22,7 @@
 # Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2011, Richard Lowe
 # Copyright 2011 Nexenta Systems, Inc. All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 #
 
@@ -988,6 +988,8 @@ $(ROOT)/usr/lib/libresolv.so.2:=	REALPATH=../../lib/libresolv.so.2
 $(ROOT)/usr/lib/libresolv.so:=		REALPATH=../../lib/libresolv.so.2
 $(ROOT)/usr/lib/librestart.so.1:=	REALPATH=../../lib/librestart.so.1
 $(ROOT)/usr/lib/librestart.so:=		REALPATH=../../lib/librestart.so.1
+$(ROOT)/usr/lib/libroute.so.1:=		REALPATH=../../lib/libroute.so.1
+$(ROOT)/usr/lib/libroute.so:=		REALPATH=../../lib/libroute.so.1
 $(ROOT)/usr/lib/librpcsvc.so.1:=	REALPATH=../../lib/librpcsvc.so.1
 $(ROOT)/usr/lib/librpcsvc.so:=		REALPATH=../../lib/librpcsvc.so.1
 $(ROOT)/usr/lib/librt.so.1:=		REALPATH=../../lib/librt.so.1
@@ -1095,6 +1097,8 @@ $(ROOT)/usr/lib/llib-lpthread.ln:=	REALPATH=../../lib/llib-lpthread.ln
 $(ROOT)/usr/lib/llib-lpthread:=		REALPATH=../../lib/llib-lpthread
 $(ROOT)/usr/lib/llib-lresolv.ln:=	REALPATH=../../lib/llib-lresolv.ln
 $(ROOT)/usr/lib/llib-lresolv:=		REALPATH=../../lib/llib-lresolv
+$(ROOT)/usr/lib/llib-lroute.ln:=	REALPATH=../../lib/llib-lroute.ln
+$(ROOT)/usr/lib/llib-lroute:=		REALPATH=../../lib/llib-lroute
 $(ROOT)/usr/lib/llib-lrpcsvc.ln:=	REALPATH=../../lib/llib-lrpcsvc.ln
 $(ROOT)/usr/lib/llib-lrpcsvc:=		REALPATH=../../lib/llib-lrpcsvc
 $(ROOT)/usr/lib/llib-lrt.ln:=		REALPATH=../../lib/llib-lrt.ln
@@ -1299,6 +1303,10 @@ $(ROOT)/usr/lib/$(MACH64)/librestart.so.1:= \
 	REALPATH=../../../lib/$(MACH64)/librestart.so.1
 $(ROOT)/usr/lib/$(MACH64)/librestart.so:= \
 	REALPATH=../../../lib/$(MACH64)/librestart.so.1
+$(ROOT)/usr/lib/$(MACH64)/libroute.so.1:= \
+	REALPATH=../../../lib/$(MACH64)/libroute.so.1
+$(ROOT)/usr/lib/$(MACH64)/libroute.so:= \
+	REALPATH=../../../lib/$(MACH64)/libroute.so.1
 $(ROOT)/usr/lib/$(MACH64)/librpcsvc.so.1:= \
 	REALPATH=../../../lib/$(MACH64)/librpcsvc.so.1
 $(ROOT)/usr/lib/$(MACH64)/librpcsvc.so:= \
@@ -1449,6 +1457,8 @@ $(ROOT)/usr/lib/$(MACH64)/llib-lpthread.ln:= \
 	REALPATH=../../../lib/$(MACH64)/llib-lpthread.ln
 $(ROOT)/usr/lib/$(MACH64)/llib-lresolv.ln:= \
 	REALPATH=../../../lib/$(MACH64)/llib-lresolv.ln
+$(ROOT)/usr/lib/$(MACH64)/llib-lroute.ln:= \
+	REALPATH=../../../lib/$(MACH64)/llib-lroute.ln
 $(ROOT)/usr/lib/$(MACH64)/llib-lrpcsvc.ln:= \
 	REALPATH=../../../lib/$(MACH64)/llib-lrpcsvc.ln
 $(ROOT)/usr/lib/$(MACH64)/llib-lrt.ln:= \
@@ -1600,6 +1610,8 @@ SYM.USRLIB= \
 	/usr/lib/libresolv.so.2 \
 	/usr/lib/librestart.so \
 	/usr/lib/librestart.so.1 \
+	/usr/lib/libroute.so \
+	/usr/lib/libroute.so.1 \
 	/usr/lib/librpcsvc.so \
 	/usr/lib/librpcsvc.so.1 \
 	/usr/lib/librt.so \
@@ -1705,6 +1717,8 @@ SYM.USRLIB= \
 	/usr/lib/llib-lpthread.ln \
 	/usr/lib/llib-lresolv \
 	/usr/lib/llib-lresolv.ln \
+	/usr/lib/llib-lroute \
+	/usr/lib/llib-lroute.ln \
 	/usr/lib/llib-lrpcsvc \
 	/usr/lib/llib-lrpcsvc.ln \
 	/usr/lib/llib-lrt \
@@ -1842,6 +1856,8 @@ SYM.USRLIB64= \
 	/usr/lib/$(MACH64)/libresolv.so.2 \
 	/usr/lib/$(MACH64)/librestart.so \
 	/usr/lib/$(MACH64)/librestart.so.1 \
+	/usr/lib/$(MACH64)/libroute.so \
+	/usr/lib/$(MACH64)/libroute.so.1 \
 	/usr/lib/$(MACH64)/librpcsvc.so \
 	/usr/lib/$(MACH64)/librpcsvc.so.1 \
 	/usr/lib/$(MACH64)/librt.so \
@@ -1915,6 +1931,7 @@ SYM.USRLIB64= \
 	/usr/lib/$(MACH64)/llib-lposix4.ln \
 	/usr/lib/$(MACH64)/llib-lpthread.ln \
 	/usr/lib/$(MACH64)/llib-lresolv.ln \
+	/usr/lib/$(MACH64)/llib-lroute.ln \
 	/usr/lib/$(MACH64)/llib-lrpcsvc.ln \
 	/usr/lib/$(MACH64)/llib-lrt.ln \
 	/usr/lib/$(MACH64)/llib-lrtld_db.ln \

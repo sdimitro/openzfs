@@ -22,7 +22,7 @@
 #
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/header@$(PKGVERS)
@@ -496,6 +496,7 @@ file path=usr/include/libnvpair.h
 file path=usr/include/libnwam.h
 file path=usr/include/libpolkit/libpolkit.h
 file path=usr/include/librcm.h
+file path=usr/include/libroute.h
 file path=usr/include/libscf.h
 file path=usr/include/libscf_priv.h
 file path=usr/include/libshare.h

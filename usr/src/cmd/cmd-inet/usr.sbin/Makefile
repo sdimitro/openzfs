@@ -21,7 +21,7 @@
 
 #
 # Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 SYNCPROG=	syncinit syncloop syncstat
@@ -52,6 +52,7 @@ SOCKETPROG=	6to4relay arp gettable hostconfig if_mpadm in.comsat \
 NSLPROG=	6to4relay arp gettable hostconfig in.comsat in.rarpd \
 		in.rexecd in.rlogind in.rshd in.rwhod in.telnetd \
 		in.tftpd ipaddrsel route
+ROUTEPROG=	route
 CMDPROG=	in.telnetd
 K5PROGS=	in.telnetd in.rlogind in.rshd
 TSNETPROG=	route
@@ -144,6 +145,7 @@ $(CONSTCLEAN)		:=	CFLAGS += $(XSTRCONST)
 $(SYNCPROG)		:=	LDLIBS += -ldlpi
 $(SOCKETPROG)		:=	LDLIBS += -lsocket
 $(NSLPROG)		:=	LDLIBS += -lnsl
+$(ROUTEPROG)		:=	LDLIBS += -lroute
 $(AUDITPROG)		:=	LDLIBS += -lbsm
 $(PAMPROG)		:=	LDLIBS += -lpam
 $(RPCSVCPROG)		:=	LDLIBS += -lrpcsvc
@@ -265,7 +267,7 @@ lint: $(LINTSUBDIRS)
 		in.telnetd.c $(LDLIBS) -lbsm -lpam -lsocket -lnsl
 	$(LINT.c) if_mpadm.c $(LDLIBS) -lsocket -lnsl -lipmp -linetutil
 	$(LINT.c) ipaddrsel.c $(LDLIBS) -lsocket -lnsl
-	$(LINT.c) route.c $(LDLIBS) -lsocket -lnsl -ltsnet
+	$(LINT.c) route.c $(LDLIBS) -lsocket -lnsl -ltsnet -lroute
 	$(LINT.c) syncinit.c $(LDLIBS) -ldlpi
 	$(LINT.c) syncloop.c $(LDLIBS) -ldlpi
 	$(LINT.c) syncstat.c $(LDLIBS) -ldlpi

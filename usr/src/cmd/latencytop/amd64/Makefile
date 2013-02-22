@@ -22,9 +22,14 @@
 # All Rights Reserved.
 #
 
+#
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+#
+
 include ../Makefile.com
 include ../../Makefile.cmd.64
 
 WRAPOPT = -64
+CPPFLAGS += -I/usr/lib/64/glib-2.0/include
 
 install: all $(ROOTPROG64)

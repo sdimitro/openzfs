@@ -21,12 +21,14 @@
 
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 require 5.8.4;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
+use Config;
 
 #
 # Compare OS versions.
@@ -49,7 +51,7 @@ my $arch = qx{uname -p}; chomp($arch);
 my $pver = sprintf('%vd', $^V);
 
 # Figure out the appropriate Config.pm.  Use an older version if necessary.
-my $perlarch = ($arch eq "sparc") ? "sun4-solaris-64int":"i86pc-solaris-64int";
+my $perlarch = $Config{"archname"};
 
 my $configpm = "/usr/perl5/$pver/lib/$perlarch/Config.pm";
 if (! -f $configpm) {
@@ -83,19 +85,10 @@ if (! -f $configpm) {
 	$configpm = "Config.pm";
 }
 
-our %man1pods;
-# Only install the pods for onn-ON builds.
-if (! exists($ENV{CODEMGR_WS}) && ! exists($ENV{ENVCPPFLAGS1})) {
-	$man1pods{'pod/perlgcc.pod'} = '$(INST_MAN1DIR)/perlgcc.$(MAN1EXT)';
-}
-
 WriteMakefile(
     NAME         => 'Sun::Solaris::PerlGcc',
     VERSION_FROM => 'perlgcc.PL',
-    PL_FILES     => { 'perlgcc.PL' => 'perlgcc' },
-    EXE_FILES    => [ 'perlgcc' ],
     PM           => { $configpm => '$(INST_LIBDIR)/PerlGcc/Config.pm' },
-    MAN1PODS     => \%man1pods,
+    MAN1PODS     => { },
     MAN3PODS     => { }, # Stop autopodification.
-    clean        => { FILES => 'perlgcc' },
 );

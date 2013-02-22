@@ -231,7 +231,8 @@ export SPRO_VROOT="$SPRO_ROOT"
 # Uncomment this to disable support for SMB printing.
 export ENABLE_SMB_PRINTING='#'
 
-export GCC_ROOT=/opt/gcc/4.4.4
+export GCC_ROOT=/opt/gcc-4.4.4
 export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
 export CW_NO_SHADOW=1
+export ONNV_BUILDNUM=151005

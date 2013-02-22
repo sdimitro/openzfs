@@ -20,6 +20,7 @@
 #
 #
 # Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 # rebind basic build macros to 64-bit versions
@@ -83,7 +84,7 @@ BUILD.SO=	$(CC) $(CFLAGS) -o $@ $(GSHARED) $(DYNFLAGS) \
 MAPFILECLASS=	-64
 
 CCNEEDED =		-lCrun
-$(__GNUC64)CCNEEDED =	-L$(GCCLIBDIR) -R$(GCCLIBDIR) -lstdc++
+$(__GNUC64)CCNEEDED =	-lstdc++
 $(__GNUC64)CCNEEDED +=	-lgcc_s
 
 BUILDCCC.SO=    $(CCC) $(CCFLAGS) -o $@ $(GSHARED) $(DYNFLAGS) \

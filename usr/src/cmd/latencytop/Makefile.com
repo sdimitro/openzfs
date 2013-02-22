@@ -23,6 +23,10 @@
 # All Rights Reserved.
 #
 
+#
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+#
+
 PROG = latencytop
 OBJS = latencytop.o display.o dwrapper.o klog.o stat.o table.o util.o
 SRCS = $(OBJS:%.o=../common/%.c)
@@ -34,7 +38,7 @@ CFLAGS64 += $(CCVERBOSE)
 
 CERRWARN += -_gcc=-Wno-uninitialized
 
-CPPFLAGS += -DEMBED_CONFIGS -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
+CPPFLAGS += -DEMBED_CONFIGS -I/usr/include/glib-2.0
 C99MODE = $(C99_ENABLE)
 LDLIBS += -lcurses -ldtrace
 all install	:= LDLIBS += -lglib-2.0

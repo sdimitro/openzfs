@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 include ../Makefile.cmd
@@ -32,16 +33,14 @@ clean	:= TARGET = clean
 test	:= TARGET = test
 
 # PERL_LEGACY is versions of Perl still delivered through ON
-PERL_VERSIONS = 5.10.0
+PERL_VERSIONS = 5.16.1
 
-.PARALLEL: $(PERL_VERSIONS)
-
-all install test: $(PERL_VERSIONS)
+all install test: $(PERL_VERSIONS)-$(MACH) .WAIT $(PERL_VERSIONS)-$(MACH64)
 
 clean: FRC
 
 clobber: clean
-	$(RM) -r $(PERL_VERSIONS)
+	$(RM) -r $(PERL_VERSIONS)-$(MACH) $(PERL_VERSIONS)-$(MACH64)
 
 #
 # Perl is not lint-clean.  Fake up a target.
@@ -50,10 +49,16 @@ lint:
 	@ $(ECHO) "usr/src/cmd/perl is not lint-clean: skipping"
 	@ $(TRUE)
 
-$(PERL_VERSIONS): FRC
+$(PERL_VERSIONS)-$(MACH): FRC
 	@ if [ ! -d $@ ]; then \
 	    $(CP) -r skel $@; \
 	fi
-	@ cd $@; pwd; PERL_VERSION=$@ $(MAKE) $(TARGET)
+	@ cd $@; pwd; PERL_VERSION=$(PERL_VERSIONS) PERLARCH=$(MACH) $(MAKE) $(TARGET)
+
+$(PERL_VERSIONS)-$(MACH64): FRC
+	@ if [ ! -d $@ ]; then \
+	    $(CP) -r skel $@; \
+	fi
+	@ cd $@; pwd; PERL_VERSION=$(PERL_VERSIONS) PERLARCH=$(MACH64) $(MAKE) $(TARGET)
 
 FRC:

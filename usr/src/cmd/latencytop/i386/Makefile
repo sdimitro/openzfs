@@ -22,8 +22,13 @@
 # All Rights Reserved.
 #
 
+#
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+#
+
 include ../Makefile.com
 
 WRAPOPT =
+CPPFLAGS += -I/usr/lib/glib-2.0/include
 
 install: all $(ROOTPROG32)

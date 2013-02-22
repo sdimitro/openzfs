@@ -20,6 +20,7 @@
 #
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 include ../../Makefile.cmd
@@ -29,11 +30,11 @@ KEEP_STATE_OFF = unset KEEP_STATE SUNPRO_DEPENDENCIES
 
 # Perl installs files we don't want to ship, so we install to a
 # staging area to postprocess and install the result to $(ROOT)
-STAGE = $(SRC)/cmd/perl/$(PERL_VERSION)/staging
+STAGE = $(SRC)/cmd/perl/$(PERL_VERSION)-$(PERLARCH)/staging
 
-PERL=/usr/perl5/$(PERL_VERSION)/bin/perl
+PERL=/bin/env ISALIST=$(PERLARCH) /usr/perl5/$(PERL_VERSION)/bin/$(PERLARCH)/perl
 
-PERL_MM_ARGS = INSTALLDIRS=perl CC='$(CC)' LD='$(CC)'
+PERL_MM_ARGS = INSTALLDIRS=perl CC='$(GCC_ROOT)/bin/gcc' LD='$(LD)'
 
 # Prefix for Solaris-specific extensions that are maintained by
 # Sun/Oracle.

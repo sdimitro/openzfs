@@ -23,6 +23,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+#
+
 include $(SRC)/cmd/Makefile.cmd
 
 ATTR =			audit_record_attr
@@ -66,7 +70,7 @@ $(ROOTUSRSBINPROG): $(PROG)
 	$(INS.file) $(PROG)
 
 $(PROG).po: $(PROG) $(ATTR) $(AGETTEXT)
-	export PERL5LIB; PERL5LIB=../perl/contrib; \
+	export PERL5LIB; PERL5LIB=../perl/5.16.1-$(MACH64)/Sun/Solaris/Utils/blib/lib:../perl/5.16.1-$(MACH64)/Sun/Solaris/Utils/blib/arch:../perl/5.16.1-$(MACH64)/Sun/Solaris/BSM/blib/lib:../perl/5.16.1-$(MACH64)/Sun/Solaris/BSM/blib/arch; \
 	./$(AGETTEXT) $(TEXT_DOMAIN) $(PROG).po; \
 	$(XGETTEXT) -d $(PROG) -j $(PROG)
 

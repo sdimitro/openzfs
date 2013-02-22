@@ -22,6 +22,7 @@
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 # This file provides exceptions to the usual rules applied to ELF objects by
@@ -144,6 +145,7 @@ UNUSED_RPATH	/usr.*\ from\ .*tst\.gcc\.exe			# gcc built
 UNREF_OBJ	/lib.*\ of\ .*libcimapi\.so
 UNREF_OBJ	/lib.*\ of\ .*libdbus-1\.so\.3
 UNREF_OBJ	/lib.*\ of\ .*libdbus-glib-1\.so\.2
+UNREF_OBJ	/lib.*\ of\ .*libgio-2.0\.so\.0
 UNREF_OBJ	/lib.*\ of\ .*libglib-2.0\.so\.0
 UNREF_OBJ	/lib.*\ of\ .*libgobject-2.0\.so\.0
 UNREF_OBJ	/lib.*\ of\ .*libgthread-2\.0\.so\.0
@@ -163,12 +165,14 @@ UNREF_OBJ	/lib.*\ of\ .*libxml2\.so\.2
 UNREF_OBJ	/lib.*\ of\ .*libxslt\.so\.1
 UNREF_OBJ	/lib.*\ of\ .*libpq\.so\.4
 UNREF_OBJ	/lib.*\ of\ .*libpython2\.4\.so\.1\.0
+UNREF_OBJ	/lib.*\ of\ .*libpython2\.6\.so\.1\.0
 UNREF_OBJ	/libgcc_s.*\ of\ .*libstdc\+\+\.so\.6
 
 # Unreferenced object of objects we can't change for other reasons
 UNREF_OBJ	/libmapmalloc\.so\.1;\ unused\ dependency\ of	# interposer
 UNREF_OBJ	/libstdc\+\+\.so\.6;\ unused\ dependency\ of	# gcc build
 UNREF_OBJ	/libm\.so\.2.*\ of\ .*libstdc\+\+\.so\.6	# gcc build
+UNREF_OBJ	/libgcc_s\.so\.1.*\ of\ .*libstdc\+\+\.so\.6    # omnios gcc mix
 UNREF_OBJ	/lib.*\ of\ .*/lib/picl/plugins/		# picl
 UNREF_OBJ	/lib.*\ of\ .*kcfd				# interposer
 UNREF_OBJ	/libpkcs11\.so\.1; .*\ of\ .*libkmf\.so\.1	# interposed

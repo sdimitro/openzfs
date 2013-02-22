@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/print/lp/print-client-commands@$(PKGVERS)
@@ -80,4 +81,4 @@ link path=usr/sbin/accept target=./print-service
 link path=usr/sbin/lpadmin target=./print-service
 link path=usr/sbin/lpmove target=./print-service
 link path=usr/sbin/reject target=./print-service
-depend fmri=runtime/perl-510 type=require
+depend fmri=runtime/perl type=require

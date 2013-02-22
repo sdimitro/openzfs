@@ -23,6 +23,7 @@
 # Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 by Delphix. All rights reserved.
 # Copyright (c) 2012, Joyent, Inc. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 #
@@ -135,9 +136,10 @@ ONBLD_TOOLS=		$(BUILD_TOOLS)/onbld
 JAVA_ROOT=	/usr/java
 
 SFW_ROOT=	/usr/sfw
-SFWINCDIR=	$(SFW_ROOT)/include
-SFWLIBDIR=	$(SFW_ROOT)/lib
-SFWLIBDIR64=	$(SFW_ROOT)/lib/$(MACH64)
+# In OmniOS, we've shipped the related bits in /usr/lib
+SFWINCDIR=	/usr/include
+SFWLIBDIR=	/usr/lib
+SFWLIBDIR64=	/usr/lib/$(MACH64)
 
 GCC_ROOT=	/opt/gcc/4.4.4
 GCCLIBDIR=	$(GCC_ROOT)/lib
@@ -686,7 +688,7 @@ COMPILE.java=	$(JAVAC) $(JAVAFLAGS) -classpath $(CLASSPATH)
 #
 CCNEEDED		= -lC
 CCEXTNEEDED		= -lCrun -lCstd
-$(__GNUC)CCNEEDED	= -L$(GCCLIBDIR) -R$(GCCLIBDIR) -lstdc++ -lgcc_s
+$(__GNUC)CCNEEDED	= -lstdc++ -lgcc_s
 $(__GNUC)CCEXTNEEDED	= $(CCNEEDED)
 
 LINK.c=		$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)

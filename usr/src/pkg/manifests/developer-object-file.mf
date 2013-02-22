@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/developer/object-file@$(PKGVERS)
@@ -160,4 +161,4 @@ link path=usr/ccs/lib/llib-ly.ln target=../../lib/llib-ly.ln
 link path=usr/lib/elfedit/32 target=.
 link path=usr/lib/elfedit/64 target=$(ARCH64)
 depend fmri=developer/macro/cpp type=require
-depend fmri=runtime/perl-510 type=require
+depend fmri=runtime/perl type=require

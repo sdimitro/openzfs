@@ -17,7 +17,7 @@
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2008, 2012 Richard Lowe
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 import getopt
@@ -72,13 +72,13 @@ def git(command):
     try:
         p = subprocess.Popen(command,
                              stdout=tmpfile,
-                             stderr=subprocess.STDOUT)
+                             stderr=subprocess.PIPE)
     except OSError, e:
         raise GitError("could not execute %s: %s\n" (command, e))
 
     err = p.wait()
     if err != 0:
-        raise GitError(p.stdout.read())
+        raise GitError(p.stderr.read())
 
     tmpfile.seek(0)
     return tmpfile
@@ -100,18 +100,14 @@ def git_root():
 def git_branch():
     """Return the current git branch"""
 
-    p = git('branch')
+    p = git('rev-parse --symbolic-full-name HEAD')
 
     if not p:
         sys.stderr.write("Failed finding git branch\n")
         sys.exit(err)
 
-    for elt in p:
-        if elt[0] == '*':
-            if elt.endswith('(no branch)'):
-                return None
-            return elt.split()[1]
-
+    output = p.readline().strip()
+    return output if output != 'HEAD' else None
 
 def git_parent_branch(branch):
     """Return the parent of the current git branch.
@@ -119,23 +115,16 @@ def git_parent_branch(branch):
     If this branch tracks a remote branch, return the remote branch which is
     tracked.  If not, default to origin/master."""
 
-    if not branch:
-        return None
+    assert branch is not None
 
-    p = git("for-each-ref --format=%(refname:short) %(upstream:short) " +
-            "refs/heads/")
+    p = git("for-each-ref --format=%%(upstream:short) %s" % branch)
 
     if not p:
         sys.stderr.write("Failed finding git parent branch\n")
         sys.exit(err)
 
-    for line in p:
-        # Git 1.7 will leave a ' ' trailing any non-tracking branch
-        if ' ' in line and not line.endswith(' \n'):
-            local, remote = line.split()
-            if local == branch:
-                return remote
-    return 'origin/master'
+    parent = p.readline().strip()
+    return parent if parent else None
 
 
 def git_comments(parent):
@@ -354,7 +343,20 @@ def main(cmd, args):
             parent_branch = arg
 
     if not parent_branch:
-        parent_branch = git_parent_branch(git_branch())
+        branch = git_branch()
+        if not branch:
+            sys.stderr.write("not currently on any branch, cannot infer " +
+                             "parent branch to diff against\n" +
+                             "use the '-b <branch>' option to specify the " +
+                             "parent branch\n")
+            sys.exit(1)
+        parent_branch = git_parent_branch(branch)
+        if not parent_branch:
+            sys.stderr.write(("current branch '%s' has no remote tracking " +
+                             "information\ncannot infer parent to diff " +
+                             "against, use the '-b <branch>' option to " +
+                             "specify the parent branch\n") % branch)
+            sys.exit(1)
 
     func = nits
     if cmd == 'git-pbchk':
@@ -363,6 +365,7 @@ def main(cmd, args):
             sys.stderr.write("only complete workspaces may be pbchk'd\n");
             sys.exit(1)
 
+    print "Comparing to branch: " + parent_branch
     func(git_root(), parent_branch, args)
 
 if __name__ == '__main__':

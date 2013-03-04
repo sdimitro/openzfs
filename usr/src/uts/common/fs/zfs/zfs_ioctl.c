@@ -3660,7 +3660,7 @@ zfs_check_settable(const char *dsname, nvpair_t *pair, cred_t *cr)
 
 				if (!spa_feature_is_enabled(spa, feature)) {
 					spa_close(spa, FTAG);
-					return (ENOTSUP);
+					return (SET_ERROR(ENOTSUP));
 				}
 				spa_close(spa, FTAG);
 			}
@@ -3721,7 +3721,7 @@ zfs_prop_activate_feature_check(void *arg, dmu_tx_t *tx)
 	if (!spa_feature_is_active(spa, feature))
 		return (0);
 	else
-		return (EBUSY);
+		return (SET_ERROR(EBUSY));
 }
 
 /*

@@ -489,7 +489,7 @@ mdb_tab_fini(mdb_tab_cookie_t *mcp)
 }
 
 /*ARGSUSED*/
-int
+static int
 tab_complete_global(void *arg, const GElf_Sym *sym, const char *name,
     const mdb_syminfo_t *sip, const char *obj)
 {

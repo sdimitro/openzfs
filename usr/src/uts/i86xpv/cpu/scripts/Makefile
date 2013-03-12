@@ -18,29 +18,29 @@
 #
 # CDDL HEADER END
 #
+
 #
-# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# cmd/stat/Makefile
+# Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
 #
 
-include ../Makefile.cmd
+PERLFILES= \
+	ao_gendisp
 
-SUBDIRS=	iostat mpstat vmstat fsstat kstat
-
-all :=		TARGET = all
-install :=	TARGET = install
-clean :=	TARGET = clean
-clobber :=	TARGET = clobber
-lint :=		TARGET = lint
-_msg :=		TARGET = _msg
+include ../../../Makefile.uts
 
 .KEEP_STATE:
 
-all install lint clean clobber _msg: $(SUBDIRS)
+def all install setup: ao_gendisp.pl $(PERLFILES)
 
-$(SUBDIRS): FRC
-	@cd $@; pwd; $(MAKE) $(MFLAGS) $(TARGET)
+# We are sharing the ao_gendisp source with the i86pc
+AO_GENDISP_PL=../../../i86pc/cpu/scripts/ao_gendisp.pl
+ao_gendisp.pl: $(AO_GENDISP_PL)
+	$(SYMLINK) $(AO_GENDISP_PL) $@
 
-FRC:
+clean clobber:
+	$(RM) ao_gendisp.pl $(PERLFILES)
+
+include ../../../Makefile.targ

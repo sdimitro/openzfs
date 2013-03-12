@@ -21,8 +21,8 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -1558,7 +1558,8 @@ spa_check_removed(vdev_t *vd)
 	for (int c = 0; c < vd->vdev_children; c++)
 		spa_check_removed(vd->vdev_child[c]);
 
-	if (vd->vdev_ops->vdev_op_leaf && vdev_is_dead(vd)) {
+	if (vd->vdev_ops->vdev_op_leaf && vdev_is_dead(vd) &&
+	    !vd->vdev_ishole) {
 		zfs_post_autoreplace(vd->vdev_spa, vd);
 		spa_event_notify(vd->vdev_spa, vd, ESC_ZFS_VDEV_CHECK);
 	}
@@ -5826,7 +5827,7 @@ spa_sync_version(void *arg, dmu_tx_t *tx)
 	 */
 	ASSERT(tx->tx_txg != TXG_INITIAL);
 
-	ASSERT(version <= SPA_VERSION);
+	ASSERT(SPA_VERSION_IS_SUPPORTED(version));
 	ASSERT(version >= spa_version(spa));
 
 	spa->spa_uberblock.ub_version = version;
@@ -6358,7 +6359,7 @@ spa_upgrade(spa_t *spa, uint64_t version)
 	 * future version would result in an unopenable pool, this shouldn't be
 	 * possible.
 	 */
-	ASSERT(spa->spa_uberblock.ub_version <= SPA_VERSION);
+	ASSERT(SPA_VERSION_IS_SUPPORTED(spa->spa_uberblock.ub_version));
 	ASSERT(version >= spa->spa_uberblock.ub_version);
 
 	spa->spa_uberblock.ub_version = version;

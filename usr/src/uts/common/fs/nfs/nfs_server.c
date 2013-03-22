@@ -2803,8 +2803,8 @@ rfs_publicfh_mclookup(char *p, vnode_t *dvp, cred_t *cr, vnode_t **vpp,
 			 */
 
 			/* Release the reference on the old exi value */
+			ASSERT(*exi != NULL);
 			exi_rele(*exi);
-			*exi = NULL;
 
 			if (error = nfs_check_vpexi(mc_dvp, *vpp, kcred, exi)) {
 				VN_RELE(*vpp);
@@ -2816,9 +2816,6 @@ rfs_publicfh_mclookup(char *p, vnode_t *dvp, cred_t *cr, vnode_t **vpp,
 publicfh_done:
 	if (mc_dvp)
 		VN_RELE(mc_dvp);
-
-	if (error && *exi != NULL)
-		exi_rele(*exi);
 
 	return (error);
 }
@@ -2965,19 +2962,16 @@ URLparse(char *str)
 /*
  * Get the export information for the lookup vnode, and verify its
  * useable.
- *
- * Set @exip only in success
  */
 int
 nfs_check_vpexi(vnode_t *mc_dvp, vnode_t *vp, cred_t *cr,
-    struct exportinfo **exip)
+    struct exportinfo **exi)
 {
 	int walk;
 	int error = 0;
-	struct exportinfo *exi;
 
-	exi = nfs_vptoexi(mc_dvp, vp, cr, &walk, NULL, FALSE);
-	if (exi == NULL)
+	*exi = nfs_vptoexi(mc_dvp, vp, cr, &walk, NULL, FALSE);
+	if (*exi == NULL)
 		error = EACCES;
 	else {
 		/*
@@ -2986,13 +2980,10 @@ nfs_check_vpexi(vnode_t *mc_dvp, vnode_t *vp, cred_t *cr,
 		 * must not terminate below the
 		 * exported directory.
 		 */
-		if (exi->exi_export.ex_flags & EX_NOSUB && walk > 0) {
+		if ((*exi)->exi_export.ex_flags & EX_NOSUB && walk > 0)
 			error = EACCES;
-			exi_rele(exi);
-		}
 	}
-	if (error == 0)
-		*exip = exi;
+
 	return (error);
 }
 

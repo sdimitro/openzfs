@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
  *
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
@@ -401,7 +401,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 
 		if (dvp == NULL) {
 			error = ESTALE;
-			goto out1;
+			goto out;
 		}
 	}
 
@@ -434,25 +434,16 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 		goto out1;
 	}
 
-	exi_hold(exi);
-
 	/*
 	 * If the public filehandle is used then allow
 	 * a multi-component lookup
 	 */
 	if (PUBLIC_FH3(&args->what.dir)) {
-		struct exportinfo *new;
-
 		publicfh_flag = TRUE;
-
 		error = rfs_publicfh_mclookup(name, dvp, cr, &vp,
-		    &new, &sec);
-
-		if (error == 0) {
-			exi_rele(exi);
-			exi = new;
-		}
-
+		    &exi, &sec);
+		if (error && exi != NULL)
+			exi_rele(exi); /* See comment below Re: publicfh_flag */
 		/*
 		 * Since WebNFS may bypass MOUNT, we need to ensure this
 		 * request didn't come from an unlabeled admin_low client.
@@ -474,6 +465,8 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 			if (tp == NULL || tp->tpc_tp.tp_doi !=
 			    l_admin_low->tsl_doi || tp->tpc_tp.host_type !=
 			    SUN_CIPSO) {
+				if (exi != NULL)
+					exi_rele(exi);
 				VN_RELE(vp);
 				resp->status = NFS3ERR_ACCES;
 				error = 1;
@@ -499,6 +492,8 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 		if (!blequal(&l_admin_low->tsl_label, clabel)) {
 			if (!do_rfs_label_check(clabel, dvp,
 			    DOMINANCE_CHECK, exi)) {
+				if (publicfh_flag && exi != NULL)
+					exi_rele(exi);
 				VN_RELE(vp);
 				resp->status = NFS3ERR_ACCES;
 				error = 1;
@@ -520,6 +515,15 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 			auth_weak = TRUE;
 	}
 
+	/*
+	 * If publicfh_flag is true then we have called rfs_publicfh_mclookup
+	 * and have obtained a new exportinfo in exi which needs to be
+	 * released. Note that the original exportinfo pointed to by exi
+	 * will be released by the caller, common_dispatch.
+	 */
+	if (publicfh_flag)
+		exi_rele(exi);
+
 	if (error) {
 		VN_RELE(vp);
 		goto out;
@@ -528,7 +532,6 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	va.va_mask = AT_ALL;
 	vap = rfs4_delegated_getattr(vp, &va, 0, cr) ? NULL : &va;
 
-	exi_rele(exi);
 	VN_RELE(vp);
 
 	resp->status = NFS3_OK;
@@ -550,12 +553,6 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	return;
 
 out:
-	/*
-	 * The passed argument exportinfo is released by the
-	 * caller, common_dispatch
-	 */
-	exi_rele(exi);
-
 	if (curthread->t_flag & T_WOULDBLOCK) {
 		curthread->t_flag &= ~T_WOULDBLOCK;
 		resp->status = NFS3ERR_JUKEBOX;

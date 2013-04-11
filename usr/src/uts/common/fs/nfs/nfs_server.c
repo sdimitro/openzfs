@@ -21,8 +21,7 @@
 /*
  * Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 Bayard G. Bell. All rights reserved.
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /*
@@ -3343,6 +3342,7 @@ rfs_read_alloc(uint_t len, struct iovec **iov, int *iovcnt)
 		 * BYTES_PER_XDR_UNIT (4 bytes) so that the call to
 		 * xdrmblk_putmblk() never fails.
 		 */
+		ASSERT(kmem_max_cached % BYTES_PER_XDR_UNIT == 0);
 		mpsize = MIN(kmem_max_cached, remain);
 		*mpp = allocb_wait(RNDUP(mpsize), BPRI_MED, STR_NOSIG, &err);
 		ASSERT(*mpp != NULL);

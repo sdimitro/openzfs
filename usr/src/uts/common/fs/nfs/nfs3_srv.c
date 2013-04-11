@@ -22,7 +22,7 @@
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
  *
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /* Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T */
@@ -59,7 +59,6 @@
 #include <nfs/nfs_cmd.h>
 
 #include <sys/strsubr.h>
-#include <sys/strsun.h>
 #include <sys/tsol/label.h>
 #include <sys/tsol/tndb.h>
 

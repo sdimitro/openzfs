@@ -946,9 +946,7 @@ int	nfs_mount_label_policy(vfs_t *vfsp, struct netbuf *addr,
 boolean_t nfs_has_ctty(void);
 void	nfs_srv_stop_all(void);
 void	nfs_srv_quiesce_all(void);
-void	(*nfs_srv_quiesce_func)(void);
 int	rfs4_dss_setpaths(char *, size_t);
-int	(*nfs_srv_dss_func)(char *, size_t);
 int	nfs_setmod_check(page_t *pp);
 
 extern time_t	rfs4_lease_time;
@@ -967,6 +965,8 @@ extern vfsops_t		*nfs_vfsops;
 extern struct vnodeops	*nfs_vnodeops;
 extern const struct fs_operation_def nfs_vnodeops_template[];
 extern int		nfsfstyp;
+extern void		(*nfs_srv_quiesce_func)(void);
+extern int		(*nfs_srv_dss_func)(char *, size_t);
 
 /*
  * Per-zone stats as consumed by nfsstat(1m)

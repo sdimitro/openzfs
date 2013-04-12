@@ -19,11 +19,12 @@
 # CDDL HEADER END
 #
 # Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 # MDB modules used for debugging user processes that every ISA's build
 # subdirectory will need to build.
 #
- 
+
 COMMON_MODULES_PROC = \
 	dof \
 	libavl \
@@ -75,6 +76,7 @@ COMMON_MODULES_KVM = \
 	mpt_sas \
 	mr_sas \
 	nca \
+	klmmod \
 	nsctl \
 	nsmb \
 	pmcs \

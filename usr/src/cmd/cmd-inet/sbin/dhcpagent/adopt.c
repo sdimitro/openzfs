@@ -225,7 +225,7 @@ get_dhcp_kcache(void)
 	char		dummy;
 	long		size;
 
-	if ((size = sysinfo(SI_DHCP_CACHE, &dummy, sizeof (dummy))) <= 0)
+	if ((size = sysinfo(SI_DHCP_CACHE, &dummy, sizeof (dummy))) == 1)
 		return (NULL);
 	if (size < sizeof (dhcp_kcache_t)) {
 		dhcpmsg(MSG_ERROR,

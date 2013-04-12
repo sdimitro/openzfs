@@ -3537,12 +3537,19 @@ ipadm_enable_addr(ipadm_handle_t iph, const char *aobjname, uint32_t flags)
 		return (IPADM_INVALID_ARG);
 	}
 
-	/* Retrieve the address object information. */
-	status = i_ipadm_get_addrobj(iph, &ipaddr);
-	if (status != IPADM_SUCCESS)
+	/* Don't allow enabling of an already enabled address. */
+	if ((status = i_ipadm_get_addrobj(iph, &ipaddr)) == IPADM_SUCCESS) {
+		if (ipaddr.ipadm_flags & IPMGMT_ACTIVE)
+			return (IPADM_ADDROBJ_EXISTS);
+	} else if (status != IPADM_NOTFOUND) {
+		/*
+		 * IPADM_NOTFOUND is expected in the case where the address
+		 * object has not previously been enabled (e.g. the initial
+		 * enabling at boot failed for some reason).  All other errors
+		 * are actual failures.
+		 */
 		return (status);
-	if (ipaddr.ipadm_flags & IPMGMT_ACTIVE)
-		return (IPADM_ADDROBJ_EXISTS);
+	}
 
 	status = i_ipadm_get_db_addr(iph, NULL, aobjname, &addrnvl);
 	if (status != IPADM_SUCCESS)

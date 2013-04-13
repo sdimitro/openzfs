@@ -22,9 +22,10 @@ MODSRCS = nlm.c
 include ../../../../Makefile.cmd
 include ../../../../Makefile.cmd.64
 include ../../Makefile.amd64
-include ../../../Makefile.module
 
 ROOTKMOD = $(ROOT)/usr/kernel/kmdb$(MACHMODDIR)
+
+include ../../../Makefile.module
 
 $(ROOTKMOD):
 	$(INS.dir)

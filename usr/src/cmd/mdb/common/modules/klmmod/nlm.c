@@ -119,6 +119,7 @@ nlm_host_walk_init(mdb_walk_state_t *wsp)
 {
 	mdb_nlm_globals_list_t globals_list;
 	GElf_Sym sym;
+	mdb_nlm_globals_t nlm_global;
 
 	/*
 	 * 1. Find the global list of zones.
@@ -141,7 +142,6 @@ nlm_host_walk_init(mdb_walk_state_t *wsp)
 	}
 
 	/* This walk works for a single zone. Warn if there is > 1 zone. */
-	mdb_nlm_globals_t nlm_global;
 	if (mdb_ctf_vread(&nlm_global, "struct nlm_globals",
 	    "mdb_nlm_globals_t", globals_list.tqh_first, 0) == -1) {
 		return (WALK_ERR);

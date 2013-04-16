@@ -28,6 +28,9 @@
 /*	  All Rights Reserved  	*/
 
 /*
+ * Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved.
+ */
+/*
  * Portions of this source code were derived from Berkeley 4.3 BSD
  * under license from the Regents of the University of California.
  */
@@ -227,6 +230,9 @@ noxattr:
 					 * falloc reserved.
 					 */
 					setf(fd, fp);
+					if ((filemode & FCLOEXEC) != 0) {
+						f_setfd(fd, FD_CLOEXEC);
+					}
 					return (fd);
 				} else {
 					/*
@@ -253,6 +259,9 @@ noxattr:
 					fp->f_count++;
 					mutex_exit(&fp->f_tlock);
 					setf(fd, fp);
+					if ((filemode & FCLOEXEC) != 0) {
+						f_setfd(fd, FD_CLOEXEC);
+					}
 					releasef(dupfd);
 				}
 				return (fd);

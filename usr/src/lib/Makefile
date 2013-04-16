@@ -22,6 +22,7 @@
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, Joyent, Inc. All rights reserved.
 
 include ../Makefile.master
 
@@ -158,7 +159,8 @@ SUBDIRS += \
 	libdscfg	\
 	librdc		\
 	libinstzones	\
-	libpkg
+	libpkg		\
+	libpcidb
 
 SUBDIRS += \
 	passwdutil	\
@@ -272,7 +274,8 @@ SUBDIRS += \
 i386_SUBDIRS=		\
 	libntfs		\
 	libparted	\
-	libfdisk
+	libfdisk	\
+	libsaveargs
 
 sparc_SUBDIRS= .WAIT	\
 	efcode		\
@@ -432,6 +435,7 @@ HDRSUBDIRS=		\
 	libnsl		\
 	libnwam		\
 	libpam		\
+	libpcidb	\
 	libpctx		\
 	libpicl		\
 	libpicltree	\
@@ -513,7 +517,8 @@ $(CLOSED_BUILD)HDRSUBDIRS += \
 
 i386_HDRSUBDIRS=	\
 	libparted	\
-	libfdisk
+	libfdisk	\
+	libsaveargs
 
 sparc_HDRSUBDIRS=	\
 	libds		\
@@ -626,7 +631,7 @@ libpool:	libnvpair libexacct
 libpp:		libast
 libzonecfg:	libc libsocket libnsl libuuid libnvpair libsysevent libsec \
 		libbrand libpool libscf
-libproc:	../cmd/sgs/librtld_db ../cmd/sgs/libelf libctf
+libproc:	../cmd/sgs/librtld_db ../cmd/sgs/libelf libctf libsaveargs
 libproject:	libpool libproc libsecdb
 libtermcap:	libcurses
 libtsnet:	libnsl libtsol libsecdb
@@ -638,6 +643,7 @@ pam_modules:	libproject passwdutil smbsrv
 libscf:		libuutil libmd libgen libsmbios libnsl
 libinetsvc:	libscf
 librestart:	libuutil libscf
+libsaveargs:	libdisasm
 ../cmd/sgs/libdl:	../cmd/sgs/libconv
 ../cmd/sgs/libelf:	../cmd/sgs/libconv
 pkcs11:		libcryptoutil

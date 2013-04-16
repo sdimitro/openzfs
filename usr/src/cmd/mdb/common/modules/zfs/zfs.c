@@ -1695,7 +1695,7 @@ spa_vdevs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
  * the main summary.  More detailed information can always be found by doing a
  * '::print zio' on the underlying zio_t.  The columns we display are:
  *
- *	ADDRESS		TYPE	STAGE		WAITER
+ *	ADDRESS  TYPE  STAGE  WAITER  TIME_ELAPSED
  *
  * The 'address' column is indented by one space for each depth level as we
  * descend down the tree.

@@ -28,6 +28,10 @@
 # Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
+#
+# Copyright (c) 2013 OmniTI Computer Consulting, Inc. All rights reserved.
+#
+
 LIBRARY = libfmd_snmp.a
 VERS = .1
 
@@ -57,7 +61,7 @@ CFLAGS += $(CCVERBOSE) $(C_BIGPICFLAGS)
 CFLAGS64 += $(CCVERBOSE) $(C_BIGPICFLAGS)
 
 # No lint libraries are delivered for Net-SNMP yet
-SNMPLIBS = -lnetsnmp -lnetsnmphelpers -lnetsnmpagent
+SNMPLIBS = -lnetsnmp -lnetsnmpagent
 lint := SNMPLIBS=
 
 LDLIBS += $(MACH_LDLIBS)

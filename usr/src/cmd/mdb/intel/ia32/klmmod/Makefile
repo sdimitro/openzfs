@@ -21,10 +21,4 @@ MODSRCS = nlm.c
 
 include ../../../../Makefile.cmd
 include ../../Makefile.ia32
-
-ROOTKMOD = $(ROOT)/usr/kernel/kmdb
-
 include ../../../Makefile.module
-
-$(ROOTKMOD):
-	$(INS.dir)

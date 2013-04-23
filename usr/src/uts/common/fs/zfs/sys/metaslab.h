@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_METASLAB_H
@@ -36,14 +36,22 @@
 extern "C" {
 #endif
 
-extern space_map_ops_t *zfs_metaslab_ops;
+typedef struct metaslab_ops {
+	uint64_t (*msop_alloc)(metaslab_t *msp, uint64_t size);
+	uint64_t (*msop_max)(metaslab_t *msp);
+	boolean_t (*msop_fragmented)(metaslab_t *msp);
+} metaslab_ops_t;
 
-extern metaslab_t *metaslab_init(metaslab_group_t *mg, space_map_obj_t *smo,
+extern metaslab_ops_t *zfs_metaslab_ops;
+
+extern metaslab_t *metaslab_init(metaslab_group_t *mg, uint64_t object,
     uint64_t start, uint64_t size, uint64_t txg);
 extern void metaslab_fini(metaslab_t *msp);
+
 extern void metaslab_sync(metaslab_t *msp, uint64_t txg);
 extern void metaslab_sync_done(metaslab_t *msp, uint64_t txg);
 extern void metaslab_sync_reassess(metaslab_group_t *mg);
+extern uint64_t metaslab_block_maxsize(metaslab_t *msp);
 
 #define	METASLAB_HINTBP_FAVOR	0x0
 #define	METASLAB_HINTBP_AVOID	0x1
@@ -58,8 +66,7 @@ extern void metaslab_free(spa_t *spa, const blkptr_t *bp, uint64_t txg,
 extern int metaslab_claim(spa_t *spa, const blkptr_t *bp, uint64_t txg);
 extern void metaslab_check_free(spa_t *spa, const blkptr_t *bp);
 
-extern metaslab_class_t *metaslab_class_create(spa_t *spa,
-    space_map_ops_t *ops);
+extern metaslab_class_t *metaslab_class_create(spa_t *spa, metaslab_ops_t *ops);
 extern void metaslab_class_destroy(metaslab_class_t *mc);
 extern int metaslab_class_validate(metaslab_class_t *mc);
 

@@ -3914,7 +3914,7 @@ stmf_setup_itl_kstats(stmf_itl_data_t *itl)
 	kstat_install(iitl_kstat->iitl_kstat_lport_xfer);
 
 	(void) strcpy(iitl_kstat->iitl_kstat_nm, ks_itl_nm);
-	bcopy(ss->ss_lport->lport_id, iitl_kstat->iitl_kstat_lport,
+	bcopy(ss->ss_lport->lport_id->ident, iitl_kstat->iitl_kstat_lport,
 	    ss->ss_lport->lport_id->ident_length);
 	iitl_kstat->iitl_kstat_lport[ss->ss_lport->lport_id->ident_length] =
 	    '\0';

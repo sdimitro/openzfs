@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_FS_ZFS_ZNODE_H
@@ -236,7 +236,7 @@ typedef struct znode {
 
 /*
  * ZFS_ENTER() is called on entry to each ZFS vnode and vfs operation.
- * ZFS_EXIT() must be called before exitting the vop.
+ * ZFS_EXIT() must be called before exiting the vop.
  * ZFS_VERIFY_ZP() verifies the znode is valid.
  */
 #define	ZFS_ENTER(zfsvfs) \

@@ -100,9 +100,8 @@ dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)
 		    used, compressed, uncompressed);
 		return;
 	}
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
 
-	mutex_enter(&ds->ds_dir->dd_lock);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx);
 	mutex_enter(&ds->ds_lock);
 	delta = parent_delta(ds, used);
 	ds->ds_phys->ds_referenced_bytes += used;
@@ -114,7 +113,6 @@ dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)
 	    compressed, uncompressed, tx);
 	dsl_dir_transfer_space(ds->ds_dir, used - delta,
 	    DD_USED_REFRSRV, DD_USED_HEAD, tx);
-	mutex_exit(&ds->ds_dir->dd_lock);
 }
 
 int
@@ -149,7 +147,6 @@ dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,
 		dprintf_bp(bp, "freeing ds=%llu", ds->ds_object);
 		dsl_free(tx->tx_pool, tx->tx_txg, bp);
 
-		mutex_enter(&ds->ds_dir->dd_lock);
 		mutex_enter(&ds->ds_lock);
 		ASSERT(ds->ds_phys->ds_unique_bytes >= used ||
 		    !DS_UNIQUE_IS_ACCURATE(ds));
@@ -160,7 +157,6 @@ dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,
 		    delta, -compressed, -uncompressed, tx);
 		dsl_dir_transfer_space(ds->ds_dir, -used - delta,
 		    DD_USED_REFRSRV, DD_USED_HEAD, tx);
-		mutex_exit(&ds->ds_dir->dd_lock);
 	} else {
 		dprintf_bp(bp, "putting on dead list: %s", "");
 		if (async) {
@@ -587,31 +583,6 @@ dsl_dataset_name(dsl_dataset_t *ds, char *name)
 			}
 		}
 	}
-}
-
-static int
-dsl_dataset_namelen(dsl_dataset_t *ds)
-{
-	int result;
-
-	if (ds == NULL) {
-		result = 3;	/* "mos" */
-	} else {
-		result = dsl_dir_namelen(ds->ds_dir);
-		VERIFY0(dsl_dataset_get_snapname(ds));
-		if (ds->ds_snapname[0]) {
-			++result;	/* adding one for the @-sign */
-			if (!MUTEX_HELD(&ds->ds_lock)) {
-				mutex_enter(&ds->ds_lock);
-				result += strlen(ds->ds_snapname);
-				mutex_exit(&ds->ds_lock);
-			} else {
-				result += strlen(ds->ds_snapname);
-			}
-		}
-	}
-
-	return (result);
 }
 
 void
@@ -2697,7 +2668,6 @@ dsl_dataset_set_refreservation_sync_impl(dsl_dataset_t *ds,
 	    zfs_prop_to_name(ZFS_PROP_REFRESERVATION), &newval));
 
 	dmu_buf_will_dirty(ds->ds_dbuf, tx);
-	mutex_enter(&ds->ds_dir->dd_lock);
 	mutex_enter(&ds->ds_lock);
 	ASSERT(DS_UNIQUE_IS_ACCURATE(ds));
 	unique = ds->ds_phys->ds_unique_bytes;
@@ -2707,7 +2677,6 @@ dsl_dataset_set_refreservation_sync_impl(dsl_dataset_t *ds,
 	mutex_exit(&ds->ds_lock);
 
 	dsl_dir_diduse_space(ds->ds_dir, DD_USED_REFRSRV, delta, 0, 0, tx);
-	mutex_exit(&ds->ds_dir->dd_lock);
 }
 
 static void

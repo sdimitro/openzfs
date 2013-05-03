@@ -30,6 +30,10 @@
  * specifies the terms and conditions for redistribution.
  */
 
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
 #include <sys/param.h>
 #include <sys/user.h>
 #include <sys/vnode.h>
@@ -1280,18 +1284,22 @@ hrt2tv(hrtime_t hrt, struct timeval *tvp)
 
 }
 
+/*
+ * The minimum amount of time for a user process to wait.  This is somewhat
+ * dubious, but it does prevent userland from reprogramming the timer
+ * interrupt at an unlimited rate if they have a limited number
+ * of threads.
+ */
+hrtime_t userland_min_wait_ns = MSEC2NSEC(1);
+
 int
 nanosleep(timespec_t *rqtp, timespec_t *rmtp)
 {
 	timespec_t rqtime;
 	timespec_t rmtime;
-	timespec_t now;
-	int timecheck;
+	hrtime_t begin = gethrtime();
 	int ret = 1;
 	model_t datamodel = get_udatamodel();
-
-	timecheck = timechanged;
-	gethrestime(&now);
 
 	if (datamodel == DATAMODEL_NATIVE) {
 		if (copyin(rqtp, &rqtime, sizeof (rqtime)))
@@ -1309,29 +1317,27 @@ nanosleep(timespec_t *rqtp, timespec_t *rmtp)
 		return (set_errno(EINVAL));
 
 	if (timerspecisset(&rqtime)) {
-		timespecadd(&rqtime, &now);
+		hrtime_t target = begin +
+		    MAX(ts2hrt(&rqtime), userland_min_wait_ns);
+
 		mutex_enter(&curthread->t_delay_lock);
-		while ((ret = cv_waituntil_sig(&curthread->t_delay_cv,
-		    &curthread->t_delay_lock, &rqtime, timecheck)) > 0)
+		while ((ret = cv_timedwait_sig_hrtime(&curthread->t_delay_cv,
+		    &curthread->t_delay_lock, target)) > 0)
 			continue;
 		mutex_exit(&curthread->t_delay_lock);
 	}
 
 	if (rmtp) {
 		/*
-		 * If cv_waituntil_sig() returned due to a signal, and
+		 * If cv_timedwait_sig_hrtime() returned due to a signal, and
 		 * there is time remaining, then set the time remaining.
 		 * Else set time remaining to zero
 		 */
 		rmtime.tv_sec = rmtime.tv_nsec = 0;
 		if (ret == 0) {
-			timespec_t delta = rqtime;
-
-			gethrestime(&now);
-			timespecsub(&delta, &now);
-			if (delta.tv_sec > 0 || (delta.tv_sec == 0 &&
-			    delta.tv_nsec > 0))
-				rmtime = delta;
+			hrtime_t delta = gethrtime() - begin;
+			if (delta > 0)
+				hrt2ts(delta, &rmtime);
 		}
 
 		if (datamodel == DATAMODEL_NATIVE) {

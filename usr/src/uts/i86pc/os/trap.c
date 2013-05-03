@@ -33,6 +33,7 @@
 
 /*
  * Copyright 2012 Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -1558,7 +1559,7 @@ struct kpreempt_cnts {		/* kernel preemption statistics */
 /*
  * kernel preemption: forced rescheduling, preempt the running kernel thread.
  *	the argument is old PIL for an interrupt,
- *	or the distingished value KPREEMPT_SYNC.
+ *	or the distinguished value KPREEMPT_SYNC.
  */
 void
 kpreempt(int asyncspl)

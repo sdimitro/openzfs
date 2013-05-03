@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
 #include <sys/proc.h>
 #include <sys/systm.h>
 #include <sys/debug.h>
@@ -161,7 +165,8 @@ lwp_timer_enqueue(lwp_timer_t *lwptp)
 		delta = lwptp->lwpt_rqtime;
 		timespecsub(&delta, &now);
 		lwptp->lwpt_id = timeout_generic(CALLOUT_REALTIME,
-		    lwp_timer_timeout, lwptp, ts2hrt(&delta), nsec_per_tick,
+		    lwp_timer_timeout, lwptp, ts2hrt(&delta),
+		    userland_min_wait_ns,
 		    (CALLOUT_FLAG_HRESTIME | CALLOUT_FLAG_ROUNDUP));
 		return (0);
 	}

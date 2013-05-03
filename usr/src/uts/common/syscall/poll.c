@@ -28,7 +28,7 @@
 /*	  All Rights Reserved  	*/
 
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /*
@@ -307,10 +307,8 @@ poll_common(pollfd_t *fds, nfds_t nfds, timespec_t *tsp, k_sigset_t *ksetp)
 	} else if (tsp->tv_sec == 0 && tsp->tv_nsec == 0) {
 		deadline = 0;
 	} else {
-		/* They must wait at least a tick. */
-		deadline = ((hrtime_t)tsp->tv_sec * NANOSEC) + tsp->tv_nsec;
-		deadline = MAX(deadline, nsec_per_tick);
-		deadline += gethrtime();
+		deadline = gethrtime() +
+		    MAX(ts2hrt(tsp), userland_min_wait_ns);
 	}
 
 	/*

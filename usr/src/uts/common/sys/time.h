@@ -13,6 +13,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
 #ifndef _SYS_TIME_H
 #define	_SYS_TIME_H
 
@@ -334,6 +338,7 @@ extern	volatile timestruc_t	hrestime;
 extern	hrtime_t	hres_last_tick;
 extern	int64_t		hrestime_adj;
 extern	uint_t		adj_shift;
+extern	hrtime_t	userland_min_wait_ns;
 
 extern	timestruc_t	tod_get(void);
 extern	void		tod_set(timestruc_t);

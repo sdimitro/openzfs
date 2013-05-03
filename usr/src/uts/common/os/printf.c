@@ -23,6 +23,7 @@
  * Use is subject to license terms.
  *
  * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <sys/param.h>
@@ -63,7 +64,7 @@
 uint32_t panicbuf_log = PANICBUFSIZE;
 uint32_t panicbuf_index = PANICBUFSIZE;
 
-static int aask, aok;
+int aask, aok;
 static int ce_to_sl[CE_IGNORE] = { SL_NOTE, SL_NOTE, SL_WARN, SL_FATAL };
 static char ce_prefix[CE_IGNORE][10] = { "", "NOTICE: ", "WARNING: ", "" };
 static char ce_suffix[CE_IGNORE][2] = { "", "\n", "\n", "" };
@@ -323,7 +324,7 @@ void
 assfail3(const char *a, uintmax_t lv, const char *op, uintmax_t rv,
     const char *f, int l)
 {
-	if (aask)  {
+	if (aask) {
 		printf("ASSERTION CAUGHT: %s (0x%llx %s 0x%llx), file: %s, "
 		    "line: %d", a, (u_longlong_t)lv, op, (u_longlong_t)rv,
 		    f, l);

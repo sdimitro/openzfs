@@ -140,6 +140,7 @@ typedef enum {
 	ZFS_PROP_CLONES,
 	ZFS_PROP_LOGICALUSED,
 	ZFS_PROP_LOGICALREFERENCED,
+	ZFS_PROP_REDUNDANT_METADATA,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 
@@ -333,6 +334,10 @@ typedef enum {
 	ZFS_SYNC_DISABLED = 2
 } zfs_sync_type_t;
 
+typedef enum {
+	ZFS_REDUNDANT_METADATA_ALL,
+	ZFS_REDUNDANT_METADATA_MOST
+} zfs_redundant_metadata_type_t;
 
 /*
  * On-disk version number.

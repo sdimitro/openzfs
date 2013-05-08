@@ -148,6 +148,7 @@ postgresql	5432/tcp	postgres
 postgresql	5432/udp	postgres
 http-alt	8080/tcp	webcache	# HTTP Alternate, webcache
 http-alt	8080/udp
+dlpx-sp		8415/tcp			# Delphix Session Protocol
 memcache	11211/tcp
 memcache	11211/udp
 #

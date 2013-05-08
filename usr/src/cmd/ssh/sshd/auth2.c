@@ -164,7 +164,7 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
 	char *user, *service, *method, *style = NULL;
 	char *orig_user;
 	char *new_user = NULL;
-	int valid_attempt;
+	int valid_attempt = 1;
 
 	if (authctxt == NULL)
 		fatal("input_userauth_request: no authctxt");
@@ -187,11 +187,20 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
 	if (m != NULL && m->is_initial)
 		authctxt->init_attempt++;
 
-	if (options.pre_userauth_hook != NULL &&
-	    run_auth_hook(options.pre_userauth_hook, orig_user, m->name, &new_user) != 0) {
-		valid_attempt = 0;
-	} else {
-		valid_attempt = 1;
+	if (options.pre_userauth_hook != NULL) {
+		char *method_name;
+
+		/*
+		 * If m is NULL, the client passed an invalid authentication
+		 * method. In this case, we default to "none", which is
+		 * reserved by RFC 4252 and indicates the absence of a known
+		 * authentication method.
+		 */
+		method_name = m != NULL ? m->name : "none";
+
+		if (run_auth_hook(options.pre_userauth_hook, orig_user,
+		    method_name, &new_user) != 0)
+			valid_attempt = 0;
 	}
 
 	user = new_user != NULL ? new_user : orig_user;

@@ -14,7 +14,7 @@
  *
  *********************************************************/
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <vmxnet3_solaris.h>
@@ -125,9 +125,13 @@ vmxnet3_put_rxbuf(vmxnet3_rxbuf_t *rxBuf)
    VMXNET3_DEBUG(dp, 5, "free 0x%p\n", rxBuf);
 
    mutex_enter(&dp->rxPoolLock);
+   ASSERT(rxPool->nBufs <= rxPool->nBufsLimit);
    if (dp->devEnabled && rxPool->nBufs < rxPool->nBufsLimit) {
+      ASSERT((rxPool->listHead == NULL && rxPool->nBufs == 0) ||
+         (rxPool->listHead != NULL && rxPool->nBufs != 0));
       rxBuf->next = rxPool->listHead;
       rxPool->listHead = rxBuf;
+      rxPool->nBufs++;
       mutex_exit(&dp->rxPoolLock);
    } else {
       mutex_exit(&dp->rxPoolLock);
@@ -161,6 +165,9 @@ vmxnet3_get_rxbuf(vmxnet3_softc_t *dp, boolean_t canSleep)
    if (rxPool->listHead) {
       rxBuf = rxPool->listHead;
       rxPool->listHead = rxBuf->next;
+      rxPool->nBufs--;
+      ASSERT((rxPool->listHead == NULL && rxPool->nBufs == 0) ||
+         (rxPool->listHead != NULL && rxPool->nBufs != 0));
       mutex_exit(&dp->rxPoolLock);
       VMXNET3_DEBUG(dp, 5, "alloc 0x%p from pool\n", rxBuf);
    } else {

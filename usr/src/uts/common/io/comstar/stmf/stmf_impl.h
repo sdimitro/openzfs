@@ -98,6 +98,7 @@ typedef struct stmf_i_lu {
 	kstat_t		*ilu_kstat_info;
 	kstat_t		*ilu_kstat_io;
 	kmutex_t	ilu_kstat_lock;
+	kcondvar_t      ilu_offline_pending_cv;
 
 	/* point to the luid entry in stmf_state.stmf_luid_list */
 	void		*ilu_luid;

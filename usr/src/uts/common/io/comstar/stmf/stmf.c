@@ -3052,6 +3052,7 @@ stmf_register_lu(stmf_lu_t *lu)
 	}
 	ilu->ilu_cur_task_cntr = &ilu->ilu_task_cntr1;
 	STMF_EVENT_ALLOC_HANDLE(ilu->ilu_event_hdl);
+	cv_init(&ilu->ilu_offline_pending_cv, NULL, CV_DRIVER, NULL);
 	stmf_create_kstat_lu(ilu);
 	/*
 	 * register with proxy module if available and logical unit
@@ -3189,6 +3190,7 @@ stmf_deregister_lu(stmf_lu_t *lu)
 		kstat_delete(ilu->ilu_kstat_io);
 		mutex_destroy(&ilu->ilu_kstat_lock);
 	}
+	cv_destroy(&ilu->ilu_offline_pending_cv);
 	mutex_exit(&stmf_state.stmf_lock);
 	return (STMF_SUCCESS);
 }
@@ -4359,6 +4361,8 @@ stmf_task_alloc(struct stmf_local_port *lport, stmf_scsi_session_t *ss,
 		rw_exit(iss->iss_lockp);
 		return (NULL);
 	}
+	ASSERT(lu == dlun0 || (ilu->ilu_state != STMF_STATE_OFFLINING &&
+	    ilu->ilu_state != STMF_STATE_OFFLINE));
 	do {
 		if (ilu->ilu_free_tasks == NULL) {
 			new_task = 1;
@@ -4487,6 +4491,8 @@ stmf_task_lu_free(scsi_task_t *task, stmf_i_scsi_session_t *iss)
 	itask->itask_lu_free_next = ilu->ilu_free_tasks;
 	ilu->ilu_free_tasks = itask;
 	ilu->ilu_ntasks_free++;
+	if (ilu->ilu_ntasks == ilu->ilu_ntasks_free)
+		cv_signal(&ilu->ilu_offline_pending_cv);
 	mutex_exit(&ilu->ilu_task_lock);
 	atomic_add_32(itask->itask_ilu_task_cntr, -1);
 }
@@ -7759,8 +7765,12 @@ stmf_svc(void *arg)
 			    STMF_ABORTED);
 			lu = (stmf_lu_t *)req->svc_obj;
 			ilu = (stmf_i_lu_t *)lu->lu_stmf_private;
-			if (ilu->ilu_ntasks != ilu->ilu_ntasks_free)
-				break;
+			mutex_enter(&ilu->ilu_task_lock);
+			while (ilu->ilu_ntasks != ilu->ilu_ntasks_free) {
+				cv_wait(&ilu->ilu_offline_pending_cv,
+				    &ilu->ilu_task_lock);
+			}
+			mutex_exit(&ilu->ilu_task_lock);
 			lu->lu_ctl(lu, req->svc_cmd, &req->svc_info);
 			break;
 		default:

@@ -17,6 +17,9 @@
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 #include <mdb/mdb_ctf.h>
 #include <mdb/mdb_modapi.h>
 #include <mdb/mdb_ks.h>
@@ -26,23 +29,37 @@
  * nlm_host dcmd implementation
  */
 
-/*
- * NLM host flags and core data structure -- pulled from nlm_impl.h
- * Next step: include the file directly.
- */
-#define	MDB_NLM_NH_MONITORED 0x01
-#define	MDB_NLM_NH_RECLAIM   0x02
-#define	MDB_NLM_NH_INIDLE    0x04
-#define	MDB_NLM_NH_SUSPEND   0x08
+typedef struct mdb_sockaddr_in { /* IPv4 struct */
+	sa_family_t	sin_family;
+	struct {
+		union { /* MUST specify all fields in the union */
+			struct {
+				uint8_t s_b1;
+				uint8_t s_b2;
+				uint8_t s_b3;
+				uint8_t s_b4;
+			} S_un_b;
+			struct {
+				uint16_t s_w1;
+				uint16_t s_w2;
+			} S_un_w;
+			uint32_t S_addr;
+		} S_un;
+	} sin_addr;
+} mdb_sockaddr_in_t;
+
+typedef struct mdb_sockaddr_in6 { /* IPv6 struct */
+	in6_addr_t sin6_addr;
+} mdb_sockaddr_in6_t;
 
 typedef struct mdb_nlm_host {
 	uint_t		nh_refs;
 	uintptr_t	nh_name;
-	/*
-	 * TODO: follow the buf ptr to a sock_addr, then an in_addr
-	 * and then print the IP addr embedded within
-	 */
-	struct mdb_netbuf {
+	struct { /* struct netbuf in the os src code */
+		/*
+		 * ptr to struct sockaddr_in/mdb_sockaddr_in_t
+		 * or to struct sockaddr_in6/mdb_sockaddr_in6_t
+		 */
 		uintptr_t	buf;
 	} nh_addr;
 	sysid_t		nh_sysid;
@@ -51,18 +68,19 @@ typedef struct mdb_nlm_host {
 
 /*
  * Output looks like:
- *
  * > ::nlm_host
- * NLM_HOST         IP ADDR ADDR     HOST                 REFCNT  SYSID  FLAGS
- * ffffff01de3e7b48 ffffff01d791dc30 delphix                   0     11    0x5
- * ffffff01de3e7a58 ffffff01d3c9fe80 charleston.talisker       0     12    0x5
+ * NLM_HOST         IP ADDR               HOST             REFCNT  SYSID  FLAGS
+ * ffffff01d80f7b48 172.16.203.114        delphix               0     14    0x5
+ * ffffff01d80f7968 fe80::dc:ff:fe01:fdbf charleston.talisker   0     31    0x5
  */
-
 static int
 nlm_host_dcmd(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	mdb_nlm_host_t nlm_host;
 	char nh_name[1024];
+	mdb_sockaddr_in_t sockaddr;
+	mdb_sockaddr_in6_t sockaddr6;
+	boolean_t ipv4;
 
 	if (argc != 0) {
 		return (DCMD_USAGE);
@@ -87,15 +105,38 @@ nlm_host_dcmd(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		(void) strcpy(nh_name, "<unknown>");
 	}
 
+	/*
+	 * We expect to primarily encounter IPv4 addresses, so use an IPv4
+	 * struct for the initial read.
+	 */
+	if (mdb_ctf_vread(&sockaddr, "struct sockaddr_in", "mdb_sockaddr_in_t",
+	    nlm_host.nh_addr.buf, 0) == -1) {
+		return (DCMD_ERR);
+	}
+	if (sockaddr.sin_family == AF_INET) { /* IPv4 */
+		ipv4 = B_TRUE;
+	} else { /* AF_INET6 == IPv6 */
+		ipv4 = B_FALSE;
+		if (mdb_ctf_vread(&sockaddr6, "struct sockaddr_in6",
+		    "mdb_sockaddr_in6_t", nlm_host.nh_addr.buf, 0) == -1) {
+			return (DCMD_ERR);
+		}
+	}
+
 	if (DCMD_HDRSPEC(flags)) {
-		mdb_printf("%<u>%-16s %-16s %-20s %6s %6s %6s%</u>\n",
-		    "NLM_HOST", "IP ADDR ADDR", "HOST", "REFCNT",
+		mdb_printf("%<u>%-16s %-24s %-16s %6s %6s %6s%</u>\n",
+		    "NLM_HOST", "IP ADDR", "HOST", "REFCNT",
 		    "SYSID", "FLAGS");
 	}
 
-	mdb_printf("%-16p %-16p %-20s %6u %6u %6#x\n",
-	    addr, nlm_host.nh_addr, nh_name, nlm_host.nh_refs,
-	    nlm_host.nh_sysid, nlm_host.nh_flags);
+	mdb_printf("%-16p ", addr);
+	if (ipv4) {
+		mdb_printf("%-24I", sockaddr.sin_addr.S_un.S_addr);
+	} else {
+		mdb_printf("%-24N", &sockaddr6.sin6_addr);
+	}
+	mdb_printf(" %-20s %2u %6u %6#x\n",
+	    nh_name, nlm_host.nh_refs, nlm_host.nh_sysid, nlm_host.nh_flags);
 
 	return (DCMD_OK);
 }

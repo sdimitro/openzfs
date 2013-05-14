@@ -45,7 +45,7 @@
  * either be processing, or blocked waiting to enter the next state. There may
  * be up to three active txgs, and there is always a txg in the open state
  * (though it may be blocked waiting to enter the quiescing state). In broad
- * strokes, transactions — operations that change in-memory structures — are
+ * strokes, transactions -- operations that change in-memory structures -- are
  * accepted into the txg in the open state, and are completed while the txg is
  * in the open or quiescing states. The accumulated changes are written to
  * disk in the syncing state.
@@ -53,7 +53,7 @@
  * Open
  *
  * When a new txg becomes active, it first enters the open state. New
- * transactions — updates to in-memory structures — are assigned to the
+ * transactions -- updates to in-memory structures -- are assigned to the
  * currently open txg. There is always a txg in the open state so that ZFS can
  * accept new changes (though the txg may refuse new changes if it has hit
  * some limit). ZFS advances the open txg to the next state for a variety of
@@ -109,7 +109,6 @@ static void txg_sync_thread(dsl_pool_t *dp);
 static void txg_quiesce_thread(dsl_pool_t *dp);
 
 int zfs_txg_timeout = 5;	/* max seconds worth of delta per txg */
-int zfs_txg_no_throughput_constraint = 1;
 
 /*
  * Prepare the txg subsystem.
@@ -444,7 +443,8 @@ txg_sync_thread(dsl_pool_t *dp)
 
 	start = delta = 0;
 	for (;;) {
-		uint64_t timer, timeout = zfs_txg_timeout * hz;
+		uint64_t timeout = zfs_txg_timeout * hz;
+		uint64_t timer;
 		uint64_t txg;
 
 		/*
@@ -456,7 +456,8 @@ txg_sync_thread(dsl_pool_t *dp)
 		while (!dsl_scan_active(dp->dp_scan) &&
 		    !tx->tx_exiting && timer > 0 &&
 		    tx->tx_synced_txg >= tx->tx_sync_txg_waiting &&
-		    tx->tx_quiesced_txg == 0) {
+		    tx->tx_quiesced_txg == 0 &&
+		    dp->dp_dirty_total < zfs_dirty_data_sync) {
 			dprintf("waiting; tx_synced=%llu waiting=%llu dp=%p\n",
 			    tx->tx_synced_txg, tx->tx_sync_txg_waiting, dp);
 			txg_thread_wait(tx, &cpr, &tx->tx_sync_more_cv, timer);
@@ -586,45 +587,6 @@ txg_delay(dsl_pool_t *dp, uint64_t txg, hrtime_t delay, hrtime_t resolution)
 	mutex_exit(&tx->tx_sync_lock);
 }
 
-/*
- * This throttle attempts to prevent the incoming data rate from exceeding our
- * computed, back-end throughput. The amount of time since the start of the
- * currently open transaction group multiplied by that computed throughput
- * value yields the data limit.
- */
-void
-txg_constrain_throughput(dsl_pool_t *dp, uint64_t txg)
-{
-	tx_state_t *tx = &dp->dp_tx;
-	uint64_t limit, data;
-	hrtime_t delta, delay;
-
-	ASSERT3U(txg, ==, tx->tx_open_txg);
-
-	if (zfs_txg_no_throughput_constraint)
-		return;
-
-	delta = gethrtime() - tx->tx_open_time;
-	data = dp->dp_space_towrite[txg & TXG_MASK] +
-	    dp->dp_tempreserved[txg & TXG_MASK];
-
-	/*
-	 * Compute how much data we're allowed to have written in the
-	 * currently open txg. If we've written less than that, then we don't
-	 * need to throttle.
-	 */
-	limit = delta * dp->dp_throughput / (NANOSEC / MILLISEC);
-	if (data <= limit)
-		return;
-
-	/*
-	 * Delay for long enough to accommodate the data already written given
-	 * the computed throughput.
-	 */
-	delay = MSEC2NSEC(1 + (data - limit) / dp->dp_throughput);
-	txg_delay(dp, txg, delay, MSEC2NSEC(1));
-}
-
 void
 txg_wait_synced(dsl_pool_t *dp, uint64_t txg)
 {
@@ -668,6 +630,28 @@ txg_wait_open(dsl_pool_t *dp, uint64_t txg)
 	while (tx->tx_open_txg < txg) {
 		cv_broadcast(&tx->tx_quiesce_more_cv);
 		cv_wait(&tx->tx_quiesce_done_cv, &tx->tx_sync_lock);
+	}
+	mutex_exit(&tx->tx_sync_lock);
+}
+
+/*
+ * If there isn't a txg syncing or in the pipeline, push another txg through
+ * the pipeline by queiscing the open txg.
+ */
+void
+txg_kick(dsl_pool_t *dp)
+{
+	tx_state_t *tx = &dp->dp_tx;
+
+	ASSERT(!dsl_pool_config_held(dp));
+
+	mutex_enter(&tx->tx_sync_lock);
+	if (tx->tx_syncing_txg == 0 &&
+	    tx->tx_quiesce_txg_waiting <= tx->tx_open_txg &&
+	    tx->tx_sync_txg_waiting <= tx->tx_synced_txg &&
+	    tx->tx_quiesced_txg <= tx->tx_synced_txg) {
+		tx->tx_quiesce_txg_waiting = tx->tx_open_txg + 1;
+		cv_broadcast(&tx->tx_quiesce_more_cv);
 	}
 	mutex_exit(&tx->tx_sync_lock);
 }

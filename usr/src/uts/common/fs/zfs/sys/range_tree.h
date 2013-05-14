@@ -31,7 +31,6 @@
 #define	_SYS_RANGE_TREE_H
 
 #include <sys/avl.h>
-#include <sys/dmu.h>
 
 #ifdef	__cplusplus
 extern "C" {

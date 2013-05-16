@@ -137,7 +137,8 @@ ssize_t
 kmt_rw(mdb_tgt_t *t, void *buf, size_t nbytes, uint64_t addr,
     ssize_t (*rw)(void *, size_t, uint64_t))
 {
-	size_t n, ndone, chunksz;
+	volatile size_t chunksz;
+	size_t n, ndone;
 	jmp_buf *oldpcb = NULL;
 	jmp_buf pcb;
 	ssize_t res;

@@ -24,6 +24,7 @@
  */
 /*
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2013 by Delphix.  All rights reserved.
  */
 
 #ifndef	_LIBISCSIT_H
@@ -48,11 +49,11 @@ extern "C" {
 #define	IS_EUI_NAME(s) (strncmp((s), "eui.", 4) == 0)
 
 /*
- * We change the default IQN here to org.illumos.
+ * Customize the IQN for Delphix.
  * Other distros using it need to change accordingly.
  */
 
-#define	DEFAULT_IQN	"iqn.2010-08.org.illumos:"
+#define	DEFAULT_IQN	"iqn.2008-07.com.delphix:"
 
 /*
  * Object Hierarchy

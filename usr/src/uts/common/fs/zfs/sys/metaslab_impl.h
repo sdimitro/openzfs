@@ -57,7 +57,6 @@ struct metaslab_group {
 	kmutex_t		mg_lock;
 	avl_tree_t		mg_metaslab_tree;
 	uint64_t		mg_aliquot;
-	uint64_t		mg_bonus_area;
 	uint64_t		mg_alloc_failures;
 	boolean_t		mg_allocatable;		/* can we allocate? */
 	uint64_t		mg_free_capacity;	/* percentage free */
@@ -65,6 +64,7 @@ struct metaslab_group {
 	int64_t			mg_activation_count;
 	metaslab_class_t	*mg_class;
 	vdev_t			*mg_vd;
+	taskq_t			*mg_taskq;
 	metaslab_group_t	*mg_prev;
 	metaslab_group_t	*mg_next;
 };
@@ -129,8 +129,12 @@ struct metaslab_group {
  */
 struct metaslab {
 	kmutex_t	ms_lock;
+	kcondvar_t	ms_load_cv;
 	space_map_t	*ms_sm;
 	metaslab_ops_t	*ms_ops;
+	uint64_t	ms_id;
+	uint64_t	ms_start;
+	uint64_t	ms_size;
 
 	range_tree_t	*ms_alloctree[TXG_SIZE];
 	range_tree_t	*ms_freetree[TXG_SIZE];
@@ -138,8 +142,13 @@ struct metaslab {
 	range_tree_t	*ms_tree;
 
 	boolean_t	ms_condensing;	/* condensing? */
+	boolean_t	ms_loaded;
+	boolean_t	ms_loading;
+
 	int64_t		ms_deferspace;	/* sum of ms_defermap[] space	*/
 	uint64_t	ms_weight;	/* weight vs. others in group	*/
+	uint64_t	ms_factor;
+	uint64_t	ms_access_txg;
 
 	/*
 	 * The metaslab block allocators can optionally use a size-ordered

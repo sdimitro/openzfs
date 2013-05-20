@@ -628,10 +628,7 @@ vdev_free(vdev_t *vd)
 	txg_list_destroy(&vd->vdev_dtl_list);
 
 	mutex_enter(&vd->vdev_dtl_lock);
-	if (vd->vdev_dtl_sm != NULL) {
-		space_map_unload(vd->vdev_dtl_sm);
-		space_map_close(vd->vdev_dtl_sm);
-	}
+	space_map_close(vd->vdev_dtl_sm);
 	for (int t = 0; t < DTL_TYPES; t++) {
 		range_tree_vacate(vd->vdev_dtl[t], NULL, NULL);
 		range_tree_destroy(vd->vdev_dtl[t]);
@@ -854,8 +851,7 @@ vdev_metaslab_init(vdev_t *vd, uint64_t txg)
 			if (error)
 				return (error);
 		}
-		vd->vdev_ms[m] = metaslab_init(vd->vdev_mg, object,
-		    m << vd->vdev_ms_shift, 1ULL << vd->vdev_ms_shift, txg);
+		vd->vdev_ms[m] = metaslab_init(vd->vdev_mg, m, object, txg);
 	}
 
 	if (txg == 0)
@@ -1859,21 +1855,16 @@ vdev_dtl_load(vdev_t *vd)
 	objset_t *mos = spa->spa_meta_objset;
 	int error = 0;
 
-	if (vd->vdev_ops->vdev_op_leaf) {
-		ASSERT(vd->vdev_dtl_sm == NULL);
+	if (vd->vdev_ops->vdev_op_leaf && vd->vdev_dtl_object != 0) {
+		ASSERT(!vd->vdev_ishole);
 
-		ASSERT(vd->vdev_dtl_sm == NULL);
 		error = space_map_open(&vd->vdev_dtl_sm, mos,
 		    vd->vdev_dtl_object, 0, -1ULL, 0, &vd->vdev_dtl_lock);
 		if (error)
 			return (error);
-
 		ASSERT(vd->vdev_dtl_sm != NULL);
 
-		if (space_map_object(vd->vdev_dtl_sm) == 0)
-			return (0);
-
-		ASSERT(!vd->vdev_ishole);
+		mutex_enter(&vd->vdev_dtl_lock);
 
 		/*
 		 * Now that we've opened the space_map we need to update
@@ -1881,7 +1872,6 @@ vdev_dtl_load(vdev_t *vd)
 		 */
 		space_map_update(vd->vdev_dtl_sm);
 
-		mutex_enter(&vd->vdev_dtl_lock);
 		error = space_map_load(vd->vdev_dtl_sm,
 		    vd->vdev_dtl[DTL_MISSING], SM_ALLOC);
 		mutex_exit(&vd->vdev_dtl_lock);
@@ -1907,6 +1897,7 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	range_tree_t *rtsync;
 	kmutex_t rtlock;
 	dmu_tx_t *tx;
+	uint64_t object = space_map_object(vd->vdev_dtl_sm);
 
 	ASSERT(!vd->vdev_ishole);
 	ASSERT(vd->vdev_ops->vdev_op_leaf);
@@ -1914,29 +1905,24 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
 
 	if (vd->vdev_detached || vd->vdev_top->vdev_removing) {
-		if (space_map_object(vd->vdev_dtl_sm) != 0) {
-			mutex_enter(&vd->vdev_dtl_lock);
-			if (!vd->vdev_detached && vd->vdev_top->vdev_removing)
-				VERIFY0(space_map_allocated(vd->vdev_dtl_sm));
-			space_map_free(vd->vdev_dtl_sm, tx);
-			space_map_unload(vd->vdev_dtl_sm);
-			space_map_close(vd->vdev_dtl_sm);
-			vd->vdev_dtl_sm = NULL;
-			mutex_exit(&vd->vdev_dtl_lock);
-		}
+		mutex_enter(&vd->vdev_dtl_lock);
+		space_map_free(vd->vdev_dtl_sm, tx);
+		space_map_close(vd->vdev_dtl_sm);
+		vd->vdev_dtl_sm = NULL;
+		mutex_exit(&vd->vdev_dtl_lock);
 		dmu_tx_commit(tx);
 		return;
 	}
 
-	if (space_map_object(vd->vdev_dtl_sm) == 0) {
-		uint64_t object;
+	if (vd->vdev_dtl_sm == NULL) {
+		uint64_t new_object;
 
-		object = space_map_alloc(vd->vdev_dtl_sm, mos, tx);
-		VERIFY3U(object, !=, 0);
+		new_object = space_map_alloc(mos, tx);
+		VERIFY3U(new_object, !=, 0);
 
-		VERIFY0(space_map_open(&vd->vdev_dtl_sm, mos, object,
+		VERIFY0(space_map_open(&vd->vdev_dtl_sm, mos, new_object,
 		    0, -1ULL, 0, &vd->vdev_dtl_lock));
-		vdev_config_dirty(vd->vdev_top);
+		ASSERT(vd->vdev_dtl_sm != NULL);
 	}
 
 	mutex_init(&rtlock, NULL, MUTEX_DEFAULT, NULL);
@@ -1958,9 +1944,22 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	mutex_exit(&rtlock);
 	mutex_destroy(&rtlock);
 
+	/*
+	 * If the object for the space map has changed then dirty
+	 * the top level so that we update the config.
+	 */
+	if (object != space_map_object(vd->vdev_dtl_sm)) {
+		zfs_dbgmsg("txg %llu, spa %s, DTL old object %llu, "
+		    "new object %llu", txg, spa_name(spa), object,
+		    space_map_object(vd->vdev_dtl_sm));
+		vdev_config_dirty(vd->vdev_top);
+	}
+
 	dmu_tx_commit(tx);
 
+	mutex_enter(&vd->vdev_dtl_lock);
 	space_map_update(vd->vdev_dtl_sm);
+	mutex_exit(&vd->vdev_dtl_lock);
 }
 
 /*
@@ -2118,18 +2117,12 @@ vdev_remove(vdev_t *vd, uint64_t txg)
 		for (int m = 0; m < vd->vdev_ms_count; m++) {
 			metaslab_t *msp = vd->vdev_ms[m];
 
-			if (msp == NULL || space_map_object(msp->ms_sm) == 0)
+			if (msp == NULL || msp->ms_sm == NULL)
 				continue;
 
 			mutex_enter(&msp->ms_lock);
 			VERIFY0(space_map_allocated(msp->ms_sm));
-
-			vdev_space_update(vd,
-			    -space_map_allocated(msp->ms_sm), 0,
-			    -msp->ms_sm->sm_size);
-
 			space_map_free(msp->ms_sm, tx);
-			space_map_unload(msp->ms_sm);
 			space_map_close(msp->ms_sm);
 			msp->ms_sm = NULL;
 			mutex_exit(&msp->ms_lock);
@@ -2139,7 +2132,6 @@ vdev_remove(vdev_t *vd, uint64_t txg)
 	if (vd->vdev_ms_array) {
 		(void) dmu_object_free(mos, vd->vdev_ms_array, tx);
 		vd->vdev_ms_array = 0;
-		vd->vdev_ms_shift = 0;
 	}
 	dmu_tx_commit(tx);
 }

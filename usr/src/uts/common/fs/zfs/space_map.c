@@ -49,20 +49,6 @@
 int space_map_max_blksz = (1 << 12);
 
 /*
- * Wait for any in-progress space_map_load() to complete.
- */
-void
-space_map_load_wait(space_map_t *sm)
-{
-	ASSERT(MUTEX_HELD(sm->sm_lock));
-
-	while (sm->sm_loading) {
-		ASSERT(!sm->sm_loaded);
-		cv_wait(&sm->sm_load_cv, sm->sm_lock);
-	}
-}
-
-/*
  * Load the space map disk into the specified range tree. Segments of maptype
  * are added to the range tree, other segment types are removed.
  *
@@ -72,17 +58,12 @@ space_map_load_wait(space_map_t *sm)
 int
 space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 {
-	objset_t *os = sm->sm_os;
 	uint64_t *entry, *entry_map, *entry_map_end;
 	uint64_t bufsize, size, offset, end, space;
-	uint64_t mapstart = sm->sm_start;
 	int error = 0;
 
 	ASSERT(MUTEX_HELD(sm->sm_lock));
-	ASSERT(!sm->sm_loaded);
-	ASSERT(!sm->sm_loading);
 
-	sm->sm_loading = B_TRUE;
 	end = space_map_length(sm);
 	space = space_map_allocated(sm);
 
@@ -97,8 +78,10 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 	entry_map = zio_buf_alloc(bufsize);
 
 	mutex_exit(sm->sm_lock);
-	if (end > bufsize)
-		dmu_prefetch(os, space_map_object(sm), bufsize, end - bufsize);
+	if (end > bufsize) {
+		dmu_prefetch(sm->sm_os, space_map_object(sm), bufsize,
+		    end - bufsize);
+	}
 	mutex_enter(sm->sm_lock);
 
 	for (offset = 0; offset < end; offset += bufsize) {
@@ -111,7 +94,7 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 		    space_map_object(sm), offset, size);
 
 		mutex_exit(sm->sm_lock);
-		error = dmu_read(os, space_map_object(sm), offset, size,
+		error = dmu_read(sm->sm_os, space_map_object(sm), offset, size,
 		    entry_map, DMU_READ_PREFETCH);
 		mutex_enter(sm->sm_lock);
 		if (error != 0)
@@ -126,7 +109,7 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 				continue;
 
 			offset = (SM_OFFSET_DECODE(e) << sm->sm_shift) +
-			    mapstart;
+			    sm->sm_start;
 			size = SM_RUN_DECODE(e) << sm->sm_shift;
 
 			VERIFY0(P2PHASE(offset, 1ULL << sm->sm_shift));
@@ -143,27 +126,13 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 		}
 	}
 
-	if (error == 0) {
+	if (error == 0)
 		VERIFY3U(range_tree_space(rt), ==, space);
-		sm->sm_loaded = B_TRUE;
-	} else {
+	else
 		range_tree_vacate(rt, NULL, NULL);
-	}
 
 	zio_buf_free(entry_map, bufsize);
-
-	sm->sm_loading = B_FALSE;
-
-	cv_broadcast(&sm->sm_load_cv);
-
 	return (error);
-}
-
-void
-space_map_unload(space_map_t *sm)
-{
-	ASSERT(MUTEX_HELD(sm->sm_lock));
-	sm->sm_loaded = B_FALSE;
 }
 
 void
@@ -213,7 +182,7 @@ space_map_histogram_add(space_map_t *sm, range_tree_t *rt, dmu_tx_t *tx)
 	 * map only cares about allocatable blocks (minimum of sm_shift) we
 	 * can safely ignore all ranges in the range tree smaller than sm_shift.
 	 */
-	for (int i = sm->sm_shift; i < RANGE_TREE_MAX_BUCKETS; i++) {
+	for (int i = sm->sm_shift; i < RANGE_TREE_HISTOGRAM_SIZE; i++) {
 
 		/*
 		 * Since the largest histogram bucket in the space map is
@@ -275,7 +244,7 @@ space_map_set_blocksize(space_map_t *sm, uint64_t size, dmu_tx_t *tx)
 	ASSERT(sm->sm_dbuf != NULL);
 	VERIFY(ISP2(space_map_max_blksz));
 
-	if (sm->sm_blksz == space_map_max_blksz)
+	if (sm->sm_blksz >= space_map_max_blksz)
 		return;
 
 	/*
@@ -334,13 +303,19 @@ space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
 	ASSERT(MUTEX_HELD(rt->rt_lock));
 	ASSERT(dsl_pool_sync_context(dmu_objset_pool(os)));
 	VERIFY3U(space_map_object(sm), !=, 0);
+	dmu_buf_will_dirty(sm->sm_dbuf, tx);
+
+	/*
+	 * This field is no longer necessary since the in-core space map
+	 * now contains the object number but is maintained for backwards
+	 * compatibility.
+	 */
+	sm->sm_phys->smp_object = sm->sm_object;
 
 	if (range_tree_space(rt) == 0) {
 		VERIFY3U(sm->sm_object, ==, sm->sm_phys->smp_object);
 		return;
 	}
-
-	dmu_buf_will_dirty(sm->sm_dbuf, tx);
 
 	if (maptype == SM_ALLOC)
 		sm->sm_phys->smp_alloc += range_tree_space(rt);
@@ -422,17 +397,91 @@ space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
 	zio_buf_free(entry_map, sm->sm_blksz);
 }
 
+static int
+space_map_open_impl(space_map_t *sm)
+{
+	int error;
+	u_longlong_t blocks;
+
+	error = dmu_bonus_hold(sm->sm_os, sm->sm_object, sm, &sm->sm_dbuf);
+	if (error)
+		return (error);
+
+	dmu_object_size_from_db(sm->sm_dbuf, &sm->sm_blksz, &blocks);
+	sm->sm_phys = sm->sm_dbuf->db_data;
+	return (0);
+}
+
+int
+space_map_open(space_map_t **smp, objset_t *os, uint64_t object,
+    uint64_t start, uint64_t size, uint8_t shift, kmutex_t *lp)
+{
+	space_map_t *sm;
+	int error;
+
+	ASSERT(*smp == NULL);
+	ASSERT(os != NULL);
+	ASSERT(object != 0);
+
+	sm = kmem_zalloc(sizeof (space_map_t), KM_SLEEP);
+
+	sm->sm_start = start;
+	sm->sm_size = size;
+	sm->sm_shift = shift;
+	sm->sm_lock = lp;
+	sm->sm_os = os;
+	sm->sm_object = object;
+
+	error = space_map_open_impl(sm);
+	if (error != 0) {
+		space_map_close(sm);
+		return (error);
+	}
+
+	*smp = sm;
+
+	return (0);
+}
+
+void
+space_map_close(space_map_t *sm)
+{
+	if (sm == NULL)
+		return;
+
+	if (sm->sm_dbuf != NULL)
+		dmu_buf_rele(sm->sm_dbuf, sm);
+	sm->sm_dbuf = NULL;
+	sm->sm_phys = NULL;
+
+	kmem_free(sm, sizeof (*sm));
+}
+
+static void
+space_map_reallocate(space_map_t *sm, dmu_tx_t *tx)
+{
+	ASSERT(dmu_tx_is_syncing(tx));
+
+	space_map_free(sm, tx);
+	dmu_buf_rele(sm->sm_dbuf, sm);
+
+	sm->sm_object = space_map_alloc(sm->sm_os, tx);
+	VERIFY0(space_map_open_impl(sm));
+}
+
 void
 space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 {
+	dnode_t *dn;
 	objset_t *os = sm->sm_os;
 	spa_t *spa = dmu_objset_spa(os);
-	dnode_t *dn;
 	zfeature_info_t *space_map_histogram =
 	    &spa_feature_table[SPA_FEATURE_SPACEMAP_HISTOGRAM];
 	int bonuslen;
 
 	ASSERT(dsl_pool_sync_context(dmu_objset_pool(os)));
+	ASSERT(dmu_tx_is_syncing(tx));
+
 	VERIFY0(dmu_free_range(os, space_map_object(sm), 0, -1ULL, tx));
 	VERIFY0(dnode_hold(os, space_map_object(sm), FTAG, &dn));
 
@@ -447,10 +496,11 @@ space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 
 	if (bonuslen != dn->dn_bonuslen ||
 	    dn->dn_datablksz != SPACE_MAP_INITIAL_BLOCKSIZE) {
-		dnode_reallocate(dn, dn->dn_type,
-		    SPACE_MAP_INITIAL_BLOCKSIZE, dn->dn_bonustype,
-		    bonuslen, tx);
-		sm->sm_blksz = SPACE_MAP_INITIAL_BLOCKSIZE;
+		zfs_dbgmsg("txg %llu, spa %s, reallocating: "
+		    "old bonus %u, old blocksz %u", dmu_tx_get_txg(tx),
+		    spa_name(spa), dn->dn_bonuslen, dn->dn_datablksz);
+		space_map_reallocate(sm, tx);
+		VERIFY3U(sm->sm_blksz, ==, SPACE_MAP_INITIAL_BLOCKSIZE);
 	}
 	dnode_rele(dn, FTAG);
 
@@ -465,20 +515,17 @@ space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 void
 space_map_update(space_map_t *sm)
 {
-	if (sm->sm_dbuf == NULL) {
-		ASSERT0(space_map_allocated(sm));
-		ASSERT0(space_map_length(sm));
+	if (sm == NULL)
 		return;
-	}
 
-	mutex_enter(sm->sm_lock);
+	ASSERT(MUTEX_HELD(sm->sm_lock));
+
 	sm->sm_alloc = sm->sm_phys->smp_alloc;
 	sm->sm_length = sm->sm_phys->smp_objsize;
-	mutex_exit(sm->sm_lock);
 }
 
 uint64_t
-space_map_alloc(space_map_t *sm, objset_t *os, dmu_tx_t *tx)
+space_map_alloc(objset_t *os, dmu_tx_t *tx)
 {
 	spa_t *spa = dmu_objset_spa(os);
 	zfeature_info_t *space_map_histogram =
@@ -486,11 +533,9 @@ space_map_alloc(space_map_t *sm, objset_t *os, dmu_tx_t *tx)
 	uint64_t object;
 	int bonuslen;
 
-	ASSERT(sm->sm_dbuf == NULL);
-
 	if (spa_feature_is_enabled(spa, space_map_histogram)) {
 		spa_feature_incr(spa, space_map_histogram, tx);
-		bonuslen = sizeof (*sm->sm_phys);
+		bonuslen = sizeof (space_map_phys_t);
 		ASSERT3U(bonuslen, <=, dmu_bonus_max());
 	} else {
 		bonuslen = SPACE_MAP_SIZE_V0;
@@ -506,11 +551,14 @@ space_map_alloc(space_map_t *sm, objset_t *os, dmu_tx_t *tx)
 void
 space_map_free(space_map_t *sm, dmu_tx_t *tx)
 {
-	objset_t *os = sm->sm_os;
-	spa_t *spa = dmu_objset_spa(os);
+	spa_t *spa;
 	zfeature_info_t *space_map_histogram =
 	    &spa_feature_table[SPA_FEATURE_SPACEMAP_HISTOGRAM];
 
+	if (sm == NULL)
+		return;
+
+	spa = dmu_objset_spa(sm->sm_os);
 	if (spa_feature_is_enabled(spa, space_map_histogram)) {
 		dmu_object_info_t doi;
 
@@ -521,82 +569,14 @@ space_map_free(space_map_t *sm, dmu_tx_t *tx)
 		}
 	}
 
-	VERIFY3U(dmu_object_free(os, space_map_object(sm), tx), ==, 0);
+	VERIFY3U(dmu_object_free(sm->sm_os, space_map_object(sm), tx), ==, 0);
 	sm->sm_object = 0;
-}
-
-int
-space_map_open(space_map_t **smp, objset_t *os, uint64_t object,
-    uint64_t start, uint64_t size, uint8_t shift, kmutex_t *lp)
-{
-	space_map_t *sm;
-	u_longlong_t blocks;
-	int error;
-
-	if (*smp == NULL) {
-
-		sm = kmem_zalloc(sizeof (space_map_t), KM_SLEEP);
-
-		cv_init(&sm->sm_load_cv, NULL, CV_DEFAULT, NULL);
-
-		sm->sm_start = start;
-		sm->sm_size = size;
-		sm->sm_shift = shift;
-		sm->sm_lock = lp;
-		*smp = sm;
-	}
-	sm = *smp;
-
-	if (object == 0) {
-		ASSERT0(space_map_allocated(sm));
-		ASSERT0(space_map_length(sm));
-		return (0);
-	}
-
-	ASSERT(sm->sm_dbuf == NULL);
-	ASSERT(sm->sm_os == NULL);
-	ASSERT(sm->sm_object == 0);
-	ASSERT(sm->sm_blksz == 0);
-	sm->sm_os = os;
-	sm->sm_object = object;
-
-	error = dmu_bonus_hold(os, object, sm, &sm->sm_dbuf);
-	if (error)
-		return (error);
-
-	dmu_object_size_from_db(sm->sm_dbuf, &sm->sm_blksz, &blocks);
-	sm->sm_phys = sm->sm_dbuf->db_data;
-
-	/*
-	 * This field is no longer necessary since the in-core space map
-	 * now contains the object number but is maintained for backwards
-	 * compatibility.
-	 */
-	if (sm->sm_phys->smp_object == 0)
-		sm->sm_phys->smp_object = object;
-
-	ASSERT3U(sm->sm_object, ==, sm->sm_phys->smp_object);
-	return (0);
-}
-
-void
-space_map_close(space_map_t *sm)
-{
-	ASSERT(!sm->sm_loaded && !sm->sm_loading);
-
-	if (sm->sm_dbuf != NULL)
-		dmu_buf_rele(sm->sm_dbuf, sm);
-	sm->sm_dbuf = NULL;
-	sm->sm_phys = NULL;
-
-	cv_destroy(&sm->sm_load_cv);
-	kmem_free(sm, sizeof (*sm));
 }
 
 uint64_t
 space_map_object(space_map_t *sm)
 {
-	return (sm->sm_object);
+	return (sm != NULL ? sm->sm_object : 0);
 }
 
 /*
@@ -605,7 +585,7 @@ space_map_object(space_map_t *sm)
 uint64_t
 space_map_allocated(space_map_t *sm)
 {
-	return (sm->sm_alloc);
+	return (sm != NULL ? sm->sm_alloc : 0);
 }
 
 /*
@@ -614,7 +594,7 @@ space_map_allocated(space_map_t *sm)
 uint64_t
 space_map_length(space_map_t *sm)
 {
-	return (sm->sm_length);
+	return (sm != NULL ? sm->sm_length : 0);
 }
 
 /*
@@ -623,11 +603,8 @@ space_map_length(space_map_t *sm)
 int64_t
 space_map_alloc_delta(space_map_t *sm)
 {
-	if (sm->sm_dbuf == NULL) {
-		ASSERT0(space_map_allocated(sm));
-		ASSERT0(space_map_length(sm));
+	if (sm == NULL)
 		return (0);
-	}
-
+	ASSERT(sm->sm_dbuf != NULL);
 	return (sm->sm_phys->smp_alloc - space_map_allocated(sm));
 }

@@ -36,7 +36,7 @@
 extern "C" {
 #endif
 
-#define	RANGE_TREE_MAX_BUCKETS	64
+#define	RANGE_TREE_HISTOGRAM_SIZE	64
 
 typedef struct range_tree_ops range_tree_ops_t;
 
@@ -45,7 +45,13 @@ typedef struct range_tree {
 	uint64_t	rt_space;	/* sum of all segments in the map */
 	range_tree_ops_t *rt_ops;
 	void		*rt_arg;
-	uint64_t	rt_histogram[RANGE_TREE_MAX_BUCKETS];
+
+	/*
+	 * The rt_histogram maintains a histogram of ranges. Each bucket,
+	 * rt_histogram[i], contains the number of ranges whose size is:
+	 * 2^i <= size of range in bytes < 2^(i+1)
+	 */
+	uint64_t	rt_histogram[RANGE_TREE_HISTOGRAM_SIZE];
 	kmutex_t	*rt_lock;	/* pointer to lock that protects map */
 } range_tree_t;
 

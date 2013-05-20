@@ -51,7 +51,7 @@ void
 range_tree_stat_verify(range_tree_t *rt)
 {
 	range_seg_t *rs;
-	uint64_t hist[RANGE_TREE_MAX_BUCKETS] = { 0 };
+	uint64_t hist[RANGE_TREE_HISTOGRAM_SIZE] = { 0 };
 	int i;
 
 	for (rs = avl_first(&rt->rt_root); rs != NULL;
@@ -63,7 +63,7 @@ range_tree_stat_verify(range_tree_t *rt)
 		ASSERT3U(hist[idx], !=, 0);
 	}
 
-	for (i = 0; i < RANGE_TREE_MAX_BUCKETS; i++) {
+	for (i = 0; i < RANGE_TREE_HISTOGRAM_SIZE; i++) {
 		if (hist[i] != rt->rt_histogram[i]) {
 			zfs_dbgmsg("i=%d, hist=%p, hist=%llu, rt_hist=%llu",
 			    i, hist, hist[i], rt->rt_histogram[i]);

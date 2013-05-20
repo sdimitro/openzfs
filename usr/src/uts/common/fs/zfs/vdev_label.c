@@ -283,9 +283,10 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 			    vd->vdev_removing);
 	}
 
-	if (vd->vdev_dtl_sm != NULL && space_map_object(vd->vdev_dtl_sm) != 0)
+	if (vd->vdev_dtl_sm != NULL) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_DTL,
 		    space_map_object(vd->vdev_dtl_sm));
+	}
 
 	if (vd->vdev_crtxg)
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_CREATE_TXG, vd->vdev_crtxg);

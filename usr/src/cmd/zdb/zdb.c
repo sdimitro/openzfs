@@ -531,7 +531,7 @@ get_dtl_refcount(vdev_t *vd)
 	if (vd->vdev_ops->vdev_op_leaf) {
 		space_map_t *sm = vd->vdev_dtl_sm;
 
-		if (sm->sm_dbuf != NULL &&
+		if (sm != NULL &&
 		    sm->sm_dbuf->db_size == sizeof (space_map_phys_t))
 			return (1);
 		return (0);
@@ -551,7 +551,7 @@ get_metaslab_refcount(vdev_t *vd)
 		for (int m = 0; m < vd->vdev_ms_count; m++) {
 			space_map_t *sm = vd->vdev_ms[m]->ms_sm;
 
-			if (sm->sm_dbuf != NULL &&
+			if (sm != NULL &&
 			    sm->sm_dbuf->db_size == sizeof (space_map_phys_t))
 				refcount++;
 		}
@@ -584,12 +584,10 @@ static void
 dump_spacemap(objset_t *os, space_map_t *sm)
 {
 	uint64_t alloc, offset, entry;
-	uint8_t mapshift = sm->sm_shift;
-	uint64_t mapstart = sm->sm_start;
 	char *ddata[] = { "ALLOC", "FREE", "CONDENSE", "INVALID",
 			    "INVALID", "INVALID", "INVALID", "INVALID" };
 
-	if (space_map_object(sm) == 0)
+	if (sm == NULL)
 		return;
 
 	/*
@@ -598,9 +596,12 @@ dump_spacemap(objset_t *os, space_map_t *sm)
 	alloc = 0;
 	for (offset = 0; offset < space_map_length(sm);
 	    offset += sizeof (entry)) {
+		uint8_t mapshift = sm->sm_shift;
+
 		VERIFY0(dmu_read(os, space_map_object(sm), offset,
 		    sizeof (entry), &entry, DMU_READ_PREFETCH));
 		if (SM_DEBUG_DECODE(entry)) {
+
 			(void) printf("\t    [%6llu] %s: txg %llu, pass %llu\n",
 			    (u_longlong_t)(offset / sizeof (entry)),
 			    ddata[SM_DEBUG_ACTION_DECODE(entry)],
@@ -612,10 +613,10 @@ dump_spacemap(objset_t *os, space_map_t *sm)
 			    (u_longlong_t)(offset / sizeof (entry)),
 			    SM_TYPE_DECODE(entry) == SM_ALLOC ? 'A' : 'F',
 			    (u_longlong_t)((SM_OFFSET_DECODE(entry) <<
-			    mapshift) + mapstart),
+			    mapshift) + sm->sm_start),
 			    (u_longlong_t)((SM_OFFSET_DECODE(entry) <<
-			    mapshift) + mapstart + (SM_RUN_DECODE(entry) <<
-			    mapshift)),
+			    mapshift) + sm->sm_start +
+			    (SM_RUN_DECODE(entry) << mapshift)),
 			    (u_longlong_t)(SM_RUN_DECODE(entry) << mapshift));
 			if (SM_TYPE_DECODE(entry) == SM_ALLOC)
 				alloc += SM_RUN_DECODE(entry) << mapshift;
@@ -636,7 +637,7 @@ dump_metaslab_stats(metaslab_t *msp)
 	char maxbuf[32];
 	range_tree_t *rt = msp->ms_tree;
 	avl_tree_t *t = &msp->ms_size_tree;
-	int free_pct = range_tree_space(rt) * 100 / msp->ms_sm->sm_size;
+	int free_pct = range_tree_space(rt) * 100 / msp->ms_size;
 
 	zdb_nicenum(metaslab_block_maxsize(msp), maxbuf);
 
@@ -644,7 +645,7 @@ dump_metaslab_stats(metaslab_t *msp)
 	    "segments", avl_numnodes(t), "maxsize", maxbuf,
 	    "freepct", free_pct);
 	(void) printf("\tIn-memory histogram:\n");
-	dump_histogram(rt->rt_histogram, RANGE_TREE_MAX_BUCKETS, 0);
+	dump_histogram(rt->rt_histogram, RANGE_TREE_HISTOGRAM_SIZE, 0);
 }
 
 static void
@@ -655,28 +656,26 @@ dump_metaslab(metaslab_t *msp)
 	space_map_t *sm = msp->ms_sm;
 	char freebuf[32];
 
-	zdb_nicenum(sm->sm_size - space_map_allocated(sm), freebuf);
+	zdb_nicenum(msp->ms_size - space_map_allocated(sm), freebuf);
 
 	(void) printf(
 	    "\tmetaslab %6llu   offset %12llx   spacemap %6llu   free    %5s\n",
-	    (u_longlong_t)(sm->sm_start / sm->sm_size),
-	    (u_longlong_t)sm->sm_start, (u_longlong_t)space_map_object(sm),
-	    freebuf);
+	    (u_longlong_t)msp->ms_id, (u_longlong_t)msp->ms_start,
+	    (u_longlong_t)space_map_object(sm), freebuf);
 
 	if (dump_opt['m'] > 2 && !dump_opt['L']) {
 		mutex_enter(&msp->ms_lock);
-		space_map_load_wait(sm);
-		if (!sm->sm_loaded) {
-			VERIFY0(space_map_load(sm, msp->ms_tree, SM_FREE));
+		metaslab_load_wait(msp);
+		if (!msp->ms_loaded) {
+			VERIFY0(metaslab_load(msp));
 			range_tree_stat_verify(msp->ms_tree);
 		}
 		dump_metaslab_stats(msp);
-		space_map_unload(sm);
-		range_tree_vacate(msp->ms_tree, NULL, NULL);
+		metaslab_unload(msp);
 		mutex_exit(&msp->ms_lock);
 	}
 
-	if (dump_opt['m'] > 1 && space_map_object(sm) != 0 &&
+	if (dump_opt['m'] > 1 && sm != NULL &&
 	    spa_feature_is_active(spa,
 	    &spa_feature_table[SPA_FEATURE_SPACEMAP_HISTOGRAM])) {
 		/*
@@ -689,10 +688,10 @@ dump_metaslab(metaslab_t *msp)
 	}
 
 	if (dump_opt['d'] > 5 || dump_opt['m'] > 3) {
-		ASSERT(sm->sm_size == (1ULL << vd->vdev_ms_shift));
+		ASSERT(msp->ms_size == (1ULL << vd->vdev_ms_shift));
 
 		mutex_enter(&msp->ms_lock);
-		dump_spacemap(spa->spa_meta_objset, sm);
+		dump_spacemap(spa->spa_meta_objset, msp->ms_sm);
 		mutex_exit(&msp->ms_lock);
 	}
 }
@@ -2306,7 +2305,6 @@ zdb_leak(void *arg, uint64_t start, uint64_t size)
 
 static metaslab_ops_t zdb_metaslab_ops = {
 	NULL,	/* alloc */
-	NULL,	/* maxsize */
 	NULL	/* fragmented */
 };
 
@@ -2362,11 +2360,21 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 			for (int m = 0; m < vd->vdev_ms_count; m++) {
 				metaslab_t *msp = vd->vdev_ms[m];
 				mutex_enter(&msp->ms_lock);
-				space_map_unload(msp->ms_sm);
-				range_tree_vacate(msp->ms_tree, NULL, NULL);
-				msp->ms_ops = &zdb_metaslab_ops;
-				VERIFY0(space_map_load(msp->ms_sm, msp->ms_tree,
-				    SM_ALLOC));
+				metaslab_unload(msp);
+
+				/*
+				 * For leak detection, we overload the metaslab
+				 * ms_tree to contain allocated segments
+				 * instead of free segments. As a result,
+				 * we can't use the normal metaslab_load/unload
+				 * interfaces.
+				 */
+				if (msp->ms_sm != NULL) {
+					msp->ms_ops = &zdb_metaslab_ops;
+					VERIFY0(space_map_load(msp->ms_sm,
+					    msp->ms_tree, SM_ALLOC));
+					msp->ms_loaded = B_TRUE;
+				}
 				mutex_exit(&msp->ms_lock);
 			}
 		}
@@ -2389,8 +2397,20 @@ zdb_leak_fini(spa_t *spa)
 			for (int m = 0; m < vd->vdev_ms_count; m++) {
 				metaslab_t *msp = vd->vdev_ms[m];
 				mutex_enter(&msp->ms_lock);
-				space_map_unload(msp->ms_sm);
+
+				/*
+				 * The ms_tree has been overloaded to
+				 * contain allocated segments. Now that we
+				 * finished traversing all blocks, any
+				 * block that remains in the ms_tree
+				 * represents an allocated block that we
+				 * did not claim during the traversal.
+				 * Claimed blocks would have been removed
+				 * from the ms_tree.
+				 */
 				range_tree_vacate(msp->ms_tree, zdb_leak, vd);
+				msp->ms_loaded = B_FALSE;
+
 				mutex_exit(&msp->ms_lock);
 			}
 		}

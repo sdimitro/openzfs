@@ -1603,8 +1603,6 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 void
 metaslab_sync_reassess(metaslab_group_t *mg)
 {
-	vdev_t *vd = mg->mg_vd;
-
 	metaslab_group_alloc_update(mg);
 
 	/*

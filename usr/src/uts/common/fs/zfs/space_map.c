@@ -472,21 +472,21 @@ space_map_reallocate(space_map_t *sm, dmu_tx_t *tx)
 void
 space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 {
-	dnode_t *dn;
 	objset_t *os = sm->sm_os;
 	spa_t *spa = dmu_objset_spa(os);
 	zfeature_info_t *space_map_histogram =
 	    &spa_feature_table[SPA_FEATURE_SPACEMAP_HISTOGRAM];
+	dmu_object_info_t doi;
 	int bonuslen;
 
 	ASSERT(dsl_pool_sync_context(dmu_objset_pool(os)));
 	ASSERT(dmu_tx_is_syncing(tx));
 
 	VERIFY0(dmu_free_range(os, space_map_object(sm), 0, -1ULL, tx));
-	VERIFY0(dnode_hold(os, space_map_object(sm), FTAG, &dn));
+	dmu_object_info_from_db(sm->sm_dbuf, &doi);
 
 	if (spa_feature_is_enabled(spa, space_map_histogram)) {
-		if (dn->dn_bonuslen == SPACE_MAP_SIZE_V0)
+		if (doi.doi_bonus_size == SPACE_MAP_SIZE_V0)
 			spa_feature_incr(spa, space_map_histogram, tx);
 		bonuslen = sizeof (space_map_phys_t);
 		ASSERT3U(bonuslen, <=, dmu_bonus_max());
@@ -494,15 +494,14 @@ space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 		bonuslen = SPACE_MAP_SIZE_V0;
 	}
 
-	if (bonuslen != dn->dn_bonuslen ||
-	    dn->dn_datablksz != SPACE_MAP_INITIAL_BLOCKSIZE) {
+	if (bonuslen != doi.doi_bonus_size ||
+	    doi.doi_data_block_size != SPACE_MAP_INITIAL_BLOCKSIZE) {
 		zfs_dbgmsg("txg %llu, spa %s, reallocating: "
 		    "old bonus %u, old blocksz %u", dmu_tx_get_txg(tx),
-		    spa_name(spa), dn->dn_bonuslen, dn->dn_datablksz);
+		    spa_name(spa), doi.doi_bonus_size, doi.doi_data_block_size);
 		space_map_reallocate(sm, tx);
 		VERIFY3U(sm->sm_blksz, ==, SPACE_MAP_INITIAL_BLOCKSIZE);
 	}
-	dnode_rele(dn, FTAG);
 
 	dmu_buf_will_dirty(sm->sm_dbuf, tx);
 	sm->sm_phys->smp_objsize = 0;

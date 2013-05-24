@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
 
 #ifndef	_DHCPAGENT_IPC_H
 #define	_DHCPAGENT_IPC_H
@@ -44,7 +47,6 @@
 extern "C" {
 #endif
 
-#define	DHCP_AGENT_PATH		"/sbin/dhcpagent"
 #define	DHCP_IPC_LISTEN_BACKLOG	30
 #define	IPPORT_DHCPAGENT	4999
 #define	DHCP_IPC_MAX_WAIT	15	/* max seconds to wait to start agent */

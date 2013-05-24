@@ -376,7 +376,8 @@ The following options are supported:
 .sp .6
 .RS 4n
 Set debug level to \fIn\fR. Two levels of debugging are currently available, 1
-and 2; the latter is more verbose.
+and 2; the latter is more verbose. This option is controlled by the
+dhcpagent/debug service property of the dhcp-client service.
 .RE
 
 .sp
@@ -397,7 +398,9 @@ messages are sent to standard error instead of to \fBsyslog\fR(3C).
 .ad
 .sp .6
 .RS 4n
-Provide verbose output useful for debugging site configuration problems.
+Provide verbose output useful for debugging site configuration problems.  This
+option is controlled by the dhcpagent/verbose service property of the
+dhcp-client service.
 .RE
 
 .SH EXAMPLES

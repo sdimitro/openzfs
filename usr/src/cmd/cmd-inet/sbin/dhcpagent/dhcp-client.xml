@@ -38,8 +38,6 @@
 	type='service'
 	version='1'>
 
-	<create_default_instance enabled='true' />
-
 	<single_instance/>
 
 	<dependency name='dhcp-network-datalink'
@@ -50,36 +48,47 @@
 	</dependency>
 
 	<dependent name='dhcp-network-physical'
-		grouping='require_all'
+		grouping='optional_all'
 		restart_on='none'>
 		<service_fmri value='svc:/network/physical' />
 	</dependent>
 
-	<exec_method
-		type='method'
-		name='start'
-		exec='/sbin/dhcpagent'
-		timeout_seconds='60'>
-	</exec_method>
+	<instance name='default' enabled='true'>
 
-	<exec_method
-		type='method'
-		name='stop'
-		exec=':kill'
-		timeout_seconds='20' />
+		<exec_method
+			type='method'
+			name='start'
+			exec='/lib/svc/method/dhcp-client'
+			timeout_seconds='60'>
+		</exec_method>
+
+		<exec_method
+			type='method'
+			name='stop'
+			exec=':kill'
+			timeout_seconds='20' />
+
+		<property_group name='dhcpagent' type='application'>
+			<stability value='Unstable' />
+			<propval name='debug' type='integer' value='0' />
+			<propval name='verbose' type='boolean' value='false' />
+		</property_group>
+
+		<template>
+			<common_name>
+				<loctext xml:lang='C'> DHCP client
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='dhcpagent' section='1M'
+					manpath='/usr/share/man' />
+			</documentation>
+		</template>
+
+	</instance>
 
 	<stability value='Unstable' />
 
-	<template>
-		<common_name>
-			<loctext xml:lang='C'> DHCP client
-			</loctext>
-		</common_name>
-		<documentation>
-			<manpage title='dhcpagent' section='1M'
-				manpath='/usr/share/man' />
-		</documentation>
-	</template>
 </service>
 
 </service_bundle>

@@ -48,16 +48,17 @@ extern "C" {
 /*
  * global variables: `tq' and `eh' represent the global timer queue and event
  * handler, as described in the README. `class_id' is our vendor class id set
- * early on in main(). `grandparent' is the pid of the original process when in
- * adopt mode.  `rtsock_fd' is the global routing socket file descriptor.
+ * early on in main(). `parentpid' is the pid of the original process.
+ * `rtsock_fd' is the global routing socket file descriptor.
  */
 
 extern iu_tq_t		*tq;
 extern iu_eh_t		*eh;
 extern char		*class_id;
 extern int		class_id_len;
-extern pid_t		grandparent;
+extern pid_t		parentpid;
 extern int		rtsock_fd;
+extern uint_t		debug_level;
 
 boolean_t	drain_script(iu_eh_t *, void *);
 boolean_t	check_cmd_allowed(DHCPSTATE, dhcp_ipc_type_t);
@@ -102,8 +103,8 @@ boolean_t	check_cmd_allowed(DHCPSTATE, dhcp_ipc_type_t);
 /* I: the maximum amount of seconds we use an adopted lease */
 #define	DHCP_ADOPT_LEASE_MAX	(60*60)		/* one hour */
 
-/* I: number of seconds grandparent waits for child to finish adoption. */
-#define	DHCP_ADOPT_SLEEP	30
+/* I: number of seconds parent waits for child to finish initialization. */
+#define	DHCP_INIT_SLEEP	30
 
 /* I: the maximum amount of milliseconds to wait for an ipc request */
 #define	DHCP_IPC_REQUEST_WAIT	(3*1000)	/* three seconds */

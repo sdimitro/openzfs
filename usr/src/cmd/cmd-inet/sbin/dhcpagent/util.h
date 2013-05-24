@@ -67,6 +67,7 @@ boolean_t	schedule_timer(dhcp_timer_t *, iu_tq_callback_t *, void *);
 boolean_t	add_default_route(uint32_t, struct in_addr *);
 boolean_t	del_default_route(uint32_t, struct in_addr *);
 int		daemonize(void);
+void		dhcp_init_done(boolean_t);
 monosec_t	monosec(void);
 void		print_server_msg(dhcp_smach_t *, const char *, uint_t);
 boolean_t	bind_sock(int, in_port_t, in_addr_t);

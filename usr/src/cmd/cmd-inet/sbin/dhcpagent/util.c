@@ -187,24 +187,31 @@ print_server_msg(dhcp_smach_t *dsmp, const char *msg, uint_t msglen)
 }
 
 /*
- * alrm_exit(): Signal handler for SIGARLM. terminates grandparent.
- *
- *    input: int: signal the handler was called with.
- *
- *   output: void
+ * parent_exit(): Signal handler for SIGUSR1 and SIGUSR2. terminates parent.
  */
 
 static void
-alrm_exit(int sig)
+parent_exit(int sig)
 {
-	int exitval;
+	if (debug_level > 0)
+		(void) fprintf(stderr, "dhcpagent: signaled: %d\n", sig);
+	if (sig != SIGUSR1) {
+		(void) fprintf(stderr, "dhcpagent: initialization failed, "
+		    "see /var/adm/messages.\n");
+	}
+	_exit(sig == SIGUSR1 ? EXIT_SUCCESS : EXIT_FAILURE);
+}
 
-	if (sig == SIGALRM && grandparent != 0)
-		exitval = EXIT_SUCCESS;
-	else
-		exitval = EXIT_FAILURE;
-
-	_exit(exitval);
+/*
+ * Signal the parent process to exit.  We use SIGUSR1 for success, and
+ * SIGUSR2 for failure.
+ */
+void
+dhcp_init_done(boolean_t success)
+{
+	dhcpmsg(MSG_DEBUG, "initialization %d, signaling parent (%ld) "
+	    "to exit.", success ? "succeeded" : "failed", parentpid);
+	kill(parentpid, success ? SIGUSR1 : SIGUSR2);
 }
 
 /*
@@ -218,25 +225,21 @@ int
 daemonize(void)
 {
 	/*
-	 * We've found that adoption takes sufficiently long that
-	 * a dhcpinfo run after dhcpagent -a is started may occur
-	 * before the agent is ready to process the request.
-	 * The result is an error message and an unhappy user.
+	 * We need to ensure that when the initial dhcpagent process exits,
+	 * enough of the initialization logic has completed that subsequent DHCP
+	 * operations can continue without failing.  For example, we've found
+	 * that adoption of an existing lease takes sufficiently long that a
+	 * dhcpinfo run after dhcpagent is started may occur before the agent
+	 * is ready to process the request.  The result is an error message and
+	 * an unhappy user.
 	 *
-	 * The initial process now sleeps for DHCP_ADOPT_SLEEP,
-	 * unless interrupted by a SIGALRM, in which case it
-	 * exits immediately. This has the effect that the
-	 * grandparent doesn't exit until the dhcpagent is ready
-	 * to process requests. This defers the the balance of
-	 * the system start-up script processing until the
-	 * dhcpagent is ready to field requests.
-	 *
-	 * grandparent is only set for the adopt case; other
-	 * cases do not require the wait.
+	 * The initial process sleeps for DHCP_INIT_SLEEP, unless interrupted
+	 * by SIGUSR1 or SIGUSR2, in which case it exits immediately. This has
+	 * the effect that the initial process doesn't exit until the dhcpagent
+	 * is ready to process requests.
 	 */
-
-	if (grandparent != 0)
-		(void) signal(SIGALRM, alrm_exit);
+	(void) signal(SIGUSR1, parent_exit);
+	(void) signal(SIGUSR2, parent_exit);
 
 	switch (fork()) {
 
@@ -244,8 +247,8 @@ daemonize(void)
 		return (0);
 
 	case  0:
-		if (grandparent != 0)
-			(void) signal(SIGALRM, SIG_DFL);
+		(void) signal(SIGUSR1, SIG_IGN);
+		(void) signal(SIGUSR2, SIG_IGN);
 
 		/*
 		 * setsid() makes us lose our controlling terminal,
@@ -280,23 +283,26 @@ daemonize(void)
 		break;
 
 	default:
-		if (grandparent != 0) {
-			(void) signal(SIGCHLD, SIG_IGN);
-			/*
-			 * Note that we're not the agent here, so the DHCP
-			 * logging subsystem hasn't been configured yet.
-			 */
-			syslog(LOG_DEBUG | LOG_DAEMON, "dhcpagent: daemonize: "
-			    "waiting for adoption to complete.");
-			if (sleep(DHCP_ADOPT_SLEEP) == 0) {
-				syslog(LOG_WARNING | LOG_DAEMON,
-				    "dhcpagent: daemonize: timed out awaiting "
-				    "adoption.");
-			}
-			syslog(LOG_DEBUG | LOG_DAEMON, "dhcpagent: daemonize: "
-			    "wait finished");
+		(void) signal(SIGCHLD, SIG_IGN);
+		/*
+		 * Note that we're not the agent here, we're the initial
+		 * process with a controlling terminal.  We print to stderr to
+		 * allow initialization problems to be diagnosed in the SMF
+		 * service log.
+		 */
+		if (debug_level > 0) {
+			(void) fprintf(stderr, "dhcpagent: waiting for "
+			    "initialization to complete.\n");
 		}
-		_exit(EXIT_SUCCESS);
+		if (sleep(DHCP_INIT_SLEEP) == 0) {
+			(void) fprintf(stderr, "dhcpagent: timed out waiting "
+			    "for daemon initialization.\n");
+		} else if (debug_level > 0) {
+			(void) fprintf(stderr, "dhcpagent: unexpected signal "
+			    "received during initialization.\n");
+		}
+
+		_exit(EXIT_FAILURE);
 	}
 
 	return (1);

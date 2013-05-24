@@ -1,0 +1,40 @@
+#!/sbin/sh
+#
+# CDDL HEADER START
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+# CDDL HEADER END
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
+
+. /lib/svc/share/smf_include.sh
+
+if [ $SMF_METHOD != "start" ]; then
+	echo "unsupported method: $1"
+	exit $SMF_EXIT_ERR_FATAL
+fi
+
+DEBUG=$(/bin/svcprop -c -p dhcpagent/debug $SMF_FMRI)
+VERBOSE=$(/bin/svcprop -c -p dhcpagent/verbose $SMF_FMRI)
+
+OPTIONS=''
+
+if [ $DEBUG != '""' && $DEBUG != 0 ]; then
+	OPTIONS="$OPTIONS -d $DEBUG"
+fi
+if [ $VERBOSE = "true" ]; then
+	OPTIONS="$OPTIONS -v"
+fi
+
+/sbin/dhcpagent $OPTIONS || exit $SMF_EXIT_ERR_FATAL
+
+exit $SMF_EXIT_OK

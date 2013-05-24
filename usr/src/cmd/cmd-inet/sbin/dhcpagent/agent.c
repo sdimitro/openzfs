@@ -64,12 +64,12 @@ int			class_id_len = 0;
 char			*class_id;
 iu_eh_t			*eh;
 iu_tq_t			*tq;
-pid_t			grandparent;
+pid_t			parentpid;
 int			rtsock_fd;
+uint_t			debug_level = 0;
 
 static boolean_t	shutdown_started = B_FALSE;
 static boolean_t	do_adopt = B_FALSE;
-static unsigned int	debug_level = 0;
 static iu_eh_callback_t	accept_event, ipc_event, rtsock_event;
 
 /*
@@ -131,6 +131,7 @@ main(int argc, char **argv)
 {
 	boolean_t	is_daemon  = B_TRUE;
 	boolean_t	is_verbose;
+	boolean_t	adopt_pending = B_FALSE;
 	int		ipc_fd;
 	int		c;
 	int		aware = RTAW_UNDER_IPMP;
@@ -177,6 +178,8 @@ main(int argc, char **argv)
 	(void) setlocale(LC_ALL, "");
 	(void) textdomain(TEXT_DOMAIN);
 
+	parentpid = getpid();
+
 	if (geteuid() != 0) {
 		dhcpmsg_init(argv[0], B_FALSE, is_verbose, debug_level);
 		dhcpmsg(MSG_ERROR, "must be super-user");
@@ -195,7 +198,7 @@ main(int argc, char **argv)
 	 * Seed the random number generator, since we're going to need it
 	 * to set transaction id's and for exponential backoff.
 	 */
-	srand48(gethrtime() ^ gethostid() ^ getpid());
+	srand48(gethrtime() ^ gethostid() ^ parentpid);
 
 	dhcpmsg_init(argv[0], is_daemon, is_verbose, debug_level);
 	(void) atexit(dhcpmsg_fini);
@@ -206,7 +209,7 @@ main(int argc, char **argv)
 	if (eh == NULL || tq == NULL) {
 		errno = ENOMEM;
 		dhcpmsg(MSG_ERR, "cannot create timer queue or event handler");
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	/*
@@ -252,7 +255,7 @@ main(int argc, char **argv)
 	 */
 
 	if (!dhcp_ip_default())
-		return (EXIT_FAILURE);
+		goto init_failed;
 
 	/*
 	 * create the ipc channel that the agent will listen for
@@ -268,16 +271,16 @@ main(int argc, char **argv)
 	case DHCP_IPC_E_BIND:
 		dhcpmsg(MSG_ERROR, "dhcp_ipc_init: cannot bind to port "
 		    "%i (agent already running?)", IPPORT_DHCPAGENT);
-		return (EXIT_FAILURE);
+		goto init_failed;
 
 	default:
 		dhcpmsg(MSG_ERROR, "dhcp_ipc_init failed");
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	if (iu_register_event(eh, ipc_fd, POLLIN, accept_event, 0) == -1) {
 		dhcpmsg(MSG_ERR, "cannot register ipc fd for messages");
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	/*
@@ -290,7 +293,7 @@ main(int argc, char **argv)
 	rtsock_fd = socket(PF_ROUTE, SOCK_RAW, 0);
 	if (rtsock_fd == -1) {
 		dhcpmsg(MSG_ERR, "cannot open routing socket");
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	/*
@@ -300,12 +303,12 @@ main(int argc, char **argv)
 	if (setsockopt(rtsock_fd, SOL_ROUTE, RT_AWARE, &aware,
 	    sizeof (aware)) == -1) {
 		dhcpmsg(MSG_ERR, "cannot set RT_AWARE on routing socket");
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	if (iu_register_event(eh, rtsock_fd, POLLIN, rtsock_event, 0) == -1) {
 		dhcpmsg(MSG_ERR, "cannot register routing socket for messages");
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	/*
@@ -314,11 +317,11 @@ main(int argc, char **argv)
 	 * cached DHCP lease in the kernel, then we fail as before.
 	 */
 	if ((kcache = get_dhcp_kcache()) != NULL) {
-		grandparent = getpid();
+		adopt_pending = B_TRUE;
 		if (!dhcp_adopt(kcache))
-			return (EXIT_FAILURE);
+			goto init_failed;
 	} else if (do_adopt) {
-		return (EXIT_FAILURE);
+		goto init_failed;
 	}
 
 	/*
@@ -330,6 +333,15 @@ main(int argc, char **argv)
 	 * v4 and v6 -- and use them as hints for later negotiation.
 	 */
 	remove_v6_strays();
+
+	/*
+	 * We're done with initialization.  Unless we're waiting for a cached
+	 * lease to be adopted, signal our initial process to exit.  If there's
+	 * a cached lease adoption pending, the process will be signaled when
+	 * the adoption completes in dhcp_adopt_complete().
+	 */
+	if (!adopt_pending)
+		dhcp_init_done(B_TRUE);
 
 	/*
 	 * enter the main event loop; this is where all the real work
@@ -359,6 +371,10 @@ main(int argc, char **argv)
 	iu_tq_destroy(tq);
 
 	return (EXIT_SUCCESS);
+
+init_failed:
+	dhcp_init_done(B_FALSE);
+	return (EXIT_FAILURE);
 }
 
 /*

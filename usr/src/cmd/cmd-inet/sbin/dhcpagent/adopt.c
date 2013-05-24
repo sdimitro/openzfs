@@ -208,11 +208,7 @@ dhcp_adopt_complete(dhcp_smach_t *dsmp)
 		return;
 	}
 
-	if (grandparent != (pid_t)0) {
-		dhcpmsg(MSG_DEBUG, "adoption complete, signalling parent (%ld)"
-		    " to exit.", grandparent);
-		(void) kill(grandparent, SIGALRM);
-	}
+	dhcp_init_done(B_TRUE);
 }
 
 /*

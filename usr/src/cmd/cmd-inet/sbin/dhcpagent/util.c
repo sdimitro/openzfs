@@ -209,9 +209,9 @@ parent_exit(int sig)
 void
 dhcp_init_done(boolean_t success)
 {
-	dhcpmsg(MSG_DEBUG, "initialization %d, signaling parent (%ld) "
+	dhcpmsg(MSG_DEBUG, "initialization %s, signaling parent (%ld) "
 	    "to exit.", success ? "succeeded" : "failed", parentpid);
-	kill(parentpid, success ? SIGUSR1 : SIGUSR2);
+	(void) kill(parentpid, success ? SIGUSR1 : SIGUSR2);
 }
 
 /*

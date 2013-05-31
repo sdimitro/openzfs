@@ -71,10 +71,10 @@ int zfs_condense_pct = 200;
  * group unless all groups in the pool have reached zfs_mg_noalloc_threshold.
  * Once all groups in the pool reach zfs_mg_noalloc_threshold then all
  * groups are allowed to accept allocations. Gang blocks are always
- * eligible to allocate on any metaslab group. The default value of 0 means
+ * eligible to allocate on any metaslab group. A value of 0 means
  * no metaslab group will be excluded based on this criterion.
  */
-int zfs_mg_noalloc_threshold = 0;
+int zfs_mg_noalloc_threshold = 5;
 
 /*
  * When set will load all metaslabs when pool is first opened.

@@ -832,19 +832,28 @@ dsl_dir_diduse_space(dsl_dir_t *dd, dd_used_t type,
 {
 	int64_t accounted_delta;
 
+	/*
+	 * dsl_dataset_set_refreservation_sync_impl() calls this with
+	 * dd_lock held, so that it can atomically update
+	 * ds->ds_reserved and the dsl_dir accounting, so that
+	 * dsl_dataset_check_quota() can see dataset and dir accounting
+	 * consistently.
+	 */
+	boolean_t needlock = !MUTEX_HELD(&dd->dd_lock);
+
 	ASSERT(dmu_tx_is_syncing(tx));
 	ASSERT(type < DD_USED_NUM);
 
 	dmu_buf_will_dirty(dd->dd_dbuf, tx);
 
-	mutex_enter(&dd->dd_lock);
+	if (needlock)
+		mutex_enter(&dd->dd_lock);
 	accounted_delta = parent_delta(dd, dd->dd_phys->dd_used_bytes, used);
 	ASSERT(used >= 0 || dd->dd_phys->dd_used_bytes >= -used);
 	ASSERT(compressed >= 0 ||
 	    dd->dd_phys->dd_compressed_bytes >= -compressed);
 	ASSERT(uncompressed >= 0 ||
 	    dd->dd_phys->dd_uncompressed_bytes >= -uncompressed);
-
 	dd->dd_phys->dd_used_bytes += used;
 	dd->dd_phys->dd_uncompressed_bytes += uncompressed;
 	dd->dd_phys->dd_compressed_bytes += compressed;
@@ -861,7 +870,8 @@ dsl_dir_diduse_space(dsl_dir_t *dd, dd_used_t type,
 		ASSERT3U(u, ==, dd->dd_phys->dd_used_bytes);
 #endif
 	}
-	mutex_exit(&dd->dd_lock);
+	if (needlock)
+		mutex_exit(&dd->dd_lock);
 
 	if (dd->dd_parent != NULL) {
 		dsl_dir_diduse_space(dd->dd_parent, DD_USED_CHILD,

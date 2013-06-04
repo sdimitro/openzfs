@@ -2674,6 +2674,7 @@ dsl_dataset_set_refreservation_sync_impl(dsl_dataset_t *ds,
 	    zfs_prop_to_name(ZFS_PROP_REFRESERVATION), &newval));
 
 	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	mutex_enter(&ds->ds_dir->dd_lock);
 	mutex_enter(&ds->ds_lock);
 	ASSERT(DS_UNIQUE_IS_ACCURATE(ds));
 	unique = ds->ds_phys->ds_unique_bytes;
@@ -2683,6 +2684,7 @@ dsl_dataset_set_refreservation_sync_impl(dsl_dataset_t *ds,
 	mutex_exit(&ds->ds_lock);
 
 	dsl_dir_diduse_space(ds->ds_dir, DD_USED_REFRSRV, delta, 0, 0, tx);
+	mutex_exit(&ds->ds_dir->dd_lock);
 }
 
 static void

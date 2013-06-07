@@ -156,6 +156,15 @@ forkx(int flags)
 	uberdata_t *udp = self->ul_uberdata;
 	pid_t pid;
 
+	/*
+	 * Audit libraries may not fork as they are effectively part of the
+	 * linker.
+	 */
+	if (self->ul_rtld || !primary_link_map) {
+		errno = ENOTSUP;
+		return (-1);
+	}
+
 	if (self->ul_vfork) {
 		/*
 		 * We are a child of vfork(); omit all of the fork
@@ -198,21 +207,6 @@ forkx(int flags)
 	 * will not receive any signals).
 	 */
 	(void) mutex_lock(&udp->atfork_lock);
-
-	/*
-	 * The udp->ld_lock is held while a thread is executing in the linker.
-	 * By holding this across fork, we ensure that linker activity doesn't
-	 * interleave with fork operations. While the linker itself is well-
-	 * behaved from the perspective of fork, the linker may call into
-	 * audit libraries, which execute arbitrary code in the context of the
-	 * linker. This code can't use facilities of the main process, so it's
-	 * common for an audit library to link to a memory allocation library.
-	 * These libraries typically suspend allocations during fork in order
-	 * to be fork safe.  By ensuring here that no thread is in the linker,
-	 * we ensure that atfork handlers don't deadlock with suspend_fork()
-	 * which waits for threads to exit the linker.
-	 */
-	(void) mutex_lock(&udp->ld_lock);
 
 	/*
 	 * Posix (SUSv3) requires fork() to be async-signal-safe.
@@ -278,7 +272,6 @@ forkx(int flags)
 			_postfork_parent_handler();
 	}
 
-	(void) mutex_unlock(&udp->ld_lock);
 	(void) mutex_unlock(&udp->atfork_lock);
 	self->ul_fork = 0;
 	sigon(self);
@@ -308,6 +301,15 @@ forkallx(int flags)
 	ulwp_t *self = curthread;
 	uberdata_t *udp = self->ul_uberdata;
 	pid_t pid;
+
+	/*
+	 * Audit libraries may not fork as they are effectively part of the
+	 * linker.
+	 */
+	if (self->ul_rtld || !primary_link_map) {
+		errno = ENOTSUP;
+		return (-1);
+	}
 
 	if (self->ul_vfork) {
 		if (udp->uberflags.uf_mt) {

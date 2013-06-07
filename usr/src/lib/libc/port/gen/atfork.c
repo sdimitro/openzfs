@@ -43,7 +43,10 @@
  * There is no POSIX API that provides for deletion of atfork handlers.
  * Collaboration between the loader and libc ensures that atfork
  * handlers installed by a library are deleted when that library
- * is unloaded (see _preexec_atfork_unload() in atexit.c).
+ * is unloaded (see _preexec_atfork_unload() in atexit.c). Note that audit
+ * libraries attempting to install atfork handlers will have their requests
+ * silently ignored. Audit libraries already have their execution coordinated
+ * by the linker.
  */
 int
 pthread_atfork(void (*prepare)(void),
@@ -54,6 +57,9 @@ pthread_atfork(void (*prepare)(void),
 	atfork_t *atfp;
 	atfork_t *head;
 	int error = 0;
+
+	if (self->ul_rtld || !primary_link_map)
+		return (0);
 
 	(void) mutex_lock(&udp->atfork_lock);
 	if (self->ul_fork) {

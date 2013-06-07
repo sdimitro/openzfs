@@ -572,6 +572,13 @@ _thrp_create(void *stk, size_t stksize, void *(*func)(void *), void *arg,
 	if (!self->ul_primarymap || self->ul_vfork)
 		return (ENOTSUP);
 
+	/*
+	 * Audit libraries may not create threads as they are effectively part
+	 * of the linker.
+	 */
+	if (self->ul_rtld || !primary_link_map)
+		return (ENOTSUP);
+
 	if (udp->hash_size == 1)
 		finish_init();
 
@@ -1260,7 +1267,6 @@ libc_init(void)
 	if (oldself != NULL && (oldself->ul_primarymap || !primary_link_map)) {
 		__tdb_bootstrap = oldself->ul_uberdata->tdb_bootstrap;
 		mutex_setup();
-		atfork_init();	/* every link map needs atfork() processing */
 		init_progname();
 		return;
 	}

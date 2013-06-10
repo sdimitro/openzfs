@@ -3491,7 +3491,8 @@ zfs_ioc_destroy(zfs_cmd_t *zc)
  * fsname is name of dataset to rollback (to most recent snapshot)
  *
  * innvl is not used.
- * outnvl is not used.
+ *
+ * outnvl: "target" -> name of most recent snapshot
  * }
  */
 /* ARGSUSED */
@@ -3506,13 +3507,13 @@ zfs_ioc_rollback(const char *fsname, nvlist_t *args, nvlist_t *outnvl)
 		if (error == 0) {
 			int resume_err;
 
-			error = dsl_dataset_rollback(fsname);
+			error = dsl_dataset_rollback(fsname, outnvl);
 			resume_err = zfs_resume_fs(zfsvfs, fsname);
 			error = error ? error : resume_err;
 		}
 		VFS_RELE(zfsvfs->z_vfs);
 	} else {
-		error = dsl_dataset_rollback(fsname);
+		error = dsl_dataset_rollback(fsname, outnvl);
 	}
 	return (error);
 }

@@ -100,7 +100,6 @@ typedef struct space_map {
  *   63  62    60 59        50 49                               0
  *
  *
- *
  * non-debug entry
  *
  *    1               47                   1           15

@@ -188,7 +188,7 @@ typedef struct zfs_hold_cleanup_arg {
 static void
 dsl_dataset_user_release_onexit(void *arg)
 {
-	zfs_hold_cleanup_arg_t *ca = (zfs_hold_cleanup_arg_t *)arg;
+	zfs_hold_cleanup_arg_t *ca = arg;
 	spa_t *spa;
 	int error;
 
@@ -408,8 +408,8 @@ dsl_dataset_user_release_check_one(dsl_dataset_user_release_arg_t *ddura,
 	}
 
 	if (numholds != 0) {
-		fnvlist_add_nvlist(ddura->ddura_chkholds,
-		    snapname, holds_found);
+		fnvlist_add_nvlist(ddura->ddura_chkholds, snapname,
+		    holds_found);
 	}
 	fnvlist_free(holds_found);
 
@@ -575,7 +575,7 @@ dsl_dataset_user_release_impl(nvlist_t *holds, nvlist_t *errlist,
 				char name[MAXNAMELEN];
 				dsl_dataset_name(ds, name);
 				dsl_dataset_rele(ds, FTAG);
-				zfs_unmount_snap(name);
+				(void) zfs_unmount_snap(name);
 			}
 		}
 		dsl_pool_config_exit(tmpdp, FTAG);
@@ -587,7 +587,7 @@ dsl_dataset_user_release_impl(nvlist_t *holds, nvlist_t *errlist,
 #ifdef _KERNEL
 		for (pair = nvlist_next_nvpair(holds, NULL); pair != NULL;
 		    pair = nvlist_next_nvpair(holds, pair)) {
-			zfs_unmount_snap(nvpair_name(pair));
+			(void) zfs_unmount_snap(nvpair_name(pair));
 		}
 #endif
 	}

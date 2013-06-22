@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
 
 #include <stdlib.h>
 #include <libelf.h>
@@ -34,8 +37,10 @@
 #include "libproc.h"
 #include "Pcontrol.h"
 
+/*ARGSUSED*/
 static ssize_t
-Pread_idle(struct ps_prochandle *P, void *buf, size_t n, uintptr_t addr)
+Pread_idle(struct ps_prochandle *P, void *buf, size_t n, uintptr_t addr,
+    void *data)
 {
 	size_t resid = n;
 
@@ -65,15 +70,54 @@ Pread_idle(struct ps_prochandle *P, void *buf, size_t n, uintptr_t addr)
 
 /*ARGSUSED*/
 static ssize_t
-Pwrite_idle(struct ps_prochandle *P, const void *buf, size_t n, uintptr_t addr)
+Pwrite_idle(struct ps_prochandle *P, const void *buf, size_t n, uintptr_t addr,
+    void *data)
 {
 	errno = EIO;
 	return (-1);
 }
 
-static const ps_rwops_t P_idle_ops = {
-	Pread_idle,
-	Pwrite_idle
+/*ARGSUSED*/
+static ssize_t
+Ppriv_idle(struct ps_prochandle *P, prpriv_t *pprv, size_t size, void *data)
+{
+	prpriv_t *pp = proc_get_priv(P->pid);
+	if (pp != NULL) {
+		size = MIN(size, PRIV_PRPRIV_SIZE(pp));
+		(void) memcpy(pprv, pp, size);
+		free(pp);
+		return (size);
+	}
+	return (-1);
+}
+
+/* Default operations for the idl ops vector. */
+static void *
+Pidle_voidp()
+{
+	errno = ENODATA;
+	return (NULL);
+}
+
+static int
+Pidle_int()
+{
+	errno = ENODATA;
+	return (-1);
+}
+
+static const ps_ops_t P_idle_ops = {
+	.pop_pread	= Pread_idle,
+	.pop_pwrite	= Pwrite_idle,
+	.pop_cred	= (pop_cred_t)Pidle_int,
+	.pop_priv	= Ppriv_idle,
+	.pop_psinfo	= (pop_psinfo_t)Pidle_voidp,
+	.pop_platform	= (pop_platform_t)Pidle_voidp,
+	.pop_uname	= (pop_uname_t)Pidle_int,
+	.pop_zonename	= (pop_zonename_t)Pidle_voidp,
+#if defined(__i386) || defined(__amd64)
+	.pop_ldt	= (pop_ldt_t)Pidle_int
+#endif
 };
 
 static int
@@ -143,7 +187,7 @@ Pgrab_file(const char *fname, int *perr)
 	P->agentctlfd = -1;
 	P->agentstatfd = -1;
 	P->info_valid = -1;
-	P->ops = &P_idle_ops;
+	Pinit_ops(&P->ops, &P_idle_ops);
 	Pinitsym(P);
 
 	if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
@@ -216,7 +260,7 @@ Pgrab_file(const char *fname, int *perr)
 
 		if ((php = gelf_getphdr(elf, i, &phdr)) == NULL) {
 			*perr = G_STRANGE;
-			goto err;
+	 		goto err;
 		}
 
 		if (php->p_type != PT_LOAD)

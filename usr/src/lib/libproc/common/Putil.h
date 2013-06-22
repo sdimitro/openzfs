@@ -23,6 +23,9 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
 
 #ifndef	_PUTIL_H
 #define	_PUTIL_H
@@ -63,6 +66,8 @@ extern int prset_ismember(void *, size_t, uint_t);
  * Routine to print debug messages:
  */
 extern void dprintf(const char *, ...);
+
+extern void Pinit_ops(ps_ops_t *, const ps_ops_t *);
 
 #ifdef	__cplusplus
 }

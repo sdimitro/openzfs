@@ -137,6 +137,11 @@ extern "C" {
  */
 #define	_FIO_COMPRESSED		_IO('f', 99) /* mark file as compressed */
 
+/*
+ * Expose fill information through ioctl
+ */
+#define	_FIO_COUNT_FILLED	_IO('f', 100)	/* count holes in a file */
+
 #ifdef	__cplusplus
 }
 #endif

@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -748,11 +748,10 @@ dpioctl(dev_t dev, int cmd, intptr_t arg, int mode, cred_t *credp, int *rvalp)
 			/*
 			 * Convert the deadline from relative milliseconds
 			 * to absolute nanoseconds.  They must wait for at
-			 * least a tick.
+			 * least userland_min_wait_ns
 			 */
-			deadline = deadline * NANOSEC / MILLISEC;
-			deadline = MAX(deadline, nsec_per_tick);
-			deadline += now;
+			deadline = now +
+			    MAX(MSEC2NSEC(deadline), userland_min_wait_ns);
 		}
 
 		if ((nfds = STRUCT_FGET(dvpoll, dp_nfds)) == 0) {

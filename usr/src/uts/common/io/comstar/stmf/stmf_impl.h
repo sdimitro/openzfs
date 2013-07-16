@@ -391,6 +391,8 @@ void stmf_generate_lu_event(stmf_i_lu_t *ilu, int eventid,
 				void *arg, uint32_t flags);
 void stmf_generate_lport_event(stmf_i_local_port_t *ilport, int eventid,
 						void *arg, uint32_t flags);
+uint16_t stmf_lun_to_num_bounded(uint8_t *lun);
+void stmf_set_auto_select_lun_num(uint8_t *lun);
 
 #ifdef	__cplusplus
 }

@@ -118,13 +118,15 @@ char sbd_revision[]	= "1.0 ";
 char *sbd_mgmt_url = NULL;
 uint16_t sbd_mgmt_url_alloc_size = 0;
 krwlock_t sbd_global_prop_lock;
+
+uint32_t sbd_delete_lu_timeout = 5; /* seconds */
 /*
  * When sbd_lu_busy_deadman_enabled is B_TRUE we will trigger a panic if we
  * are unabled to retrieve a LU in the specified timeout in
  * sbd_find_and_lock_lu_wait.
  */
 boolean_t sbd_lu_busy_deadman_enabled = B_TRUE;
-int sbd_lu_busy_deadman_timeout = 1000; /* seconds */
+uint32_t sbd_lu_busy_deadman_timeout = 1000; /* seconds */
 
 static char sbd_name[] = "sbd";
 
@@ -2962,6 +2964,8 @@ sbd_delete_locked_lu(sbd_lu_t *sl, uint32_t *err_ret,
 {
 	int i;
 	stmf_status_t ret;
+	const int msec_delay = 10;
+	uint32_t retries = sbd_delete_lu_timeout * 1000 / msec_delay;
 
 	if ((sl->sl_state == STMF_STATE_OFFLINE) &&
 	    !sl->sl_state_not_acked) {
@@ -2978,13 +2982,15 @@ sbd_delete_locked_lu(sbd_lu_t *sl, uint32_t *err_ret,
 		return (EBUSY);
 	}
 
-	for (i = 0; i < 500; i++) {
+	for (i = 0; i < retries; i++) {
 		if ((sl->sl_state == STMF_STATE_OFFLINE) &&
 		    !sl->sl_state_not_acked) {
 			goto sdl_do_dereg;
 		}
-		delay(drv_usectohz(10000));
+		delay(MSEC_TO_TICK(msec_delay));
 	}
+	DTRACE_PROBE2(delete__lu__timeout, sbd_lu_t *, sl,
+	    stmf_state_change_info_t *, ssi);
 	return (EBUSY);
 
 sdl_do_dereg:;

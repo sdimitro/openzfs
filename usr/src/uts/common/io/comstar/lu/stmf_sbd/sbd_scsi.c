@@ -22,6 +22,7 @@
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  *
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2013 Delphix. All rights reserved.
  */
 
 #include <sys/conf.h>
@@ -119,6 +120,18 @@ static void sbd_do_write_same_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
     struct stmf_data_buf *dbuf, uint8_t dbuf_reusable);
 static void sbd_handle_write_same_xfer_completion(struct scsi_task *task,
     sbd_cmd_t *scmd, struct stmf_data_buf *dbuf, uint8_t dbuf_reusable);
+
+#define SBD_ZCOPY_READ_ENABLED  0x1
+#define SBD_ZCOPY_WRITE_ENABLED 0x2
+uint32_t sbd_zcopy = SBD_ZCOPY_READ_ENABLED | SBD_ZCOPY_WRITE_ENABLED;
+uint32_t sbd_max_xfer_len = 0;   /* Valid if non-zero */
+uint32_t sbd_1st_xfer_len = 0;   /* Valid if non-zero */
+uint32_t sbd_copy_threshold = 0; /* Valid if non-zero */
+
+uint32_t sbd_max_initial_dbuf_size = 128 * 1024;
+uint32_t sbd_min_initial_dbuf_shift = 2; /* min initial size is max >> shift */
+uint32_t sbd_max_small_dbuf_per_xfer = 2;
+
 /*
  * IMPORTANT NOTE:
  * =================
@@ -128,21 +141,35 @@ static void sbd_handle_write_same_xfer_completion(struct scsi_task *task,
  * will be tons of race conditions.
  */
 
+static void
+sbd_get_max_min_dbuf_sizes(uint32_t len, uint32_t *max, uint32_t *min)
+{
+	*max = len > sbd_max_initial_dbuf_size ? sbd_max_initial_dbuf_size :
+	    len;
+	*min = *max >> sbd_min_initial_dbuf_shift;
+}
+
+static uint32_t
+sbd_get_nbufs_to_take(scsi_task_t *task)
+{
+	uint32_t small_buf_len = sbd_max_initial_dbuf_size >>
+	    sbd_min_initial_dbuf_shift;
+	return (task->task_max_nbufs > sbd_max_small_dbuf_per_xfer &&
+	    task->task_cmd_xfer_length < small_buf_len ?
+	    sbd_max_small_dbuf_per_xfer : task->task_max_nbufs);
+}
+
 void
 sbd_do_read_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
 					struct stmf_data_buf *dbuf)
 {
 	sbd_lu_t *sl = (sbd_lu_t *)task->task_lu->lu_provider_private;
 	uint64_t laddr;
-	uint32_t len, buflen, iolen;
+	uint32_t len, buflen, iolen, bufs_to_take;
 	int ndx;
-	int bufs_to_take;
 
 	/* Lets try not to hog all the buffers the port has. */
-	bufs_to_take = ((task->task_max_nbufs > 2) &&
-	    (task->task_cmd_xfer_length < (32 * 1024))) ? 2 :
-	    task->task_max_nbufs;
-
+	bufs_to_take = sbd_get_nbufs_to_take(task);
 	len = scmd->len > dbuf->db_buf_size ? dbuf->db_buf_size : scmd->len;
 	laddr = scmd->addr + scmd->current_ro;
 
@@ -172,8 +199,7 @@ sbd_do_read_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
 	if (scmd->len && (scmd->nbufs < bufs_to_take)) {
 		uint32_t maxsize, minsize, old_minsize;
 
-		maxsize = (scmd->len > (128*1024)) ? 128*1024 : scmd->len;
-		minsize = maxsize >> 2;
+		sbd_get_max_min_dbuf_sizes(scmd->len, &maxsize, &minsize);
 		do {
 			/*
 			 * A bad port implementation can keep on failing the
@@ -191,19 +217,6 @@ sbd_do_read_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
 		sbd_do_read_xfer(task, scmd, dbuf);
 	}
 }
-
-/*
- * sbd_zcopy: Bail-out switch for reduced copy path.
- *
- * 0 - read & write off
- * 1 - read & write on
- * 2 - only read on
- * 4 - only write on
- */
-int sbd_zcopy = 1;	/* enable zcopy read & write path */
-uint32_t sbd_max_xfer_len = 0;		/* Valid if non-zero */
-uint32_t sbd_1st_xfer_len = 0;		/* Valid if non-zero */
-uint32_t sbd_copy_threshold = 0;		/* Valid if non-zero */
 
 static void
 sbd_do_sgl_read_xfer(struct scsi_task *task, sbd_cmd_t *scmd, int first_xfer)
@@ -476,8 +489,7 @@ sbd_handle_read_xfer_completion(struct scsi_task *task, sbd_cmd_t *scmd,
 		uint32_t maxsize, minsize, old_minsize;
 		stmf_free_dbuf(task, dbuf);
 
-		maxsize = (scmd->len > (128*1024)) ? 128*1024 : scmd->len;
-		minsize = maxsize >> 2;
+		sbd_get_max_min_dbuf_sizes(scmd->len, &maxsize, &minsize);
 		do {
 			old_minsize = minsize;
 			dbuf = stmf_alloc_dbuf(task, maxsize, &minsize, 0);
@@ -863,9 +875,9 @@ sbd_handle_read(struct scsi_task *task, struct stmf_data_buf *initial_dbuf)
 	/*
 	 * Determine if this read can directly use DMU buffers.
 	 */
-	if (sbd_zcopy & (2|1) &&		/* Debug switch */
+	if ((sbd_zcopy & SBD_ZCOPY_READ_ENABLED) &&
 	    initial_dbuf == NULL &&		/* No PP buffer passed in */
-	    sl->sl_flags & SL_CALL_ZVOL &&	/* zvol backing store */
+	    (sl->sl_flags & SL_CALL_ZVOL) &&	/* zvol backing store */
 	    (task->task_additional_flags &
 	    TASK_AF_ACCEPT_LU_DBUF))		/* PP allows it */
 	{
@@ -952,8 +964,7 @@ sbd_handle_read(struct scsi_task *task, struct stmf_data_buf *initial_dbuf)
 	if (initial_dbuf == NULL) {
 		uint32_t maxsize, minsize, old_minsize;
 
-		maxsize = (len > (128*1024)) ? 128*1024 : len;
-		minsize = maxsize >> 2;
+		sbd_get_max_min_dbuf_sizes(len, &maxsize, &minsize);
 		do {
 			old_minsize = minsize;
 			initial_dbuf = stmf_alloc_dbuf(task, maxsize,
@@ -1007,17 +1018,14 @@ void
 sbd_do_write_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
     struct stmf_data_buf *dbuf, uint8_t dbuf_reusable)
 {
-	uint32_t len;
-	int bufs_to_take;
+	uint32_t len, bufs_to_take;
 
 	if (scmd->len == 0) {
 		goto DO_WRITE_XFER_DONE;
 	}
 
 	/* Lets try not to hog all the buffers the port has. */
-	bufs_to_take = ((task->task_max_nbufs > 2) &&
-	    (task->task_cmd_xfer_length < (32 * 1024))) ? 2 :
-	    task->task_max_nbufs;
+	bufs_to_take = sbd_get_nbufs_to_take(task);
 
 	if ((dbuf != NULL) &&
 	    ((dbuf->db_flags & DB_DONT_REUSE) || (dbuf_reusable == 0))) {
@@ -1031,9 +1039,7 @@ sbd_do_write_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
 	if (dbuf == NULL) {
 		uint32_t maxsize, minsize, old_minsize;
 
-		maxsize = (scmd->len > (128*1024)) ? 128*1024 :
-		    scmd->len;
-		minsize = maxsize >> 2;
+		sbd_get_max_min_dbuf_sizes(scmd->len, &maxsize, &minsize);
 		do {
 			old_minsize = minsize;
 			dbuf = stmf_alloc_dbuf(task, maxsize, &minsize, 0);
@@ -1333,7 +1339,7 @@ sbd_handle_write_xfer_completion(struct scsi_task *task, sbd_cmd_t *scmd,
 	 */
 	if (sl->sl_flags & SL_CALL_ZVOL &&
 	    (task->task_additional_flags & TASK_AF_ACCEPT_LU_DBUF) &&
-	    (sbd_zcopy & (4|1))) {
+	    (sbd_zcopy & SBD_ZCOPY_WRITE_ENABLED)) {
 		int commit;
 
 		commit = (scmd->len == 0 && scmd->nbufs == 0);
@@ -1492,9 +1498,9 @@ sbd_handle_write(struct scsi_task *task, struct stmf_data_buf *initial_dbuf)
 		return;
 	}
 
-	if (sbd_zcopy & (4|1) &&		/* Debug switch */
+	if ((sbd_zcopy & SBD_ZCOPY_WRITE_ENABLED) &&
 	    initial_dbuf == NULL &&		/* No PP buf passed in */
-	    sl->sl_flags & SL_CALL_ZVOL &&	/* zvol backing store */
+	    (sl->sl_flags & SL_CALL_ZVOL) &&	/* zvol backing store */
 	    (task->task_additional_flags &
 	    TASK_AF_ACCEPT_LU_DBUF) &&		/* PP allows it */
 	    sbd_zcopy_write_useful(task, laddr, len, sl->sl_blksize)) {
@@ -2390,9 +2396,7 @@ sbd_do_write_same_xfer(struct scsi_task *task, sbd_cmd_t *scmd,
 	if (dbuf == NULL) {
 		uint32_t maxsize, minsize, old_minsize;
 
-		maxsize = (scmd->len > (128*1024)) ? 128*1024 :
-		    scmd->len;
-		minsize = maxsize >> 2;
+		sbd_get_max_min_dbuf_sizes(scmd->len, &maxsize, &minsize);
 		do {
 			old_minsize = minsize;
 			dbuf = stmf_alloc_dbuf(task, maxsize, &minsize, 0);

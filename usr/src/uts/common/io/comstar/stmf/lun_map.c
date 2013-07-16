@@ -71,6 +71,51 @@ int stmf_merge_ve_map(stmf_lun_map_t *src, stmf_lun_map_t *dst,
 void stmf_destroy_ve_map(stmf_lun_map_t *dst);
 void stmf_free_id(stmf_id_data_t *id);
 
+#define STMF_MAX_LUN_NUM 0x3FFF
+#define STMF_AUTO_SELECT_NUM_MAGIC 0xFF
+#define STMF_INVALID_LUN_NUM 0xFFFF
+
+#define STMF_LUN_TO_NUM(lun) \
+    ((uint16_t)lun[1] | (((uint16_t)lun[0]) << 8))
+
+uint16_t
+stmf_lun_to_num_bounded(uint8_t *lun)
+{
+	return (STMF_LUN_TO_NUM(lun) & STMF_MAX_LUN_NUM);
+}
+
+static boolean_t
+stmf_lun_valid(uint8_t *lun)
+{
+	return (STMF_LUN_TO_NUM(lun) <= STMF_MAX_LUN_NUM);
+}
+
+void
+stmf_set_auto_select_lun_num(uint8_t *lun)
+{
+	lun[2] = STMF_AUTO_SELECT_NUM_MAGIC;
+}
+
+static boolean_t
+stmf_is_auto_select_lun_num(uint8_t *lun)
+{
+	return (lun[2] == STMF_AUTO_SELECT_NUM_MAGIC);
+}
+
+static void
+stmf_copy_lun_num(uint8_t *src, uint8_t *dst)
+{
+	dst[0] = src[0];
+	dst[1] = src[1];
+}
+
+static void
+stmf_num_to_lun(uint16_t num, uint8_t *lun)
+{
+	ASSERT(num <= STMF_MAX_LUN_NUM);
+	lun[0] = (num >> 8) & 0xff;
+	lun[1] = num & 0xff;
+}
 
 /*
  * Init the view
@@ -358,6 +403,7 @@ stmf_add_lu_to_active_sessions(stmf_lu_t *lu)
 		stmf_update_sessions_per_ve(ve, lu, 1);
 	}
 }
+
 /*
  * Unmap a lun from all sessions
  */
@@ -391,6 +437,7 @@ stmf_session_lu_unmapall(stmf_lu_t *lu)
 			break;
 	}
 }
+
 /*
  * add lu to a session, stmf_lock is already held
  */
@@ -405,8 +452,7 @@ stmf_add_lu_to_session(stmf_i_local_port_t *ilport,
 	stmf_i_lu_t *ilu = (stmf_i_lu_t *)lu->lu_stmf_private;
 	stmf_lun_map_ent_t *lun_map_ent;
 	uint32_t new_flags = 0;
-	uint16_t luNbr =
-	    ((uint16_t)lu_nbr[1] | (((uint16_t)(lu_nbr[0] & 0x3F)) << 8));
+	uint16_t luNbr = stmf_lun_to_num_bounded(lu_nbr);
 
 	ASSERT(mutex_owned(&stmf_state.stmf_lock));
 	ASSERT(!stmf_get_ent_from_map(sm, luNbr));
@@ -449,8 +495,7 @@ stmf_remove_lu_from_session(stmf_i_local_port_t *ilport,
 	stmf_i_lu_t *ilu;
 	stmf_lun_map_t *sm = iss->iss_sm;
 	stmf_lun_map_ent_t *lun_map_ent;
-	uint16_t luNbr =
-	    ((uint16_t)lu_nbr[1] | (((uint16_t)(lu_nbr[0] & 0x3F)) << 8));
+	uint16_t luNbr = stmf_lun_to_num_bounded(lu_nbr);
 
 	ASSERT(mutex_owned(&stmf_state.stmf_lock));
 	lun_map_ent = stmf_get_ent_from_map(sm, luNbr);
@@ -598,10 +643,10 @@ stmf_alloc_id(uint16_t id_size, uint16_t type, uint8_t *id_data,
 	stmf_id_data_t *id;
 	int struct_size, total_size, real_id_size;
 
-	real_id_size = ((uint32_t)id_size + 7) & (~7);
-	struct_size = (sizeof (*id) + 7) & (~7);
-	total_size = ((additional_size + 7) & (~7)) + struct_size +
-	    real_id_size;
+	real_id_size = P2ROUNDUP(id_size, 8);
+	struct_size = P2ROUNDUP(sizeof (*id), 8);
+	total_size = P2ROUNDUP(additional_size, 8) + real_id_size
+	    + struct_size;
 	id = (stmf_id_data_t *)kmem_zalloc(total_size, KM_SLEEP);
 	id->id_type = type;
 	id->id_data_size = id_size;
@@ -622,7 +667,6 @@ stmf_free_id(stmf_id_data_t *id)
 	kmem_free(id, id->id_total_alloc_size);
 }
 
-
 stmf_id_data_t *
 stmf_lookup_id(stmf_id_list_t *idlist, uint16_t id_size, uint8_t *data)
 {
@@ -637,6 +681,7 @@ stmf_lookup_id(stmf_id_list_t *idlist, uint16_t id_size, uint8_t *data)
 
 	return (NULL);
 }
+
 /* Return the target group which a target belong to */
 stmf_id_data_t *
 stmf_lookup_group_for_target(uint8_t *ident, uint16_t ident_size)
@@ -656,6 +701,7 @@ stmf_lookup_group_for_target(uint8_t *ident, uint16_t ident_size)
 	}
 	return (NULL);
 }
+
 /* Return the host group which a host belong to */
 stmf_id_data_t *
 stmf_lookup_group_for_host(uint8_t *ident, uint16_t ident_size)
@@ -706,7 +752,6 @@ stmf_remove_id(stmf_id_list_t *idlist, stmf_id_data_t *id)
 	}
 	atomic_add_32(&idlist->id_count, -1);
 }
-
 
 /*
  * The refcnts of objects in a view entry are updated when then entry
@@ -939,7 +984,7 @@ stmf_add_view_entry(stmf_id_data_t *hg, stmf_id_data_t *tg,
 
 	ASSERT(mutex_owned(&stmf_state.stmf_lock));
 
-	lun_num = ((uint16_t)lun[1] | (((uint16_t)(lun[0] & 0x3F)) << 8));
+	lun_num = stmf_lun_to_num_bounded(lun);
 
 	luid = stmf_lookup_id(&stmf_state.stmf_luid_list, 16, lu_guid);
 	if (luid == NULL) {
@@ -993,12 +1038,12 @@ stmf_add_view_entry(stmf_id_data_t *hg, stmf_id_data_t *tg,
 		}
 	}
 
-	if (lun[2] == 0xFF) {
+	if (stmf_is_auto_select_lun_num(lun)) {
 		/* Pick a LUN number */
 		lun_num = stmf_get_next_free_lun(ve_map, lun);
-		if (lun_num > 0x3FFF) {
+		if (lun_num == STMF_INVALID_LUN_NUM) {
 			stmf_destroy_ve_map(ve_map);
-			ret = STMF_NOT_SUPPORTED;
+			ret = STMF_LUN_TAKEN;
 			goto add_ve_err_ret;
 		}
 	} else {
@@ -1015,8 +1060,7 @@ stmf_add_view_entry(stmf_id_data_t *hg, stmf_id_data_t *tg,
 	/* All is well, do the actual addition now */
 	ve = (stmf_view_entry_t *)kmem_zalloc(sizeof (*ve), KM_SLEEP);
 	ve->ve_id = *ve_id;
-	ve->ve_lun[0] = lun[0];
-	ve->ve_lun[1] = lun[1];
+	stmf_copy_lun_num(lun, ve->ve_lun);
 
 	if ((ret = stmf_add_ve_to_luid(luid, ve)) != STMF_SUCCESS) {
 		kmem_free(ve, sizeof (stmf_view_entry_t));
@@ -1073,10 +1117,11 @@ stmf_status_t
 stmf_add_ent_to_map(stmf_lun_map_t *lm, void *ent, uint8_t *lun)
 {
 	uint16_t n;
-	if (((lun[0] & 0xc0) >> 6) != 0)
+
+	if (!stmf_lun_valid(lun))
 		return (STMF_FAILURE);
 
-	n = (uint16_t)lun[1] | (((uint16_t)(lun[0] & 0x3F)) << 8);
+	n = stmf_lun_to_num_bounded(lun);
 try_again_to_add:
 	if (lm->lm_nentries && (n < lm->lm_nentries)) {
 		if (lm->lm_plus[n] == NULL) {
@@ -1088,8 +1133,7 @@ try_again_to_add:
 		}
 	} else {
 		void **pplu;
-		uint16_t m = n + 1;
-		m = ((m + 7) & ~7) & 0x7FFF;
+		uint16_t m = P2ROUNDUP(n + 1, 8);
 		pplu = (void **)kmem_zalloc(m * sizeof (void *), KM_SLEEP);
 		bcopy(lm->lm_plus, pplu,
 		    lm->lm_nentries * sizeof (void *));
@@ -1105,11 +1149,11 @@ stmf_status_t
 stmf_remove_ent_from_map(stmf_lun_map_t *lm, uint8_t *lun)
 {
 	uint16_t n, i;
-	uint8_t lutype = (lun[0] & 0xc0) >> 6;
-	if (lutype != 0)
+
+	if (!stmf_lun_valid(lun))
 		return (STMF_FAILURE);
 
-	n = (uint16_t)lun[1] | (((uint16_t)(lun[0] & 0x3F)) << 8);
+	n = stmf_lun_to_num_bounded(lun);
 
 	if (n >= lm->lm_nentries)
 		return (STMF_NOT_FOUND);
@@ -1143,19 +1187,17 @@ stmf_get_next_free_lun(stmf_lun_map_t *sm, uint8_t *lun)
 {
 	uint16_t luNbr;
 
-
-	if (sm->lm_nluns < 0x4000) {
+	if (sm->lm_nluns <= STMF_MAX_LUN_NUM) {
 		for (luNbr = 0; luNbr < sm->lm_nentries; luNbr++) {
 			if (sm->lm_plus[luNbr] == NULL)
 				break;
 		}
 	} else {
-		return (0xFFFF);
+		return (STMF_INVALID_LUN_NUM);
 	}
 	if (lun) {
 		bzero(lun, 8);
-		lun[1] = luNbr & 0xff;
-		lun[0] = (luNbr >> 8) & 0xff;
+		stmf_num_to_lun(luNbr, lun);
 	}
 
 	return (luNbr);
@@ -1164,14 +1206,8 @@ stmf_get_next_free_lun(stmf_lun_map_t *sm, uint8_t *lun)
 void *
 stmf_get_ent_from_map(stmf_lun_map_t *sm, uint16_t lun_num)
 {
-	if ((lun_num & 0xC000) == 0) {
-		if (sm->lm_nentries > lun_num)
-			return (sm->lm_plus[lun_num & 0x3FFF]);
-		else
-			return (NULL);
-	}
-
-	return (NULL);
+	ASSERT(lun_num <= STMF_MAX_LUN_NUM);
+	return (sm->lm_nentries > lun_num ? sm->lm_plus[lun_num] : NULL);
 }
 
 int
@@ -1223,7 +1259,7 @@ stmf_remove_ve_by_id(uint8_t *guid, uint32_t veid, uint32_t *err_detail)
 	stmf_ver_hg_t *vhg;
 	stmf_ver_tg_t *prev_vtg = NULL;
 	stmf_ver_hg_t *prev_vhg = NULL;
-	int found = 0;
+	boolean_t found = B_FALSE;
 	stmf_i_lu_t *ilu;
 
 	ASSERT(mutex_owned(&stmf_state.stmf_lock));
@@ -1263,7 +1299,7 @@ stmf_remove_ve_by_id(uint8_t *guid, uint32_t veid, uint32_t *err_detail)
 	/* we need to update ver_hg->verh_ve_map */
 	for (vtg = stmf_state.stmf_ver_tg_head; vtg; vtg = vtg->vert_next) {
 		if (vtg->vert_tg_ref == ve->ve_tg) {
-			found = 1;
+			found = B_TRUE;
 			break;
 		}
 		prev_vtg = vtg;
@@ -1272,7 +1308,7 @@ stmf_remove_ve_by_id(uint8_t *guid, uint32_t veid, uint32_t *err_detail)
 	found = 0;
 	for (vhg = vtg->vert_verh_list; vhg; vhg = vhg->verh_next) {
 		if (vhg->verh_hg_ref == ve->ve_hg) {
-			found = 1;
+			found = B_TRUE;
 			break;
 		}
 		prev_vhg = vhg;
@@ -1659,16 +1695,16 @@ stmf_luident_to_ilu(uint8_t *lu_ident)
 stmf_lun_map_t *
 stmf_get_ve_map_per_ids(stmf_id_data_t *tgid, stmf_id_data_t *hgid)
 {
-	int found = 0;
 	stmf_ver_tg_t *vertg;
 	stmf_ver_hg_t *verhg;
+	boolean_t found = B_FALSE;
 
 	ASSERT(mutex_owned(&stmf_state.stmf_lock));
 
 	for (vertg = stmf_state.stmf_ver_tg_head;
 	    vertg; vertg = vertg->vert_next) {
 		if (vertg->vert_tg_ref == tgid) {
-			found = 1;
+			found = B_TRUE;
 			break;
 		}
 	}
@@ -1718,13 +1754,13 @@ stmf_validate_lun_view_entry(stmf_id_data_t *hg, stmf_id_data_t *tg,
 
 	ret = STMF_SUCCESS;
 	/* Return an available lun number */
-	if (lun[2] == 0xFF) {
+	if (stmf_is_auto_select_lun_num(lun)) {
 		/* Pick a LUN number */
 		lun_num = stmf_get_next_free_lun(ve_map, lun);
-		if (lun_num > 0x3FFF)
+		if (lun_num > STMF_MAX_LUN_NUM)
 			ret = STMF_NOT_SUPPORTED;
 	} else {
-		lun_num = (uint16_t)lun[1] | (((uint16_t)(lun[0] & 0x3F)) << 8);
+		lun_num = stmf_lun_to_num_bounded(lun);
 		if (stmf_get_ent_from_map(ve_map, lun_num) != NULL) {
 			*err_detail = STMF_IOCERR_LU_NUMBER_IN_USE;
 			ret = STMF_LUN_TAKEN;

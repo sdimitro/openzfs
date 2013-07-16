@@ -173,7 +173,7 @@ reexec(char **last_arg, char **orig_argv, char **first_arg) {
 	dir = dirname(fullpath); /* this takes us from /a/b/c to /a/b */
 	dir = dirname(dir);	 /* and now we're at /a */
 
-	(void) sprintf(newpath, "%s/%s/%s", dir, (is64 ? "amd64": "i86"), basename(ename));
+	(void) snprintf(newpath, PATH_MAX, "%s/%s/%s", dir, (is64 ? "amd64": "i86"), basename(ename));
 
 	orig_argv[0] = newpath;
 

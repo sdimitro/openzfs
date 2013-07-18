@@ -186,7 +186,7 @@ static const ps_ops_t P_default_ops = {
 	.pop_read_maps	= (pop_read_maps_t)Pdefault_int,
 	.pop_read_aux	= (pop_read_aux_t)Pdefault_void,
 	.pop_cred	= (pop_cred_t)Pdefault_int,
-	.pop_priv	= (pop_priv_t)Pdefault_ssizet,
+	.pop_priv	= (pop_priv_t)Pdefault_int,
 	.pop_psinfo	= (pop_psinfo_t)Pdefault_voidp,
 	.pop_status	= (pop_status_t)Pdefault_void,
 	.pop_lstatus	= (pop_lstatus_t)Pdefault_voidp,
@@ -195,6 +195,7 @@ static const ps_ops_t P_default_ops = {
 	.pop_platform	= (pop_platform_t)Pdefault_voidp,
 	.pop_uname	= (pop_uname_t)Pdefault_int,
 	.pop_zonename	= (pop_zonename_t)Pdefault_voidp,
+	.pop_execname	= (pop_execname_t)Pdefault_voidp,
 #if defined(__i386) || defined(__amd64)
 	.pop_ldt	= (pop_ldt_t)Pdefault_int
 #endif
@@ -232,6 +233,14 @@ Pinit_ops(ps_ops_t *dst, const ps_ops_t *src)
 		dst->pop_lpsinfo = src->pop_lpsinfo;
 	if (src->pop_fini != NULL)
 		dst->pop_fini = src->pop_fini;
+	if (src->pop_platform != NULL)
+		dst->pop_platform = src->pop_platform;
+	if (src->pop_uname != NULL)
+		dst->pop_uname = src->pop_uname;
+	if (src->pop_zonename != NULL)
+		dst->pop_zonename = src->pop_zonename;
+	if (src->pop_execname != NULL)
+		dst->pop_execname = src->pop_execname;
 #if defined(__i386) || defined(__amd64)
 	if (src->pop_ldt != NULL)
 		dst->pop_ldt = src->pop_ldt;

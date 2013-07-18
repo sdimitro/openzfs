@@ -176,17 +176,18 @@ Pcred_live(struct ps_prochandle *P, prcred_t *pcrp, int ngroups, void *data)
 }
 
 /*ARGSUSED*/
-static ssize_t
-Ppriv_live(struct ps_prochandle *P, prpriv_t *pprv, size_t size, void *data)
+static int
+Ppriv_live(struct ps_prochandle *P, prpriv_t **pprv, void *data)
 {
-	prpriv_t *pp = proc_get_priv(P->pid);
-	if (pp != NULL) {
-		size = MIN(size, PRIV_PRPRIV_SIZE(pp));
-		(void) memcpy(pprv, pp, size);
-		free(pp);
-		return (size);
+	prpriv_t *pp;
+
+	pp = proc_get_priv(P->pid);
+	if (pp == NULL) {
+		return (-1);
 	}
-	return (-1);
+
+	*pprv = pp;
+	return (0);
 }
 
 /*ARGSUSED*/
@@ -239,6 +240,68 @@ Pzonename_live(struct ps_prochandle *P, char *s, size_t n, void *data)
 	return (s);
 }
 
+/*
+ * Callback function for Pfindexec().  We return a match if we can stat the
+ * suggested pathname and confirm its device and inode number match our
+ * previous information about the /proc/<pid>/object/a.out file.
+ */
+static int
+stat_exec(const char *path, void *arg)
+{
+	struct stat64 *stp = arg;
+	struct stat64 st;
+
+	return (stat64(path, &st) == 0 && S_ISREG(st.st_mode) &&
+	    stp->st_dev == st.st_dev && stp->st_ino == st.st_ino);
+}
+
+/*ARGSUSED*/
+static char *
+Pexecname_live(struct ps_prochandle *P, char *buf, size_t buflen, void *data)
+{
+	char exec_name[PATH_MAX];
+	char cwd[PATH_MAX];
+	char proc_cwd[64];
+	struct stat64 st;
+	int ret;
+
+	/*
+	 * Try to get the path information first.
+	 */
+	(void) snprintf(exec_name, sizeof (exec_name),
+	    "%s/%d/path/a.out", procfs_path, (int)P->pid);
+	if ((ret = readlink(exec_name, buf, buflen - 1)) > 0) {
+		buf[ret] = '\0';
+		(void) Pfindobj(P, buf, buf, buflen);
+		return (buf);
+	}
+
+	/*
+	 * Stat the executable file so we can compare Pfindexec's
+	 * suggestions to the actual device and inode number.
+	 */
+	(void) snprintf(exec_name, sizeof (exec_name),
+	    "%s/%d/object/a.out", procfs_path, (int)P->pid);
+
+	if (stat64(exec_name, &st) != 0 || !S_ISREG(st.st_mode))
+		return (NULL);
+
+	/*
+	 * Attempt to figure out the current working directory of the
+	 * target process.  This only works if the target process has
+	 * not changed its current directory since it was exec'd.
+	 */
+	(void) snprintf(proc_cwd, sizeof (proc_cwd),
+	    "%s/%d/path/cwd", procfs_path, (int)P->pid);
+
+	if ((ret = readlink(proc_cwd, cwd, PATH_MAX - 1)) > 0)
+		cwd[ret] = '\0';
+
+	(void) Pfindexec(P, ret > 0 ? cwd : NULL, stat_exec, &st);
+
+	return (NULL);
+}
+
 #if defined(__i386) || defined(__amd64)
 /*ARGSUSED*/
 static int
@@ -261,6 +324,7 @@ static const ps_ops_t P_live_ops = {
 	.pop_platform	= Pplatform_live,
 	.pop_uname	= Puname_live,
 	.pop_zonename	= Pzonename_live,
+	.pop_execname	= Pexecname_live,
 #if defined(__i386) || defined(__amd64)
 	.pop_ldt	= Pldt_live
 #endif
@@ -1210,7 +1274,7 @@ Pstatus(struct ps_prochandle *P)
 	return (&P->status);
 }
 
-void
+static void
 Pread_status(struct ps_prochandle *P)
 {
 	P->ops.pop_status(P, &P->status, P->data);
@@ -1257,12 +1321,12 @@ Pldt(struct ps_prochandle *P, struct ssd *pldt, int nldt)
 #endif	/* __i386 */
 
 /*
- * Fill in a pointer to a process privilege structure.
+ * Return a malloced process privilege structure in *pprv.
  */
-ssize_t
-Ppriv(struct ps_prochandle *P, prpriv_t *pprv, size_t size)
+int
+Ppriv(struct ps_prochandle *P, prpriv_t **pprv)
 {
-	return (P->ops.pop_priv(P, pprv, size, P->data));
+	return (P->ops.pop_priv(P, pprv, P->data));
 }
 
 int
@@ -2094,8 +2158,7 @@ Pread_string(struct ps_prochandle *P,
 
 	for (nbyte = STRSZ; nbyte == STRSZ && leng < size; addr += STRSZ) {
 		if ((nbyte = P->ops.pop_pread(P, string, STRSZ, addr,
-				    P->data))
-		    <= 0) {
+		    P->data)) <= 0) {
 			buf[leng] = '\0';
 			return (leng ? leng : -1);
 		}
@@ -3825,7 +3888,7 @@ Psort_mappings(struct ps_prochandle *P)
 }
 
 struct ps_prochandle *
-Pgrab_ops(pid_t pid, void *data, ps_ops_t *ops)
+Pgrab_ops(pid_t pid, void *data, const ps_ops_t *ops, int flags)
 {
 	struct ps_prochandle *P;
 
@@ -3833,8 +3896,8 @@ Pgrab_ops(pid_t pid, void *data, ps_ops_t *ops)
 		return (NULL);
 	}
 
+	Pinit_ops(&P->ops, ops);
 	(void) mutex_init(&P->proc_lock, USYNC_THREAD, NULL);
-	Pread_status(P);
 	P->pid = pid;
 	P->state = PS_STOP;
 	P->asfd = -1;
@@ -3843,8 +3906,12 @@ Pgrab_ops(pid_t pid, void *data, ps_ops_t *ops)
 	P->agentctlfd = -1;
 	P->agentstatfd = -1;
 	Pinitsym(P);
-	Pinit_ops(&P->ops, ops);
 	P->data = data;
+	Pread_status(P);
+
+	if (flags & PGRAB_INCORE) {
+		P->flags |= INCORE;
+	}
 
 	return (P);
 }

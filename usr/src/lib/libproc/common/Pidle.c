@@ -78,17 +78,18 @@ Pwrite_idle(struct ps_prochandle *P, const void *buf, size_t n, uintptr_t addr,
 }
 
 /*ARGSUSED*/
-static ssize_t
-Ppriv_idle(struct ps_prochandle *P, prpriv_t *pprv, size_t size, void *data)
+static int
+Ppriv_idle(struct ps_prochandle *P, prpriv_t **pprv, void *data)
 {
-	prpriv_t *pp = proc_get_priv(P->pid);
-	if (pp != NULL) {
-		size = MIN(size, PRIV_PRPRIV_SIZE(pp));
-		(void) memcpy(pprv, pp, size);
-		free(pp);
-		return (size);
+	prpriv_t *pp;
+
+	pp = proc_get_priv(P->pid);
+	if (pp == NULL) {
+		return (-1);
 	}
-	return (-1);
+
+	*pprv = pp;
+	return (0);
 }
 
 /* Default operations for the idl ops vector. */
@@ -260,7 +261,7 @@ Pgrab_file(const char *fname, int *perr)
 
 		if ((php = gelf_getphdr(elf, i, &phdr)) == NULL) {
 			*perr = G_STRANGE;
-	 		goto err;
+			goto err;
 		}
 
 		if (php->p_type != PT_LOAD)

@@ -1636,7 +1636,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * the in-core elf image.
 	 */
 
-	if (_libproc_incore_elf) {
+	if (_libproc_incore_elf || (P->flags & INCORE)) {
 		dprintf("Pbuild_file_symtab: using in-core data for: %s\n",
 		    fptr->file_pname);
 

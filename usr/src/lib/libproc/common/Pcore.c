@@ -154,18 +154,23 @@ Pcred_core(struct ps_prochandle *P, prcred_t *pcrp, int ngroups, void *data)
 }
 
 /*ARGSUSED*/
-static ssize_t
-Ppriv_core(struct ps_prochandle *P, prpriv_t *pprv, size_t size, void *data)
+static int
+Ppriv_core(struct ps_prochandle *P, prpriv_t **pprv, void *data)
 {
 	core_info_t *core = data;
 
-	if (core->core_priv != NULL) {
-		size = MIN(core->core_priv_size, size);
-		(void) memcpy(pprv, core->core_priv, size);
-		return (size);
+	if (core->core_priv == NULL) {
+		errno = ENODATA;
+		return (-1);
 	}
-	errno = ENODATA;
-	return (-1);
+
+	*pprv = malloc(core->core_priv_size);
+	if (*pprv == NULL) {
+		return (-1);
+	}
+
+	(void) memcpy(*pprv, core->core_priv, core->core_priv_size);
+	return (0);
 }
 
 /*ARGSUSED*/

@@ -242,6 +242,7 @@ struct ps_prochandle {
 #define	SETEXIT		0x10	/* set sysexit trace mask before continuing */
 #define	SETHOLD		0x20	/* set signal hold mask before continuing */
 #define	SETREGS		0x40	/* set registers before continuing */
+#define	INCORE		0x80	/* use in-core data to build symbol tables */
 
 struct ps_lwphandle {
 	struct ps_prochandle *lwp_proc;	/* process to which this lwp belongs */

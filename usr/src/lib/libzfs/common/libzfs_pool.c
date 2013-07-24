@@ -412,10 +412,9 @@ zpool_valid_proplist(libzfs_handle_t *hdl, const char *poolname,
 		prop = zpool_name_to_prop(propname);
 		if (prop == ZPROP_INVAL && zpool_prop_feature(propname)) {
 			int err;
-			zfeature_info_t *feature;
 			char *fname = strchr(propname, '@') + 1;
 
-			err = zfeature_lookup_name(fname, &feature);
+			err = zfeature_lookup_name(fname, NULL);
 			if (err != 0) {
 				ASSERT3U(err, ==, ENOENT);
 				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
@@ -806,14 +805,14 @@ zpool_prop_get_feature(zpool_handle_t *zhp, const char *propname, char *buf,
 	 */
 	if (supported) {
 		int ret;
-		zfeature_info_t *fi;
+		spa_feature_t fid;
 
-		ret = zfeature_lookup_name(feature, &fi);
+		ret = zfeature_lookup_name(feature, &fid);
 		if (ret != 0) {
 			(void) strlcpy(buf, "-", len);
 			return (ENOTSUP);
 		}
-		feature = fi->fi_guid;
+		feature = spa_feature_table[fid].fi_guid;
 	}
 
 	if (nvlist_lookup_uint64(features, feature, &refcount) == 0)

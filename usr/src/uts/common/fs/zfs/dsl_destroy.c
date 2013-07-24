@@ -724,10 +724,6 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 		ds->ds_prev->ds_phys->ds_num_children--;
 	}
 
-	zfeature_info_t *async_destroy =
-	    &spa_feature_table[SPA_FEATURE_ASYNC_DESTROY];
-	objset_t *os;
-
 	/*
 	 * Destroy the deadlist.  Unless it's a clone, the
 	 * deadlist should be empty.  (If it's a clone, it's
@@ -738,9 +734,10 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 	dmu_buf_will_dirty(ds->ds_dbuf, tx);
 	ds->ds_phys->ds_deadlist_obj = 0;
 
+	objset_t *os;
 	VERIFY0(dmu_objset_from_ds(ds, &os));
 
-	if (!spa_feature_is_enabled(dp->dp_spa, async_destroy)) {
+	if (!spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_ASYNC_DESTROY)) {
 		old_synchronous_dataset_destroy(ds, tx);
 	} else {
 		/*
@@ -751,10 +748,11 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 
 		zil_destroy_sync(dmu_objset_zil(os), tx);
 
-		if (!spa_feature_is_active(dp->dp_spa, async_destroy)) {
+		if (!spa_feature_is_active(dp->dp_spa,
+		    SPA_FEATURE_ASYNC_DESTROY)) {
 			dsl_scan_t *scn = dp->dp_scan;
-
-			spa_feature_incr(dp->dp_spa, async_destroy, tx);
+			spa_feature_incr(dp->dp_spa, SPA_FEATURE_ASYNC_DESTROY,
+			    tx);
 			dp->dp_bptree_obj = bptree_alloc(mos, tx);
 			VERIFY0(zap_add(mos,
 			    DMU_POOL_DIRECTORY_OBJECT,
@@ -870,8 +868,7 @@ dsl_destroy_head(const char *name)
 	error = spa_open(name, &spa, FTAG);
 	if (error != 0)
 		return (error);
-	isenabled = spa_feature_is_enabled(spa,
-	    &spa_feature_table[SPA_FEATURE_ASYNC_DESTROY]);
+	isenabled = spa_feature_is_enabled(spa, SPA_FEATURE_ASYNC_DESTROY);
 	spa_close(spa, FTAG);
 
 	ddha.ddha_name = name;

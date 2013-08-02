@@ -155,4 +155,8 @@ zpool_feature_init(void)
 	zfeature_register(SPA_FEATURE_SPACEMAP_HISTOGRAM,
 	    "com.delphix:spacemap_histogram", "spacemap_histogram",
 	    "Spacemaps maintain space histograms.", B_TRUE, B_FALSE, NULL);
+	zfeature_register(SPA_FEATURE_EXTENSIBLE_DATASET,
+	    "com.delphix:extensible_dataset", "extensible_dataset",
+	    "Enhanced dataset functionality, used by other features.",
+	    B_FALSE, B_FALSE, NULL);
 }

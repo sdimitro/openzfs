@@ -1,5 +1,5 @@
 '\" te
-.\" Copyright (c) 2012 by Delphix. All rights reserved.
+.\" Copyright (c) 2013 by Delphix. All rights reserved.
 .\" Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
 .\" The contents of this file are subject to the terms of the Common Development
 .\" and Distribution License (the "License").  You may not use this file except
@@ -13,7 +13,7 @@
 .\" CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your
 .\" own identifying information:
 .\" Portions Copyright [yyyy] [name of copyright owner]
-.TH ZPOOL-FEATURES 5 "Mar 16, 2012"
+.TH ZPOOL-FEATURES 5 "Jul 24, 2013"
 .SH NAME
 zpool\-features \- ZFS pool feature descriptions
 .SH DESCRIPTION
@@ -228,6 +228,27 @@ read-only compatible, this operation will render the pool unimportable
 on systems without support for the \fBlz4_compress\fR feature. At the
 moment, this operation cannot be reversed. Booting off of
 \fBlz4\fR-compressed root pools is supported.
+
+.RE
+.sp
+.ne 2
+.na
+\fB\fBextensible_dataset\fR\fR
+.ad
+.RS 4n
+.TS
+l l .
+GUID	com.delphix:extensible_dataset
+READ\-ONLY COMPATIBLE	no
+DEPENDENCIES	none
+.TE
+
+This feature allows more flexible use of internal ZFS data structures,
+and exists for other features to depend on.
+
+This feature will be \fBactive\fR when the first dependent feature uses it,
+and will be returned to the \fBenabled\fR state when all datasets that use
+this feature are destroyed.
 
 .RE
 

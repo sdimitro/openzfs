@@ -38,6 +38,7 @@
 #include <sys/zfeature.h>
 #include <sys/zfs_ioctl.h>
 #include <sys/dsl_deleg.h>
+#include <sys/dmu_impl.h>
 
 typedef struct dmu_snapshots_destroy_arg {
 	nvlist_t *dsda_snaps;
@@ -448,7 +449,7 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 		VERIFY0(zap_destroy(mos, ds->ds_phys->ds_userrefs_obj, tx));
 	dsl_dir_rele(ds->ds_dir, ds);
 	ds->ds_dir = NULL;
-	VERIFY0(dmu_object_free(mos, obj, tx));
+	dmu_object_free_zapified(mos, obj, tx);
 }
 
 static void
@@ -671,7 +672,7 @@ dsl_dir_destroy_sync(uint64_t ddobj, dmu_tx_t *tx)
 	    dd->dd_parent->dd_phys->dd_child_dir_zapobj, dd->dd_myname, tx));
 
 	dsl_dir_rele(dd, FTAG);
-	VERIFY0(dmu_object_free(mos, ddobj, tx));
+	dmu_object_free_zapified(mos, ddobj, tx);
 }
 
 void
@@ -812,7 +813,7 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 	ASSERT0(ds->ds_phys->ds_userrefs_obj);
 	dsl_dir_rele(ds->ds_dir, ds);
 	ds->ds_dir = NULL;
-	VERIFY0(dmu_object_free(mos, obj, tx));
+	dmu_object_free_zapified(mos, obj, tx);
 
 	dsl_dir_destroy_sync(ddobj, tx);
 

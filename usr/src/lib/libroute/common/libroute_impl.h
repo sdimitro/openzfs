@@ -69,7 +69,8 @@ typedef struct __route_entry_handle {
 	uint_t			rei_plen;
 	sockaddr_union_t	rei_netmasku;
 	sockaddr_union_t	rei_gwu;
-	uint_t			rei_flags;	/* ROUTE_* flags below */
+	uint_t			rei_flags;	/* ROUTE_ENTRY_* flags */
+	uint_t			rei_lookup_flags;
 	sockaddr_union_t	rei_outifu;
 	char			rei_outifname[LIFNAMSIZ];
 } route_entry_impl_t;
@@ -83,6 +84,9 @@ typedef struct __route_entry_handle {
 #define	REI_NETMASK	0x04
 #define	REI_GATEWAY	0x08
 #define	REI_OUTIF	0x10
+
+/* rei_lookup_flags */
+#define	REI_LOOKUP_INTERFACE	0x01	/* looking up an interface route */
 
 #ifdef __cplusplus
 }

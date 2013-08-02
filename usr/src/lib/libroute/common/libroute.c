@@ -108,6 +108,9 @@ typedef struct walk_state_s {
 	void	*ws_arg;	/* The callback argument */
 } walk_state_t;
 
+static int route_entry_lookup_impl(route_handle_t, struct sockaddr *,
+    route_entry_handle_t *, int);
+
 static size_t
 salen(const struct sockaddr *sa)
 {
@@ -371,7 +374,8 @@ rtmbuf2entry(rtmsg_buf_t *rtmbuf, route_entry_impl_t *reip)
 	if (ifp != NULL) {
 		(void) strncpy(ifname, ifp->sdl_data, ifp->sdl_nlen);
 		ifname[ifp->sdl_nlen] = '\0';
-	} else if (gw != NULL) {
+	} else if (gw != NULL &&
+	    !(reip->rei_lookup_flags & REI_LOOKUP_INTERFACE)) {
 		route_entry_impl_t *gwentry;
 
 		/*
@@ -379,9 +383,11 @@ rtmbuf2entry(rtmsg_buf_t *rtmbuf, route_entry_impl_t *reip)
 		 * interface, we can infer it from the interface route
 		 * used to reach the gateway.
 		 */
-		if (route_entry_lookup(reip->rei_rip, gw, &gwentry) == 0) {
+		if (route_entry_lookup_impl(reip->rei_rip, gw, &gwentry,
+		    REI_LOOKUP_INTERFACE) == 0) {
 			(void) route_entry_get_outifname(gwentry, ifname,
 			    sizeof (ifname));
+			route_entry_destroy(gwentry);
 		}
 	}
 	if (ifname[0] != '\0' &&
@@ -544,11 +550,12 @@ process_ipv4_route(route_impl_t *rip, mib2_ipRouteEntry_t *rp,
 		 * we can infer it from the interface route used to reach the
 		 * gateway.
 		 */
-		if (route_entry_lookup(rei.rei_rip, &rei.rei_gwu.su_sa,
-		    &gwentry) == 0) {
+		if (route_entry_lookup_impl(rei.rei_rip, &rei.rei_gwu.su_sa,
+		    &gwentry, REI_LOOKUP_INTERFACE) == 0) {
 			if (route_entry_get_outifname(gwentry, ifnamebuf,
 			    sizeof (ifnamebuf)) == 0)
 				ifname = ifnamebuf;
+			route_entry_destroy(gwentry);
 		}
 	}
 	if (ifname != NULL) {
@@ -605,11 +612,12 @@ process_ipv6_route(route_impl_t *rip, mib2_ipv6RouteEntry_t *rp,
 		 * we can infer it from the interface route used to reach the
 		 * gateway.
 		 */
-		if (route_entry_lookup(rei.rei_rip, &rei.rei_gwu.su_sa,
-		    &gwentry) == 0) {
+		if (route_entry_lookup_impl(rei.rei_rip, &rei.rei_gwu.su_sa,
+		    &gwentry, REI_LOOKUP_INTERFACE) == 0) {
 			if (route_entry_get_outifname(gwentry, ifnamebuf,
 			    sizeof (ifnamebuf)) == 0)
 				ifname = ifnamebuf;
+			route_entry_destroy(gwentry);
 		}
 	}
 	if (ifname != NULL) {
@@ -667,6 +675,51 @@ walk_ipv6_routes(route_impl_t *rip, struct strbuf *dbuf,
 	}
 
 	return (ret);
+}
+
+static int
+route_entry_lookup_impl(route_handle_t rh, struct sockaddr *dst,
+    route_entry_handle_t *rehp, int lookup_flags)
+{
+	route_impl_t *rip = rh;
+	route_entry_impl_t req;
+	int err;
+
+	if ((rip->ri_rtsock = socket(PF_ROUTE, SOCK_RAW, 0)) == -1)
+		return (errno);
+
+	bzero(&req, sizeof (req));
+	req.rei_outif.sdl_family = AF_LINK;
+
+	/*
+	 * We signal to the kernel that we want the output interface
+	 * to be included in the reply by including an RTA_IFP address
+	 * in our request with an index of 0.
+	 */
+	(void) route_entry_set_outifindex(&req, 0);
+
+	/*
+	 * There is a special case for looking up the default route, for which
+	 * we must specify an all-zeros netmask.  Any other address lookup
+	 * is done by specifying a host route.
+	 */
+	if (is_unspecified(dst))
+		err = route_entry_set_destination(&req, dst, 0);
+	else
+		err = route_entry_set_host(&req, dst);
+
+	if (err == 0 && (err = write_rtmsg(rip, &req, RTM_GET)) == 0 &&
+	    (err = route_entry_create(rh, rehp)) == 0) {
+		(*((route_entry_impl_t **)rehp))->rei_lookup_flags =
+		    lookup_flags;
+		err = read_rtmsg(rip, *rehp, getpid(), rip->ri_seq);
+		if (err != 0)
+			route_entry_destroy(*rehp);
+	}
+
+	(void) close(rip->ri_rtsock);
+	rip->ri_rtsock = -1;
+	return (err);
 }
 
 /*
@@ -1046,43 +1099,7 @@ int
 route_entry_lookup(route_handle_t rh, struct sockaddr *dst,
     route_entry_handle_t *rehp)
 {
-	route_impl_t *rip = rh;
-	route_entry_impl_t req;
-	int err;
-
-	if ((rip->ri_rtsock = socket(PF_ROUTE, SOCK_RAW, 0)) == -1)
-		return (errno);
-
-	bzero(&req, sizeof (req));
-	req.rei_outif.sdl_family = AF_LINK;
-
-	/*
-	 * We signal to the kernel that we want the output interface
-	 * to be included in the reply by including an RTA_IFP address
-	 * in our request with an index of 0.
-	 */
-	(void) route_entry_set_outifindex(&req, 0);
-
-	/*
-	 * There is a special case for looking up the default route, for which
-	 * we must specify an all-zeros netmask.  Any other address lookup
-	 * is done by specifying a host route.
-	 */
-	if (is_unspecified(dst))
-		err = route_entry_set_destination(&req, dst, 0);
-	else
-		err = route_entry_set_host(&req, dst);
-
-	if (err == 0 && (err = write_rtmsg(rip, &req, RTM_GET)) == 0 &&
-	    (err = route_entry_create(rh, rehp)) == 0) {
-		err = read_rtmsg(rip, *rehp, getpid(), rip->ri_seq);
-		if (err != 0)
-			route_entry_destroy(*rehp);
-	}
-
-	(void) close(rip->ri_rtsock);
-	rip->ri_rtsock = -1;
-	return (err);
+	return (route_entry_lookup_impl(rh, dst, rehp, 0));
 }
 
 /*

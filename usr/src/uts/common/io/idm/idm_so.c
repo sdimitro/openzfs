@@ -165,8 +165,8 @@ idm_transport_ops_t idm_so_transport_ops = {
 
 kmutex_t	idm_so_timed_socket_mutex;
 
-int32_t         idm_so_sndbuf = IDM_SNDBUF_SIZE;
-int32_t         idm_so_rcvbuf = IDM_RCVBUF_SIZE;
+int32_t idm_so_sndbuf = IDM_SNDBUF_SIZE;
+int32_t idm_so_rcvbuf = IDM_RCVBUF_SIZE;
 
 /*
  * idm_so_init()
@@ -719,9 +719,9 @@ idm_set_postconnect_options(ksocket_t ks)
 
 	/* Set connect options */
 	(void) ksocket_setsockopt(ks, SOL_SOCKET, SO_RCVBUF,
-	    (char *)&idm_so_rcvbuf, sizeof (int), CRED());
+	    (char *)&idm_so_rcvbuf, sizeof (idm_so_rcvbuf), CRED());
 	(void) ksocket_setsockopt(ks, SOL_SOCKET, SO_SNDBUF,
-	    (char *)&idm_so_sndbuf, sizeof (int), CRED());
+	    (char *)&idm_so_sndbuf, sizeof (idm_so_sndbuf), CRED());
 	(void) ksocket_setsockopt(ks, IPPROTO_TCP, TCP_NODELAY,
 	    (char *)&on, sizeof (on), CRED());
 }

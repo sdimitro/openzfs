@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 /* Copyright (c) 1990 Mentat Inc. */
@@ -199,6 +200,46 @@ tcp_get_buf_prop(netstack_t *stack, mod_prop_info_t *pinfo, const char *ifname,
 }
 
 /*
+ * Special checkers for smallest/largest anonymous port so they don't
+ * ever happen to be (largest < smallest).
+ */
+/* ARGSUSED */
+static int
+tcp_smallest_anon_set(netstack_t *stack, cred_t *cr, mod_prop_info_t *pinfo,
+    const char *ifname, const void *pval, uint_t flags)
+{
+	unsigned long new_value;
+	tcp_stack_t *tcps = stack->netstack_tcp;
+	int err;
+
+	if ((err = mod_uint32_value(pval, pinfo, flags, &new_value)) != 0)
+		return (err);
+	/* mod_uint32_value() + pinfo guarantees we're in TCP port range. */
+	if ((uint32_t)new_value > tcps->tcps_largest_anon_port)
+		return (ERANGE);
+	pinfo->prop_cur_uval = (uint32_t)new_value;
+	return (0);
+}
+
+/* ARGSUSED */
+static int
+tcp_largest_anon_set(netstack_t *stack, cred_t *cr, mod_prop_info_t *pinfo,
+    const char *ifname, const void *pval, uint_t flags)
+{
+	unsigned long new_value;
+	tcp_stack_t *tcps = stack->netstack_tcp;
+	int err;
+
+	if ((err = mod_uint32_value(pval, pinfo, flags, &new_value)) != 0)
+		return (err);
+	/* mod_uint32_value() + pinfo guarantees we're in TCP port range. */
+	if ((uint32_t)new_value < tcps->tcps_smallest_anon_port)
+		return (ERANGE);
+	pinfo->prop_cur_uval = (uint32_t)new_value;
+	return (0);
+}
+
+/*
  * All of these are alterable, within the min/max values given, at run time.
  *
  * Note: All those tunables which do not start with "_" are Committed and
@@ -319,11 +360,11 @@ mod_prop_info_t tcp_propinfo_tbl[] = {
 	    {B_FALSE}, {B_FALSE} },
 
 	{ "smallest_anon_port", MOD_PROTO_TCP,
-	    mod_set_uint32, mod_get_uint32,
+	    tcp_smallest_anon_set, mod_get_uint32,
 	    {1024, ULP_MAX_PORT, 32*1024}, {32*1024} },
 
 	{ "largest_anon_port", MOD_PROTO_TCP,
-	    mod_set_uint32, mod_get_uint32,
+	    tcp_largest_anon_set, mod_get_uint32,
 	    {1024, ULP_MAX_PORT, ULP_MAX_PORT},
 	    {ULP_MAX_PORT} },
 

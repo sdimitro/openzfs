@@ -3511,13 +3511,13 @@ zfs_ioc_rollback(const char *fsname, nvlist_t *args, nvlist_t *outnvl)
 		if (error == 0) {
 			int resume_err;
 
-			error = dsl_dataset_rollback(fsname, outnvl);
+			error = dsl_dataset_rollback(fsname, zfsvfs, outnvl);
 			resume_err = zfs_resume_fs(zfsvfs, fsname);
 			error = error ? error : resume_err;
 		}
 		VFS_RELE(zfsvfs->z_vfs);
 	} else {
-		error = dsl_dataset_rollback(fsname, outnvl);
+		error = dsl_dataset_rollback(fsname, NULL, outnvl);
 	}
 	return (error);
 }
@@ -4035,13 +4035,13 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 			 * If the suspend fails, then the recv_end will
 			 * likely also fail, and clean up after itself.
 			 */
-			end_err = dmu_recv_end(&drc);
+			end_err = dmu_recv_end(&drc, zfsvfs);
 			if (error == 0)
 				error = zfs_resume_fs(zfsvfs, tofs);
 			error = error ? error : end_err;
 			VFS_RELE(zfsvfs->z_vfs);
 		} else {
-			error = dmu_recv_end(&drc);
+			error = dmu_recv_end(&drc, NULL);
 		}
 	}
 
@@ -4522,8 +4522,11 @@ zfs_ioc_userspace_upgrade(zfs_cmd_t *zc)
 			 * objset_phys_t).  Suspend/resume the fs will do that.
 			 */
 			error = zfs_suspend_fs(zfsvfs);
-			if (error == 0)
+			if (error == 0) {
+				dmu_objset_refresh_ownership(zfsvfs->z_os,
+				    zfsvfs);
 				error = zfs_resume_fs(zfsvfs, zc->zc_name);
+			}
 		}
 		if (error == 0)
 			error = dmu_objset_userspace_upgrade(zfsvfs->z_os);

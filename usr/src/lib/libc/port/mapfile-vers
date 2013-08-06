@@ -90,7 +90,10 @@ $if _x86 && _ELF64
 $add amd64
 $endif
 
-SYMBOL_VERSION ILLUMOS_0.5 {	# Illumos additions
+SYMBOL_VERSION ILLUMOS_0.5 {	# common C++ ABI exit handlers
+    protected:
+	__cxa_atexit;
+	__cxa_finalize;
     global:
         aok;
 } ILLUMOS_0.4;

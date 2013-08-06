@@ -1621,13 +1621,13 @@ dmu_recv_end_check(void *arg, dmu_tx_t *tx)
 			}
 		}
 		error = dsl_dataset_clone_swap_check_impl(drc->drc_ds,
-		    origin_head, drc->drc_force);
+		    origin_head, drc->drc_force, drc->drc_owner, tx);
 		if (error != 0) {
 			dsl_dataset_rele(origin_head, FTAG);
 			return (error);
 		}
 		error = dsl_dataset_snapshot_check_impl(origin_head,
-		    drc->drc_tosnap, tx);
+		    drc->drc_tosnap, tx, B_TRUE);
 		dsl_dataset_rele(origin_head, FTAG);
 		if (error != 0)
 			return (error);
@@ -1635,7 +1635,7 @@ dmu_recv_end_check(void *arg, dmu_tx_t *tx)
 		error = dsl_destroy_head_check_impl(drc->drc_ds, 1);
 	} else {
 		error = dsl_dataset_snapshot_check_impl(drc->drc_ds,
-		    drc->drc_tosnap, tx);
+		    drc->drc_tosnap, tx, B_TRUE);
 	}
 	return (error);
 }
@@ -1694,6 +1694,9 @@ dmu_recv_end_sync(void *arg, dmu_tx_t *tx)
 
 		dsl_dataset_rele(origin_head, FTAG);
 		dsl_destroy_head_sync_impl(drc->drc_ds, tx);
+
+		if (drc->drc_owner != NULL)
+			VERIFY3P(origin_head->ds_owner, ==, drc->drc_owner);
 	} else {
 		dsl_dataset_t *ds = drc->drc_ds;
 
@@ -1793,8 +1796,10 @@ dmu_recv_new_end(dmu_recv_cookie_t *drc)
 }
 
 int
-dmu_recv_end(dmu_recv_cookie_t *drc)
+dmu_recv_end(dmu_recv_cookie_t *drc, void *owner)
 {
+	drc->drc_owner = owner;
+
 	if (drc->drc_newfs)
 		return (dmu_recv_new_end(drc));
 	else

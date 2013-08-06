@@ -20,9 +20,8 @@
  */
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
- *
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright 2013 Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <sys/conf.h>

@@ -4624,8 +4624,7 @@ loadHostGroups(int fd, stmfGroupList *groupList)
 		    &(groupList->name[i]))) != STMF_STATUS_SUCCESS) {
 			goto out;
 		}
-		ret = psGetHostGroupMemberList((char *)(&(groupList->name[i])),
-		    &groupProps);
+		ret = psGetHostGroupMemberList(groupList->name[i], &groupProps);
 		if (ret != STMF_STATUS_SUCCESS) {
 			syslog(LOG_ERR, "psGetHostGroupMemberList returned %d "
 			    "in %s", ret, __func__);
@@ -4666,8 +4665,8 @@ loadTargetGroups(int fd, stmfGroupList *groupList)
 		    &(groupList->name[i]))) != STMF_STATUS_SUCCESS) {
 			goto out;
 		}
-		ret = psGetTargetGroupMemberList(
-		    (char *)(&(groupList->name[i])), &groupProps);
+		ret = psGetTargetGroupMemberList(groupList->name[i],
+		    &groupProps);
 		if (ret != STMF_STATUS_SUCCESS) {
 			syslog(LOG_ERR, "psGetTargetGroupMemberList returned "
 			    "%d in %s", ret, __func__);
@@ -4989,6 +4988,11 @@ err:
  *
  * Purpose - load the configuration data from smf into stmf
  *
+ * stmfLoadConfig will return a WARNING if the stmf configuration is non-fatally
+ * corrupted.  Callers that want to continue execution after a warning is
+ * returned from this function should test the result using
+ * !STMF_STATUS_IS_ERROR rather than checking for equality with
+ * STMF_STATUS_SUCCESS.
  */
 int
 stmfLoadConfig(void)

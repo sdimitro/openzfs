@@ -314,7 +314,19 @@ typedef struct _stmfLocalPortProviderProperties
 	uchar_t	    rsvd[64];
 } stmfLocalPortProviderProperties;
 
-/* API prototypes */
+/*
+ * API prototypes
+ *
+ * Functions that return int return an stmf status as defined above.  Most of
+ * the functions below return either STMF_STATUS_SUCCESS or an error as
+ * defined above.  Functions that also return warning error codes are called out
+ * below.
+ *
+ * A return code may be tested for:
+ * success by testing for equality with STMF_STATUS_SUCCESS
+ * a warning with the macro STMF_STATUS_IS_WARNING
+ * an error with the macro STMF_STATUS_IS_ERROR
+ */
 int stmfAddToHostGroup(stmfGroupName *hostGroupName, stmfDevid *name);
 int stmfAddToTargetGroup(stmfGroupName *targetGroupName, stmfDevid *targetName);
 int stmfAddViewEntry(stmfGuid *lu, stmfViewEntry *viewEntry);
@@ -366,11 +378,8 @@ int stmfImportLu(uint16_t dType, char *fname, stmfGuid *luGuid);
 int stmfInitProxyDoor(int *hdl, int fd);
 
 /*
- * stmfLoadConfig is currently unique in that it will return a WARNING when the
- * configuration is non-fatally corrupted or misconfigured.  Callers that need
- * to continue normal execution when this happens should check the return code
- * from stmfLoadConfig with !STMF_STATUS_IS_ERROR() rather than equality with
- * STMF_STATUS_SUCCESS.
+ * stmfLoadConfig will return a WARNING when the configuration is non-fatally
+ * corrupted or misconfigured.
  */
 int stmfLoadConfig(void);
 int stmfLuStandby(stmfGuid *luGuid);

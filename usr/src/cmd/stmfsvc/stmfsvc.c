@@ -159,24 +159,21 @@ svcStart(int operandLen, char *operands[], cmdOptions_t *options,
 			(void) fprintf(stderr, "%s: %s\n", cmdName,
 			    gettext("permission denied"));
 			return (SMF_EXIT_ERR_PERM);
-			break;
 		case STMF_ERROR_SERVICE_NOT_FOUND:
 			(void) fprintf(stderr, "%s: %s\n", cmdName,
 			    gettext("STMF service not found"));
 			return (SMF_EXIT_ERR_FATAL);
-			break;
 		case STMF_ERROR_SERVICE_ONLINE:
 			(void) fprintf(stderr, "%s: %s\n", cmdName,
 			    gettext("STMF service must be offline"));
 			return (1);
-			break;
 		case STMF_WARN_VIEW_ENTRY_LIST:
 			(void) fprintf(stderr, "%s: %s\n", cmdName,
 			    gettext("STMF service online, but there are"
 			    " non-fatal errors in the configuration.  "
 			    "See /var/adm/messages for details."));
 			/*
-			 * XXX Should really set ret = SMF_EXIT_MON_DEGRADE or
+			 * Should really set ret = SMF_EXIT_MON_DEGRADE or
 			 * something that gives an indication that the service
 			 * is up, but the configuration needs to be checked.
 			 * Unfortunately svc.startd's implementation for the
@@ -203,7 +200,6 @@ svcStart(int operandLen, char *operands[], cmdOptions_t *options,
 			    "you must clear the service maintenance "
 			    "state. See the man page for svcadm(1M)"));
 			return (SMF_EXIT_ERR_CONFIG);
-			break;
 	}
 	return (online());
 }

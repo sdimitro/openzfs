@@ -584,24 +584,13 @@ out:
 
 /*
  * Roll back this filesystem or volume to its most recent snapshot.
- *
- * Return 0 on success or an errno on failure.
- */
-int
-lzc_rollback(const char *fsname)
-{
-	return (lzc_rollback2(fsname, NULL, 0));
-}
-
-/*
- * Roll back this filesystem or volume to its most recent snapshot.
  * If snapnamebuf is not NULL, it will be filled in with the name
  * of the most recent snapshot.
  *
  * Return 0 on success or an errno on failure.
  */
 int
-lzc_rollback2(const char *fsname, char *snapnamebuf, int snapnamelen)
+lzc_rollback(const char *fsname, char *snapnamebuf, int snapnamelen)
 {
 	nvlist_t *args;
 	nvlist_t *result;

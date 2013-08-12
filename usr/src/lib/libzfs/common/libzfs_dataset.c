@@ -3556,7 +3556,7 @@ zfs_rollback(zfs_handle_t *zhp, zfs_handle_t *snap, boolean_t force)
 	 * an unlikely race condition where the user has taken a
 	 * snapshot since we verified that this was the most recent.
 	 */
-	err = lzc_rollback(zhp->zfs_name);
+	err = lzc_rollback(zhp->zfs_name, NULL, 0);
 	if (err != 0) {
 		(void) zfs_standard_error_fmt(zhp->zfs_hdl, errno,
 		    dgettext(TEXT_DOMAIN, "cannot rollback '%s'"),

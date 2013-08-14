@@ -1133,7 +1133,7 @@ link path=usr/lib/libresolv.so.1 target=../../lib/libresolv.so.1
 link path=usr/lib/libresolv.so.2 target=../../lib/libresolv.so.2
 link path=usr/lib/librestart.so.1 target=../../lib/librestart.so.1
 link path=usr/lib/libroute.so target=../../lib/libroute.so.1
-link path=usr/lib/libroute.so.1 target=../../libroute.so.1
+link path=usr/lib/libroute.so.1 target=../../lib/libroute.so.1
 link path=usr/lib/librpcsvc.so target=../../lib/librpcsvc.so.1
 link path=usr/lib/librpcsvc.so.1 target=../../lib/librpcsvc.so.1
 link path=usr/lib/librt.so target=../../lib/librt.so.1

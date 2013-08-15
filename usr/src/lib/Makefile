@@ -111,6 +111,7 @@ SUBDIRS += \
 	libcryptoutil	\
 	libinetutil	\
 	libipadm	\
+	libipd		\
 	libipmp		\
 	libiscsit	\
 	libkmf		\
@@ -337,6 +338,7 @@ MSGSUBDIRS=		\
 	libinetutil	\
 	libinstzones	\
 	libipadm	\
+	libipd		\
 	libnsl		\
 	libnwam		\
 	libpam		\
@@ -420,6 +422,7 @@ HDRSUBDIRS=		\
 	libinetsvc	\
 	libinetutil	\
 	libinstzones	\
+	libipd		\
 	libipmi		\
 	libipmp		\
 	libipp		\

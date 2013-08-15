@@ -20,6 +20,7 @@
 #
 #
 # Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2012, Joyent, Inc. All rights reserved.
 #
 
 include $(SRC)/uts/Makefile.uts
@@ -277,6 +278,7 @@ CHKHDRS=			\
 	ipc.h			\
 	ipc_impl.h		\
 	ipc_rctl.h		\
+	ipd.h			\
 	ipmi.h			\
 	isa_defs.h		\
 	iscsi_authclient.h	\

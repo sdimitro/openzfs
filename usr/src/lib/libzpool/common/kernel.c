@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <assert.h>
@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+#include <libgen.h>
 #include <sys/spa.h>
 #include <sys/stat.h>
 #include <sys/processor.h>
@@ -48,6 +49,9 @@ vnode_t *rootdir = (vnode_t *)0xabcd1234;
 char hw_serial[HW_HOSTID_LEN];
 kmutex_t cpu_lock;
 vmem_t *zio_arena = NULL;
+
+/* If set, all blocks read will be copied to the specified directory. */
+char *vn_dumpdir = NULL;
 
 struct utsname utsname = {
 	"userland", "libzpool", "1", "1", "na"
@@ -392,6 +396,7 @@ int
 vn_open(char *path, int x1, int flags, int mode, vnode_t **vpp, int x2, int x3)
 {
 	int fd;
+	int dump_fd;
 	vnode_t *vp;
 	int old_umask;
 	char realpath[MAXPATHLEN];
@@ -440,6 +445,17 @@ vn_open(char *path, int x1, int flags, int mode, vnode_t **vpp, int x2, int x3)
 	if (flags & FCREAT)
 		(void) umask(old_umask);
 
+	if (vn_dumpdir != NULL) {
+		char dumppath[MAXPATHLEN];
+		(void) snprintf(dumppath, sizeof (dumppath),
+		    "%s/%s", vn_dumpdir, basename(realpath));
+		dump_fd = open64(dumppath, O_CREAT | O_WRONLY, 0666);
+		if (dump_fd == -1)
+			return (errno);
+	} else {
+		dump_fd = -1;
+	}
+
 	if (fd == -1)
 		return (errno);
 
@@ -455,6 +471,7 @@ vn_open(char *path, int x1, int flags, int mode, vnode_t **vpp, int x2, int x3)
 	vp->v_fd = fd;
 	vp->v_size = st.st_size;
 	vp->v_path = spa_strdup(path);
+	vp->v_dump_fd = dump_fd;
 
 	return (0);
 }
@@ -487,6 +504,11 @@ vn_rdwr(int uio, vnode_t *vp, void *addr, ssize_t len, offset_t offset,
 
 	if (uio == UIO_READ) {
 		iolen = pread64(vp->v_fd, addr, len, offset);
+		if (vp->v_dump_fd != -1) {
+			int status =
+			    pwrite64(vp->v_dump_fd, addr, iolen, offset);
+			ASSERT(status != -1);
+		}
 	} else {
 		/*
 		 * To simulate partial disk writes, we split writes into two
@@ -513,6 +535,8 @@ void
 vn_close(vnode_t *vp)
 {
 	close(vp->v_fd);
+	if (vp->v_dump_fd != -1)
+		close(vp->v_dump_fd);
 	spa_strfree(vp->v_path);
 	umem_free(vp, sizeof (vnode_t));
 }

@@ -21,6 +21,7 @@
 /*
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013 Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
@@ -71,6 +72,7 @@
 #include "ctxop.h"
 #include "cyclic.h"
 #include "damap.h"
+#include "ddi_periodic.h"
 #include "devinfo.h"
 #include "findstack.h"
 #include "fm.h"
@@ -3912,6 +3914,9 @@ static const mdb_dcmd_t dcmds[] = {
 
 	/* from damap.c */
 	{ "damap", ":", "display a damap_t", damap, damap_help },
+
+	/* from ddi_periodic.c */
+	{ "ddi_periodic", "?[-v]", "dump ddi_periodic_impl_t info", dprinfo },
 
 	/* from devinfo.c */
 	{ "devbindings", "?[-qs] [device-name | major-num]",

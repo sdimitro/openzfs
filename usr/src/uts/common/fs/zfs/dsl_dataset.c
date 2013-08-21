@@ -1815,7 +1815,7 @@ dsl_dataset_rollback(const char *fsname, void *owner, nvlist_t *result)
 	ddra.ddra_result = result;
 
 	return (dsl_sync_task(fsname, dsl_dataset_rollback_check,
-	    dsl_dataset_rollback_sync, (void *)&ddra, 1));
+	    dsl_dataset_rollback_sync, &ddra, 1));
 }
 
 struct promotenode {

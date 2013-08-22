@@ -769,7 +769,7 @@ dump_dde(const ddt_t *ddt, const ddt_entry_t *dde, uint64_t index)
 		if (ddp->ddp_phys_birth == 0)
 			continue;
 		ddt_bp_create(ddt->ddt_checksum, ddk, ddp, &blk);
-		sprintf_blkptr(blkbuf, &blk);
+		snprintf_blkptr(blkbuf, sizeof (blkbuf), &blk);
 		(void) printf("index %llx refcnt %llu %s %s\n",
 		    (u_longlong_t)index, (u_longlong_t)ddp->ddp_refcnt,
 		    types[p], blkbuf);
@@ -1027,31 +1027,39 @@ blkid2offset(const dnode_phys_t *dnp, const blkptr_t *bp, const zbookmark_t *zb)
 }
 
 static void
-sprintf_blkptr_compact(char *blkbuf, const blkptr_t *bp)
+snprintf_blkptr_compact(char *blkbuf, size_t buflen, const blkptr_t *bp)
 {
 	const dva_t *dva = bp->blk_dva;
 	int ndvas = dump_opt['d'] > 5 ? BP_GET_NDVAS(bp) : 1;
 
 	if (dump_opt['b'] >= 6) {
-		sprintf_blkptr(blkbuf, bp);
+		snprintf_blkptr(blkbuf, buflen, bp);
 		return;
 	}
 
 	blkbuf[0] = '\0';
 
 	for (int i = 0; i < ndvas; i++)
-		(void) sprintf(blkbuf + strlen(blkbuf), "%llu:%llx:%llx ",
+		(void) snprintf(blkbuf + strlen(blkbuf),
+		    buflen - strlen(blkbuf), "%llu:%llx:%llx ",
 		    (u_longlong_t)DVA_GET_VDEV(&dva[i]),
 		    (u_longlong_t)DVA_GET_OFFSET(&dva[i]),
 		    (u_longlong_t)DVA_GET_ASIZE(&dva[i]));
 
-	(void) sprintf(blkbuf + strlen(blkbuf),
-	    "%llxL/%llxP F=%llu B=%llu/%llu",
-	    (u_longlong_t)BP_GET_LSIZE(bp),
-	    (u_longlong_t)BP_GET_PSIZE(bp),
-	    (u_longlong_t)bp->blk_fill,
-	    (u_longlong_t)bp->blk_birth,
-	    (u_longlong_t)BP_PHYSICAL_BIRTH(bp));
+	if (BP_IS_HOLE(bp)) {
+		(void) snprintf(blkbuf + strlen(blkbuf),
+		    buflen - strlen(blkbuf), "B=%llu",
+		    (u_longlong_t)bp->blk_birth);
+	} else {
+		(void) snprintf(blkbuf + strlen(blkbuf),
+		    buflen - strlen(blkbuf),
+		    "%llxL/%llxP F=%llu B=%llu/%llu",
+		    (u_longlong_t)BP_GET_LSIZE(bp),
+		    (u_longlong_t)BP_GET_PSIZE(bp),
+		    (u_longlong_t)bp->blk_fill,
+		    (u_longlong_t)bp->blk_birth,
+		    (u_longlong_t)BP_PHYSICAL_BIRTH(bp));
+	}
 }
 
 static void
@@ -1076,7 +1084,7 @@ print_indirect(blkptr_t *bp, const zbookmark_t *zb,
 		}
 	}
 
-	sprintf_blkptr_compact(blkbuf, bp);
+	snprintf_blkptr_compact(blkbuf, sizeof (blkbuf), bp);
 	(void) printf("%s\n", blkbuf);
 }
 
@@ -1216,7 +1224,7 @@ dump_dsl_dataset(objset_t *os, uint64_t object, void *data, size_t size)
 	zdb_nicenum(ds->ds_compressed_bytes, compressed);
 	zdb_nicenum(ds->ds_uncompressed_bytes, uncompressed);
 	zdb_nicenum(ds->ds_unique_bytes, unique);
-	sprintf_blkptr(blkbuf, &ds->ds_bp);
+	snprintf_blkptr(blkbuf, sizeof (blkbuf), &ds->ds_bp);
 
 	(void) printf("\t\tdir_obj = %llu\n",
 	    (u_longlong_t)ds->ds_dir_obj);
@@ -1261,7 +1269,7 @@ dump_bptree_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
 	char blkbuf[BP_SPRINTF_LEN];
 
 	if (bp->blk_birth != 0) {
-		sprintf_blkptr(blkbuf, bp);
+		snprintf_blkptr(blkbuf, sizeof (blkbuf), bp);
 		(void) printf("\t%s\n", blkbuf);
 	}
 	return (0);
@@ -1299,7 +1307,7 @@ dump_bpobj_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
 	char blkbuf[BP_SPRINTF_LEN];
 
 	ASSERT(bp->blk_birth != 0);
-	sprintf_blkptr_compact(blkbuf, bp);
+	snprintf_blkptr_compact(blkbuf, sizeof (blkbuf), bp);
 	(void) printf("\t%s\n", blkbuf);
 	return (0);
 }
@@ -1798,8 +1806,9 @@ dump_dir(objset_t *os)
 	zdb_nicenum(refdbytes, numbuf);
 
 	if (verbosity >= 4) {
-		(void) sprintf(blkbuf, ", rootbp ");
-		(void) sprintf_blkptr(blkbuf + strlen(blkbuf), os->os_rootbp);
+		(void) snprintf(blkbuf, sizeof (blkbuf), ", rootbp ");
+		(void) snprintf_blkptr(blkbuf + strlen(blkbuf),
+		    sizeof (blkbuf) - strlen(blkbuf), os->os_rootbp);
 	} else {
 		blkbuf[0] = '\0';
 	}
@@ -1829,7 +1838,7 @@ dump_dir(objset_t *os)
 	if (verbosity < 2)
 		return;
 
-	if (os->os_rootbp->blk_birth == 0)
+	if (BP_IS_HOLE(os->os_rootbp))
 		return;
 
 	dump_object(os, 0, verbosity, &print_header);
@@ -1870,7 +1879,7 @@ dump_uberblock(uberblock_t *ub, const char *header, const char *footer)
 	    (u_longlong_t)ub->ub_timestamp, asctime(localtime(&timestamp)));
 	if (dump_opt['u'] >= 3) {
 		char blkbuf[BP_SPRINTF_LEN];
-		sprintf_blkptr(blkbuf, &ub->ub_rootbp);
+		snprintf_blkptr(blkbuf, sizeof (blkbuf), &ub->ub_rootbp);
 		(void) printf("\trootbp = %s\n", blkbuf);
 	}
 	(void) printf(footer ? footer : "");
@@ -2207,7 +2216,7 @@ zdb_blkptr_done(zio_t *zio)
 		zcb->zcb_errors[ioerr]++;
 
 		if (dump_opt['b'] >= 2)
-			sprintf_blkptr(blkbuf, bp);
+			snprintf_blkptr(blkbuf, sizeof (blkbuf), bp);
 		else
 			blkbuf[0] = '\0';
 
@@ -2229,11 +2238,22 @@ zdb_blkptr_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
     const zbookmark_t *zb, const dnode_phys_t *dnp, void *arg)
 {
 	zdb_cb_t *zcb = arg;
-	char blkbuf[BP_SPRINTF_LEN];
 	dmu_object_type_t type;
 	boolean_t is_metadata;
 
-	if (bp == NULL)
+	if (dump_opt['b'] >= 5 && bp->blk_birth > 0) {
+		char blkbuf[BP_SPRINTF_LEN];
+		snprintf_blkptr(blkbuf, sizeof (blkbuf), bp);
+		(void) printf("objset %llu object %llu "
+		    "level %lld offset 0x%llx %s\n",
+		    (u_longlong_t)zb->zb_objset,
+		    (u_longlong_t)zb->zb_object,
+		    (longlong_t)zb->zb_level,
+		    (u_longlong_t)blkid2offset(dnp, bp, zb),
+		    blkbuf);
+	}
+
+	if (BP_IS_HOLE(bp))
 		return (0);
 
 	type = BP_GET_TYPE(bp);
@@ -2263,17 +2283,6 @@ zdb_blkptr_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	}
 
 	zcb->zcb_readfails = 0;
-
-	if (dump_opt['b'] >= 5) {
-		sprintf_blkptr(blkbuf, bp);
-		(void) printf("objset %llu object %llu "
-		    "level %lld offset 0x%llx %s\n",
-		    (u_longlong_t)zb->zb_objset,
-		    (u_longlong_t)zb->zb_object,
-		    (longlong_t)zb->zb_level,
-		    (u_longlong_t)blkid2offset(dnp, bp, zb),
-		    blkbuf);
-	}
 
 	if (dump_opt['b'] < 5 && isatty(STDERR_FILENO) &&
 	    gethrtime() > zcb->zcb_lastprint + NANOSEC) {
@@ -2431,7 +2440,7 @@ count_block_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
 
 	if (dump_opt['b'] >= 5) {
 		char blkbuf[BP_SPRINTF_LEN];
-		sprintf_blkptr(blkbuf, bp);
+		snprintf_blkptr(blkbuf, sizeof (blkbuf), bp);
 		(void) printf("[%s] %s\n",
 		    "deferred free", blkbuf);
 	}
@@ -2678,7 +2687,7 @@ zdb_ddt_add_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	avl_index_t where;
 	zdb_ddt_entry_t *zdde, zdde_search;
 
-	if (bp == NULL)
+	if (BP_IS_HOLE(bp))
 		return (0);
 
 	if (dump_opt['S'] > 1 && zb->zb_level == ZB_ROOT_LEVEL) {
@@ -2845,7 +2854,7 @@ zdb_print_blkptr(blkptr_t *bp, int flags)
 	if (flags & ZDB_FLAG_BSWAP)
 		byteswap_uint64_array((void *)bp, sizeof (blkptr_t));
 
-	sprintf_blkptr(blkbuf, bp);
+	snprintf_blkptr(blkbuf, sizeof (blkbuf), bp);
 	(void) printf("%s\n", blkbuf);
 }
 

@@ -938,12 +938,17 @@ dbuf_block_freeable(dmu_buf_impl_t *db)
 	 * We don't need any locking to protect db_blkptr:
 	 * If it's syncing, then db_last_dirty will be set
 	 * so we'll ignore db_blkptr.
+	 *
+	 * This logic ensures that only block births for
+	 * filled blocks are considered.
 	 */
 	ASSERT(MUTEX_HELD(&db->db_mtx));
-	if (db->db_last_dirty)
+	if (db->db_last_dirty && (db->db_blkptr == NULL ||
+	    !BP_IS_HOLE(db->db_blkptr))) {
 		birth_txg = db->db_last_dirty->dr_txg;
-	else if (db->db_blkptr)
+	} else if (db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr)) {
 		birth_txg = db->db_blkptr->blk_birth;
+	}
 
 	/*
 	 * If we don't exist or are in a snapshot, we can't be freed.
@@ -951,7 +956,7 @@ dbuf_block_freeable(dmu_buf_impl_t *db)
 	 * are holding the db_mtx lock and might deadlock if we are
 	 * prefetching a dedup-ed block.
 	 */
-	if (birth_txg)
+	if (birth_txg != 0)
 		return (ds == NULL ||
 		    dsl_dataset_block_freeable(ds, NULL, birth_txg));
 	else
@@ -2474,17 +2479,13 @@ dbuf_write_ready(zio_t *zio, arc_buf_t *buf, void *vdb)
 	dnode_diduse_space(dn, delta - zio->io_prev_space_delta);
 	zio->io_prev_space_delta = delta;
 
-	if (BP_IS_HOLE(bp)) {
-		ASSERT(bp->blk_fill == 0);
-		DB_DNODE_EXIT(db);
-		return;
+	if (bp->blk_birth != 0) {
+		ASSERT((db->db_blkid != DMU_SPILL_BLKID &&
+		    BP_GET_TYPE(bp) == dn->dn_type) ||
+		    (db->db_blkid == DMU_SPILL_BLKID &&
+		    BP_GET_TYPE(bp) == dn->dn_bonustype));
+		ASSERT(BP_GET_LEVEL(bp) == db->db_level);
 	}
-
-	ASSERT((db->db_blkid != DMU_SPILL_BLKID &&
-	    BP_GET_TYPE(bp) == dn->dn_type) ||
-	    (db->db_blkid == DMU_SPILL_BLKID &&
-	    BP_GET_TYPE(bp) == dn->dn_bonustype));
-	ASSERT(BP_GET_LEVEL(bp) == db->db_level);
 
 	mutex_enter(&db->db_mtx);
 
@@ -2511,7 +2512,11 @@ dbuf_write_ready(zio_t *zio, arc_buf_t *buf, void *vdb)
 					fill++;
 			}
 		} else {
-			fill = 1;
+			if (BP_IS_HOLE(bp)) {
+				fill = 0;
+			} else {
+				fill = 1;
+			}
 		}
 	} else {
 		blkptr_t *ibp = db->db.db_data;

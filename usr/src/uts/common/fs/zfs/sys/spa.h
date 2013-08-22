@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -186,6 +186,15 @@ typedef struct zio_cksum {
 #define	SPA_BLKPTRSHIFT	7		/* blkptr_t is 128 bytes	*/
 #define	SPA_DVAS_PER_BP	3		/* Number of DVAs in a bp	*/
 
+/*
+ * A block is a hole when it has either 1) never been written to, or
+ * 2) is zero-filled. In both cases, ZFS can return all zeroes for all reads
+ * without physically allocating disk space. Holes are represented in the
+ * blkptr_t structure by zeroed blk_dva. Correct checking for holes is
+ * done through the BP_IS_HOLE macro. For holes, the logical size, level,
+ * DMU object type, and birth times are all also stored for holes that
+ * were written to at some point (i.e. were punched after having been filled).
+ */
 typedef struct blkptr {
 	dva_t		blk_dva[SPA_DVAS_PER_BP]; /* Data Virtual Addresses */
 	uint64_t	blk_prop;	/* size, compression, type, etc	    */
@@ -304,7 +313,9 @@ typedef struct blkptr {
 
 #define	BP_IDENTITY(bp)		(&(bp)->blk_dva[0])
 #define	BP_IS_GANG(bp)		DVA_GET_GANG(BP_IDENTITY(bp))
-#define	BP_IS_HOLE(bp)		((bp)->blk_birth == 0)
+#define	DVA_IS_EMPTY(dva)	((dva)->dva_word[0] == 0ULL &&	\
+				(dva)->dva_word[1] == 0ULL)
+#define	BP_IS_HOLE(bp)		DVA_IS_EMPTY(BP_IDENTITY(bp))
 
 /* BP_IS_RAIDZ(bp) assumes no block compression */
 #define	BP_IS_RAIDZ(bp)		(DVA_GET_ASIZE(&(bp)->blk_dva[0]) > \
@@ -346,18 +357,22 @@ typedef struct blkptr {
  * 'func' is either snprintf() or mdb_snprintf().
  * 'ws' (whitespace) can be ' ' for single-line format, '\n' for multi-line.
  */
-#define	SPRINTF_BLKPTR(func, ws, buf, bp, type, checksum, compress)	\
+#define	SNPRINTF_BLKPTR(func, ws, buf, size, bp, type, checksum, compress) \
 {									\
 	static const char *copyname[] =					\
 	    { "zero", "single", "double", "triple" };			\
-	int size = BP_SPRINTF_LEN;					\
 	int len = 0;							\
 	int copies = 0;							\
 									\
 	if (bp == NULL) {						\
-		len = func(buf + len, size - len, "<NULL>");		\
+		len += func(buf + len, size - len, "<NULL>");		\
 	} else if (BP_IS_HOLE(bp)) {					\
-		len = func(buf + len, size - len, "<hole>");		\
+		len += func(buf + len, size - len, "<hole>");		\
+		if (bp->blk_birth > 0) {				\
+			len += func(buf + len, size - len,		\
+			    " birth=%lluL",				\
+			    (u_longlong_t)bp->blk_birth);		\
+		}							\
 	} else {							\
 		for (int d = 0; d < BP_GET_NDVAS(bp); d++) {		\
 			const dva_t *dva = &bp->blk_dva[d];		\
@@ -599,7 +614,8 @@ extern objset_t *spa_meta_objset(spa_t *spa);
 extern uint64_t spa_deadman_synctime(spa_t *spa);
 
 /* Miscellaneous support routines */
-extern void spa_activate_mos_feature(spa_t *spa, const char *feature);
+extern void spa_activate_mos_feature(spa_t *spa, const char *feature,
+    dmu_tx_t *tx);
 extern void spa_deactivate_mos_feature(spa_t *spa, const char *feature);
 extern int spa_rename(const char *oldname, const char *newname);
 extern spa_t *spa_by_guid(uint64_t pool_guid, uint64_t device_guid);
@@ -608,7 +624,7 @@ extern char *spa_strdup(const char *);
 extern void spa_strfree(char *);
 extern uint64_t spa_get_random(uint64_t range);
 extern uint64_t spa_generate_guid(spa_t *spa);
-extern void sprintf_blkptr(char *buf, const blkptr_t *bp);
+extern void snprintf_blkptr(char *buf, size_t buflen, const blkptr_t *bp);
 extern void spa_freeze(spa_t *spa);
 extern int spa_change_guid(spa_t *spa);
 extern void spa_upgrade(spa_t *spa, uint64_t version);
@@ -676,9 +692,9 @@ extern void spa_event_notify(spa_t *spa, vdev_t *vdev, const char *name);
 
 #ifdef ZFS_DEBUG
 #define	dprintf_bp(bp, fmt, ...) do {				\
-	if (zfs_flags & ZFS_DEBUG_DPRINTF) { 			\
+	if (zfs_flags & ZFS_DEBUG_DPRINTF) {			\
 	char *__blkbuf = kmem_alloc(BP_SPRINTF_LEN, KM_SLEEP);	\
-	sprintf_blkptr(__blkbuf, (bp));				\
+	snprintf_blkptr(__blkbuf, BP_SPRINTF_LEN, (bp));	\
 	dprintf(fmt " %s\n", __VA_ARGS__, __blkbuf);		\
 	kmem_free(__blkbuf, BP_SPRINTF_LEN);			\
 	} \

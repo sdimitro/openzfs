@@ -227,7 +227,8 @@ boolean_t
 dsl_dataset_block_freeable(dsl_dataset_t *ds, const blkptr_t *bp,
     uint64_t blk_birth)
 {
-	if (blk_birth <= dsl_dataset_prev_snap_txg(ds))
+	if (blk_birth <= dsl_dataset_prev_snap_txg(ds) ||
+	    (bp != NULL && BP_IS_HOLE(bp)))
 		return (B_FALSE);
 
 	ddt_prefetch(dsl_dataset_get_spa(ds), bp);

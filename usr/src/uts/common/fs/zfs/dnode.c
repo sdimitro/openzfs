@@ -1571,7 +1571,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 			if (db->db_last_dirty ||
 			    (db->db_blkptr && !BP_IS_HOLE(db->db_blkptr))) {
 				rw_exit(&dn->dn_struct_rwlock);
-				dbuf_will_dirty(db, tx);
+				dmu_buf_will_dirty(&db->db, tx);
 				rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 				data = db->db.db_data;
 				bzero(data + blkoff, head);
@@ -1607,7 +1607,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 			if (db->db_last_dirty ||
 			    (db->db_blkptr && !BP_IS_HOLE(db->db_blkptr))) {
 				rw_exit(&dn->dn_struct_rwlock);
-				dbuf_will_dirty(db, tx);
+				dmu_buf_will_dirty(&db->db, tx);
 				rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 				bzero(db->db.db_data, tail);
 			}
@@ -1639,7 +1639,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 
 		first = blkid >> epbs;
 		if (db = dbuf_hold_level(dn, 1, first, FTAG)) {
-			dbuf_will_dirty(db, tx);
+			dmu_buf_will_dirty(&db->db, tx);
 			dbuf_rele(db, FTAG);
 		}
 		if (trunc)
@@ -1647,7 +1647,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 		else
 			last = (blkid + nblks - 1) >> epbs;
 		if (last > first && (db = dbuf_hold_level(dn, 1, last, FTAG))) {
-			dbuf_will_dirty(db, tx);
+			dmu_buf_will_dirty(&db->db, tx);
 			dbuf_rele(db, FTAG);
 		}
 		for (i = first + 1; i < last; i++) {
@@ -1662,7 +1662,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 			ASSERT(err == 0);
 			db = dbuf_hold_level(dn, 1, i, FTAG);
 			if (db) {
-				dbuf_will_dirty(db, tx);
+				dmu_buf_will_dirty(&db->db, tx);
 				dbuf_rele(db, FTAG);
 			}
 		}

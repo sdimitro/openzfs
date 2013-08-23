@@ -65,20 +65,33 @@ struct dsl_dataset;
 #define	BF32_GET(x, low, len)		BF32_DECODE(x, low, len)
 #define	BF64_GET(x, low, len)		BF64_DECODE(x, low, len)
 
-#define	BF32_SET(x, low, len, val)	\
-	((x) ^= BF32_ENCODE((x >> low) ^ (val), low, len))
-#define	BF64_SET(x, low, len, val)	\
-	((x) ^= BF64_ENCODE((x >> low) ^ (val), low, len))
+#define	BF32_SET(x, low, len, val) do { \
+	ASSERT3U(val, <, 1U << (len)); \
+	ASSERT3U(low + len, <=, 32); \
+	(x) ^= BF32_ENCODE((x >> low) ^ (val), low, len); \
+_NOTE(CONSTCOND) } while (0)
+
+#define	BF64_SET(x, low, len, val) do { \
+	ASSERT3U(val, <, 1ULL << (len)); \
+	ASSERT3U(low + len, <=, 64); \
+	((x) ^= BF64_ENCODE((x >> low) ^ (val), low, len)); \
+_NOTE(CONSTCOND) } while (0)
 
 #define	BF32_GET_SB(x, low, len, shift, bias)	\
 	((BF32_GET(x, low, len) + (bias)) << (shift))
 #define	BF64_GET_SB(x, low, len, shift, bias)	\
 	((BF64_GET(x, low, len) + (bias)) << (shift))
 
-#define	BF32_SET_SB(x, low, len, shift, bias, val)	\
-	BF32_SET(x, low, len, ((val) >> (shift)) - (bias))
-#define	BF64_SET_SB(x, low, len, shift, bias, val)	\
-	BF64_SET(x, low, len, ((val) >> (shift)) - (bias))
+#define	BF32_SET_SB(x, low, len, shift, bias, val) do { \
+	ASSERT(IS_P2ALIGNED(val, 1U << shift)); \
+	ASSERT3S((val) >> (shift), >=, bias); \
+	BF32_SET(x, low, len, ((val) >> (shift)) - (bias)); \
+_NOTE(CONSTCOND) } while (0)
+#define	BF64_SET_SB(x, low, len, shift, bias, val) do { \
+	ASSERT(IS_P2ALIGNED(val, 1ULL << shift)); \
+	ASSERT3S((val) >> (shift), >=, bias); \
+	BF64_SET(x, low, len, ((val) >> (shift)) - (bias)); \
+_NOTE(CONSTCOND) } while (0)
 
 /*
  * We currently support nine block sizes, from 512 bytes to 128K.
@@ -209,9 +222,10 @@ typedef struct blkptr {
  * Macros to get and set fields in a bp or DVA.
  */
 #define	DVA_GET_ASIZE(dva)	\
-	BF64_GET_SB((dva)->dva_word[0], 0, 24, SPA_MINBLOCKSHIFT, 0)
+	BF64_GET_SB((dva)->dva_word[0], 0, SPA_ASIZEBITS, SPA_MINBLOCKSHIFT, 0)
 #define	DVA_SET_ASIZE(dva, x)	\
-	BF64_SET_SB((dva)->dva_word[0], 0, 24, SPA_MINBLOCKSHIFT, 0, x)
+	BF64_SET_SB((dva)->dva_word[0], 0, SPA_ASIZEBITS, \
+	SPA_MINBLOCKSHIFT, 0, x)
 
 #define	DVA_GET_GRID(dva)	BF64_GET((dva)->dva_word[0], 24, 8)
 #define	DVA_SET_GRID(dva, x)	BF64_SET((dva)->dva_word[0], 24, 8, x)
@@ -228,14 +242,14 @@ typedef struct blkptr {
 #define	DVA_SET_GANG(dva, x)	BF64_SET((dva)->dva_word[1], 63, 1, x)
 
 #define	BP_GET_LSIZE(bp)	\
-	BF64_GET_SB((bp)->blk_prop, 0, 16, SPA_MINBLOCKSHIFT, 1)
+	BF64_GET_SB((bp)->blk_prop, 0, SPA_LSIZEBITS, SPA_MINBLOCKSHIFT, 1)
 #define	BP_SET_LSIZE(bp, x)	\
-	BF64_SET_SB((bp)->blk_prop, 0, 16, SPA_MINBLOCKSHIFT, 1, x)
+	BF64_SET_SB((bp)->blk_prop, 0, SPA_LSIZEBITS, SPA_MINBLOCKSHIFT, 1, x)
 
 #define	BP_GET_PSIZE(bp)	\
-	BF64_GET_SB((bp)->blk_prop, 16, 16, SPA_MINBLOCKSHIFT, 1)
+	BF64_GET_SB((bp)->blk_prop, 16, SPA_PSIZEBITS, SPA_MINBLOCKSHIFT, 1)
 #define	BP_SET_PSIZE(bp, x)	\
-	BF64_SET_SB((bp)->blk_prop, 16, 16, SPA_MINBLOCKSHIFT, 1, x)
+	BF64_SET_SB((bp)->blk_prop, 16, SPA_PSIZEBITS, SPA_MINBLOCKSHIFT, 1, x)
 
 #define	BP_GET_COMPRESS(bp)		BF64_GET((bp)->blk_prop, 32, 8)
 #define	BP_SET_COMPRESS(bp, x)		BF64_SET((bp)->blk_prop, 32, 8, x)
@@ -255,7 +269,7 @@ typedef struct blkptr {
 #define	BP_GET_DEDUP(bp)		BF64_GET((bp)->blk_prop, 62, 1)
 #define	BP_SET_DEDUP(bp, x)		BF64_SET((bp)->blk_prop, 62, 1, x)
 
-#define	BP_GET_BYTEORDER(bp)		(0 - BF64_GET((bp)->blk_prop, 63, 1))
+#define	BP_GET_BYTEORDER(bp)		BF64_GET((bp)->blk_prop, 63, 1)
 #define	BP_SET_BYTEORDER(bp, x)		BF64_SET((bp)->blk_prop, 63, 1, x)
 
 #define	BP_PHYSICAL_BIRTH(bp)		\
@@ -338,14 +352,10 @@ typedef struct blkptr {
 	ZIO_SET_CHECKSUM(&(bp)->blk_cksum, 0, 0, 0, 0);	\
 }
 
-/*
- * Note: the byteorder is either 0 or -1, both of which are palindromes.
- * This simplifies the endianness handling a bit.
- */
 #ifdef _BIG_ENDIAN
 #define	ZFS_HOST_BYTEORDER	(0ULL)
 #else
-#define	ZFS_HOST_BYTEORDER	(-1ULL)
+#define	ZFS_HOST_BYTEORDER	(1ULL)
 #endif
 
 #define	BP_SHOULD_BYTESWAP(bp)	(BP_GET_BYTEORDER(bp) != ZFS_HOST_BYTEORDER)

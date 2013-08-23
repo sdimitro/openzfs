@@ -1184,10 +1184,8 @@ arc_buf_t *
 dmu_request_arcbuf(dmu_buf_t *handle, int size)
 {
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)handle;
-	spa_t *spa;
 
-	DB_GET_SPA(&spa, db);
-	return (arc_loan_buf(spa, size));
+	return (arc_loan_buf(db->db_objset->os_spa, size));
 }
 
 /*

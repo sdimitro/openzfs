@@ -2485,7 +2485,7 @@ zio_vdev_io_start(zio_t *zio)
 	if (vd->vdev_ops->vdev_op_leaf &&
 	    (zio->io_type == ZIO_TYPE_READ || zio->io_type == ZIO_TYPE_WRITE)) {
 
-		if (zio->io_type == ZIO_TYPE_READ && vdev_cache_read(zio) == 0)
+		if (zio->io_type == ZIO_TYPE_READ && vdev_cache_read(zio))
 			return (ZIO_PIPELINE_CONTINUE);
 
 		if ((zio = vdev_queue_io(zio)) == NULL)

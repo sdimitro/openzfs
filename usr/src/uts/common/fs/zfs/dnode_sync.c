@@ -492,7 +492,7 @@ dnode_sync_free(dnode_t *dn, dmu_tx_t *tx)
 
 	ASSERT(dn->dn_free_txg > 0);
 	if (dn->dn_allocated_txg != dn->dn_free_txg)
-		dbuf_will_dirty(dn->dn_dbuf, tx);
+		dmu_buf_will_dirty(&dn->dn_dbuf->db, tx);
 	bzero(dn->dn_phys, sizeof (dnode_phys_t));
 
 	mutex_enter(&dn->dn_mtx);

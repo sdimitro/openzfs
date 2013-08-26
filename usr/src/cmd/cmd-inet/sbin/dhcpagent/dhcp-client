@@ -28,7 +28,7 @@ VERBOSE=$(/bin/svcprop -c -p dhcpagent/verbose $SMF_FMRI)
 
 OPTIONS=''
 
-if [ $DEBUG != '""' && $DEBUG != 0 ]; then
+if [ $DEBUG != '""' -a $DEBUG != 0 ]; then
 	OPTIONS="$OPTIONS -d $DEBUG"
 fi
 if [ $VERBOSE = "true" ]; then

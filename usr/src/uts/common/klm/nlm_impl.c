@@ -26,7 +26,7 @@
  */
 
 /*
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
@@ -1079,7 +1079,7 @@ nlm_vhold_busy(struct nlm_host *hostp, struct nlm_vhold *nvp)
 		return (TRUE);
 
 	vp = nvp->nv_vp;
-	sysid = nlm_host_get_sysid(hostp);
+	sysid = hostp->nh_sysid;
 	if (flk_has_remote_locks_for_sysid(vp, sysid) ||
 	    shr_has_remote_shares(vp, sysid))
 		return (TRUE);
@@ -1220,14 +1220,12 @@ nlm_host_notify_server(struct nlm_host *hostp, int32_t state)
 	struct nlm_vhold *nvp;
 	struct nlm_slreq *slr;
 	struct nlm_slreq_list slreqs2free;
-	int sysid;
 
 	TAILQ_INIT(&slreqs2free);
 	mutex_enter(&hostp->nh_lock);
 	if (state != 0)
 		hostp->nh_state = state;
 
-	sysid = nlm_host_get_sysid(hostp);
 	TAILQ_FOREACH(nvp, &hostp->nh_vholds_list, nv_link) {
 
 		/* cleanup sleeping requests at first */
@@ -1246,7 +1244,7 @@ nlm_host_notify_server(struct nlm_host *hostp, int32_t state)
 		nvp->nv_refcnt++;
 		mutex_exit(&hostp->nh_lock);
 
-		nlm_vhold_clean(nvp, sysid);
+		nlm_vhold_clean(nvp, hostp->nh_sysid);
 
 		mutex_enter(&hostp->nh_lock);
 		nvp->nv_refcnt--;
@@ -1473,7 +1471,7 @@ nlm_host_has_cli_locks(struct nlm_host *hostp)
 	 * it'd be more friedly to remote locks and
 	 * flk_sysid_has_locks() wouldn't be so expensive.
 	 */
-	if (flk_sysid_has_locks(nlm_host_get_sysid(hostp) |
+	if (flk_sysid_has_locks(hostp->nh_sysid |
 	    LM_SYSID_CLIENT, FLK_QUERY_ACTIVE))
 		return (TRUE);
 
@@ -1861,12 +1859,6 @@ nlm_host_monitor(struct nlm_globals *g, struct nlm_host *host, int state)
 
 		return;
 	}
-}
-
-int
-nlm_host_get_sysid(struct nlm_host *hostp)
-{
-	return (hostp->nh_sysid);
 }
 
 int
@@ -2294,7 +2286,7 @@ nlm_svc_add_ep(struct file *fp, const char *netid, struct knetconfig *knc)
 	if (error != 0)
 		return (error);
 
-	nlm_knc_activate(knc);
+	(void) nlm_knc_to_netid(knc);
 	return (0);
 }
 
@@ -2531,9 +2523,7 @@ nlm_unexport(struct exportinfo *exi)
 	hostp = avl_first(&g->nlm_hosts_tree);
 	while (hostp != NULL) {
 		struct nlm_vhold *nvp;
-		int sysid;
 
-		sysid = nlm_host_get_sysid(hostp);
 		mutex_enter(&hostp->nh_lock);
 		TAILQ_FOREACH(nvp, &hostp->nh_vholds_list, nv_link) {
 			vnode_t *vp;
@@ -2552,7 +2542,7 @@ nlm_unexport(struct exportinfo *exi)
 			 * to drop all locks from this vnode, let's
 			 * do it.
 			 */
-			nlm_vhold_clean(nvp, sysid);
+			nlm_vhold_clean(nvp, hostp->nh_sysid);
 
 		next_iter:
 			mutex_enter(&hostp->nh_lock);
@@ -2645,29 +2635,38 @@ nlm_caller_is_local(SVCXPRT *transp)
 }
 
 /*
- * Get netid string correspondig to the
- * given knetconfig.
+ * Get netid string correspondig to the given knetconfig.
+ * If not done already, save knc->knc_rdev in our table.
  */
 const char *
 nlm_knc_to_netid(struct knetconfig *knc)
 {
 	int i;
+	dev_t rdev;
+	struct nlm_knc *nc;
 	const char *netid = NULL;
 
 	rw_enter(&lm_lck, RW_READER);
 	for (i = 0; i < NLM_KNCS; i++) {
-		struct knetconfig *knc_iter;
+		nc = &nlm_netconfigs[i];
 
-		knc_iter = &nlm_netconfigs[i].n_knc;
-		if (knc_iter->knc_semantics == knc->knc_semantics &&
-		    strcmp(knc_iter->knc_protofmly,
+		if (nc->n_knc.knc_semantics == knc->knc_semantics &&
+		    strcmp(nc->n_knc.knc_protofmly,
 		    knc->knc_protofmly) == 0) {
-			netid = nlm_netconfigs[i].n_netid;
+			netid = nc->n_netid;
+			rdev = nc->n_knc.knc_rdev;
 			break;
 		}
 	}
-
 	rw_exit(&lm_lck);
+
+	if (netid != NULL && rdev == NODEV) {
+		rw_enter(&lm_lck, RW_WRITER);
+		if (nc->n_knc.knc_rdev == NODEV)
+			nc->n_knc.knc_rdev = knc->knc_rdev;
+		rw_exit(&lm_lck);
+	}
+
 	return (netid);
 }
 
@@ -2695,31 +2694,6 @@ nlm_knc_from_netid(const char *netid, struct knetconfig *knc)
 	}
 
 	return (ret);
-}
-
-void
-nlm_knc_activate(struct knetconfig *knc)
-{
-	int i;
-
-	rw_enter(&lm_lck, RW_WRITER);
-	for (i = 0; i < NLM_KNCS; i++) {
-		struct knetconfig *knc_iter;
-
-		knc_iter = &nlm_netconfigs[i].n_knc;
-		if (knc_iter->knc_rdev != NODEV)
-			continue;
-
-		if (knc_iter->knc_semantics == knc->knc_semantics &&
-		    strcmp(knc_iter->knc_protofmly,
-		    knc->knc_protofmly) == 0 &&
-		    strcmp(knc_iter->knc_proto, knc->knc_proto) == 0) {
-			knc_iter->knc_rdev = knc->knc_rdev;
-			break;
-		}
-	}
-
-	rw_exit(&lm_lck);
 }
 
 void

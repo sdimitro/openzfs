@@ -97,7 +97,7 @@ sm_stat_svc(sm_name *namep, sm_stat_res *resp)
 
 	if (debug)
 		(void) printf("proc sm_stat: mon_name = %s\n",
-				namep->mon_name);
+		    namep->mon_name);
 
 	resp->res_stat = stat_succ;
 	resp->state = LOCAL_STATE;
@@ -113,7 +113,7 @@ sm_mon_svc(mon *monp, sm_stat_res *resp)
 	rw_rdlock(&thr_rwlock);
 	if (debug) {
 		(void) printf("proc sm_mon: mon_name = %s, id = %d\n",
-		monidp->mon_name, * ((int *)monp->priv));
+		    monidp->mon_name, * ((int *)monp->priv));
 		pr_mon(monp->mon_id.mon_name);
 	}
 
@@ -136,10 +136,10 @@ sm_unmon_svc(mon_id *monidp, sm_stat *resp)
 	rw_rdlock(&thr_rwlock);
 	if (debug) {
 		(void) printf(
-			"proc sm_unmon: mon_name = %s, [%s, %d, %d, %d]\n",
-			monidp->mon_name, monidp->my_id.my_name,
-			monidp->my_id.my_prog, monidp->my_id.my_vers,
-			monidp->my_id.my_proc);
+		    "proc sm_unmon: mon_name = %s, [%s, %d, %d, %d]\n",
+		    monidp->mon_name, monidp->my_id.my_name,
+		    monidp->my_id.my_prog, monidp->my_id.my_vers,
+		    monidp->my_id.my_proc);
 		pr_mon(monidp->mon_name);
 	}
 
@@ -156,9 +156,9 @@ sm_unmon_all_svc(my_id *myidp, sm_stat *resp)
 	rw_rdlock(&thr_rwlock);
 	if (debug)
 		(void) printf("proc sm_unmon_all: [%s, %d, %d, %d]\n",
-		myidp->my_name,
-		myidp->my_prog, myidp->my_vers,
-		myidp->my_proc);
+		    myidp->my_name,
+		    myidp->my_prog, myidp->my_vers,
+		    myidp->my_proc);
 	delete_mon((char *)NULL, myidp);
 	pr_mon(NULL);
 	resp->state = local_state;
@@ -174,7 +174,7 @@ sm_notify_svc(stat_chge *ntfp)
 	rw_rdlock(&thr_rwlock);
 	if (debug)
 		(void) printf("sm_notify: %s state =%d\n",
-			ntfp->mon_name, ntfp->state);
+		    ntfp->mon_name, ntfp->state);
 	send_notice(ntfp->mon_name, ntfp->state);
 	rw_unlock(&thr_rwlock);
 }
@@ -192,6 +192,7 @@ sm_simu_crash_svc(void *myidp)
 	if (debug)
 		(void) printf("proc sm_simu_crash\n");
 	if (in_crash) {
+		cond_wait(&crash_finish, &crash_lock);
 		mutex_unlock(&crash_lock);
 		return;
 	} else {
@@ -839,7 +840,7 @@ create_client(char *host, int prognum, int versnum, char *netid,
 			timeout.tv_usec = 0;
 			timeout.tv_sec = SM_CLTS_TIMEOUT;
 			(void) CLNT_CONTROL(client,
-				CLSET_RETRY_TIMEOUT, (caddr_t)&timeout);
+			    CLSET_RETRY_TIMEOUT, (caddr_t)&timeout);
 		}
 	} else
 		return (NULL);
@@ -1321,7 +1322,7 @@ merge_ips(void)
 	error = getifaddrs(&ifap);
 	if (error) {
 		syslog(LOG_WARNING, "getifaddrs error: '%s'",
-		       strerror(errno));
+		    strerror(errno));
 		return;
 	}
 

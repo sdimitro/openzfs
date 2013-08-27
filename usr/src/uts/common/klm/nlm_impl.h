@@ -60,6 +60,12 @@
 #define	SEEK_END	2
 #endif
 
+/*
+ * Maximum offset supported by NLM calls using the older
+ * (32-bit) versions of the protocol.
+ */
+#define	MAX_UOFF32	0xffffffffULL
+
 struct nlm_host;
 struct vnode;
 struct exportinfo;
@@ -558,7 +564,6 @@ void nlm_prog_4(struct svc_req *rqstp, SVCXPRT *transp);
  */
 const char *nlm_knc_to_netid(struct knetconfig *);
 int nlm_knc_from_netid(const char *, struct knetconfig *);
-void nlm_knc_activate(struct knetconfig *);
 
 /*
  * NLM host functions (nlm_impl.c)
@@ -576,7 +581,6 @@ void nlm_host_unmonitor(struct nlm_globals *, struct nlm_host *);
 void nlm_host_notify_server(struct nlm_host *, int32_t);
 void nlm_host_notify_client(struct nlm_host *, int32_t);
 
-int nlm_host_get_sysid(struct nlm_host *);
 int nlm_host_get_state(struct nlm_host *);
 
 struct nlm_vhold *nlm_vhold_get(struct nlm_host *, vnode_t *);

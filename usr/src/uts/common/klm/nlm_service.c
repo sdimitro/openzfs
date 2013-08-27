@@ -110,7 +110,6 @@ static void nlm_block(
 	struct flock64 *fl,
 	nlm_testargs_cb grant_cb);
 
-static void nlm_init_flock(struct flock64 *, struct nlm4_lock *, int);
 static vnode_t *nlm_fh_to_vp(struct netobj *);
 static struct nlm_vhold *nlm_fh_to_vhold(struct nlm_host *, struct netobj *);
 static void nlm_init_shrlock(struct shrlock *, nlm4_share *, struct nlm_host *);
@@ -118,16 +117,45 @@ static callb_cpr_t *nlm_block_callback(flk_cb_when_t, void *);
 static int nlm_vop_frlock(vnode_t *, int, flock64_t *, int, offset_t,
     struct flk_callback *, cred_t *, caller_context_t *);
 
-static void
-nlm_init_flock(struct flock64 *fl, struct nlm4_lock *nl, int sysid)
+/*
+ * Convert a lock from network to local form, and
+ * check for valid range (no overflow).
+ */
+static int
+nlm_init_flock(struct flock64 *fl, struct nlm4_lock *nl,
+	struct nlm_host *host, rpcvers_t vers, short type)
 {
+	uint64_t off, len;
+
 	bzero(fl, sizeof (*fl));
-	/* fl->l_type set by caller */
+	off = nl->l_offset;
+	len = nl->l_len;
+
+	if (vers < NLM4_VERS) {
+		if (off > MAX_UOFF32 || len > MAX_UOFF32)
+			return (EINVAL);
+		if (off + len > MAX_UOFF32 + 1)
+			return (EINVAL);
+	} else {
+		/*
+		 * Check range for 64-bit client (no overflow).
+		 * Again allow len == ~0 to mean lock to EOF.
+		 */
+		if (len == MAX_U_OFFSET_T)
+			len = 0;
+		if (len != 0 && off + (len - 1) < off)
+			return (EINVAL);
+	}
+
+	fl->l_type = type;
 	fl->l_whence = SEEK_SET;
-	fl->l_start = nl->l_offset;
-	fl->l_len = nl->l_len;
-	fl->l_sysid = sysid;
+	fl->l_start = off;
+	fl->l_len = len;
+	fl->l_sysid = host->nh_sysid;
 	fl->l_pid = nl->svid;
+	/* l_pad */
+
+	return (0);
 }
 
 /*
@@ -256,6 +284,8 @@ nlm_do_test(nlm4_testargs *argp, nlm4_testres *resp,
 {
 	struct nlm_globals *g;
 	struct nlm_host *host;
+	struct nlm4_holder *lh;
+	struct nlm_owner_handle *oh;
 	nlm_rpc_t *rpcp = NULL;
 	vnode_t *vp = NULL;
 	struct netbuf *addr;
@@ -295,8 +325,13 @@ nlm_do_test(nlm4_testargs *argp, nlm4_testres *resp,
 		goto out;
 	}
 
-	nlm_init_flock(&fl, &argp->alock, nlm_host_get_sysid(host));
-	fl.l_type = (argp->exclusive) ? F_WRLCK : F_RDLCK;
+	/* Convert to local form. */
+	error = nlm_init_flock(&fl, &argp->alock, host, sr->rq_vers,
+	    (argp->exclusive) ? F_WRLCK : F_RDLCK);
+	if (error) {
+		resp->stat.stat = nlm4_failed;
+		goto out;
+	}
 
 	/* BSD: VOP_ADVLOCK(nv->nv_vp, NULL, F_GETLK, &fl, F_REMOTE); */
 	error = nlm_vop_frlock(vp, F_GETLK, &fl,
@@ -309,23 +344,47 @@ nlm_do_test(nlm4_testargs *argp, nlm4_testres *resp,
 
 	if (fl.l_type == F_UNLCK) {
 		resp->stat.stat = nlm4_granted;
-	} else {
-		struct nlm4_holder *lh;
-		struct nlm_owner_handle *oh;
-
-		/* Freed when nlm_dispatch XDR frees the result structure. */
-		oh = kmem_zalloc(sizeof (*oh), KM_SLEEP);
-		oh->oh_sysid = (sysid_t)fl.l_sysid;
-
-		resp->stat.stat = nlm4_denied;
-		lh = &resp->stat.nlm4_testrply_u.holder;
-		lh->exclusive = (fl.l_type == F_WRLCK);
-		lh->svid = fl.l_pid;
-		lh->oh.n_len = sizeof (*oh);
-		lh->oh.n_bytes = (char *)oh;
-		lh->l_offset = fl.l_start;
-		lh->l_len = fl.l_len;
+		goto out;
 	}
+	resp->stat.stat = nlm4_denied;
+
+	/*
+	 * This lock "test" fails due to a conflicting lock.
+	 *
+	 * If this is a v1 client, make sure the conflicting
+	 * lock range we report can be expressed with 32-bit
+	 * offsets.  The lock range requested was expressed
+	 * as 32-bit offset and length, so at least part of
+	 * the conflicting lock should lie below MAX_UOFF32.
+	 * If the conflicting lock extends past that, we'll
+	 * trim the range to end at MAX_UOFF32 so this lock
+	 * can be represented in a 32-bit response.  Check
+	 * the start also (paranoid, but a low cost check).
+	 */
+	if (sr->rq_vers < NLM4_VERS) {
+		uint64 maxlen;
+		if (fl.l_start > MAX_UOFF32)
+			fl.l_start = MAX_UOFF32;
+		maxlen = MAX_UOFF32 + 1 - fl.l_start;
+		if (fl.l_len > maxlen)
+			fl.l_len = maxlen;
+	}
+
+	/*
+	 * Build the nlm4_holder result structure.
+	 *
+	 * Note that lh->oh is freed via xdr_free,
+	 * xdr_nlm4_holder, xdr_netobj, xdr_bytes.
+	 */
+	oh = kmem_zalloc(sizeof (*oh), KM_SLEEP);
+	oh->oh_sysid = (sysid_t)fl.l_sysid;
+	lh = &resp->stat.nlm4_testrply_u.holder;
+	lh->exclusive = (fl.l_type == F_WRLCK);
+	lh->svid = fl.l_pid;
+	lh->oh.n_len = sizeof (*oh);
+	lh->oh.n_bytes = (void *)oh;
+	lh->l_offset = fl.l_start;
+	lh->l_len = fl.l_len;
 
 out:
 	/*
@@ -428,7 +487,7 @@ nlm_do_lock(nlm4_lockargs *argp, nlm4_res *resp, struct svc_req *sr,
 		nlm_host_notify_server(host, argp->state);
 
 	/*
-	 * Get holded vnode when on lock operation.
+	 * Get a hold on the vnode for a lock operation.
 	 * Only lock() and share() need vhold objects.
 	 */
 	nvp = nlm_fh_to_vhold(host, &argp->alock.fh);
@@ -437,11 +496,10 @@ nlm_do_lock(nlm4_lockargs *argp, nlm4_res *resp, struct svc_req *sr,
 		goto doreply;
 	}
 
-	/*
-	 * Check for overflow.
-	 */
-	if (argp->alock.l_len != 0 && argp->alock.l_offset + argp->alock.l_len
-	    <= argp->alock.l_offset) {
+	/* Convert to local form. */
+	error = nlm_init_flock(&fl, &argp->alock, host, sr->rq_vers,
+	    (argp->exclusive) ? F_WRLCK : F_RDLCK);
+	if (error) {
 		status = nlm4_failed;
 		goto doreply;
 	}
@@ -455,9 +513,6 @@ nlm_do_lock(nlm4_lockargs *argp, nlm4_res *resp, struct svc_req *sr,
 	 * This also let's us find out now about some
 	 * possible errors like EROFS, etc.
 	 */
-	nlm_init_flock(&fl, &argp->alock, nlm_host_get_sysid(host));
-	fl.l_type = (argp->exclusive) ? F_WRLCK : F_RDLCK;
-
 	flags = F_REMOTELOCK | FREAD | FWRITE;
 	error = nlm_vop_frlock(nvp->nv_vp, F_SETLK, &fl, flags,
 	    (u_offset_t)0, NULL, CRED(), NULL);
@@ -721,8 +776,13 @@ nlm_do_cancel(nlm4_cancargs *argp, nlm4_res *resp,
 		goto out;
 	}
 
-	nlm_init_flock(&fl, &argp->alock, nlm_host_get_sysid(host));
-	fl.l_type = (argp->exclusive) ? F_WRLCK : F_RDLCK;
+	/* Convert to local form. */
+	error = nlm_init_flock(&fl, &argp->alock, host, sr->rq_vers,
+	    (argp->exclusive) ? F_WRLCK : F_RDLCK);
+	if (error) {
+		resp->stat.stat = nlm4_failed;
+		goto out;
+	}
 
 	error = nlm_slreq_unregister(host, nvp, &fl);
 	if (error != 0) {
@@ -788,9 +848,9 @@ nlm_do_unlock(nlm4_unlockargs *argp, nlm4_res *resp,
 
 	/*
 	 * NLM_UNLOCK operation doesn't have an error code
-	 * denoting that operation failed, os we always
-	 * return nlm4_granted except the situation when
-	 * server is in a grace period.
+	 * denoting that operation failed, so we always
+	 * return nlm4_granted except when the server is
+	 * in a grace period.
 	 */
 	resp->stat.stat = nlm4_granted;
 
@@ -817,8 +877,10 @@ nlm_do_unlock(nlm4_unlockargs *argp, nlm4_res *resp,
 	if (vp == NULL)
 		goto out;
 
-	nlm_init_flock(&fl, &argp->alock, nlm_host_get_sysid(host));
-	fl.l_type = F_UNLCK;
+	/* Convert to local form. */
+	error = nlm_init_flock(&fl, &argp->alock, host, sr->rq_vers, F_UNLCK);
+	if (error)
+		goto out;
 
 	/* BSD: VOP_ADVLOCK(nv->nv_vp, NULL, F_UNLCK, &fl, F_REMOTE); */
 	error = nlm_vop_frlock(vp, F_SETLK, &fl,
@@ -943,7 +1005,8 @@ nlm_do_free_all(nlm4_notify *argp, void *res, struct svc_req *sr)
 			 * we are taking a reference.
 			 */
 			if (hostp->nh_flags & NLM_NH_INIDLE) {
-				TAILQ_REMOVE(&g->nlm_idle_hosts, hostp, nh_link);
+				TAILQ_REMOVE(&g->nlm_idle_hosts, hostp,
+				    nh_link);
 				hostp->nh_flags &= ~NLM_NH_INIDLE;
 			}
 			hostp->nh_refs++;
@@ -1010,7 +1073,7 @@ nlm_init_shrlock(struct shrlock *shr,
 		break;
 	}
 
-	shr->s_sysid = nlm_host_get_sysid(host);
+	shr->s_sysid = host->nh_sysid;
 	shr->s_pid = 0;
 	shr->s_own_len = nshare->oh.n_len;
 	shr->s_owner   = nshare->oh.n_bytes;
@@ -1152,8 +1215,7 @@ static int
 nlm_vop_frlock(vnode_t *vp, int cmd, flock64_t *bfp, int flag, offset_t offset,
 	struct flk_callback *flk_cbp, cred_t *cr, caller_context_t *ct)
 {
-	if (bfp->l_len != 0 && bfp->l_start + (bfp->l_len - 1)
-            < bfp->l_start) {
+	if (bfp->l_len != 0 && bfp->l_start + (bfp->l_len - 1) < bfp->l_start) {
 		return (EOVERFLOW);
 	}
 

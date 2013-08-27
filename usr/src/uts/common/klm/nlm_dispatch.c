@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -272,7 +272,7 @@ nlm4_testres_free(nlm4_testres *resp)
  * (NLM_VERS, NLM_SM, NLM_VERSX)
  */
 static const struct dispatch_entry
-nlm_prog_3_table[] = {
+nlm_prog_3_dtable[] = {
 
 	/*
 	 * Version 1 (NLM_VERS) entries.
@@ -480,9 +480,9 @@ nlm_prog_3_table[] = {
 	0,
 	0 },
 };
-static int nlm_prog_3_nproc =
-	sizeof (nlm_prog_3_table) /
-	sizeof (nlm_prog_3_table[0]);
+static int nlm_prog_3_dtsize =
+	sizeof (nlm_prog_3_dtable) /
+	sizeof (nlm_prog_3_dtable[0]);
 
 /*
  * RPC dispatch function for nlm_prot versions: 1,2,3
@@ -509,14 +509,14 @@ nlm_prog_3(struct svc_req *rqstp, register SVCXPRT *transp)
 		svcerr_noprog(transp);
 		return;
 	}
-	ASSERT(max_proc < nlm_prog_3_nproc);
+	ASSERT(max_proc < nlm_prog_3_dtsize);
 
 	if (rqstp->rq_proc > max_proc) {
 		svcerr_noproc(transp);
 		return;
 	}
 
-	de = &nlm_prog_3_table[rqstp->rq_proc];
+	de = &nlm_prog_3_dtable[rqstp->rq_proc];
 
 	nlm_dispatch(rqstp, transp, de);
 }
@@ -525,7 +525,7 @@ nlm_prog_3(struct svc_req *rqstp, register SVCXPRT *transp)
  * Dispatch table for version 4 (NLM4_VERS)
  */
 static const struct dispatch_entry
-nlm_prog_4_table[] = {
+nlm_prog_4_dtable[] = {
 
 	{ /* 0: NULLPROC */
 	NLM_SVC_FUNC(nlm_null_svc),
@@ -725,9 +725,9 @@ nlm_prog_4_table[] = {
 	0,
 	0 },
 };
-static int nlm_prog_4_nproc =
-	sizeof (nlm_prog_4_table) /
-	sizeof (nlm_prog_4_table[0]);
+static int nlm_prog_4_dtsize =
+	sizeof (nlm_prog_4_dtable) /
+	sizeof (nlm_prog_4_dtable[0]);
 
 /*
  * RPC dispatch function for nlm_prot version 4.
@@ -744,12 +744,12 @@ nlm_prog_4(struct svc_req *rqstp, register SVCXPRT *transp)
 		return;
 	}
 
-	if (rqstp->rq_proc >= nlm_prog_4_nproc) {
+	if (rqstp->rq_proc >= nlm_prog_4_dtsize) {
 		svcerr_noproc(transp);
 		return;
 	}
 
-	de = &nlm_prog_4_table[rqstp->rq_proc];
+	de = &nlm_prog_4_dtable[rqstp->rq_proc];
 
 	nlm_dispatch(rqstp, transp, de);
 }

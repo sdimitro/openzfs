@@ -89,7 +89,6 @@ static volatile uint32_t nlm_xid = 1;
 static int nlm_init_fh_by_vp(vnode_t *, struct netobj *, rpcvers_t *);
 static int nlm_map_status(nlm4_stats);
 static int nlm_map_clnt_stat(enum clnt_stat);
-static const char *nlm_servinfo_netid(servinfo_t *);
 static void nlm_send_siglost(pid_t);
 
 static int nlm_frlock_getlk(struct nlm_host *, vnode_t *,
@@ -148,7 +147,7 @@ nlm_reclaim_client(struct nlm_globals *g, struct nlm_host *hostp)
 	struct nlm_shres *nsp_head, *nsp;
 	bool_t restart;
 
-	sysid = nlm_host_get_sysid(hostp) | LM_SYSID_CLIENT;
+	sysid = hostp->nh_sysid | LM_SYSID_CLIENT;
 	do {
 		error = 0;
 		restart = FALSE;
@@ -270,7 +269,7 @@ nlm_frlock(struct vnode *vp, int cmd, struct flock64 *flkp,
 	mi = VTOMI(vp);
 	sv = mi->mi_curr_serv;
 
-	netid = nlm_servinfo_netid(sv);
+	netid = nlm_knc_to_netid(sv->sv_knconf);
 	if (netid == NULL) {
 		NLM_ERR("nlm_frlock: unknown NFS netid");
 		return (ENOSYS);
@@ -378,10 +377,29 @@ nlm_frlock_setlk(struct nlm_host *hostp, vnode_t *vp,
 		return (error);
 
 	/*
+	 * NFS v2 clients should not request locks where any part
+	 * of the lock range is beyond 0xffffffff.  The NFS code
+	 * checks that (see nfs_frlock, flk_check_lock_data), but
+	 * as that's outside this module, let's check here too.
+	 * This check ensures that we will be able to convert this
+	 * lock request into 32-bit form without change, and that
+	 * (more importantly) when the granted call back arrives,
+	 * it's unchanged when converted back into 64-bit form.
+	 * If this lock range were to change in any way during
+	 * either of those conversions, the "granted" call back
+	 * from the NLM server would not find our sleeping lock.
+	 */
+	if (vers < NLM4_VERS) {
+		if (flkp->l_start > MAX_UOFF32 ||
+		    flkp->l_start + flkp->l_len > MAX_UOFF32 + 1)
+			return (EINVAL);
+	}
+
+	/*
 	 * Fill in l_sysid for the local locking calls.
 	 * Also, let's not trust the caller's l_pid.
 	 */
-	flkp->l_sysid = nlm_host_get_sysid(hostp) | LM_SYSID_CLIENT;
+	flkp->l_sysid = hostp->nh_sysid | LM_SYSID_CLIENT;
 	flkp->l_pid = curproc->p_pid;
 
 	if (flkp->l_type == F_UNLCK) {
@@ -455,7 +473,7 @@ nlm_client_cancel_all(struct nlm_globals *g, struct nlm_host *hostp)
 	rpcvers_t vers;
 	int error, sysid;
 
-	sysid = nlm_host_get_sysid(hostp) | LM_SYSID_CLIENT;
+	sysid = hostp->nh_sysid | LM_SYSID_CLIENT;
 	nlm_host_cancel_slocks(g, hostp);
 
 	/*
@@ -602,7 +620,7 @@ nlm_register_lock_locally(struct vnode *vp, struct nlm_host *hostp,
 	int sysid = 0;
 
 	if (hostp != NULL) {
-		sysid = nlm_host_get_sysid(hostp) | LM_SYSID_CLIENT;
+		sysid = hostp->nh_sysid | LM_SYSID_CLIENT;
 	}
 
 	flk->l_sysid = sysid;
@@ -1182,7 +1200,7 @@ nlm_shrlock(struct vnode *vp, int cmd, struct shrlock *shr,
 	mi = VTOMI(vp);
 	sv = mi->mi_curr_serv;
 
-	netid = nlm_servinfo_netid(sv);
+	netid = nlm_knc_to_netid(sv->sv_knconf);
 	if (netid == NULL) {
 		NLM_ERR("nlm_shrlock: unknown NFS netid\n");
 		return (ENOSYS);
@@ -1198,7 +1216,7 @@ nlm_shrlock(struct vnode *vp, int cmd, struct shrlock *shr,
 	 * Also, let's not trust the caller's l_pid.
 	 */
 	shlk = *shr;
-	shlk.s_sysid = nlm_host_get_sysid(host) | LM_SYSID_CLIENT;
+	shlk.s_sysid = host->nh_sysid | LM_SYSID_CLIENT;
 	shlk.s_pid = curproc->p_pid;
 
 	if (cmd == F_UNSHARE) {
@@ -1524,18 +1542,6 @@ nlm_init_fh_by_vp(vnode_t *vp, struct netobj *fh, rpcvers_t *lm_vers)
 	}
 
 	return (0);
-}
-
-static const char *
-nlm_servinfo_netid(servinfo_t *svp)
-{
-	const char *netid;
-
-	netid = nlm_knc_to_netid(svp->sv_knconf);
-	if (netid != NULL)
-		nlm_knc_activate(svp->sv_knconf);
-
-	return (netid);
 }
 
 /*

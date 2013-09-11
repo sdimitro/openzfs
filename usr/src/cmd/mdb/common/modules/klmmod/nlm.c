@@ -482,6 +482,7 @@ nlm_lockson_cb(uintptr_t addr, const void *lockp, void *cb_data) {
 	return (WALK_NEXT);
 }
 
+/* ARGSUSED */
 static int
 nlm_lockson_vhold_cb(uintptr_t addr, const void *holdp, void *cb_data) {
 	uintptr_t vnode_addr = ((mdb_nlm_vhold_t *)holdp)->nv_vp;
@@ -494,6 +495,7 @@ nlm_lockson_vhold_cb(uintptr_t addr, const void *holdp, void *cb_data) {
 	return (WALK_NEXT);
 }
 
+/* ARGSUSED */
 static int
 nlm_lockson_host_cb(uintptr_t addr, const void *hostp, void *cb_data) {
 	nlm_lockson_arg_t *arg = cb_data;
@@ -535,6 +537,7 @@ nlm_lockson_host_cb(uintptr_t addr, const void *hostp, void *cb_data) {
 	return (WALK_NEXT);
 }
 
+/* ARGSUSED */
 static int
 nlm_lockson_dcmd(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {

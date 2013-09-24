@@ -3504,7 +3504,7 @@ kobj_open_path(char *name, int use_path, int use_moddir_suffix)
 			kobj_free(fullname, maxpathlen);
 			return (file);
 		}
-		while (*pathp == ' ')
+		while (*pathp == ' ' || *pathp == ':')
 			pathp++;
 		if (*pathp == 0)
 			break;

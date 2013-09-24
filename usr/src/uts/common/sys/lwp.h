@@ -30,8 +30,6 @@
 #ifndef	_SYS_LWP_H
 #define	_SYS_LWP_H
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <sys/synch.h>
 #include <sys/ucontext.h>
 

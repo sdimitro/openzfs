@@ -1005,7 +1005,7 @@ int zfs_delay_resolution_ns = 100 * 1000; /* 100 microseconds */
  * Note here that only as the amount of dirty data approaches its limit does
  * the delay start to increase rapidly. The goal of a properly tuned system
  * should be to keep the amount of dirty data out of that range by first
- * ensuring that the appropriate limits are set the I/O scheduler to reach
+ * ensuring that the appropriate limits are set for the I/O scheduler to reach
  * optimal throughput on the backend storage, and then by changing the value
  * of zfs_delay_scale to increase the steepness of the curve.
  */

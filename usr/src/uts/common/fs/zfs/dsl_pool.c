@@ -644,7 +644,8 @@ dsl_pool_dirty_space(dsl_pool_t *dp, int64_t space, dmu_tx_t *tx)
 }
 
 void
-dsl_pool_undirty_space(dsl_pool_t *dp, int64_t space, uint64_t txg) {
+dsl_pool_undirty_space(dsl_pool_t *dp, int64_t space, uint64_t txg)
+{
 	ASSERT3S(space, >=, 0);
 	if (space == 0)
 		return;

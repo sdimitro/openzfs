@@ -26,8 +26,6 @@
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <stdarg.h>
 #include <string.h>
 #include "Pcontrol.h"

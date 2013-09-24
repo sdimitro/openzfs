@@ -27,8 +27,6 @@
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <limits.h>
 #include <string.h>
 #include <stdarg.h>

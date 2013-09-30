@@ -28,7 +28,6 @@
  * Copyright (c) 2013 Steven Hartland.  All rights reserved.
  */
 
-#include <alloca.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -239,8 +238,7 @@ get_usage(zfs_help_t idx)
 		    "[filesystem|volume|snapshot] ...\n"));
 	case HELP_MOUNT:
 		return (gettext("\tmount\n"
-		    "\tmount [-vO] [-o opts] -a\n"
-		    "\tmount [-vOr] [-o opts] <filesystem> ...\n"));
+		    "\tmount [-vO] [-o opts] <-a | filesystem>\n"));
 	case HELP_PROMOTE:
 		return (gettext("\tpromote <clone-filesystem>\n"));
 	case HELP_RECEIVE:
@@ -261,7 +259,7 @@ get_usage(zfs_help_t idx)
 		return (gettext("\tset <property=value> "
 		    "<filesystem|volume|snapshot> ...\n"));
 	case HELP_SHARE:
-		return (gettext("\tshare <-a | filesystem> [nfs | smb]\n"));
+		return (gettext("\tshare <-a | filesystem>\n"));
 	case HELP_SNAPSHOT:
 		return (gettext("\tsnapshot [-r] [-o property=value] ... "
 		    "<filesystem@snapname|volume@snapname> ...\n"));
@@ -4432,7 +4430,7 @@ struct allow_opts {
 };
 
 static inline int
-str_cmp(const void *a, const void *b)
+prop_cmp(const void *a, const void *b)
 {
 	const char *str1 = *(const char **)a;
 	const char *str2 = *(const char **)b;
@@ -4496,7 +4494,7 @@ allow_usage(boolean_t un, boolean_t requested, const char *msg)
 	}
 	props[count] = NULL;
 
-	qsort(props, count, sizeof (char *), str_cmp);
+	qsort(props, count, sizeof (char *), prop_cmp);
 
 	for (i = 0; i < count; i++)
 		(void) fprintf(fp, fmt, props[i], gettext("property"), "");
@@ -5469,68 +5467,6 @@ get_all_datasets(zfs_handle_t ***dslist, size_t *count, boolean_t verbose)
 		finish_progress(gettext("done."));
 }
 
-/*ARGSUSED*/
-static int
-nop_callback(zfs_handle_t *zhp, void *data)
-{
-	return (0);
-}
-
-static int
-get_some_datasets(zfs_handle_t ***dslist, size_t *count, boolean_t verbose,
-    int argc, char **argv)
-{
-	char **dsnames;
-	zfs_handle_t *zhp;
-	int i;
-	get_all_cb_t cb = { 0 };
-	cb.cb_verbose = verbose;
-	cb.cb_getone = get_one_dataset;
-
-	/*
-	 * First make sure the specified datasets are valid.
-	 */
-	if (zfs_for_each(argc, argv, 0, ZFS_TYPE_FILESYSTEM, NULL, NULL, 0,
-	    nop_callback, NULL) != 0)
-		return (1);
-
-	/*
-	 * Check for overlaps which could indicate a misunderstanding of the
-	 * proper use of this option.
-	 */
-	dsnames = alloca(argc * sizeof (char *));
-	for (i = 0; i < argc; i++) {
-		dsnames[i] = argv[i];
-	}
-	qsort(dsnames, argc, sizeof (char *), str_cmp);
-
-	for (i = 1; i < argc; i++) {
-		if (strstr(dsnames[i], dsnames[i - 1]) == dsnames[i] &&
-		    dsnames[i][strlen(dsnames[i - 1])] == '/') {
-			(void) fprintf(stderr, gettext("overlapping "
-			    "filesystems may not be specified\n"));
-			return (1);
-		}
-	}
-
-	if (verbose)
-		set_progress_header(gettext("Reading ZFS config"));
-
-	for (i = 0; i < argc; i++) {
-		zhp = zfs_open(g_zfs, dsnames[i], ZFS_TYPE_FILESYSTEM);
-		if (zhp == NULL || get_one_dataset(zhp, &cb) != 0)
-			return (1);
-	}
-
-	*dslist = cb.cb_handles;
-	*count = cb.cb_used;
-
-	if (verbose)
-		finish_progress(gettext("done."));
-
-	return (0);
-}
-
 /*
  * Generic callback for sharing or mounting filesystems.  Because the code is so
  * similar, we have a common function with an extra parameter to determine which
@@ -5783,22 +5719,18 @@ append_options(char *mntopts, char *newopts)
 static int
 share_mount(int op, int argc, char **argv)
 {
-	boolean_t do_all = B_FALSE;
-	boolean_t recursive = B_FALSE;
+	int do_all = 0;
 	boolean_t verbose = B_FALSE;
 	int c, ret = 0;
 	char *options = NULL;
 	int flags = 0;
 
 	/* check options */
-	while ((c = getopt(argc, argv, op == OP_MOUNT ? ":ao:Orv" : "a"))
+	while ((c = getopt(argc, argv, op == OP_MOUNT ? ":avo:O" : "a"))
 	    != -1) {
 		switch (c) {
 		case 'a':
-			do_all = B_TRUE;
-			break;
-		case 'r':
-			recursive = B_TRUE;
+			do_all = 1;
 			break;
 		case 'v':
 			verbose = B_TRUE;
@@ -5835,12 +5767,8 @@ share_mount(int op, int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	/* -a and -r may not both be specified */
-	if (do_all && recursive)
-		usage(B_FALSE);
-
 	/* check number of arguments */
-	if (do_all || recursive) {
+	if (do_all) {
 		zfs_handle_t **dslist = NULL;
 		size_t i, count = 0;
 		char *protocol = NULL;
@@ -5857,31 +5785,18 @@ share_mount(int op, int argc, char **argv)
 			argv++;
 		}
 
-		start_progress_timer();
-
-		if (do_all) {
-			if (argc != 0) {
-				(void) fprintf(stderr,
-				    gettext("too many arguments\n"));
-				usage(B_FALSE);
-			}
-			get_all_datasets(&dslist, &count, verbose);
-		} else {
-			if (argc == 0) {
-				(void) fprintf(stderr,
-				    gettext("no filesystems specified\n"));
-				usage(B_FALSE);
-			}
-			if (get_some_datasets(&dslist, &count, verbose, argc,
-			    argv) != 0) {
-				return (1);
-			}
+		if (argc != 0) {
+			(void) fprintf(stderr, gettext("too many arguments\n"));
+			usage(B_FALSE);
 		}
+
+		start_progress_timer();
+		get_all_datasets(&dslist, &count, verbose);
 
 		if (count == 0)
 			return (0);
 
-		qsort(dslist, count, sizeof (dslist[0]), libzfs_dataset_cmp);
+		qsort(dslist, count, sizeof (void *), libzfs_dataset_cmp);
 
 		for (i = 0; i < count; i++) {
 			if (verbose)
@@ -5920,17 +5835,20 @@ share_mount(int op, int argc, char **argv)
 
 	} else {
 		zfs_handle_t *zhp;
-		int i;
 
-		for (i = 0; i < argc; i++) {
-			if ((zhp = zfs_open(g_zfs, argv[i],
-			    ZFS_TYPE_FILESYSTEM)) == NULL) {
-				ret |= 1;
-			} else {
-				ret |= share_mount_one(zhp, op, flags, NULL,
-				    B_TRUE, options);
-				zfs_close(zhp);
-			}
+		if (argc > 1) {
+			(void) fprintf(stderr,
+			    gettext("too many arguments\n"));
+			usage(B_FALSE);
+		}
+
+		if ((zhp = zfs_open(g_zfs, argv[0],
+		    ZFS_TYPE_FILESYSTEM)) == NULL) {
+			ret = 1;
+		} else {
+			ret = share_mount_one(zhp, op, flags, NULL, B_TRUE,
+			    options);
+			zfs_close(zhp);
 		}
 	}
 

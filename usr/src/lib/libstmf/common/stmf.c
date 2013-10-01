@@ -4634,6 +4634,11 @@ loadHostGroups(int fd, stmfGroupList *groupList)
 			if ((ret = groupMemberIoctl(fd, STMF_IOCTL_ADD_HG_ENTRY,
 			    &(groupList->name[i]), &(groupProps->name[j])))
 			    != STMF_STATUS_SUCCESS) {
+				syslog(LOG_ERR, "groupMemberIoctl returned %d "
+				    "in %s while adding host group entry %s to "
+				    "host group %s",
+				    ret, __func__, &groupProps->name[j],
+				    &groupList->name[i]);
 				goto out;
 			}
 		}
@@ -4676,11 +4681,15 @@ loadTargetGroups(int fd, stmfGroupList *groupList)
 			if ((ret = groupMemberIoctl(fd, STMF_IOCTL_ADD_TG_ENTRY,
 			    &(groupList->name[i]), &(groupProps->name[j])))
 			    != STMF_STATUS_SUCCESS) {
+				syslog(LOG_ERR, "groupMemberIoctl returned %d "
+				    "in %s while adding target group entry %s "
+				    "to target group %s",
+				    ret, __func__, &groupProps->name[j],
+				    &groupList->name[i]);
 				goto out;
 			}
 		}
 	}
-
 
 out:
 	stmfFreeMemory(groupProps);
@@ -4714,6 +4723,7 @@ loadStore(int fd)
 	stmfGroupList *groupList = NULL;
 	stmfGuidList *guidList = NULL;
 	stmfViewEntryList *viewEntryList = NULL;
+	stmfViewEntry *ve;
 	stmfProviderList *providerList = NULL;
 	int providerType;
 	nvlist_t *nvl = NULL;
@@ -4770,17 +4780,50 @@ loadStore(int fd)
 		if (STMF_STATUS_IS_WARNING(iret) && viewEntryList == NULL) {
 			(void) psFormatGuid(&guidList->guid[i], guidAsciiBuf,
 			    sizeof (guidAsciiBuf));
-			syslog(LOG_ERR, "loadStore:failed to get view "
-			    "entry list for LU %s:%x - skipping",
-			    guidAsciiBuf, iret);
+			syslog(LOG_ERR, "%s:failed to get view entry list for "
+			    "LU %s: %x - skipping", __func__, guidAsciiBuf,
+			    iret);
 			continue;
 		}
 
 		for (j = 0; j < viewEntryList->cnt; j++) {
-			iret = addViewEntryIoctl(fd, &guidList->guid[i],
-			    &viewEntryList->ve[j]);
-			GOTO_OUT_ON_ERROR(iret, ret)
+			ve = &viewEntryList->ve[j];
+			iret = addViewEntryIoctl(fd, &guidList->guid[i], ve);
+			if (STMF_STATUS_IS_ERROR(iret)) {
+				ret = iret;
+				(void) psFormatGuid(&guidList->guid[i],
+				    guidAsciiBuf, sizeof (guidAsciiBuf));
+
+				/*
+				 * It would be more user-friendly to log the
+				 * view entry property group name, but it isn't
+				 * part of stmfViewEntry.  The LU GUID and view
+				 * entry index will have to suffice.  This can
+				 * happen if, for example, there are two
+				 * view_entry property groups with the same
+				 * lu_nbr.  Since there can be a large number of
+				 * view entries configured on a system, continue
+				 * processing the config, and error out so any
+				 * errors can be corrected all at the same time.
+				 *
+				 * store.c guarantees that we have a valid
+				 * view entry index here.
+				 */
+				syslog(LOG_ERR, "Failed to add view entry for "
+				    "LU %s, host group %s, view entry index %d:"
+				    "%x", guidAsciiBuf,
+				    ve->allHosts ? "*" : ve->hostGroup,
+				    ve->veIndex, ret);
+			}
 		}
+	}
+
+	/*
+	 * We validated as much of the view entry information as possible, now
+	 * fall out with an error so somebody can fix the problems.
+	 */
+	if (STMF_STATUS_IS_ERROR(ret)) {
+		goto out;
 	}
 
 	/* get the list of providers that have data */
@@ -5999,6 +6042,8 @@ setProviderData(int fd, char *providerName, nvlist_t *nvl, int providerType,
 	ppi = (stmf_ppioctl_data_t *)calloc(1, nvlistEncodedSize +
 	    sizeof (stmf_ppioctl_data_t));
 	if (ppi == NULL) {
+		syslog(LOG_ERR, "Failed to allocate provider ioctl data in %s",
+		    __func__);
 		return (STMF_ERROR_NOMEM);
 	}
 
@@ -6010,6 +6055,7 @@ setProviderData(int fd, char *providerName, nvlist_t *nvl, int providerType,
 	allocatedNvBuffer = (char *)&ppi->ppi_data;
 	if (nvlist_pack(nvl, &allocatedNvBuffer, &nvlistEncodedSize,
 	    NV_ENCODE_XDR, 0) != 0) {
+		syslog(LOG_ERR, "unable to pack nvlist in %s", __func__);
 		return (STMF_STATUS_ERROR);
 	}
 

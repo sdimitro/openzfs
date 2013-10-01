@@ -1773,6 +1773,8 @@ iPsGetGroupList(char *pgName, stmfGroupList **groupList)
 	    memberCnt * sizeof (stmfGroupName));
 
 	if (*groupList == NULL) {
+		syslog(LOG_ERR, "Failed to allocate group list in %s",
+		    __func__);
 		ret = STMF_ERROR_NOMEM;
 		goto out;
 	}
@@ -1957,6 +1959,8 @@ iPsGetGroupMemberList(char *pgName, char *groupName,
 	*groupMemberList = (stmfGroupProperties *)calloc(1,
 	    sizeof (stmfGroupProperties) + memberCnt * sizeof (stmfDevid));
 	if (*groupMemberList == NULL) {
+		syslog(LOG_ERR, "Failed to allocate group member list in %s",
+		    __func__);
 		ret = STMF_ERROR_NOMEM;
 		goto out;
 	}
@@ -3315,6 +3319,7 @@ psGetLogicalUnitList(stmfGuidList **guidList)
 	*guidList = (stmfGuidList *)calloc(1, sizeof (stmfGuidList) +
 	    guidCnt * sizeof (stmfGuid));
 	if (*guidList == NULL) {
+		syslog(LOG_ERR, "Failed to allocate guid list in %s", __func__);
 		ret = STMF_ERROR_NOMEM;
 		goto out;
 	}
@@ -3539,10 +3544,12 @@ psGetViewEntryList(stmfGuid *lu, stmfViewEntryList **viewEntryList)
 	/* get the property group associated with this LU */
 	if (scf_service_get_pg(svc, luPgName, pg) == -1) {
 		if (scf_error() == SCF_ERROR_NOT_FOUND) {
+			syslog(LOG_ERR, "Property group with name %s not found",
+			    luPgName);
 			ret = STMF_ERROR_NOT_FOUND;
 		} else {
-			syslog(LOG_ERR, "get pg %s failed - %s",
-			    luPgName, scf_strerror(scf_error()));
+			syslog(LOG_ERR, "Failed to get property group %s Error:"
+			    "%s", luPgName, scf_strerror(scf_error()));
 			ret = STMF_STATUS_ERROR;
 		}
 		goto out;
@@ -3611,6 +3618,9 @@ psGetViewEntryList(stmfGuid *lu, stmfViewEntryList **viewEntryList)
 			 * break with error
 			 */
 			if (i == veCnt) {
+				syslog(LOG_ERR, "Number of properties in %s "
+				    "exceeds expected count of %d", luPgName,
+				    veCnt);
 				ret = STMF_STATUS_ERROR;
 				break;
 			}
@@ -3730,6 +3740,7 @@ iPsGetViewEntry(char *viewEntryPgName, stmfViewEntry *viewEntry)
 	char *endptr;
 	char groupName[sizeof (stmfGroupName)];
 	int ret = STMF_STATUS_SUCCESS;
+	unsigned long t;
 
 	ret = iPsInit(&handle, &svc);
 	if (ret != STMF_STATUS_SUCCESS) {
@@ -3768,29 +3779,47 @@ iPsGetViewEntry(char *viewEntryPgName, stmfViewEntry *viewEntry)
 	 * get index
 	 * format is: VE-<veIndex>-GUID
 	 */
+#define VE_FORMAT_MSG "Invalid format for view entry.  Expected " \
+	"view_entry-<veIndex>-<GUID> but got %s"
 	indexPtr = strchr(viewEntryPgName, '-');
 	if (!indexPtr) {
+		syslog(LOG_ERR, VE_FORMAT_MSG, viewEntryPgName);
 		ret = STMF_STATUS_ERROR;
 		goto out;
 	}
 
 	errno = 0;
-	viewEntry->veIndex = strtol(indexPtr, &endptr, 10);
+	t = strtoul(indexPtr, &endptr, 10);
+
 	/*
 	 * ensure there was actually a number in the veIndex position of
-	 * viewEntryPgName.
+	 * viewEntryPgName.  indexPtr == endptr catches the case where there are
+	 * two consecutive hyphens in the string and no conversion could be
+	 * performed.  Suprisingly, for this case, strtoul doesn't set errno to
+	 * EINVAL.
 	 */
-	if (errno != 0) {
+	if (errno != 0 || indexPtr == endptr) {
+		syslog(LOG_ERR, VE_FORMAT_MSG, viewEntryPgName);
 		ret = STMF_STATUS_ERROR;
 		goto out;
 	}
+
+	/* and that it's in range */
+	if (t > UINT32_MAX) {
+		syslog(LOG_ERR, "view entry index out of range [0,%d] in view "
+		    "entry %s", UINT32_MAX, viewEntryPgName);
+		goto out;
+	}
+
+	viewEntry->veIndex = t;
 
 	/* verify there's a - after veIndex per the above format */
 	if (*endptr != '-') {
+		syslog(LOG_ERR, VE_FORMAT_MSG, viewEntryPgName);
 		ret = STMF_STATUS_ERROR;
 		goto out;
 	}
-
+#undef VE_FORMAT_MSG
 	viewEntry->veIndexValid = B_TRUE;
 
 	/* get allHosts property */
@@ -4239,7 +4268,7 @@ psGetProviderData(char *providerName, nvlist_t **nvl, int providerType,
 	}
 
 	if (nvlist_unpack(nvlistEncoded, nvlistEncodedSize, nvl, 0) != 0) {
-		syslog(LOG_ERR, "unable to unpack nvlist");
+		syslog(LOG_ERR, "unable to unpack nvlist in %s", __func__);
 		ret = STMF_STATUS_ERROR;
 		goto out;
 	}
@@ -5134,13 +5163,11 @@ psGetViewEntry(stmfGuid *lu, uint32_t viewEntryIndex, stmfViewEntry *ve)
 		goto out;
 	}
 
-
 	if ((ret = iPsGetViewEntry(viewEntryPgName, ve)) !=
 	    STMF_STATUS_SUCCESS) {
 		ret = STMF_STATUS_ERROR;
 		goto out;
 	}
-
 out:
 	/*
 	 * Free resources

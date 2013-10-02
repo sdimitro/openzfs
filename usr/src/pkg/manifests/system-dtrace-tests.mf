@@ -1908,6 +1908,11 @@ file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_CHARATTR.badtype3.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.badtype4.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.badtype5.d mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.rptdattr1.d mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.rptdattr2.d mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.rptdattr3.d mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.rptdattr4.d mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_COMBO.rptdattr5.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_ENCONST.badeval.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_ENOFLOW.enoflow.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_DECL_ENOFLOW.enuflow.d mode=0444
@@ -1932,6 +1937,8 @@ file path=opt/SUNWdtrt/tst/common/types/err.D_UNKNOWN.dupenum.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_UNKNOWN.dupstruct.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/err.D_XLATE_REDECL.ResultDynType.d \
     mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.EDT_NOTYPE.cmbdatt1.d mode=0444
+file path=opt/SUNWdtrt/tst/common/types/err.EDT_NOTYPE.cmbdatt2.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/tst.assignops.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/tst.badshiftops.d mode=0444
 file path=opt/SUNWdtrt/tst/common/types/tst.basics.d mode=0444

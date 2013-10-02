@@ -239,7 +239,6 @@ dir path=usr/sbin
 $(i386_ONLY)dir path=usr/sbin/$(ARCH32)
 dir path=usr/sbin/$(ARCH64)
 dir path=usr/share
-dir path=usr/share/doc group=other
 dir path=usr/share/lib
 dir path=usr/share/lib/mailx
 dir path=usr/share/lib/pub
@@ -440,6 +439,7 @@ file path=etc/security/prof_attr group=sys preserve=true \
     timestamp=19700101T000000Z
 file path=etc/security/prof_attr.d/SUNWcs group=sys
 file path=etc/shadow group=sys mode=0400 preserve=true
+file path=etc/skel/.bashrc group=other preserve=true
 file path=etc/skel/.profile group=other preserve=true
 file path=etc/skel/local.cshrc group=sys preserve=true
 file path=etc/skel/local.login group=sys preserve=true

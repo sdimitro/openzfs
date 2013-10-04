@@ -8600,7 +8600,7 @@ ip_sioctl_plink(ipsq_t *ipsq, queue_t *q, mblk_t *mp, void *dummy_arg)
 	else
 		miocnak(q, mp, 0, err);
 
-	/* Conn was refheld in ip_sioctl_copyin_setup */
+	/* Conn was refheld in ip_wput_ioctl() */
 	if (CONN_Q(q)) {
 		CONN_DEC_IOCTLREF(Q_TO_CONN(q));
 		CONN_OPER_PENDING_DONE(Q_TO_CONN(q));

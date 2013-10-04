@@ -23,6 +23,7 @@
  * Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 1990 Mentat Inc.
  * Copyright (c) 2012 Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -5234,12 +5235,6 @@ ip_fanout_udp_conn(conn_t *connp, mblk_t *mp, ipha_t *ipha, ip6_t *ip6h,
  * If SO_REUSEADDR is set all multicast and broadcast packets
  * will be delivered to all conns bound to the same port.
  *
- * If there is at least one matching AF_INET receiver, then we will
- * ignore any AF_INET6 receivers.
- * In the special case where an AF_INET socket binds to 0.0.0.0/<port> and an
- * AF_INET6 socket binds to ::/<port>, only the AF_INET socket receives the IPv4
- * packets.
- *
  * Zones notes:
  * Earlier in ip_input on a system with multiple shared-IP zones we
  * duplicate the multicast and broadcast packets and send them up
@@ -5251,7 +5246,6 @@ ip_fanout_udp_multi_v4(mblk_t *mp, ipha_t *ipha, uint16_t lport, uint16_t fport,
     ip_recv_attr_t *ira)
 {
 	ipaddr_t	laddr;
-	in6_addr_t	v6faddr;
 	conn_t		*connp;
 	connf_t		*connfp;
 	ipaddr_t	faddr;
@@ -5267,11 +5261,6 @@ ip_fanout_udp_multi_v4(mblk_t *mp, ipha_t *ipha, uint16_t lport, uint16_t fport,
 	mutex_enter(&connfp->connf_lock);
 	connp = connfp->connf_head;
 
-	/*
-	 * If SO_REUSEADDR has been set on the first we send the
-	 * packet to all clients that have joined the group and
-	 * match the port.
-	 */
 	while (connp != NULL) {
 		if ((IPCL_UDP_MATCH(connp, lport, laddr, fport, faddr)) &&
 		    conn_wantpacket(connp, ira, ipha) &&
@@ -5281,98 +5270,9 @@ ip_fanout_udp_multi_v4(mblk_t *mp, ipha_t *ipha, uint16_t lport, uint16_t fport,
 		connp = connp->conn_next;
 	}
 
-	if (connp == NULL)
-		goto notfound;
-
-	CONN_INC_REF(connp);
-
-	if (connp->conn_reuseaddr) {
-		conn_t		*first_connp = connp;
-		conn_t		*next_connp;
-		mblk_t		*mp1;
-
-		connp = connp->conn_next;
-		for (;;) {
-			while (connp != NULL) {
-				if (IPCL_UDP_MATCH(connp, lport, laddr,
-				    fport, faddr) &&
-				    conn_wantpacket(connp, ira, ipha) &&
-				    (!(ira->ira_flags & IRAF_SYSTEM_LABELED) ||
-				    tsol_receive_local(mp, &laddr, IPV4_VERSION,
-				    ira, connp)))
-					break;
-				connp = connp->conn_next;
-			}
-			if (connp == NULL) {
-				/* No more interested clients */
-				connp = first_connp;
-				break;
-			}
-			if (((mp1 = dupmsg(mp)) == NULL) &&
-			    ((mp1 = copymsg(mp)) == NULL)) {
-				/* Memory allocation failed */
-				BUMP_MIB(ill->ill_ip_mib, ipIfStatsInDiscards);
-				ip_drop_input("ipIfStatsInDiscards", mp, ill);
-				connp = first_connp;
-				break;
-			}
-			CONN_INC_REF(connp);
-			mutex_exit(&connfp->connf_lock);
-
-			IP_STAT(ipst, ip_udp_fanmb);
-			ip_fanout_udp_conn(connp, mp1, (ipha_t *)mp1->b_rptr,
-			    NULL, ira);
-			mutex_enter(&connfp->connf_lock);
-			/* Follow the next pointer before releasing the conn */
-			next_connp = connp->conn_next;
-			CONN_DEC_REF(connp);
-			connp = next_connp;
-		}
-	}
-
-	/* Last one.  Send it upstream. */
-	mutex_exit(&connfp->connf_lock);
-	IP_STAT(ipst, ip_udp_fanmb);
-	ip_fanout_udp_conn(connp, mp, ipha, NULL, ira);
-	CONN_DEC_REF(connp);
-	return;
-
-notfound:
-	mutex_exit(&connfp->connf_lock);
-	/*
-	 * IPv6 endpoints bound to multicast IPv4-mapped addresses
-	 * have already been matched above, since they live in the IPv4
-	 * fanout tables. This implies we only need to
-	 * check for IPv6 in6addr_any endpoints here.
-	 * Thus we compare using ipv6_all_zeros instead of the destination
-	 * address, except for the multicast group membership lookup which
-	 * uses the IPv4 destination.
-	 */
-	IN6_IPADDR_TO_V4MAPPED(ipha->ipha_src, &v6faddr);
-	connfp = &ipst->ips_ipcl_udp_fanout[IPCL_UDP_HASH(lport, ipst)];
-	mutex_enter(&connfp->connf_lock);
-	connp = connfp->connf_head;
-	/*
-	 * IPv4 multicast packet being delivered to an AF_INET6
-	 * in6addr_any endpoint.
-	 * Need to check conn_wantpacket(). Note that we use conn_wantpacket()
-	 * and not conn_wantpacket_v6() since any multicast membership is
-	 * for an IPv4-mapped multicast address.
-	 */
-	while (connp != NULL) {
-		if (IPCL_UDP_MATCH_V6(connp, lport, ipv6_all_zeros,
-		    fport, v6faddr) &&
-		    conn_wantpacket(connp, ira, ipha) &&
-		    (!(ira->ira_flags & IRAF_SYSTEM_LABELED) ||
-		    tsol_receive_local(mp, &laddr, IPV4_VERSION, ira, connp)))
-			break;
-		connp = connp->conn_next;
-	}
-
 	if (connp == NULL) {
 		/*
-		 * No one bound to this port.  Is
-		 * there a client that wants all
+		 * No one bound to this port.  Is there a client that wants all
 		 * unclaimed datagrams?
 		 */
 		mutex_exit(&connfp->connf_lock);
@@ -5393,7 +5293,8 @@ notfound:
 		}
 		return;
 	}
-	ASSERT(IPCL_IS_NONSTR(connp) || connp->conn_rq != NULL);
+
+	CONN_INC_REF(connp);
 
 	/*
 	 * If SO_REUSEADDR has been set on the first we send the
@@ -5405,12 +5306,11 @@ notfound:
 		conn_t		*next_connp;
 		mblk_t		*mp1;
 
-		CONN_INC_REF(connp);
 		connp = connp->conn_next;
 		for (;;) {
 			while (connp != NULL) {
-				if (IPCL_UDP_MATCH_V6(connp, lport,
-				    ipv6_all_zeros, fport, v6faddr) &&
+				if (IPCL_UDP_MATCH(connp, lport, laddr,
+				    fport, faddr) &&
 				    conn_wantpacket(connp, ira, ipha) &&
 				    (!(ira->ira_flags & IRAF_SYSTEM_LABELED) ||
 				    tsol_receive_local(mp, &laddr, IPV4_VERSION,

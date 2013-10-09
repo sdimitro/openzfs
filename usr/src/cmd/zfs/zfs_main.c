@@ -2195,7 +2195,7 @@ static int us_type_bits[] = {
 	USTYPE_SMB_USR,
 	USTYPE_ALL
 };
-static char *us_type_names[] = { "posixgroup", "posxiuser", "smbgroup",
+static char *us_type_names[] = { "posixgroup", "posixuser", "smbgroup",
 	"smbuser", "all" };
 
 typedef struct us_node {

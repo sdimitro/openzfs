@@ -32,8 +32,9 @@ PROGS = cleanup \
 	setup
 
 FILES = history.cfg \
-	history_common.kshlib \
-	i386.migratedpool.DAT.Z \
+	history_common.kshlib
+
+DATAFILES = i386.migratedpool.DAT.Z \
 	i386.orig_history.txt \
 	sparc.migratedpool.DAT.Z \
 	sparc.orig_history.txt \
@@ -42,11 +43,16 @@ FILES = history.cfg \
 CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555
 
+DATA = $(DATAFILES:%=$(TESTDIR)/%)
+$(DATA) := FILEMODE = 0444
+
 all lint clean clobber:
 
-install: $(CMDS)
+install: $(CMDS) $(DATA)
 
 $(CMDS): $(TESTDIR)
+
+$(DATA): $(TESTDIR)
 
 $(TESTDIR):
 	$(INS.dir)

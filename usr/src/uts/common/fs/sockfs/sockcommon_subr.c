@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -455,6 +456,13 @@ socopyinuio(uio_t *uiop, ssize_t iosize, size_t wroff, ssize_t maxblk,
 		mblk_t	*mp;
 
 		blocksize = MIN(iosize, maxblk);
+		/*
+		 * We don't allocate buffers greater than kmem_max_cached in
+		 * size to avoid allocating memory from the kmem_oversized
+		 * arena.  By keeping allocations under that limit, we avoid
+		 * incurring heavy cross-call activity when freeing them.
+		 */
+		blocksize = MIN(blocksize, kmem_max_cached - wroff - tail_len);
 		ASSERT(blocksize >= 0);
 		mp = allocb(wroff + blocksize + tail_len, BPRI_MED);
 		if (mp == NULL) {

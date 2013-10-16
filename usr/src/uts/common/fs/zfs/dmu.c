@@ -680,7 +680,7 @@ dmu_free_long_range(objset_t *os, uint64_t object,
 	 * will take the fast path, and (b) dnode_reallocate() can verify
 	 * that the entire file has been freed.
 	 */
-	if (offset == 0 && length == DMU_OBJECT_END)
+	if (err == 0 && offset == 0 && length == DMU_OBJECT_END)
 		dn->dn_maxblkid = 0;
 
 	dnode_rele(dn, FTAG);

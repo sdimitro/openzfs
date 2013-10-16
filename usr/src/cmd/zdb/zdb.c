@@ -1099,7 +1099,7 @@ visit_indirect(spa_t *spa, const dnode_phys_t *dnp,
 
 	print_indirect(bp, zb, dnp);
 
-	if (BP_GET_LEVEL(bp) > 0) {
+	if (BP_GET_LEVEL(bp) > 0 && !BP_IS_HOLE(bp)) {
 		uint32_t flags = ARC_WAIT;
 		int i;
 		blkptr_t *cbp;

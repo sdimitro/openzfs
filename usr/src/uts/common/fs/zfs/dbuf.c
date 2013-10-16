@@ -796,9 +796,7 @@ dbuf_unoverride(dbuf_dirty_record_t *dr)
 /*
  * Evict (if its unreferenced) or clear (if its referenced) any level-0
  * data blocks in the free range, so that any future readers will find
- * empty blocks.  Also, if we happen across any level-1 dbufs in the
- * range that have not already been marked dirty, mark them dirty so
- * they stay in memory.
+ * empty blocks.
  *
  * This is a no-op if the dataset is in the middle of an incremental
  * receive; see comment below for details.
@@ -808,14 +806,9 @@ dbuf_free_range(dnode_t *dn, uint64_t start, uint64_t end, dmu_tx_t *tx)
 {
 	dmu_buf_impl_t *db, *db_next;
 	uint64_t txg = tx->tx_txg;
-	int epbs = dn->dn_indblkshift - SPA_BLKPTRSHIFT;
-	uint64_t first_l1 = start >> epbs;
-	uint64_t last_l1 = end >> epbs;
 
-	if (end > dn->dn_maxblkid && (end != DMU_SPILL_BLKID)) {
+	if (end > dn->dn_maxblkid && (end != DMU_SPILL_BLKID))
 		end = dn->dn_maxblkid;
-		last_l1 = end >> epbs;
-	}
 	dprintf_dnode(dn, "start=%llu end=%llu\n", start, end);
 
 	mutex_enter(&dn->dn_dbufs_mtx);
@@ -838,23 +831,8 @@ dbuf_free_range(dnode_t *dn, uint64_t start, uint64_t end, dmu_tx_t *tx)
 		db_next = list_next(&dn->dn_dbufs, db);
 		ASSERT(db->db_blkid != DMU_BONUS_BLKID);
 
-		if (db->db_level == 1 &&
-		    db->db_blkid >= first_l1 && db->db_blkid <= last_l1) {
-			mutex_enter(&db->db_mtx);
-			if (db->db_last_dirty &&
-			    db->db_last_dirty->dr_txg < txg) {
-				dbuf_add_ref(db, FTAG);
-				mutex_exit(&db->db_mtx);
-				dmu_buf_will_dirty(&db->db, tx);
-				dbuf_rele(db, FTAG);
-			} else {
-				mutex_exit(&db->db_mtx);
-			}
-		}
-
 		if (db->db_level != 0)
 			continue;
-		dprintf_dbuf(db, "found buf %s\n", "");
 		if (db->db_blkid < start || db->db_blkid > end)
 			continue;
 
@@ -973,7 +951,7 @@ dbuf_new_size(dmu_buf_impl_t *db, int size, dmu_tx_t *tx)
 	ASSERT(RW_WRITE_HELD(&dn->dn_struct_rwlock));
 
 	/*
-	 * This call to dbuf_will_dirty() with the dn_struct_rwlock held
+	 * This call to dmu_buf_will_dirty() with the dn_struct_rwlock held
 	 * is OK, because there can be no other references to the db
 	 * when we are changing its size, so no concurrent DB_FILL can
 	 * be happening.
@@ -2630,14 +2608,14 @@ dbuf_write_done(zio_t *zio, arc_buf_t *buf, void *vdb)
 		DB_DNODE_ENTER(db);
 		dn = DB_DNODE(db);
 		ASSERT(list_head(&dr->dt.di.dr_children) == NULL);
-		ASSERT3U(db->db.db_size, ==, 1<<dn->dn_phys->dn_indblkshift);
+		ASSERT3U(db->db.db_size, ==, 1 << dn->dn_phys->dn_indblkshift);
 		if (!BP_IS_HOLE(db->db_blkptr)) {
 			int epbs =
 			    dn->dn_phys->dn_indblkshift - SPA_BLKPTRSHIFT;
+			ASSERT3U(db->db_blkid, <=,
+			    dn->dn_phys->dn_maxblkid >> (db->db_level * epbs));
 			ASSERT3U(BP_GET_LSIZE(db->db_blkptr), ==,
 			    db->db.db_size);
-			ASSERT3U(dn->dn_phys->dn_maxblkid
-			    >> (db->db_level * epbs), >=, db->db_blkid);
 			arc_set_callback(db->db_buf, dbuf_do_evict, db);
 		}
 		DB_DNODE_EXIT(db);

@@ -2363,10 +2363,12 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 			    &spa_feature_table[i], &refcount);
 			if (err == 0) {
 				spa->spa_feat_refcount_cache[i] = refcount;
-			} else {
-				ASSERT(err == ENOTSUP);
+			} else if (error == ENOTSUP) {
 				spa->spa_feat_refcount_cache[i] =
 				    SPA_FEATURE_DISABLED;
+			} else {
+				return (spa_vdev_err(rvd,
+				    VDEV_AUX_CORRUPT_DATA, EIO));
 			}
 		}
 	}
@@ -5802,7 +5804,7 @@ spa_sync_nvlist(spa_t *spa, uint64_t obj, nvlist_t *nv, dmu_tx_t *tx)
 
 	/*
 	 * Write full (SPA_CONFIG_BLOCKSIZE) blocks of configuration
-	 * information.  This avoids the dbuf_will_dirty() path and
+	 * information.  This avoids the dmu_buf_will_dirty() path and
 	 * saves us a pre-read to get data we don't actually care about.
 	 */
 	bufsize = P2ROUNDUP((uint64_t)nvsize, SPA_CONFIG_BLOCKSIZE);

@@ -118,17 +118,12 @@ free_blocks(dnode_t *dn, blkptr_t *bp, int num, dmu_tx_t *tx)
 {
 	dsl_dataset_t *ds = dn->dn_objset->os_dsl_dataset;
 	uint64_t bytesfreed = 0;
-	int i = 0;
 
 	dprintf("ds=%p obj=%llx num=%d\n", ds, dn->dn_object, num);
 
-	for (i = 0; i < num; i++, bp++) {
+	for (int i = 0; i < num; i++, bp++) {
 		if (BP_IS_HOLE(bp))
 			continue;
-
-		uint64_t lsize;
-		uint64_t lvl;
-		dmu_object_type_t type;
 
 		bytesfreed += dsl_dataset_block_kill(ds, bp, tx, B_FALSE);
 		ASSERT3U(bytesfreed, <=, DN_USED_BYTES(dn->dn_phys));
@@ -141,9 +136,9 @@ free_blocks(dnode_t *dn, blkptr_t *bp, int num, dmu_tx_t *tx)
 		 * records transmitted during a zfs send.
 		 */
 
-		lsize = BP_GET_LSIZE(bp);
-		type = BP_GET_TYPE(bp);
-		lvl = BP_GET_LEVEL(bp);
+		uint64_t lsize = BP_GET_LSIZE(bp);
+		dmu_object_type_t type = BP_GET_TYPE(bp);
+		uint64_t lvl = BP_GET_LEVEL(bp);
 
 		bzero(bp, sizeof (blkptr_t));
 
@@ -241,26 +236,25 @@ free_verify(dmu_buf_impl_t *db, uint64_t start, uint64_t end, dmu_tx_t *tx)
 
 static void
 free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
-    int free_indirects, dmu_tx_t *tx)
+    dmu_tx_t *tx)
 {
 	dnode_t *dn;
 	blkptr_t *bp;
 	dmu_buf_impl_t *subdb;
 	uint64_t start, end, dbstart, dbend, i;
-	int epbs, shift, err;
+	int epbs, shift;
 
 	/*
 	 * There is a small possibility that this block will not be cached:
 	 *   1 - if level > 1 and there are no children with level <= 1
-	 *   2 - if we didn't get a dirty hold (because this block had just
-	 *	 finished being written -- and so had no holds), and then this
-	 *	 block got evicted before we got here.
+	 *   2 - if this block was evicted since we read it from
+	 *	 dmu_tx_hold_free().
 	 */
 	if (db->db_state != DB_CACHED)
 		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED);
 
 	dbuf_release_bp(db);
-	bp = (blkptr_t *)db->db.db_data;
+	bp = db->db.db_data;
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
@@ -283,26 +277,38 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	if (db->db_level == 1) {
 		FREE_VERIFY(db, start, end, tx);
 		free_blocks(dn, bp, end-start+1, tx);
-		arc_buf_freeze(db->db_buf);
-		DB_DNODE_EXIT(db);
-		return;
-	}
+	} else {
+		for (i = start; i <= end; i++, bp++) {
+			if (BP_IS_HOLE(bp))
+				continue;
+			rw_enter(&dn->dn_struct_rwlock, RW_READER);
+			VERIFY0(dbuf_hold_impl(dn, db->db_level - 1,
+			    i, B_TRUE, FTAG, &subdb));
+			rw_exit(&dn->dn_struct_rwlock);
+			ASSERT3P(bp, ==, subdb->db_blkptr);
 
-	for (i = start; i <= end; i++, bp++) {
-		if (BP_IS_HOLE(bp))
-			continue;
-		rw_enter(&dn->dn_struct_rwlock, RW_READER);
-		err = dbuf_hold_impl(dn, db->db_level-1, i, TRUE, FTAG, &subdb);
-		ASSERT0(err);
-		rw_exit(&dn->dn_struct_rwlock);
-
-		free_children(subdb, blkid, nblks, free_indirects, tx);
-		if (free_indirects) {
-			ASSERT3P(subdb->db_blkptr, ==, bp);
-			free_blocks(dn, bp, 1, tx);
+			free_children(subdb, blkid, nblks, tx);
+			dbuf_rele(subdb, FTAG);
 		}
-		dbuf_rele(subdb, FTAG);
 	}
+
+	/* If this whole block is free, free ourself too. */
+	for (i = 0, bp = db->db.db_data; i < 1 << epbs; i++, bp++) {
+		if (!BP_IS_HOLE(bp))
+			break;
+	}
+	if (i == 1 << epbs) {
+		/* didn't find any non-holes */
+		bzero(db->db.db_data, db->db.db_size);
+		free_blocks(dn, db->db_blkptr, 1, tx);
+	} else {
+		/*
+		 * Partial block free; must be marked dirty so that it
+		 * will be written out.
+		 */
+		ASSERT(db->db_dirtycnt > 0);
+	}
+
 	DB_DNODE_EXIT(db);
 	arc_buf_freeze(db->db_buf);
 }
@@ -313,12 +319,11 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
  */
 static void
 dnode_sync_free_range(dnode_t *dn, uint64_t blkid, uint64_t nblks,
-    int free_indirects, dmu_tx_t *tx)
+    dmu_tx_t *tx)
 {
 	blkptr_t *bp = dn->dn_phys->dn_blkptr;
-	dmu_buf_impl_t *db;
-	int start, end, shift, i, err;
 	int dnlevel = dn->dn_phys->dn_nlevels;
+	boolean_t trunc = B_FALSE;
 
 	if (blkid > dn->dn_phys->dn_maxblkid)
 		return;
@@ -326,6 +331,7 @@ dnode_sync_free_range(dnode_t *dn, uint64_t blkid, uint64_t nblks,
 	ASSERT(dn->dn_phys->dn_maxblkid < UINT64_MAX);
 	if (blkid + nblks > dn->dn_phys->dn_maxblkid) {
 		nblks = dn->dn_phys->dn_maxblkid - blkid + 1;
+		trunc = B_TRUE;
 	}
 
 	/* There are no indirect blocks in the object */
@@ -336,28 +342,37 @@ dnode_sync_free_range(dnode_t *dn, uint64_t blkid, uint64_t nblks,
 		}
 		ASSERT3U(blkid + nblks, <=, dn->dn_phys->dn_nblkptr);
 		free_blocks(dn, bp + blkid, nblks, tx);
-		return;
+	} else {
+		int shift = (dnlevel - 1) *
+		    (dn->dn_phys->dn_indblkshift - SPA_BLKPTRSHIFT);
+		int start = blkid >> shift;
+		int end = (blkid + nblks - 1) >> shift;
+		dmu_buf_impl_t *db;
+
+		ASSERT(start < dn->dn_phys->dn_nblkptr);
+		bp += start;
+		for (int i = start; i <= end; i++, bp++) {
+			if (BP_IS_HOLE(bp))
+				continue;
+			rw_enter(&dn->dn_struct_rwlock, RW_READER);
+			VERIFY0(dbuf_hold_impl(dn, dnlevel - 1, i,
+			    TRUE, FTAG, &db));
+			rw_exit(&dn->dn_struct_rwlock);
+
+			free_children(db, blkid, nblks, tx);
+			dbuf_rele(db, FTAG);
+
+		}
 	}
 
-	shift = (dnlevel - 1) * (dn->dn_phys->dn_indblkshift - SPA_BLKPTRSHIFT);
-	start = blkid >> shift;
-	ASSERT(start < dn->dn_phys->dn_nblkptr);
-	end = (blkid + nblks - 1) >> shift;
-	bp += start;
-	for (i = start; i <= end; i++, bp++) {
-		if (BP_IS_HOLE(bp))
-			continue;
-		rw_enter(&dn->dn_struct_rwlock, RW_READER);
-		err = dbuf_hold_impl(dn, dnlevel-1, i, TRUE, FTAG, &db);
-		ASSERT0(err);
-		rw_exit(&dn->dn_struct_rwlock);
+	if (trunc) {
+		dn->dn_phys->dn_maxblkid = blkid == 0 ? 0 : blkid - 1;
 
-		free_children(db, blkid, nblks, free_indirects, tx);
-		if (free_indirects) {
-			ASSERT3P(db->db_blkptr, ==, bp);
-			free_blocks(dn, bp, 1, tx);
-		}
-		dbuf_rele(db, FTAG);
+		uint64_t off = (dn->dn_phys->dn_maxblkid + 1) *
+		    (dn->dn_phys->dn_datablkszsec << SPA_MINBLOCKSHIFT);
+		ASSERT(off < dn->dn_phys->dn_maxblkid ||
+		    dn->dn_phys->dn_maxblkid == 0 ||
+		    dnode_next_offset(dn, 0, &off, 1, 1, 0) != 0);
 	}
 }
 
@@ -599,13 +614,15 @@ dnode_sync(dnode_t *dn, dmu_tx_t *tx)
 		dn->dn_next_bonustype[txgoff] = 0;
 	}
 
+	boolean_t freeing_dnode = dn->dn_free_txg > 0 &&
+	    dn->dn_free_txg <= tx->tx_txg;
+
 	/*
 	 * We will either remove a spill block when a file is being removed
 	 * or we have been asked to remove it.
 	 */
 	if (dn->dn_rm_spillblk[txgoff] ||
-	    ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) &&
-	    dn->dn_free_txg > 0 && dn->dn_free_txg <= tx->tx_txg)) {
+	    ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) && freeing_dnode)) {
 		if ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR))
 			kill_spill = B_TRUE;
 		dn->dn_rm_spillblk[txgoff] = 0;
@@ -634,13 +651,9 @@ dnode_sync(dnode_t *dn, dmu_tx_t *tx)
 		mutex_exit(&dn->dn_mtx);
 	}
 
-	boolean_t freeing_dnode = dn->dn_free_txg > 0 &&
-	    dn->dn_free_txg <= tx->tx_txg;
-
 	/* process all the "freed" ranges in the file */
 	while (rp = avl_last(&dn->dn_ranges[txgoff])) {
-		dnode_sync_free_range(dn, rp->fr_blkid, rp->fr_nblks,
-		    freeing_dnode, tx);
+		dnode_sync_free_range(dn, rp->fr_blkid, rp->fr_nblks, tx);
 		/* grab the mutex so we don't race with dnode_block_freed() */
 		mutex_enter(&dn->dn_mtx);
 		avl_remove(&dn->dn_ranges[txgoff], rp);

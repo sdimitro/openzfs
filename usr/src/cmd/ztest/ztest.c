@@ -185,6 +185,7 @@ static const ztest_shared_opts_t ztest_opts_defaults = {
 extern uint64_t metaslab_gang_bang;
 extern uint64_t metaslab_df_alloc_threshold;
 extern uint64_t zfs_deadman_synctime_ms;
+extern int metaslab_preload_limit;
 
 static ztest_shared_opts_t *ztest_shared_opts;
 static ztest_shared_opts_t ztest_opts;
@@ -5575,6 +5576,7 @@ ztest_run(ztest_shared_t *zs)
 	kernel_init(FREAD | FWRITE);
 	VERIFY0(spa_open(ztest_opts.zo_pool, &spa, FTAG));
 	spa->spa_debug = B_TRUE;
+	metaslab_preload_limit = ztest_random(20) + 1;
 	ztest_spa = spa;
 
 	VERIFY0(dmu_objset_own(ztest_opts.zo_pool,

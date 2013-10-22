@@ -2359,9 +2359,9 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 		for (spa_feature_t i = 0; i < SPA_FEATURES; i++) {
 			uint64_t refcount;
 
-			int err = feature_get_refcount_from_disk(spa,
+			error = feature_get_refcount_from_disk(spa,
 			    &spa_feature_table[i], &refcount);
-			if (err == 0) {
+			if (error == 0) {
 				spa->spa_feat_refcount_cache[i] = refcount;
 			} else if (error == ENOTSUP) {
 				spa->spa_feat_refcount_cache[i] =

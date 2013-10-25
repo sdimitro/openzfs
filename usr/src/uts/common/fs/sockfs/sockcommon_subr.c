@@ -52,9 +52,6 @@ extern int do_useracc;
 extern clock_t sock_test_timelimit;
 #endif /* SOCK_TEST */
 
-#define	MBLK_PULL_LEN 64
-uint32_t so_mblk_pull_len = MBLK_PULL_LEN;
-
 #ifdef DEBUG
 boolean_t so_debug_length = B_FALSE;
 static boolean_t so_check_length(sonode_t *so);
@@ -793,11 +790,6 @@ again1:
 			} else {
 				ssize_t oldresid = uiop->uio_resid;
 
-				if (MBLKL(mp) < so_mblk_pull_len) {
-					if (pullupmsg(mp, -1) == 1) {
-						last_tail = mp;
-					}
-				}
 				/*
 				 * Can not read beyond the oobmark
 				 */

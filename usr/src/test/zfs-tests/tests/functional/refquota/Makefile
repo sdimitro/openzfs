@@ -25,6 +25,8 @@ PROGS = cleanup \
 	refquota_004_pos \
 	refquota_005_pos \
 	refquota_006_neg \
+        refquota_007_neg \
+        refquota_008_neg \
 	setup
 
 CMDS = $(PROGS:%=$(TESTDIR)/%)

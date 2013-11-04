@@ -51,12 +51,11 @@ if [[ ! -f illumos.sh ]]; then
 	echo "done."
 fi
 
-if [[ ! -f bldenv.sh ]]; then
+if [[ ! -f bldenv ]]; then
 	echo "Setting up initial build environment ... \c"
-	ln -s usr/src/tools/scripts/bldenv.sh || \
-	    die "failed to link bldenv.sh"
-	ksh93 bldenv.sh -d illumos.sh -c "cd usr/src && dmake setup" ||
-	    die "dmake failed"
+	ksh93 usr/src/tools/scripts/bldenv.sh -d illumos.sh \
+	    -c "cd usr/src && dmake setup" || die "dmake failed"
+	ln -s usr/src/tools/scripts/bldenv || die "link bldenv failed"
 	ln -s usr/src/tools/scripts/nightly || die "link nightly failed"
 	echo "done."
 fi

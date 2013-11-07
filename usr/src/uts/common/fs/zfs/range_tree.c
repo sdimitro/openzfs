@@ -296,10 +296,10 @@ range_tree_remove(void *arg, uint64_t start, uint64_t size)
 }
 
 static range_seg_t *
-range_tree_find(range_tree_t *rt, uint64_t start, uint64_t size,
-    avl_index_t *wherep)
+range_tree_find_impl(range_tree_t *rt, uint64_t start, uint64_t size)
 {
-	range_seg_t rsearch, *rs;
+	avl_index_t where;
+	range_seg_t rsearch;
 	uint64_t end = start + size;
 
 	ASSERT(MUTEX_HELD(rt->rt_lock));
@@ -307,9 +307,14 @@ range_tree_find(range_tree_t *rt, uint64_t start, uint64_t size,
 
 	rsearch.rs_start = start;
 	rsearch.rs_end = end;
-	rs = avl_find(&rt->rt_root, &rsearch, wherep);
+	return (avl_find(&rt->rt_root, &rsearch, &where));
+}
 
-	if (rs != NULL && rs->rs_start <= start && rs->rs_end >= end)
+static range_seg_t *
+range_tree_find(range_tree_t *rt, uint64_t start, uint64_t size)
+{
+	range_seg_t *rs = range_tree_find_impl(rt, start, size);
+	if (rs != NULL && rs->rs_start <= start && rs->rs_end >= start + size)
 		return (rs);
 	return (NULL);
 }
@@ -318,10 +323,9 @@ void
 range_tree_verify(range_tree_t *rt, uint64_t off, uint64_t size)
 {
 	range_seg_t *rs;
-	avl_index_t where;
 
 	mutex_enter(rt->rt_lock);
-	rs = range_tree_find(rt, off, size, &where);
+	rs = range_tree_find(rt, off, size);
 	if (rs != NULL)
 		panic("freeing free block; rs=%p", (void *)rs);
 	mutex_exit(rt->rt_lock);
@@ -330,9 +334,23 @@ range_tree_verify(range_tree_t *rt, uint64_t off, uint64_t size)
 boolean_t
 range_tree_contains(range_tree_t *rt, uint64_t start, uint64_t size)
 {
-	avl_index_t where;
+	return (range_tree_find(rt, start, size) != NULL);
+}
 
-	return (range_tree_find(rt, start, size, &where) != NULL);
+/*
+ * Ensure that this range is not in the tree, regardless of whether
+ * it is currently in the tree.
+ */
+void
+range_tree_clear(range_tree_t *rt, uint64_t start, uint64_t size)
+{
+	range_seg_t *rs;
+
+	while ((rs = range_tree_find_impl(rt, start, size)) != NULL) {
+		uint64_t free_start = MAX(rs->rs_start, start);
+		uint64_t free_end = MIN(rs->rs_end, start + size);
+		range_tree_remove(rt, free_start, free_end - free_start);
+	}
 }
 
 void

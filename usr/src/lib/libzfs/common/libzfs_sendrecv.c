@@ -42,6 +42,7 @@
 #include <time.h>
 
 #include <libzfs.h>
+#include <libzfs_core.h>
 
 #include "zfs_namecheck.h"
 #include "zfs_prop.h"
@@ -790,7 +791,7 @@ typedef struct send_dump_data {
 	char prevsnap[ZFS_MAXNAMELEN];
 	uint64_t prevsnap_obj;
 	boolean_t seenfrom, seento, replicate, doall, fromorigin;
-	boolean_t verbose, dryrun, parsable, progress;
+	boolean_t verbose, dryrun, parsable, progress, embed_data;
 	int outfd;
 	boolean_t err;
 	nvlist_t *fss;
@@ -870,7 +871,8 @@ estimate_ioctl(zfs_handle_t *zhp, uint64_t fromsnap_obj,
  */
 static int
 dump_ioctl(zfs_handle_t *zhp, const char *fromsnap, uint64_t fromsnap_obj,
-    boolean_t fromorigin, int outfd, nvlist_t *debugnv)
+    boolean_t fromorigin, int outfd, enum lzc_send_flags flags,
+    nvlist_t *debugnv)
 {
 	zfs_cmd_t zc = { 0 };
 	libzfs_handle_t *hdl = zhp->zfs_hdl;
@@ -884,6 +886,7 @@ dump_ioctl(zfs_handle_t *zhp, const char *fromsnap, uint64_t fromsnap_obj,
 	zc.zc_obj = fromorigin;
 	zc.zc_sendobj = zfs_prop_get_int(zhp, ZFS_PROP_OBJSETID);
 	zc.zc_fromobj = fromsnap_obj;
+	zc.zc_flags = flags;
 
 	VERIFY(0 == nvlist_alloc(&thisdbg, NV_UNIQUE_NAME, 0));
 	if (fromsnap && fromsnap[0] != '\0') {
@@ -1134,8 +1137,12 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 			}
 		}
 
+		enum lzc_send_flags flags = 0;
+		if (sdd->embed_data)
+			flags |= LZC_SEND_FLAG_EMBED_DATA;
+
 		err = dump_ioctl(zhp, sdd->prevsnap, sdd->prevsnap_obj,
-		    fromorigin, sdd->outfd, sdd->debugnv);
+		    fromorigin, sdd->outfd, flags, sdd->debugnv);
 
 		if (sdd->progress) {
 			(void) pthread_cancel(tid);
@@ -1479,6 +1486,7 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 	sdd.parsable = flags->parsable;
 	sdd.progress = flags->progress;
 	sdd.dryrun = flags->dryrun;
+	sdd.embed_data = flags->embed_data;
 	sdd.filter_cb = filter_func;
 	sdd.filter_cb_arg = cb_arg;
 	if (debugnvp)
@@ -1610,7 +1618,8 @@ err_out:
 }
 
 int
-zfs_send_one(zfs_handle_t *zhp, const char *from, int fd)
+zfs_send_one(zfs_handle_t *zhp, const char *from, int fd,
+    enum lzc_send_flags flags)
 {
 	int err;
 	libzfs_handle_t *hdl = zhp->zfs_hdl;
@@ -1619,7 +1628,7 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd)
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
 	    "warning: cannot send '%s'"), zhp->zfs_name);
 
-	err = lzc_send(zhp->zfs_name, from, fd);
+	err = lzc_send(zhp->zfs_name, from, fd, flags);
 	if (err != 0) {
 		switch (errno) {
 		case EXDEV:
@@ -2536,6 +2545,16 @@ recv_skip(libzfs_handle_t *hdl, int fd, boolean_t byteswap)
 			}
 			(void) recv_read(hdl, fd, buf,
 			    drr->drr_u.drr_spill.drr_length, B_FALSE, NULL);
+			break;
+		case DRR_WRITE_EMBEDDED:
+			if (byteswap) {
+				drr->drr_u.drr_write_embedded.drr_psize =
+				    BSWAP_64(drr->drr_u.drr_write_embedded.
+				    drr_psize);
+			}
+			(void) recv_read(hdl, fd, buf,
+			    P2ROUNDUP(drr->drr_u.drr_write_embedded.drr_psize,
+			    8), B_FALSE, NULL);
 			break;
 		case DRR_WRITE_BYREF:
 		case DRR_FREEOBJECTS:

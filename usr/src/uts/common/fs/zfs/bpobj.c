@@ -453,12 +453,28 @@ bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, dmu_tx_t *tx)
 	ASSERT(!BP_IS_HOLE(bp));
 	ASSERT(bpo->bpo_object != dmu_objset_pool(bpo->bpo_os)->dp_empty_bpobj);
 
+	if (BP_IS_EMBEDDED(bp)) {
+		/*
+		 * The bpobj will compress better without the payload.
+		 *
+		 * Note that we store EMBEDDED bp's because they have an
+		 * uncompressed size, which must be accounted for.  An
+		 * alternative would be to add their size to bpo_uncomp
+		 * without storing the bp, but that would create additional
+		 * complications: bpo_uncomp would be inconsistent with the
+		 * set of BP's stored, and bpobj_iterate() wouldn't visit
+		 * all the space accounted for in the bpobj.
+		 */
+		bzero(&stored_bp, sizeof (stored_bp));
+		stored_bp.blk_prop = bp->blk_prop;
+		stored_bp.blk_birth = bp->blk_birth;
+	} else if (!BP_GET_DEDUP(bp)) {
+		/* The bpobj will compress better without the checksum */
+		bzero(&stored_bp.blk_cksum, sizeof (stored_bp.blk_cksum));
+	}
+
 	/* We never need the fill count. */
 	stored_bp.blk_fill = 0;
-
-	/* The bpobj will compress better if we can leave off the checksum */
-	if (!BP_GET_DEDUP(bp))
-		bzero(&stored_bp.blk_cksum, sizeof (stored_bp.blk_cksum));
 
 	mutex_enter(&bpo->bpo_lock);
 

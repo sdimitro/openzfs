@@ -49,7 +49,6 @@
  */
 #define	DUMP_GROUPING	4
 
-uint64_t drr_record_count[DRR_NUMTYPES];
 uint64_t total_write_size = 0;
 uint64_t total_stream_len = 0;
 FILE *send_stream = 0;
@@ -80,7 +79,7 @@ ssread(void *buf, size_t len, zio_cksum_t *cksum)
 	size_t outlen;
 
 	if ((outlen = fread(buf, len, 1, send_stream)) == 0)
-	    return (0);
+		return (0);
 
 	if (do_cksum && cksum) {
 		if (do_byteswap)
@@ -119,10 +118,11 @@ static void
 print_block(char *buf, int length)
 {
 	int i;
-	/* Start printing ASCII characters at a constant offset, after
+	/*
+	 * Start printing ASCII characters at a constant offset, after
 	 * the hex prints. Leave 3 characters per byte on a line (2 digit
-	 * hex number plus 1 space) plus spaces between characters and 
-	 * groupings
+	 * hex number plus 1 space) plus spaces between characters and
+	 * groupings.
 	 */
 	int ascii_start = BYTES_PER_LINE * 3 +
 	    BYTES_PER_LINE / DUMP_GROUPING + 2;
@@ -159,6 +159,8 @@ int
 main(int argc, char *argv[])
 {
 	char *buf = malloc(INITIAL_BUFLEN);
+	uint64_t drr_record_count[DRR_NUMTYPES] = { 0 };
+	uint64_t total_records = 0;
 	dmu_replay_record_t thedrr;
 	dmu_replay_record_t *drr = &thedrr;
 	struct drr_begin *drrb = &thedrr.drr_u.drr_begin;
@@ -169,6 +171,7 @@ main(int argc, char *argv[])
 	struct drr_write_byref *drrwbr = &thedrr.drr_u.drr_write_byref;
 	struct drr_free *drrf = &thedrr.drr_u.drr_free;
 	struct drr_spill *drrs = &thedrr.drr_u.drr_spill;
+	struct drr_write_embedded *drrwe = &thedrr.drr_u.drr_write_embedded;
 	char c;
 	boolean_t verbose = B_FALSE;
 	boolean_t first = B_TRUE;
@@ -263,6 +266,7 @@ main(int argc, char *argv[])
 		}
 
 		drr_record_count[drr->drr_type]++;
+		total_records++;
 
 		switch (drr->drr_type) {
 		case DRR_BEGIN:
@@ -375,8 +379,8 @@ main(int argc, char *argv[])
 				    drro->drr_bonuslen);
 			}
 			if (drro->drr_bonuslen > 0) {
-				(void) ssread(buf, P2ROUNDUP(drro->drr_bonuslen,
-				    8), &zc);
+				(void) ssread(buf,
+				    P2ROUNDUP(drro->drr_bonuslen, 8), &zc);
 				if (dump) {
 					print_block(buf,
 					    P2ROUNDUP(drro->drr_bonuslen, 8));
@@ -505,6 +509,38 @@ main(int argc, char *argv[])
 				print_block(buf, drrs->drr_length);
 			}
 			break;
+		case DRR_WRITE_EMBEDDED:
+			if (do_byteswap) {
+				drrwe->drr_object =
+				    BSWAP_64(drrwe->drr_object);
+				drrwe->drr_offset =
+				    BSWAP_64(drrwe->drr_offset);
+				drrwe->drr_length =
+				    BSWAP_64(drrwe->drr_length);
+				drrwe->drr_toguid =
+				    BSWAP_64(drrwe->drr_toguid);
+				drrwe->drr_lsize =
+				    BSWAP_32(drrwe->drr_lsize);
+				drrwe->drr_psize =
+				    BSWAP_32(drrwe->drr_psize);
+			}
+			if (verbose) {
+				(void) printf("WRITE_EMBEDDED object = %llu "
+				    "offset = %llu length = %llu\n"
+				    "toguid = %llx comp = %u etype = %u "
+				    "lsize = %u psize = %u\n",
+				    (u_longlong_t)drrwe->drr_object,
+				    (u_longlong_t)drrwe->drr_offset,
+				    (u_longlong_t)drrwe->drr_length,
+				    (u_longlong_t)drrwe->drr_toguid,
+				    drrwe->drr_compression,
+				    drrwe->drr_etype,
+				    drrwe->drr_lsize,
+				    drrwe->drr_psize);
+			}
+			(void) ssread(buf,
+			    P2ROUNDUP(drrwe->drr_psize, 8), &zc);
+			break;
 		}
 		pcksum = zc;
 	}
@@ -523,18 +559,16 @@ main(int argc, char *argv[])
 	    (u_longlong_t)drr_record_count[DRR_FREEOBJECTS]);
 	(void) printf("\tTotal DRR_WRITE records = %lld\n",
 	    (u_longlong_t)drr_record_count[DRR_WRITE]);
+	(void) printf("\tTotal DRR_WRITE_BYREF records = %lld\n",
+	    (u_longlong_t)drr_record_count[DRR_WRITE_BYREF]);
+	(void) printf("\tTotal DRR_WRITE_EMBEDDED records = %lld\n",
+	    (u_longlong_t)drr_record_count[DRR_WRITE_EMBEDDED]);
 	(void) printf("\tTotal DRR_FREE records = %lld\n",
 	    (u_longlong_t)drr_record_count[DRR_FREE]);
 	(void) printf("\tTotal DRR_SPILL records = %lld\n",
 	    (u_longlong_t)drr_record_count[DRR_SPILL]);
 	(void) printf("\tTotal records = %lld\n",
-	    (u_longlong_t)(drr_record_count[DRR_BEGIN] +
-	    drr_record_count[DRR_OBJECT] +
-	    drr_record_count[DRR_FREEOBJECTS] +
-	    drr_record_count[DRR_WRITE] +
-	    drr_record_count[DRR_FREE] +
-	    drr_record_count[DRR_SPILL] +
-	    drr_record_count[DRR_END]));
+	    (u_longlong_t)total_records);
 	(void) printf("\tTotal write size = %lld (0x%llx)\n",
 	    (u_longlong_t)total_write_size, (u_longlong_t)total_write_size);
 	(void) printf("\tTotal stream length = %lld (0x%llx)\n",

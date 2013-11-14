@@ -1643,6 +1643,9 @@ dsl_scan_scrub_cb(dsl_pool_t *dp,
 
 	count_block(dp->dp_blkstats, bp);
 
+	if (BP_IS_EMBEDDED(bp))
+		return (0);
+
 	ASSERT(DSL_SCAN_IS_SCRUB_RESILVER(scn));
 	if (scn->scn_phys.scn_func == POOL_SCAN_SCRUB) {
 		zio_flags |= ZIO_FLAG_SCRUB;

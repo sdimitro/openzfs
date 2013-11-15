@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_FS_ZFS_VFSOPS_H
@@ -77,6 +78,14 @@ struct zfsvfs {
 	boolean_t	z_use_sa;	/* version allow system attributes */
 	uint64_t	z_version;	/* ZPL version */
 	uint64_t	z_shares_dir;	/* hidden shares dir */
+
+	/*
+	 * The object number of a zap object whose entries map from an object
+	 * number in this filesystem to the object number in the origin
+	 * filesystem which it mooches from.
+	 */
+	uint64_t	z_mooch_byteswap_map;
+
 	kmutex_t	z_lock;
 	uint64_t	z_userquota_obj;
 	uint64_t	z_groupquota_obj;

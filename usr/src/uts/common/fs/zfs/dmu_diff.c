@@ -118,6 +118,12 @@ diff_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	if (zb->zb_object != DMU_META_DNODE_OBJECT)
 		return (0);
 
+	/*
+	 * Dnode blocks can not be MOOCH_BYTESWAP.
+	 */
+	ASSERT(!BP_IS_EMBEDDED(bp) ||
+	    BPE_GET_ETYPE(bp) != BP_EMBEDDED_TYPE_MOOCH_BYTESWAP);
+
 	if (BP_IS_HOLE(bp)) {
 		uint64_t span = DBP_SPAN(dnp, zb->zb_level);
 		uint64_t dnobj = (zb->zb_blkid * span) >> DNODE_SHIFT;

@@ -137,7 +137,7 @@ import_pool(const char *target, boolean_t readonly)
 	g_zfs = libzfs_init();
 	ASSERT(g_zfs != NULL);
 
-	dmu_objset_register_type(DMU_OST_ZFS, space_delta_cb);
+	dmu_objset_register_type(DMU_OST_ZFS, space_delta_cb, NULL);
 
 	g_readonly = readonly;
 

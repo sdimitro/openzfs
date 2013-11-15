@@ -48,6 +48,7 @@
 #include <sys/zfs_onexit.h>
 #include <sys/dmu_send.h>
 #include <sys/dsl_destroy.h>
+#include <sys/mooch_byteswap.h>
 #include <sys/blkptr.h>
 #include <sys/dsl_bookmark.h>
 #include <sys/zfeature.h>
@@ -407,6 +408,11 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
 		if (dsp->dsa_featureflags & DMU_BACKUP_FEATURE_EMBED_DATA)
 			return (B_TRUE);
 		break;
+	case BP_EMBEDDED_TYPE_MOOCH_BYTESWAP:
+		if (dsp->dsa_featureflags &
+		    DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP)
+			return (B_TRUE);
+		break;
 	default:
 		return (B_FALSE);
 	}
@@ -489,13 +495,37 @@ backup_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	} else { /* it's a level-0 block of a regular object */
 		uint32_t aflags = ARC_WAIT;
 		arc_buf_t *abuf;
-		int blksz = BP_GET_LSIZE(bp);
+		int blksz = dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT;
 
-		ASSERT3U(blksz, ==, dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT);
 		ASSERT0(zb->zb_level);
-		if (arc_read(NULL, spa, bp, arc_getbuf_func, &abuf,
-		    ZIO_PRIORITY_ASYNC_READ, ZIO_FLAG_CANFAIL,
-		    &aflags, zb) != 0) {
+
+		if (BP_IS_EMBEDDED(bp) &&
+		    BPE_GET_ETYPE(bp) == BP_EMBEDDED_TYPE_MOOCH_BYTESWAP) {
+			objset_t *origin_objset;
+			dmu_buf_t *origin_db;
+			uint64_t origin_obj;
+
+			VERIFY0(dmu_objset_mooch_origin(dsp->dsa_os,
+			    &origin_objset));
+			VERIFY0(dmu_objset_mooch_obj_refd(dsp->dsa_os,
+			    zb->zb_object, &origin_obj));
+			err = dmu_buf_hold(origin_objset, origin_obj,
+			    zb->zb_blkid * blksz, FTAG, &origin_db, 0);
+			ASSERT3U(blksz, ==, origin_db->db_size);
+			if (err == 0) {
+				abuf = arc_buf_alloc(spa, origin_db->db_size,
+				    &abuf, ARC_BUFC_DATA);
+				mooch_byteswap_reconstruct(origin_db,
+				    abuf->b_data, bp);
+				dmu_buf_rele(origin_db, FTAG);
+			}
+		} else {
+			ASSERT3U(blksz, ==, BP_GET_LSIZE(bp));
+			err = arc_read(NULL, spa, bp, arc_getbuf_func, &abuf,
+			    ZIO_PRIORITY_ASYNC_READ, ZIO_FLAG_CANFAIL,
+			    &aflags, zb);
+		}
+		if (err != 0) {
 			if (zfs_send_corrupt_data) {
 				/* Send a block filled with 0x"zfs badd bloc" */
 				abuf = arc_buf_alloc(spa, blksz, &abuf,
@@ -565,8 +595,15 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 		featureflags |= DMU_BACKUP_FEATURE_EMBED_DATA;
 		if (spa_feature_is_active(dp->dp_spa, SPA_FEATURE_LZ4_COMPRESS))
 			featureflags |= DMU_BACKUP_FEATURE_EMBED_DATA_LZ4;
-	} else {
-		embedok = B_FALSE;
+	}
+
+	/*
+	 * Note: If we are sending a full stream (non-incremental), then
+	 * we can not send mooch records, because the receiver won't have
+	 * the origin to mooch from.
+	 */
+	if (embedok && ds->ds_mooch_byteswap && fromzb != NULL) {
+		featureflags |= DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP;
 	}
 
 	DMU_SET_FEATUREFLAGS(drr->drr_u.drr_begin.drr_versioninfo,
@@ -1061,7 +1098,15 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
 		dsl_dir_rele(dd, FTAG);
 		drba->drba_cookie->drc_newfs = B_TRUE;
 	}
+
 	VERIFY0(dsl_dataset_own_obj(dp, dsobj, dmu_recv_tag, &newds));
+
+	if ((DMU_GET_FEATUREFLAGS(drrb->drr_versioninfo) &
+	    DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP) &&
+	    !newds->ds_mooch_byteswap) {
+		dsl_dataset_activate_mooch_byteswap_sync_impl(dsobj, tx);
+		newds->ds_mooch_byteswap = B_TRUE;
+	}
 
 	dmu_buf_will_dirty(newds->ds_dbuf, tx);
 	newds->ds_phys->ds_flags |= DS_FLAG_INCONSISTENT;

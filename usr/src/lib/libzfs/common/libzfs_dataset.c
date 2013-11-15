@@ -3390,6 +3390,11 @@ zfs_promote(zfs_handle_t *zhp)
 			    zc.zc_string, parent);
 			return (zfs_error(hdl, EZFS_EXISTS, errbuf));
 
+		case EXDEV:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "mooching dataset can not be promoted"));
+			return (zfs_error(hdl, EZFS_NOTSUP, errbuf));
+
 		default:
 			return (zfs_standard_error(hdl, save_errno, errbuf));
 		}

@@ -109,6 +109,7 @@ struct objset {
 
 	/* Protected by os_lock */
 	kmutex_t os_lock;
+	struct objset *os_origin_mooch_objset;
 	list_t os_dirty_dnodes[TXG_SIZE];
 	list_t os_free_dnodes[TXG_SIZE];
 	list_t os_dnodes;
@@ -167,7 +168,9 @@ void dmu_objset_userquota_get_ids(dnode_t *dn, boolean_t before, dmu_tx_t *tx);
 boolean_t dmu_objset_userused_enabled(objset_t *os);
 int dmu_objset_userspace_upgrade(objset_t *os);
 boolean_t dmu_objset_userspace_present(objset_t *os);
+int dmu_objset_mooch_origin(objset_t *clone, objset_t **originp);
 int dmu_fsname(const char *snapname, char *buf);
+int dmu_objset_mooch_obj_refd(objset_t *os, uint64_t obj, uint64_t *objp);
 
 void dmu_objset_init(void);
 void dmu_objset_fini(void);

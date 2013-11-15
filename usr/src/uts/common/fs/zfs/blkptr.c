@@ -40,6 +40,10 @@
  * the SPA, by the zio pipeline.  Therefore most code outside the zio
  * pipeline doesn't need special-cases to handle these block pointers.
  *
+ * BP_EMBEDDED_TYPE_MOOCH_BYTESWAP block pointers store information
+ * about how to read a block based on a byteswapped version of it which
+ * is stored in a different object.  See mooch_byteswap.c for more details.
+ *
  * See spa.h for details on the exact layout of embedded block pointers.
  */
 
@@ -86,6 +90,34 @@ encode_embedded_bp_compressed(blkptr_t *bp, void *data,
 }
 
 /*
+ * Fill in the bp with embedded data.
+ * Returns 0 on success, or ENOSPC if there is too much data even after
+ * compression.
+ */
+int
+encode_embedded_bp(blkptr_t *bp, void *data, int size)
+{
+	uint8_t buf[BPE_PAYLOAD_SIZE];
+	uint8_t *compressed = data;
+	int compressed_size = size;
+	enum zio_compress comp = ZIO_COMPRESS_OFF;
+
+	if (size > BPE_PAYLOAD_SIZE) {
+		/* try compressing it */
+		compressed = buf;
+		compressed_size = gzip_compress(data, compressed,
+		    size, BPE_PAYLOAD_SIZE, 6);
+		comp = ZIO_COMPRESS_GZIP_6;
+		if (compressed_size > BPE_PAYLOAD_SIZE)
+			return (ENOSPC);
+	}
+
+	encode_embedded_bp_compressed(bp,
+	    compressed, comp, size, compressed_size);
+	return (0);
+}
+
+/*
  * buf must be at least BPE_GET_PSIZE(bp) bytes long (which will never be
  * more than BPE_PAYLOAD_SIZE bytes).
  */
@@ -116,4 +148,37 @@ decode_embedded_bp_compressed(const blkptr_t *bp, void *buf)
 		}
 		buf8[i] = BF64_GET(w, (i % sizeof (w)) * NBBY, NBBY);
 	}
+}
+
+/*
+ * Fill in the buffer with the (decompressed) payload of the embedded
+ * blkptr_t.  Takes into account compression and byteorder (the payload is
+ * treated as a stream of bytes).
+ * Return 0 on success, or ENOSPC if it won't fit in the buffer.
+ */
+int
+decode_embedded_bp(const blkptr_t *bp, void *buf, int buflen)
+{
+	int lsize, psize;
+
+	ASSERT(BP_IS_EMBEDDED(bp));
+
+	lsize = BPE_GET_LSIZE(bp);
+	psize = BPE_GET_PSIZE(bp);
+
+	if (lsize > buflen)
+		return (ENOSPC);
+	ASSERT3U(lsize, ==, buflen);
+
+	if (BP_GET_COMPRESS(bp) != ZIO_COMPRESS_OFF) {
+		uint8_t dstbuf[BPE_PAYLOAD_SIZE];
+		decode_embedded_bp_compressed(bp, dstbuf);
+		VERIFY0(zio_decompress_data(BP_GET_COMPRESS(bp),
+		    dstbuf, buf, psize, buflen));
+	} else {
+		ASSERT3U(lsize, ==, psize);
+		decode_embedded_bp_compressed(bp, buf);
+	}
+
+	return (0);
 }

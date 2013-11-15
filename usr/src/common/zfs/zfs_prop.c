@@ -295,6 +295,9 @@ zfs_prop_init(void)
 	zprop_register_index(ZFS_PROP_DEFER_DESTROY, "defer_destroy", 0,
 	    PROP_READONLY, ZFS_TYPE_SNAPSHOT, "yes | no", "DEFER_DESTROY",
 	    boolean_table);
+	zprop_register_index(ZFS_PROP_MOOCH_BYTESWAP, "mooch_byteswap", 0,
+	    PROP_READONLY, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_SNAPSHOT,
+	    "yes | no", "MOOCH", boolean_table);
 
 	/* set once index properties */
 	zprop_register_index(ZFS_PROP_NORMALIZE, "normalization", 0,

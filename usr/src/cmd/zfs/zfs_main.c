@@ -47,6 +47,7 @@
 #include <pwd.h>
 #include <signal.h>
 #include <sys/list.h>
+#include <sys/filio.h>
 #include <sys/mkdev.h>
 #include <sys/mntent.h>
 #include <sys/mnttab.h>
@@ -99,6 +100,7 @@ static int zfs_do_hold(int argc, char **argv);
 static int zfs_do_holds(int argc, char **argv);
 static int zfs_do_release(int argc, char **argv);
 static int zfs_do_diff(int argc, char **argv);
+static int zfs_do_mooch(int argc, char **argv);
 static int zfs_do_bookmark(int argc, char **argv);
 
 /*
@@ -146,6 +148,7 @@ typedef enum {
 	HELP_HOLDS,
 	HELP_RELEASE,
 	HELP_DIFF,
+	HELP_MOOCH,
 	HELP_BOOKMARK,
 } zfs_help_t;
 
@@ -200,6 +203,7 @@ static zfs_command_t command_table[] = {
 	{ "holds",	zfs_do_holds,		HELP_HOLDS		},
 	{ "release",	zfs_do_release,		HELP_RELEASE		},
 	{ "diff",	zfs_do_diff,		HELP_DIFF		},
+	{ "mooch",	zfs_do_mooch,		HELP_MOOCH		},
 };
 
 #define	NCOMMAND	(sizeof (command_table) / sizeof (command_table[0]))
@@ -314,6 +318,10 @@ get_usage(zfs_help_t idx)
 	case HELP_DIFF:
 		return (gettext("\tdiff [-FHt] <snapshot> "
 		    "[snapshot|filesystem]\n"));
+	case HELP_MOOCH:
+		return (gettext("\tmooch -f <clone_file>=<origin_file> ... "
+		    "<clone_directory>\n"
+		    "\tmooch -d <clone_directory>\n"));
 	case HELP_BOOKMARK:
 		return (gettext("\tbookmark <snapshot> <bookmark>\n"));
 	}
@@ -6626,6 +6634,126 @@ zfs_do_diff(int argc, char **argv)
 	err = zfs_show_diffs(zhp, STDOUT_FILENO, fromsnap, tosnap, flags);
 
 	zfs_close(zhp);
+
+	return (err != 0);
+}
+
+/*
+ * mooch -f <clone_file>=<origin_file> ... <clone_directory>
+ * mooch -d <clone_directory>
+ *
+ * Establishes a "mooch mapping".  This feature allows for very compact
+ * representation of files which are byteswapped versions of other
+ * files.  The workflow for this use case is as follows:
+ *
+ * Write files.
+ * Create snapshot.
+ * Create clone of snapshot.
+ * Establish mooch mapping.
+ * Create files which will be byteswapped versions of files from origin.
+ * Write byteswaped files.
+ * Remove mooch mapping.
+ *
+ * Note that ZFS does not create or fill in the byteswapped files, it
+ * simply stores their contents more compactly.  Files must be byte
+ * swapped in an application-dependent way.  The common use case is for
+ * database files, which are stored in endian-specific formats but can
+ * be converted to different endianness by the database software.
+ *
+ * The "mooch mapping" indicates that when a file with the name
+ * clone_file is created in the clone_directory, it will be a
+ * byteswapped version of the origin_file.  The origin_file should be
+ * the path to the file in the origin snapshot, e.g.
+ * /pool/origin_fs/.zfs/snapshot/origin_snap/filename.
+ *
+ * The mooch mapping for a directory is removed by using the -d flag.
+ *
+ * The mooch_byteswap pool feature must be enabled to use this
+ * subcommand.
+ */
+static int
+zfs_do_mooch(int argc, char **argv)
+{
+	const char *dir_name;
+	int err, fd;
+	nvlist_t *files = fnvlist_alloc();
+	boolean_t delete = B_FALSE;
+	char c;
+
+	while ((c = getopt(argc, argv, ":f:d")) != -1) {
+		switch (c) {
+		case 'f': {
+			char *filename = optarg;
+			char *origin_filename;
+
+			origin_filename = strchr(filename, '=');
+			if (origin_filename == NULL) {
+				(void) fprintf(stderr, gettext("missing "
+				    "'=' for -f option\n"));
+				return (-1);
+			}
+			*origin_filename = '\0';
+			origin_filename++;
+			uint64_t ino;
+			err = zfs_get_inode(origin_filename, &ino);
+			if (err != 0) {
+				(void) fprintf(stderr,
+				    gettext("can't stat file %s: %s\n"),
+				    origin_filename, strerror(err));
+				return (1);
+			}
+			fnvlist_add_uint64(files, filename, ino);
+			break;
+		}
+		case 'd':
+			delete = B_TRUE;
+			break;
+		case '?':
+			(void) fprintf(stderr, gettext("invalid option '%c'\n"),
+			    optopt);
+			usage(B_FALSE);
+		}
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	/* check number of arguments */
+	if (argc != 1) {
+		(void) fprintf(stderr,
+		gettext("wrong number of arguments\n"));
+		usage(B_FALSE);
+	}
+
+	dir_name = argv[0];
+
+	fd = open(dir_name, O_RDONLY);
+	if (fd == -1) {
+		(void) fprintf(stderr, gettext("can't open directory %s: %s\n"),
+		    dir_name, strerror(errno));
+		return (1);
+	}
+
+	if (delete)
+		err = zfs_mooch_byteswap(fd, NULL);
+	else
+		err = zfs_mooch_byteswap(fd, files);
+	if (err != 0) {
+		(void) fprintf(stderr, gettext("can't mooch: %s\n"),
+		    strerror(err));
+	}
+
+	if (err == 0) {
+		(void) printf("mapping established for directory %s.\n"
+		    "create files now.  hit ^c when finished\n",
+		    dir_name);
+
+		/* CONSTCOND */
+		while (B_TRUE)
+			(void) sleep(10);
+	}
+
+	(void) close(fd);
 
 	return (err != 0);
 }

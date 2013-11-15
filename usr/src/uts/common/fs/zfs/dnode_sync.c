@@ -137,9 +137,15 @@ free_blocks(dnode_t *dn, blkptr_t *bp, int num, dmu_tx_t *tx)
 		 * records transmitted during a zfs send.
 		 */
 
-		uint64_t lsize = BP_GET_LSIZE(bp);
 		dmu_object_type_t type = BP_GET_TYPE(bp);
 		uint64_t lvl = BP_GET_LEVEL(bp);
+		/*
+		 * Use the logical size from the dnode, rather than the
+		 * LSIZE in the BP, because Embedded BP's may have an
+		 * odd LSIZE, which can't be represented in a hole BP.
+		 */
+		uint64_t lsize =
+		    lvl == 0 ? dn->dn_datablksz : (1 << dn->dn_indblkshift);
 
 		bzero(bp, sizeof (blkptr_t));
 

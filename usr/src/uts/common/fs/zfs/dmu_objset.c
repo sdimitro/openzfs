@@ -462,6 +462,85 @@ dmu_objset_from_ds(dsl_dataset_t *ds, objset_t **osp)
 }
 
 /*
+ * Set clone->os_origin_mooch_objset if it is not already set.
+ */
+static int
+dmu_objset_mooch_origin_impl(objset_t *clone)
+{
+	objset_t *origin, *origin_mooch_objset;
+	dsl_dataset_t *origin_ds;
+	int err;
+
+	ASSERT(dsl_pool_config_held(dmu_objset_pool(clone)));
+	ASSERT(clone->os_dsl_dataset->ds_mooch_byteswap);
+
+	if (clone->os_origin_mooch_objset != NULL)
+		return (0);
+
+	err = dsl_dataset_hold_obj(dmu_objset_pool(clone),
+	    clone->os_dsl_dataset->ds_dir->dd_phys->dd_origin_obj,
+	    FTAG, &origin_ds);
+	if (err != 0)
+		return (err);
+	err = dmu_objset_from_ds(origin_ds, &origin);
+	if (err != 0) {
+		dsl_dataset_rele(origin_ds, FTAG);
+		return (err);
+	}
+	if (origin_ds->ds_mooch_byteswap) {
+		err = dmu_objset_mooch_origin_impl(origin);
+		origin_mooch_objset = origin->os_origin_mooch_objset;
+	} else {
+		origin_mooch_objset = origin;
+	}
+	if (err == 0) {
+		mutex_enter(&clone->os_lock);
+		/*
+		 * Another thread may have beat us to setting
+		 * os_origin_mooch_objset. Re-check now that we have the lock.
+		 */
+		if (clone->os_origin_mooch_objset == NULL) {
+			clone->os_origin_mooch_objset = origin_mooch_objset;
+			dmu_buf_add_ref(clone->os_origin_mooch_objset->
+			    os_dsl_dataset->ds_dbuf, clone);
+		}
+		mutex_exit(&clone->os_lock);
+	}
+	dsl_dataset_rele(origin_ds, FTAG);
+	return (err);
+}
+
+/*
+ * Return the "mooch origin" of this objset.  This is the snapshot that
+ * we mooch from for MOOCH_BYTESWAP.  Typically it is simply our origin, but
+ * it may be our origin's origin, etc.  We find it by walking up the chain
+ * of origins until we find an origin that does not have
+ * ds_mooch_byteswap set.
+ */
+int
+dmu_objset_mooch_origin(objset_t *clone, objset_t **originp)
+{
+	int err = 0;
+
+	ASSERT(clone->os_dsl_dataset->ds_mooch_byteswap);
+
+	/*
+	 * os_origin_mooch_objset is never cleared, so if it's already set,
+	 * we can safely return it without grabbing the lock.
+	 */
+	if (clone->os_origin_mooch_objset == NULL) {
+		dsl_pool_t *dp = dmu_objset_pool(clone);
+
+		dsl_pool_config_enter(dp, FTAG);
+		err = dmu_objset_mooch_origin_impl(clone);
+		dsl_pool_config_exit(dp, FTAG);
+	}
+	*originp = clone->os_origin_mooch_objset;
+	return (err);
+
+}
+
+/*
  * Holds the pool while the objset is held.  Therefore only one objset
  * can be held at a time.
  */
@@ -648,6 +727,11 @@ dmu_objset_evict(objset_t *os)
 		VERIFY0(dsl_prop_unregister(ds,
 		    zfs_prop_to_name(ZFS_PROP_SECONDARYCACHE),
 		    secondary_cache_changed_cb, os));
+	}
+
+	if (os->os_origin_mooch_objset != NULL) {
+		dsl_dataset_rele(os->os_origin_mooch_objset->os_dsl_dataset,
+		    os);
 	}
 
 	if (os->os_sa)
@@ -1106,11 +1190,26 @@ dmu_objset_is_dirty(objset_t *os, uint64_t txg)
 }
 
 static objset_used_cb_t *used_cbs[DMU_OST_NUMTYPES];
+static objset_mooch_cb_t *mooch_cbs[DMU_OST_NUMTYPES];
 
 void
-dmu_objset_register_type(dmu_objset_type_t ost, objset_used_cb_t *cb)
+dmu_objset_register_type(dmu_objset_type_t ost, objset_used_cb_t *used_cb,
+    objset_mooch_cb_t *mooch_cb)
 {
-	used_cbs[ost] = cb;
+	used_cbs[ost] = used_cb;
+	mooch_cbs[ost] = mooch_cb;
+}
+
+int
+dmu_objset_mooch_obj_refd(objset_t *os, uint64_t obj, uint64_t *objp)
+{
+	objset_mooch_cb_t *cb = mooch_cbs[os->os_phys->os_type];
+	if (DMU_OBJECT_IS_SPECIAL(obj))
+		return (ENOENT);
+	if (cb == NULL)
+		return (SET_ERROR(ENOENT));
+	else
+		return (cb(os, obj, objp));
 }
 
 boolean_t

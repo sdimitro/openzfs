@@ -205,6 +205,7 @@ typedef struct dnode {
 	kcondvar_t dn_notxholds;
 	enum dnode_dirtycontext dn_dirtyctx;
 	uint8_t *dn_dirtyctx_firstset;		/* dbg: contents meaningless */
+	uint64_t dn_origin_obj_refd;
 
 	/* protected by own devices */
 	refcount_t dn_tx_holds;

@@ -1000,6 +1000,11 @@ zfsvfs_create(const char *osname, zfsvfs_t **zfvp)
 	if (error && error != ENOENT)
 		goto out;
 
+	error = zap_lookup(os, MASTER_NODE_OBJ, ZFS_MOOCH_BYTESWAP_MAP, 8, 1,
+	    &zfsvfs->z_mooch_byteswap_map);
+	if (error && error != ENOENT)
+		goto out;
+
 	mutex_init(&zfsvfs->z_znodes_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&zfsvfs->z_lock, NULL, MUTEX_DEFAULT, NULL);
 	list_create(&zfsvfs->z_all_znodes, sizeof (znode_t),
@@ -2203,6 +2208,26 @@ zfs_vfsinit(int fstype, char *name)
 	return (0);
 }
 
+/*
+ * Return (in *objp) the object in the origin which this object mooches
+ * from.  Note that the master node, and the zap object which stores
+ * the mapping, can not themselves mooch.
+ */
+static int
+zfs_get_mooch_obj_refd(objset_t *os, uint64_t obj, uint64_t *objp)
+{
+	uint64_t moochobj;
+	if (obj == MASTER_NODE_OBJ)
+		return (SET_ERROR(ENOENT));
+	int error = zap_lookup(os, MASTER_NODE_OBJ, ZFS_MOOCH_BYTESWAP_MAP,
+	    8, 1, &moochobj);
+	if (error != 0)
+		return (error);
+	if (obj == moochobj)
+		return (SET_ERROR(ENOENT));
+	return (zap_lookup_int_key(os, moochobj, obj, objp));
+}
+
 void
 zfs_init(void)
 {
@@ -2216,7 +2241,8 @@ zfs_init(void)
 	 */
 	zfs_znode_init();
 
-	dmu_objset_register_type(DMU_OST_ZFS, zfs_space_delta_cb);
+	dmu_objset_register_type(DMU_OST_ZFS,
+	    zfs_space_delta_cb, zfs_get_mooch_obj_refd);
 }
 
 void

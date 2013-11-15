@@ -144,6 +144,7 @@ typedef enum {
 	ZFS_PROP_INCONSISTENT,		/* not exposed to the user */
 	ZFS_PROP_REDUNDANT_METADATA,
 	ZFS_PROP_PREV_SNAP,
+	ZFS_PROP_MOOCH_BYTESWAP,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 

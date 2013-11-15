@@ -207,6 +207,7 @@ zfs_znode_move_impl(znode_t *ozp, znode_t *nzp)
 	nzp->z_uid = ozp->z_uid;
 	nzp->z_gid = ozp->z_gid;
 	nzp->z_mode = ozp->z_mode;
+	nzp->z_mooch_map = ozp->z_mooch_map;
 
 	/*
 	 * Since this is just an idle znode and kmem is already dealing with
@@ -647,6 +648,7 @@ zfs_znode_alloc(zfsvfs_t *zfsvfs, dmu_buf_t *db, int blksz,
 	zp->z_blksz = blksz;
 	zp->z_seq = 0x7A4653;
 	zp->z_sync_cnt = 0;
+	zp->z_mooch_map = NULL;
 
 	vp = ZTOV(zp);
 	vn_reinit(vp);
@@ -1345,6 +1347,11 @@ zfs_znode_free(znode_t *zp)
 	if (zp->z_acl_cached) {
 		zfs_acl_free(zp->z_acl_cached);
 		zp->z_acl_cached = NULL;
+	}
+
+	if (zp->z_mooch_map != NULL) {
+		nvlist_free(zp->z_mooch_map);
+		zp->z_mooch_map = NULL;
 	}
 
 	kmem_cache_free(znode_cache, zp);

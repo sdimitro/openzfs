@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /*
@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <math.h>
+#include <sys/filio.h>
 #include <sys/mnttab.h>
 #include <sys/mntent.h>
 #include <sys/types.h>
@@ -1487,4 +1488,39 @@ zprop_iter(zprop_func func, void *cb, boolean_t show_all, boolean_t ordered,
     zfs_type_t type)
 {
 	return (zprop_iter_common(func, cb, show_all, ordered, type));
+}
+
+int
+zfs_mooch_byteswap(int dirfd, nvlist_t *files)
+{
+	fio_mooch_byteswap_map_t fmbm;
+	int err;
+	size_t len;
+	void *packed;
+
+	if (files == NULL) {
+		err = ioctl(dirfd, _FIO_MOOCH_BYTESWAP_MAP, NULL);
+		if (err == -1)
+			err = errno;
+		return (err);
+	}
+	packed = fnvlist_pack(files, &len);
+	fmbm.fmbm_nvlist = (uintptr_t)packed;
+	fmbm.fmbm_len = len;
+	err = ioctl(dirfd, _FIO_MOOCH_BYTESWAP_MAP, (uintptr_t)&fmbm);
+	if (err == -1)
+		err = errno;
+	fnvlist_pack_free(packed, len);
+	return (err);
+}
+
+int
+zfs_get_inode(const char *path, uint64_t *inop)
+{
+	struct stat64 ss;
+	int err = stat64(path, &ss);
+	if (err == -1)
+		err = errno;
+	*inop = ss.st_ino;
+	return (err);
 }

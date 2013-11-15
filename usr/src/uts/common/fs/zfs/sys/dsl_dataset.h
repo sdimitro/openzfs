@@ -76,6 +76,14 @@ struct dsl_pool;
  */
 
 /*
+ * This field is present (with value=0) if this dataset may contain dnodes with
+ * the dn_origin_obj_refd field set, and embedded blkptr_t's of type
+ * BP_EMBEDDED_TYPE_MOOCH_BYTESWAP.  If it is present, then this dataset
+ * is counted in the refcount of the SPA_FEATURE_MOOCH_BYTESWAP feature.
+ */
+#define	DS_FIELD_MOOCH_BYTESWAP "com.delphix:mooch_byteswap"
+
+/*
  * This field's value is the object ID of a zap object which contains the
  * bookmarks of this dataset.  If it is present, then this dataset is counted
  * in the refcount of the SPA_FEATURES_BOOKMARKS feature.
@@ -169,6 +177,7 @@ typedef struct dsl_dataset {
 
 	uint64_t ds_reserved;	/* cached refreservation */
 	uint64_t ds_quota;	/* cached refquota */
+	boolean_t ds_mooch_byteswap; /* does field exist in zap obj? */
 
 	kmutex_t ds_sendstream_lock;
 	list_t ds_sendstreams;
@@ -281,6 +290,10 @@ void dsl_dataset_set_refreservation_sync_impl(dsl_dataset_t *ds,
     zprop_source_t source, uint64_t value, dmu_tx_t *tx);
 void dsl_dataset_zapify(dsl_dataset_t *ds, dmu_tx_t *tx);
 int dsl_dataset_rollback(const char *fsname, void *owner, nvlist_t *result);
+
+int dsl_dataset_activate_mooch_byteswap(objset_t *os);
+void dsl_dataset_activate_mooch_byteswap_sync_impl(uint64_t dsobj,
+    dmu_tx_t *tx);
 
 #ifdef ZFS_DEBUG
 #define	dprintf_ds(ds, fmt, ...) do { \

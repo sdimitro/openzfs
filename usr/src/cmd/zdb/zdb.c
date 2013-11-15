@@ -58,6 +58,8 @@
 #include <sys/arc.h>
 #include <sys/ddt.h>
 #include <sys/zfeature.h>
+#include <sys/mooch_byteswap.h>
+#include <sys/blkptr.h>
 #include <zfs_comutil.h>
 #undef ZFS_MAXNAMELEN
 #undef verify
@@ -2069,6 +2071,8 @@ dump_label(const char *dev)
 	(void) close(fd);
 }
 
+static uint64_t num_mooch_byteswap;
+
 /*ARGSUSED*/
 static int
 dump_one_dir(const char *dsname, void *arg)
@@ -2081,6 +2085,8 @@ dump_one_dir(const char *dsname, void *arg)
 		(void) printf("Could not open %s, error %d\n", dsname, error);
 		return (0);
 	}
+	if (dmu_objset_ds(os)->ds_mooch_byteswap)
+		num_mooch_byteswap++;
 	dump_dir(os);
 	dmu_objset_disown(os, FTAG);
 	fuid_table_destroy();
@@ -2305,6 +2311,59 @@ zdb_blkptr_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	}
 
 	zcb->zcb_readfails = 0;
+
+	if (BP_IS_EMBEDDED(bp) &&
+	    BPE_GET_ETYPE(bp) == BP_EMBEDDED_TYPE_MOOCH_BYTESWAP &&
+	    dump_opt['b'] >= 6) {
+		int nrec = BPE_GET_LSIZE(bp);
+		char *records = kmem_alloc(nrec, KM_SLEEP);
+
+		(void) printf("MOOCH_BYTESWAP payload: ");
+		VERIFY0(decode_embedded_bp(bp, records, nrec));
+		for (int i = 0; i < nrec; i++) {
+			switch (BSREC_GET_TYPE(records[i])) {
+			case BSREC_TYPE_SKIP:
+				(void) printf("Skip%u ",
+				    BSREC_GET_DATA(records[i]));
+				break;
+			case BSREC_TYPE_REPEAT:
+				(void) printf("Repeat%u ",
+				    BSREC_GET_DATA(records[i]));
+				break;
+			case BSREC_TYPE_INSTR: {
+				bsrec_instr_t instr =
+				    BSREC_GET_DATA(records[i]);
+				switch (instr) {
+				case BSREC_INSTR_SKIP8:
+					(void) printf("Skip ");
+					break;
+				case BSREC_INSTR_SWAP16:
+					(void) printf("Swap16 ");
+					break;
+				case BSREC_INSTR_SWAP32:
+					(void) printf("Swap32 ");
+					break;
+				case BSREC_INSTR_SWAP48:
+					(void) printf("Swap48 ");
+					break;
+				case BSREC_INSTR_SWAP64:
+					(void) printf("Swap64 ");
+					break;
+				case BSREC_INSTR_XOR16:
+					(void) printf("Xor16 ");
+					break;
+				default:
+					(void) printf("BAD_INSTRUCTION_%u ",
+					    instr);
+				}
+				break;
+			}
+			default:
+				(void) printf("BAD_RECTYPE_%x ", records[i]);
+			}
+		}
+		(void) printf("\n");
+	}
 
 	if (dump_opt['b'] < 5 && isatty(STDERR_FILENO) &&
 	    gethrtime() > zcb->zcb_lastprint + NANOSEC) {
@@ -2838,6 +2897,7 @@ dump_zpool(spa_t *spa)
 		dump_metaslabs(spa);
 
 	if (dump_opt['d'] || dump_opt['i']) {
+		uint64_t refcount;
 		dump_dir(dp->dp_meta_objset);
 		if (dump_opt['d'] >= 3) {
 			dump_bpobj(&spa->spa_deferred_bpobj,
@@ -2857,6 +2917,13 @@ dump_zpool(spa_t *spa)
 		}
 		(void) dmu_objset_find(spa_name(spa), dump_one_dir,
 		    NULL, DS_FIND_SNAPSHOTS | DS_FIND_CHILDREN);
+
+		(void) feature_get_refcount(spa,
+		    &spa_feature_table[SPA_FEATURE_MOOCH_BYTESWAP], &refcount);
+		ASSERT3U(num_mooch_byteswap, ==, refcount);
+		(void) printf("Verified mooch_byteswap feature count "
+		    "is correct (%llu)\n", (u_longlong_t)refcount);
+
 	}
 	if (dump_opt['b'] || dump_opt['c'])
 		rc = dump_block_stats(spa);

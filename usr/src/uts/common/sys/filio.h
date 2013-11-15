@@ -36,16 +36,19 @@
  * contributors.
  */
 
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
 #ifndef _SYS_FILIO_H
 #define	_SYS_FILIO_H
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
  * General file ioctl definitions.
  */
 
 #include <sys/ioccom.h>
+#include <sys/stdint.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -138,9 +141,22 @@ extern "C" {
 #define	_FIO_COMPRESSED		_IO('f', 99) /* mark file as compressed */
 
 /*
+ * ZFS-specific ioctls
+ */
+
+/*
  * Expose fill information through ioctl
  */
 #define	_FIO_COUNT_FILLED	_IO('f', 100)	/* count holes in a file */
+
+/*
+ * Establish mapping for files yet to be created.
+ */
+typedef struct fio_mooch_byteswap_map {
+	uint64_t fmbm_len;	/* size of packed nvlist */
+	uint64_t fmbm_nvlist;	/* pointer to packed nvlist */
+} fio_mooch_byteswap_map_t;
+#define	_FIO_MOOCH_BYTESWAP_MAP	_IOWR('f', 101, fio_mooch_byteswap_map_t)
 
 #ifdef	__cplusplus
 }

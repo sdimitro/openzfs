@@ -261,6 +261,12 @@ zfs \- configures ZFS file systems
 .LP
 .nf
 \fBzfs\fR \fBdiff\fR [\fB-FHt\fR] \fIsnapshot\fR \fIsnapshot|filesystem\fR
+.fi
+
+.LP
+.nf
+\fBzfs\fR \fBmooch\fR \fB-f\fR \fIclone_file\fR=\fIorigin_file\fR ... \fIclone_directory\fR
+.fi
 
 .SH DESCRIPTION
 .sp
@@ -579,6 +585,18 @@ However, it does include space consumed by metadata.
 .sp
 This property can also be referred to by its shortened column name,
 \fBlused\fR.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBmooch_byteswap\fR\fR
+.ad
+.sp .6
+.RS 4n
+Indicates whether the file system or snapshot is using the
+\fBmooch_byteswap\fR pool feature, which is required by the \fBzfs mooch\fR
+subcommand.
 .RE
 
 .sp
@@ -2949,13 +2967,13 @@ will be much better if the filesystem uses a dedup-capable checksum (eg.
 .sp .6
 .RS 4n
 Generate a more compact stream by using WRITE_EMBEDDED records for blocks
-which are stored more compactly on disk by the \fBembedded_data\fR pool
-feature.  This flag has no effect if the \fBembedded_data\fR feature is
-disabled.  The receiving system must have the \fBembedded_data\fR feature
+which are stored more compactly on disk by the \fBembedded_data\fR and
+\fBmooch_byteswap\fR pool features.  This flag has no effect if these
+features are disabled.  The receiving system must have the relevant feature
 enabled.  If the \fBlz4_compress\fR feature is active on the sending system,
 then the receiving system must have that feature enabled as well. See
 \fBzpool-features\fR(5) for details on ZFS feature flags and the
-\fBembedded_data\fR feature.
+\fBembedded_data\fR and \fBmooch_byteswap\fR features.
 .RE
 
 .sp
@@ -3046,13 +3064,13 @@ or the origin's origin, etc.
 .sp .6
 .RS 4n
 Generate a more compact stream by using WRITE_EMBEDDED records for blocks
-which are stored more compactly on disk by the \fBembedded_data\fR pool
-feature.  This flag has no effect if the \fBembedded_data\fR feature is
-disabled.  The receiving system must have the \fBembedded_data\fR feature
+which are stored more compactly on disk by the \fBembedded_data\fR and
+\fBmooch_byteswap\fR pool features.  This flag has no effect if these
+features are disabled.  The receiving system must have the relevant feature
 enabled.  If the \fBlz4_compress\fR feature is active on the sending system,
 then the receiving system must have that feature enabled as well. See
 \fBzpool-features\fR(5) for details on ZFS feature flags and the
-\fBembedded_data\fR feature.
+\fBembedded_data\fR and \fBmooch_byteswap\fR features.
 .RE
 .RE
 

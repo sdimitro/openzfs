@@ -135,6 +135,7 @@ extern "C" {
 #define	ZFS_FUID_TABLES		"FUID"
 #define	ZFS_SHARES_DIR		"SHARES"
 #define	ZFS_SA_ATTRS		"SA_ATTRS"
+#define	ZFS_MOOCH_BYTESWAP_MAP	"MOOCH_BYTESWAP_MAP"
 
 #define	ZFS_MAX_BLOCKSIZE	(SPA_MAXBLOCKSIZE)
 
@@ -210,6 +211,7 @@ typedef struct znode {
 	list_node_t	z_link_node;	/* all znodes in fs link */
 	sa_handle_t	*z_sa_hdl;	/* handle to sa data */
 	boolean_t	z_is_sa;	/* are we native sa? */
+	nvlist_t	*z_mooch_map;	/* maps child name -> obj to mooch */
 } znode_t;
 
 

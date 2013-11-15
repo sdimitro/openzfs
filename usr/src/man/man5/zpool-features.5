@@ -408,5 +408,28 @@ never return to being \fBenabled\fR.
 
 .RE
 
+.sp
+.ne 2
+.na
+\fB\fBmooch_byteswap\fR\fR
+.ad
+.RS 4n
+.TS
+l l .
+GUID	com.delphix:mooch_byteswap
+READ\-ONLY COMPATIBLE	no
+DEPENDENCIES	extensible_dataset
+.TE
+
+This feature enables the use of the "zfs mooch" subcommand, which allows files
+which are byteswapped versions of other files to be stored much more compactly.
+
+This feature becomes \fBactive\fR when the "zfs mooch" command is used,
+and is returned to being \fBenabled\fR once all filesystems that have been
+used with this feature are destroyed.  Filesystems using this feature can
+be listed by running \fBzfs get -r mooch_byteswap \fIpoolname\fB | grep " on "\fR
+
+.RE
+
 .SH "SEE ALSO"
 \fBzpool\fR(1M)

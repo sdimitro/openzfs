@@ -1461,6 +1461,10 @@ dsl_scan_sync(dsl_pool_t *dp, dmu_tx_t *tx)
 		}
 		if (err == ERESTART)
 			return;
+		/* finished; verify that space accounting went to zero */
+		ASSERT0(dp->dp_free_dir->dd_phys->dd_used_bytes);
+		ASSERT0(dp->dp_free_dir->dd_phys->dd_compressed_bytes);
+		ASSERT0(dp->dp_free_dir->dd_phys->dd_uncompressed_bytes);
 	}
 
 	if (scn->scn_phys.scn_state != DSS_SCANNING)

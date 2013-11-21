@@ -46,6 +46,8 @@
 #
 export NIGHTLY_OPTIONS='-FnCDlmprt'
 
+export NO_GENUNIX_UNIQUIFY=
+
 #
 # -- PLEASE READ THIS --
 #

@@ -272,16 +272,8 @@ zfs_holey(vnode_t *vp, int cmd, offset_t *off)
 	error = dmu_offset_next(zp->z_zfsvfs->z_os, zp->z_id, hole, &noff);
 
 	/* end of file? */
-	if ((error == ESRCH) || (noff > file_sz)) {
-		/*
-		 * Handle the virtual hole at the end of file.
-		 */
-		if (hole) {
-			*off = file_sz;
-			return (0);
-		}
+	if ((error == ESRCH) || (noff > file_sz))
 		return (SET_ERROR(ENXIO));
-	}
 
 	if (noff < *off)
 		return (error);

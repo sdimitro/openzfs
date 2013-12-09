@@ -47,6 +47,13 @@ writing.  Otherwise, the file descriptor will be connected to the new
 process's standard output, and will be opened for reading.
 .sp
 .LP
+If \fIfile_actions\fR is a null pointer, then file descriptors open in the
+calling process remain open in the child process, except for those whose
+close-on-exec flag \fBFD_CLOEXEC\fR is set (see \fBfcntl\fR(2)).  For those
+file descriptors that remain open, all attributes of the corresponding open
+file descriptions, including file locks (see \fBfcntl\fR(2)), remain unchanged.
+.sp
+.LP
 If \fIfile_actions\fR is not \fINULL\fR, then the file descriptors open
 in the child process are those open in the calling process as modified
 by the spawn file actions object pointed to by \fIfile_actions\fR and

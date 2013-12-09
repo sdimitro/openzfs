@@ -25,7 +25,7 @@
  */
 
 /*
- * Copyright (c) 2011 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include "lint.h"
@@ -225,6 +225,55 @@ perform_file_actions(file_attr_t *fap, void *dirbuf)
 			if (spawn_closefrom(fap->fa_filedes, dirbuf))
 				return (errno);
 			break;
+		default:
+			return (EINVAL);
+		}
+	} while ((fap = fap->fa_next) != froot);
+
+	return (0);
+}
+
+/*
+ * Appends a copy of all the actions in the source file action list to the end
+ * of the destination file action list.
+ */
+static int
+append_file_actions(posix_spawn_file_actions_t *dest,
+    const posix_spawn_file_actions_t *src)
+{
+	int error;
+	file_attr_t *fap = src->__file_attrp;
+	const file_attr_t *froot = fap;
+
+	if (froot == NULL)
+		return (0);
+
+	do {
+		switch (fap->fa_type) {
+		case FA_OPEN:
+			if ((error = posix_spawn_file_actions_addopen(dest,
+			    fap->fa_filedes, fap->fa_path, fap->fa_oflag,
+			    fap->fa_mode)) != 0)
+				return (error);
+			break;
+		case FA_CLOSE:
+			if ((error = posix_spawn_file_actions_addclose(dest,
+			    fap->fa_filedes)) != 0)
+				return (error);
+			break;
+		case FA_DUP2:
+			if ((error = posix_spawn_file_actions_adddup2(dest,
+			    fap->fa_filedes, fap->fa_newfiledes)) != 0)
+				return (error);
+			break;
+		case FA_CLOSEFROM:
+			if ((error =
+			    posix_spawn_file_actions_addclosefrom_np(dest,
+			    fap->fa_filedes)) != 0)
+				return (error);
+			break;
+		default:
+			return (EINVAL);
 		}
 	} while ((fap = fap->fa_next) != froot);
 
@@ -902,9 +951,18 @@ posix_spawn_pipe_np(pid_t *pidp, int *fdp,
 	const char *shpath = _PATH_BSHELL;
 	const char *argvec[4] = { "sh", "-c", cmd, NULL };
 	int	error;
+	posix_spawn_file_actions_t all_actions;
 
 	if (pipe(p) < 0)
 		return (errno);
+
+	/*
+	 * Create a private file action list and insert our actions at the
+	 * front of it to ensure that they don't interfere with the actions
+	 * provided by the user.
+	 */
+	if ((error = posix_spawn_file_actions_init(&all_actions)) != 0)
+		return (error);
 
 	if (access(shpath, X_OK))	/* XPG4 Requirement: */
 		shpath = "";		/* force child to fail immediately */
@@ -924,23 +982,29 @@ posix_spawn_pipe_np(pid_t *pidp, int *fdp,
 		stdio = STDOUT_FILENO;
 	}
 
-	error = posix_spawn_file_actions_addclose(fact, myside);
+	error = posix_spawn_file_actions_addclose(&all_actions, myside);
 	if (yourside != stdio) {
 		if (error == 0) {
-			error = posix_spawn_file_actions_adddup2(fact,
+			error = posix_spawn_file_actions_adddup2(&all_actions,
 			    yourside, stdio);
 		}
 		if (error == 0) {
-			error = posix_spawn_file_actions_addclose(fact,
+			error = posix_spawn_file_actions_addclose(&all_actions,
 			    yourside);
 		}
 	}
 
-	if (error)
+	if (error == 0 && fact != NULL)
+		error = append_file_actions(&all_actions, fact);
+
+	if (error) {
+		(void) posix_spawn_file_actions_destroy(&all_actions);
 		return (error);
-	error = posix_spawn(pidp, shpath, fact, attr,
+	}
+	error = posix_spawn(pidp, shpath, &all_actions, attr,
 	    (char *const *)argvec, (char *const *)_environ);
 	(void) close(yourside);
+	(void) posix_spawn_file_actions_destroy(&all_actions);
 	if (error) {
 		(void) close(myside);
 		return (error);

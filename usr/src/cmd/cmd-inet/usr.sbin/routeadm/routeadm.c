@@ -22,8 +22,9 @@
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -235,7 +236,6 @@
 #define	RA_PROP_DEFAULT_IPV6_FORWARDING	"default-ipv6-forwarding"
 #define	RA_PROP_IPV4_ROUTING_SET	"ipv4-routing-set"
 #define	RA_PROP_IPV6_ROUTING_SET	"ipv6-routing-set"
-#define	RA_PROP_ROUTING_CONF_READ	"routing-conf-read"
 
 #define	RA_PG_ROUTING			"routing"
 
@@ -250,9 +250,6 @@
 
 #define	RA_SMF_UPGRADE_FILE		"/var/svc/profile/upgrade"
 #define	RA_SMF_UPGRADE_MSG		" # added by routeadm(1M)"
-#define	RA_CONF_FILE			"/etc/inet/routing.conf"
-#define	RA_CONF_FILE_OLD		"/etc/inet/routing.conf.old"
-#define	RA_MAX_CONF_LINE		256
 
 /*
  * Option value.  Each option requires an FMRI identifying which services
@@ -385,12 +382,7 @@ static int ra_update(void);
 static int ra_update_routing_svcs(char *);
 static int ra_report(boolean_t, const char *);
 static int ra_smf_cb(ra_smf_cb_t, const char *, void *);
-static int ra_upgrade_from_legacy_conf(void);
 static int ra_numv6intfs(void);
-static int ra_parseconf(void);
-static int ra_parseopt(char *, int, raopt_t *);
-static int ra_parsevar(char *, ravar_t *);
-static oval_t ra_str2oval(const char *);
 static raopt_t *ra_str2opt(const char *);
 static void ra_resetopts(void);
 static ravar_t *ra_str2var(const char *);
@@ -403,7 +395,6 @@ static int ra_upgrade_legacy_daemons_cb(void *, scf_walkinfo_t *);
 /* Callbacks used to set/retieve routing options */
 static int ra_set_current_opt_cb(void *, scf_walkinfo_t *);
 static int ra_set_persistent_opt_cb(void *, scf_walkinfo_t *);
-static int ra_set_default_opt_cb(void *, scf_walkinfo_t *);
 static int ra_get_current_opt_cb(void *, scf_walkinfo_t *);
 static int ra_get_persistent_opt_cb(void *, scf_walkinfo_t *);
 static int ra_get_default_opt_cb(void *, scf_walkinfo_t *);
@@ -490,12 +481,6 @@ main(int argc, char *argv[])
 
 	(void) textdomain(TEXT_DOMAIN);
 
-	/*
-	 * Before processing any options, we parse /etc/inet/routing.conf
-	 * (if present) and transfer values to SMF.
-	 */
-	if (ra_upgrade_from_legacy_conf() == -1)
-		exit(EXIT_FAILURE);
 	while ((opt = getopt(argc, argv, ":bd:e:l:m:p:R:r:s:u")) != EOF) {
 		switch (opt) {
 		case 'b':
@@ -1569,17 +1554,6 @@ ra_get_set_opt_common_cb(raopt_t *raopt, scf_walkinfo_t *wip,
 }
 
 static int
-ra_set_default_opt_cb(void *data, scf_walkinfo_t *wip)
-{
-	scf_instance_t		*inst = wip->inst;
-	scf_handle_t		*h = scf_instance_handle(inst);
-	raopt_t			*raopt = data;
-
-	return (ra_set_boolean_prop(h, inst, RA_PG_ROUTEADM,
-	    raopt->opt_default_prop, B_FALSE, raopt->opt_default_enabled));
-}
-
-static int
 ra_get_default_opt_cb(void *data, scf_walkinfo_t *wip)
 {
 	scf_instance_t		*inst = wip->inst;
@@ -2218,122 +2192,6 @@ out:
 }
 
 /*
- * This function gathers configuration from the legacy /etc/inet/routing.conf,
- * if any, and sets the appropriate variable values accordingly.  Once
- * these are set,  the legacy daemons are checked to see if they have
- * SMF counterparts (ra_check_legacy_daemons()).  If they do, the
- * configuration is upgraded.  Finally,  the legacy option settings are
- * applied,  enabling/disabling the routing/forwarding services as
- * appropriate.
- */
-static int
-ra_upgrade_from_legacy_conf(void)
-{
-	scf_handle_t	*h = NULL;
-	scf_instance_t	*inst = NULL;
-	int		ret = 0, i, r;
-	boolean_t	old_conf_read;
-	ravar_t		*routing_svcs = ra_str2var(RA_VAR_ROUTING_SVCS);
-
-	/*
-	 * First, determine if we have already upgraded - if "routing-conf-read"
-	 * is true, we bail.  The use of a boolean property indicating if
-	 * routing.conf has been read and applied might seem a lot more
-	 * work than simply copying routing.conf aside,  but leaving the
-	 * file in place allows users to downgrade and have their old
-	 * routing configuration still in place.
-	 */
-	if ((h = scf_handle_create(SCF_VERSION)) == NULL ||
-	    scf_handle_bind(h) == -1) {
-		(void) fprintf(stderr, gettext(
-		    "%s: cannot connect to SMF repository\n"), myname);
-		ret = -1;
-		goto out;
-	}
-	if ((inst = scf_instance_create(h)) == NULL ||
-	    scf_handle_decode_fmri(h, RA_INSTANCE_ROUTING_SETUP,
-	    NULL, NULL, inst, NULL, NULL, SCF_DECODE_FMRI_EXACT) == -1) {
-		(void) fprintf(stderr, gettext(
-		    "%s: unexpected libscf error: %s\n"), myname,
-		    scf_strerror(scf_error()));
-		ret = -1;
-		goto out;
-	}
-	if (ra_get_boolean_prop(h, inst, RA_PG_ROUTEADM,
-	    RA_PROP_ROUTING_CONF_READ, B_TRUE, B_TRUE, &old_conf_read) == -1) {
-		ret = -1;
-		goto out;
-	}
-
-	if (old_conf_read)
-		goto out;
-
-	/*
-	 * Now set "routing-conf-read" to true so we don`t reimport legacy
-	 * configuration again.
-	 */
-	if (ra_set_boolean_prop(h, inst, RA_PG_ROUTEADM,
-	    RA_PROP_ROUTING_CONF_READ, B_FALSE, B_TRUE) == -1)
-		return (-1);
-	(void) smf_refresh_instance(RA_INSTANCE_ROUTING_SETUP);
-
-	ra_resetvars(NULL);
-
-	/* First, gather values from routing.conf */
-	if ((r = ra_parseconf()) == -1) {
-		ret = -1;
-		goto out;
-	}
-	/* No routing.conf file found */
-	if (r == 0)
-		goto out;
-	/*
-	 * Now, set the options/variables gathered.  We set variables first,
-	 * as we cannot enable routing before we determine the daemons
-	 * to enable.
-	 */
-
-	for (i = 0; ra_vars[i].var_name != NULL; i++) {
-		/* Skip routing-svcs var, not featured in legacy config */
-		if (strcmp(ra_vars[i].var_name, RA_VAR_ROUTING_SVCS) == 0)
-			continue;
-		if (ra_smf_cb(ra_set_persistent_var_cb, ra_vars[i].var_fmri,
-		    &(ra_vars[i])) == -1) {
-			ret = -1;
-			goto out;
-		}
-	}
-	/* Clear routing-svcs value */
-	if (ra_smf_cb(ra_set_persistent_var_cb, routing_svcs->var_fmri,
-	    routing_svcs) == -1) {
-		ret = -1;
-		goto out;
-	}
-
-	if (ra_check_legacy_daemons() == -1) {
-		ret = -1;
-		goto out;
-	}
-
-	for (i = 0; ra_opts[i].opt_name != NULL; i++) {
-		if (ra_smf_cb(ra_set_persistent_opt_cb, ra_opts[i].opt_fmri,
-		    &(ra_opts[i])) == -1 ||
-		    ra_smf_cb(ra_set_default_opt_cb,
-		    ra_opts[i].opt_default_fmri, &(ra_opts[i])) == -1) {
-			ret = -1;
-			break;
-		}
-	}
-out:
-	if (inst != NULL)
-		scf_instance_destroy(inst);
-	if (h != NULL)
-		scf_handle_destroy(h);
-
-	return (ret);
-}
-
-/*
  *
  * Return the number of IPv6 addresses configured.  This answers the
  * generic question, "is IPv6 configured?".  We only start in.ndpd if IPv6
@@ -2366,170 +2224,6 @@ ra_numv6intfs(void)
 	(void) close(ipsock);
 
 	return (num = lifn.lifn_count);
-}
-
-/*
- * Parse the configuration file and fill the ra_opts array with opt_value
- * and opt_default_value values, and the ra_vars array with var_value and
- * var_default_value values.  Then copy aside routing.conf so it will not
- * be read by future invokations of routeadm.
- */
-static int
-ra_parseconf(void)
-{
-	FILE	*fp;
-	uint_t	lineno;
-	char	line[RA_MAX_CONF_LINE];
-	char	*cp, *confstr;
-	raopt_t	*raopt;
-	ravar_t *ravar;
-
-	if ((fp = fopen(RA_CONF_FILE, "r")) == NULL) {
-		/*
-		 * There's no config file, so we simply return as there
-		 * is no work to do.
-		 */
-		return (0);
-	}
-
-	for (lineno = 1; fgets(line, sizeof (line), fp) != NULL; lineno++) {
-		if (line[strlen(line) - 1] == '\n')
-			line[strlen(line) - 1] = '\0';
-
-		cp = line;
-
-		/* Skip leading whitespace */
-		while (isspace(*cp))
-			cp++;
-
-		/* Skip comment lines and empty lines */
-		if (*cp == '#' || *cp == '\0')
-			continue;
-
-		/*
-		 * Anything else must be of the form:
-		 * <option> <value> <default_value>
-		 */
-		if ((confstr = strtok(cp, " ")) == NULL) {
-			(void) fprintf(stderr,
-			    gettext("%1$s: %2$s: invalid entry on line %3$d\n"),
-			    myname, RA_CONF_FILE, lineno);
-			continue;
-		}
-
-		if ((raopt = ra_str2opt(confstr)) != NULL) {
-			if (ra_parseopt(confstr, lineno, raopt) != 0) {
-				(void) fclose(fp);
-				return (-1);
-			}
-		} else if ((ravar = ra_str2var(confstr)) != NULL) {
-			if (ra_parsevar(confstr, ravar) != 0) {
-				(void) fclose(fp);
-				return (-1);
-			}
-		} else {
-			(void) fprintf(stderr,
-			    gettext("%1$s: %2$s: invalid option name on "
-				"line %3$d\n"),
-			    myname, RA_CONF_FILE, lineno);
-			continue;
-		}
-	}
-
-	(void) fclose(fp);
-
-	return (1);
-}
-
-static int
-ra_parseopt(char *confstr, int lineno, raopt_t *raopt)
-{
-	oval_t oval, d_oval;
-
-	if ((confstr = strtok(NULL, " ")) == NULL) {
-		(void) fprintf(stderr,
-		    gettext("%1$s: %2$s: missing value on line %3$d\n"),
-		    myname, RA_CONF_FILE, lineno);
-		return (0);
-	}
-	if ((oval = ra_str2oval(confstr)) == OPT_INVALID) {
-		(void) fprintf(stderr,
-		    gettext("%1$s: %2$s: invalid option "
-			"value on line %3$d\n"),
-		    myname, RA_CONF_FILE, lineno);
-		return (0);
-	}
-	if (oval != OPT_DEFAULT)
-		raopt->opt_enabled = oval == OPT_ENABLED;
-
-	if ((confstr = strtok(NULL, " ")) == NULL) {
-		(void) fprintf(stderr,
-		    gettext("%1$s: %2$s: missing revert "
-			"value on line %3$d\n"),
-		    myname, RA_CONF_FILE, lineno);
-		return (0);
-	}
-	if ((d_oval = ra_str2oval(confstr)) == OPT_INVALID) {
-		(void) fprintf(stderr,
-		    gettext("%1$s: %2$s: invalid revert "
-			"value on line %3$d\n"),
-		    myname, RA_CONF_FILE, lineno, confstr);
-		return (0);
-	}
-	raopt->opt_default_enabled = d_oval == OPT_ENABLED;
-	if (oval == OPT_DEFAULT)
-		raopt->opt_enabled = d_oval == OPT_ENABLED;
-
-	/*
-	 * Set ipv4(6)-routing-set property as appropriate on upgrading
-	 * routing.conf.  If option was default, set this value to false,
-	 * as this indicates the administrator has not explicitly enabled
-	 * or disabled ipv4(6)-routing.  The ipv4-routing-set value is used
-	 * in the routing-setup service, and if it is false, ipv4-routing
-	 * is enabled in the case where no default route can be determined.
-	 */
-	if (raopt->opt_flags & (RA_SVC_FLAG_IPV4_ROUTING |
-	    RA_SVC_FLAG_IPV6_ROUTING)) {
-		if (ra_smf_cb(oval == OPT_DEFAULT ? ra_routing_opt_unset_cb :
-		    ra_routing_opt_set_cb, raopt->opt_default_fmri, raopt)
-		    == -1)
-			return (-1);
-	}
-	return (0);
-}
-
-static int
-ra_parsevar(char *confstr, ravar_t *ravar)
-{
-	confstr = strtok(NULL, "=");
-	if (confstr == NULL) {
-		/*
-		 * This isn't an error condition, it simply means that the
-		 * variable has no value.
-		 */
-		ravar->var_value = NULL;
-		return (0);
-	}
-
-	if ((ravar->var_value = strdup(confstr)) == NULL) {
-		(void) fprintf(stderr, gettext("%s: "
-		    "unable to allocate memory\n"), myname);
-		return (-1);
-	}
-	return (0);
-}
-
-/* Convert a string to an option value. */
-static oval_t
-ra_str2oval(const char *valstr)
-{
-	if (strcmp(valstr, "enabled") == 0)
-		return (OPT_ENABLED);
-	else if (strcmp(valstr, "disabled") == 0)
-		return (OPT_DISABLED);
-	else if (strcmp(valstr, "default") == 0)
-		return (OPT_DEFAULT);
-	return (OPT_INVALID);
 }
 
 static raopt_t *

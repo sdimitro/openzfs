@@ -21,6 +21,8 @@
 #
 #
 # Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
 
 # This script configures IP routing.
 
@@ -35,14 +37,11 @@
 smf_configure_ip || exit $SMF_EXIT_OK
 
 #
-# If routing.conf file is in place, and has not already been read in
-# by previous invokation of routeadm, legacy configuration is upgraded
-# by this call to "routeadm -u".  This call is also needed when
-# a /var/svc/profile/upgrade file is found, as it may contain routeadm commands
-# which need to be applied.  Finally, routeadm starts in.ndpd by
-# enabling the ndp service (in.ndpd), which is required for IPv6 address
-# autoconfiguration. It would be nice if we could do this in
-# network/loopback, but since the SMF backend is read-only at that
+# This call to routeadm is needed when a /var/svc/profile/upgrade file is
+# found, as it may contain routeadm commands which need to be applied.  The
+# routeadm command also starts in.ndpd by enabling the ndp service, which is
+# required for IPv6 address autoconfiguration. It would be nice if we could do
+# this in network/loopback, but since the SMF backend is read-only at that
 # point in boot, we cannot.
 #
 /sbin/routeadm -u
@@ -60,14 +59,13 @@ fi
 
 #
 # Configure default IPv4 routers using the local "/etc/defaultrouter"
-# configuration file.  The file can contain the hostnames or IP
-# addresses of one or more default routers.  If hostnames are used,
-# each hostname must also be listed in the local "/etc/hosts" file
-# because NIS is not running at the time that this script is
-# run.  Each router name or address is listed on a single line by
-# itself in the file.  Anything else on that line after the router's
-# name or address is ignored.  Lines that begin with "#" are
-# considered comments and ignored.
+# configuration file.  The file can contain the hostnames or IP addresses of
+# one or more default routers.  If hostnames are used, each hostname must also
+# be listed in the local "/etc/hosts" file because the route(s) may be required
+# to reach the name server, and some name services may not be online yet.  Each
+# router name or address is listed on a single line by itself in the file.
+# Anything else on that line after the router's name or address is ignored.
+# Lines that begin with "#" are considered comments and ignored.
 #
 # The default routes listed in the "/etc/defaultrouter" file will
 # replace those added by the kernel during diskless booting.  An
@@ -133,11 +131,10 @@ else
 fi
 
 #
-# Use routeadm(1M) to configure forwarding and launch routing daemons
-# for IPv4 and IPv6 based on preset values.  These settings only apply
-# to the global zone.  For IPv4 dynamic routing, the system will default
-# to disabled if a default route was previously added via BOOTP, DHCP,
-# or the /etc/defaultrouter file.  routeadm also starts in.ndpd.
+# Use routeadm(1M) to configure forwarding and launch routing daemons for IPv4
+# and IPv6 based on preset values.  For IPv4 dynamic routing, the system will
+# default to disabled if a default route was previously added via BOOTP, DHCP,
+# or the /etc/defaultrouter file.
 #
 if [ "$dynamic_routing" != "true"  ] && [ -z "$defrouters" ]; then
 	#
@@ -197,7 +194,6 @@ if [ -f /etc/svc/volatile/etc/inet/static_routes ]; then
 		    /etc/inet/static_routes
 	fi
 	/usr/bin/rm /etc/svc/volatile/etc/inet/static_routes
-	
 fi
 
 #

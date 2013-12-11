@@ -22,6 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2012, Josef 'Jeff' Sipek <jeffpc@31bits.net>. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /*
@@ -98,6 +99,25 @@
 #endif
 
 #define	MDB_DEF_PROMPT "> "
+
+/* KVM back end descriptor */
+#define	MDB_KB_DESC(_mod, _identify, _ops) {	\
+	.mkb_mod	= _mod,			\
+	.mkb_identify	= _identify,		\
+	.mkb_ops	= _ops			\
+}
+
+typedef struct mdb_kb_desc {
+	const char	*mkb_mod;
+	const char	*mkb_identify;
+	const char	*mkb_ops;
+} mdb_kb_desc_t;
+
+mdb_kb_desc_t mkb_descs[] = {
+	MDB_KB_DESC("mdb_kb", "xkb_identify", "mdb_kb_ops"),
+	MDB_KB_DESC("mdb_vmss", "vmss_identify", "mdb_vmss_ops"),
+	MDB_KB_DESC(NULL, NULL, NULL)
+};
 
 /*
  * Similar to the panic_* variables in the kernel, we keep some relevant
@@ -382,14 +402,15 @@ mdb_scf_console_term(void)
  */
 #ifdef __x86
 static int
-identify_xvm_file(const char *file, int *longmode)
+identify_file(const char *mod_name, const char *ident_name, const char *file,
+    int *longmode)
 {
 	int (*identify)(const char *, int *);
 
-	if (mdb_module_load("mdb_kb", MDB_MOD_GLOBAL | MDB_MOD_SILENT) != 0)
+	if (mdb_module_load(mod_name, MDB_MOD_GLOBAL | MDB_MOD_SILENT) != 0)
 		return (0);
 
-	identify = (int (*)())dlsym(RTLD_NEXT, "xkb_identify");
+	identify = (int (*)())dlsym(RTLD_NEXT, ident_name);
 
 	if (identify == NULL)
 		return (0);
@@ -427,6 +448,7 @@ main(int argc, char *argv[], char *envp[])
 
 	int ttylike;
 	int longmode = 0;
+	mdb_kb_desc_t *mkb;
 
 	stack_t sigstack;
 
@@ -918,16 +940,26 @@ main(int argc, char *argv[], char *envp[])
 
 		mdb_io_destroy(io);
 
-		if (identify_xvm_file(tgt_argv[0], &longmode) == 1) {
+		for (mkb = &mkb_descs[0]; mkb->mkb_mod != NULL; mkb++) {
+			if (identify_file(mkb->mkb_mod, mkb->mkb_identify,
+			    tgt_argv[0], &longmode) == 1) {
 #ifdef _LP64
-			if (!longmode)
-				goto reexec;
+				if (!longmode)
+					goto reexec;
 #else
-			if (longmode)
-				goto reexec;
+				if (longmode)
+					goto reexec;
 #endif
-			tgt_ctor = mdb_kvm_tgt_create;
-			goto tcreate;
+				/*
+				 * tgt_argv is allocated with space to hold
+				 * two extra arguments.
+				 */
+				tgt_ctor = mdb_kvm_tgt_create;
+				tgt_argv[1] = mkb->mkb_mod;
+				tgt_argv[2] = mkb->mkb_ops;
+				tgt_argc = 3;
+				goto tcreate;
+			}
 		}
 
 		/*

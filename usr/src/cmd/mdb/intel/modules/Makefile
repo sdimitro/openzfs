@@ -22,9 +22,14 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
 SUBDIRS = mdb_kb \
 	generic_cpu \
 	amd_opteron \
-	sata
+	sata \
+	mdb_vmss
 
 include ../../Makefile.subdirs

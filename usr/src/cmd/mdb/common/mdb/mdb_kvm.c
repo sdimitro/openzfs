@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /*
@@ -1402,21 +1403,23 @@ mdb_kvm_tgt_create(mdb_tgt_t *t, int argc, const char *argv[])
 		return (set_errno(EINVAL));
 #else
 		mdb_kb_ops_t *(*getops)(void);
+		const char *mod_name = argv[1];
+		const char *ops_name = argv[2];
 
 		kt->k_symfile = NULL;
 		kt->k_kvmfile = strdup(argv[0]);
 
-		getops = (mdb_kb_ops_t *(*)())dlsym(RTLD_NEXT, "mdb_kb_ops");
+		getops = (mdb_kb_ops_t *(*)())dlsym(RTLD_NEXT, ops_name);
 
 		/*
 		 * Load mdb_kb if it's not already loaded during
 		 * identification.
 		 */
 		if (getops == NULL) {
-			(void) mdb_module_load("mdb_kb",
+			(void) mdb_module_load(mod_name,
 			    MDB_MOD_GLOBAL | MDB_MOD_SILENT);
 			getops = (mdb_kb_ops_t *(*)())
-			    dlsym(RTLD_NEXT, "mdb_kb_ops");
+			    dlsym(RTLD_NEXT, ops_name);
 		}
 
 		if (getops == NULL || (kt->k_kb_ops = getops()) == NULL) {

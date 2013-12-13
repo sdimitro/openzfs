@@ -228,6 +228,8 @@ file path=usr/lib/mdb/kvm/$(ARCH64)/mac.so group=sys mode=0555
 file path=usr/lib/mdb/kvm/$(ARCH64)/md.so group=sys mode=0555
 $(i386_ONLY)file path=usr/lib/mdb/kvm/$(ARCH64)/mdb_kb.so group=sys mode=0555
 file path=usr/lib/mdb/kvm/$(ARCH64)/mdb_ks.so group=sys mode=0555
+$(i386_ONLY)file path=usr/lib/mdb/kvm/$(ARCH64)/mdb_vmss.so group=sys \
+    mode=0555
 file path=usr/lib/mdb/kvm/$(ARCH64)/mpt.so group=sys mode=0555
 file path=usr/lib/mdb/kvm/$(ARCH64)/mpt_sas.so group=sys mode=0555
 file path=usr/lib/mdb/kvm/$(ARCH64)/mr_sas.so group=sys mode=0555

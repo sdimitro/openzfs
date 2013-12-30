@@ -277,6 +277,7 @@ zpool_get_prop(zpool_handle_t *zhp, zpool_prop_t prop, char *buf, size_t len,
 		case ZPOOL_PROP_ALLOCATED:
 		case ZPOOL_PROP_FREE:
 		case ZPOOL_PROP_FREEING:
+		case ZPOOL_PROP_LEAKED:
 		case ZPOOL_PROP_EXPANDSZ:
 			(void) zfs_nicenum(intval, buf, len);
 			break;

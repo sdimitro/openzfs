@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -635,7 +635,14 @@ zil_claim(const char *osname, void *txarg)
 
 	error = dmu_objset_own(osname, DMU_OST_ANY, B_FALSE, FTAG, &os);
 	if (error != 0) {
-		cmn_err(CE_WARN, "can't open objset for %s", osname);
+		/*
+		 * EBUSY indicates that the objset is inconsistent, in which
+		 * case it can not have a ZIL.
+		 */
+		if (error != EBUSY) {
+			cmn_err(CE_WARN, "can't open objset for %s, error %u",
+			    osname, error);
+		}
 		return (0);
 	}
 

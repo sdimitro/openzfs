@@ -49,6 +49,7 @@
 #define	RPC_MSGOUT(args...)	cmn_err(CE_NOTE, args)
 #define	NLM_ERR(...)		cmn_err(CE_NOTE, __VA_ARGS__)
 #define	NLM_WARN(...)		cmn_err(CE_WARN, __VA_ARGS__)
+#define	NLM_NOTE(...)		cmn_err(CE_NOTE, __VA_ARGS__)
 
 #ifndef	SEEK_SET
 #define	SEEK_SET	0

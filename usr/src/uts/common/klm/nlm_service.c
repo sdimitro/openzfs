@@ -251,10 +251,13 @@ nlm_do_notify1(nlm_sm_status *argp, void *res, struct svc_req *sr)
 
 	DTRACE_PROBE2(nsm__notify, uint16_t, sysid,
 	    int, argp->state);
+	NLM_NOTE("nlm_do_notify1: Recieved SM_NOTIFY in the kernel.  Sysid %d", sysid);
 
 	host = nlm_host_find_by_sysid(g, (sysid_t)sysid);
-	if (host == NULL)
+	if (host == NULL) {
+		NLM_NOTE("nlm_do_notify1: host %d not found by sysid.", sysid);
 		return;
+	}
 
 	nlm_host_notify_server(host, argp->state);
 	nlm_host_notify_client(host, argp->state);

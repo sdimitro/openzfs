@@ -171,10 +171,9 @@ sm_unmon_all_svc(my_id *myidp, sm_stat *resp)
 void
 sm_notify_svc(stat_chge *ntfp)
 {
+	syslog(LOG_NOTICE, "statd: sm_notify_svc: Recieved notice from %s,"
+	       " state %d", ntfp->mon_name, ntfp->state);
 	rw_rdlock(&thr_rwlock);
-	if (debug)
-		(void) printf("sm_notify: %s state =%d\n",
-		    ntfp->mon_name, ntfp->state);
 	send_notice(ntfp->mon_name, ntfp->state);
 	rw_unlock(&thr_rwlock);
 }
@@ -648,6 +647,9 @@ send_notice(mon_name, state)
 	unsigned int hash;
 	moninfo_t *minfop;
 	mon *monp;
+
+	syslog(LOG_NOTICE, "statd: send_notice: Sending notice %d for %s",
+	       state, mon_name);
 
 	SMHASH(mon_name, hash);
 	mutex_lock(&mon_table[hash].lock);

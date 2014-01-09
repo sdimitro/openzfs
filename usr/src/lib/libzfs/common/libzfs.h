@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  */
@@ -762,6 +762,8 @@ extern int zpool_fru_set(zpool_handle_t *, uint64_t, const char *);
 
 extern int zfs_mooch_byteswap(int, nvlist_t *);
 extern int zfs_get_inode(const char *, uint64_t *);
+
+extern int zfs_get_hole_count(const char *, uint64_t *, uint64_t *);
 
 #ifdef	__cplusplus
 }

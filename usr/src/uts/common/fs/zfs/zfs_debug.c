@@ -57,7 +57,10 @@ zfs_dbgmsg_fini(void)
  * echo ::zfs_dbgmsg | mdb -k
  *
  * Monitor these messages by running:
- * 	dtrace -q -n 'zfs-dbgmsg{printf("%s\n", stringof(arg0))}'
+ * dtrace -qn 'zfs-dbgmsg{printf("%s\n", stringof(arg0))}'
+ *
+ * When used with libzpool, monitor with:
+ * dtrace -qn 'zfs$pid::zfs_dbgmsg:probe1{printf("%s\n", copyinstr(arg1))}'
  */
 void
 zfs_dbgmsg(const char *fmt, ...)

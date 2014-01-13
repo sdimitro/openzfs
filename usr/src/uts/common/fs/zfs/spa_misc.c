@@ -1582,6 +1582,21 @@ spa_get_asize(spa_t *spa, uint64_t lsize)
 	return (lsize * spa_asize_inflation);
 }
 
+/*
+ * Return the amount of slop space in bytes.
+ */
+uint64_t
+spa_get_slop_space(spa_t* spa) {
+	/*
+	 * Reserve about 1.6% (1/64), or at least 32MB, for allocation
+	 * efficiency.
+	 * XXX The intent log is not accounted for, so it must fit
+	 * within this slop.
+	 */
+	uint64_t space = spa_get_dspace(spa);
+	return MAX(space >> 6, SPA_MINDEVSIZE >> 1);
+}
+
 uint64_t
 spa_get_dspace(spa_t *spa)
 {

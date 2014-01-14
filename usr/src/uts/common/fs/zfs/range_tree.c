@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -57,7 +57,7 @@ range_tree_stat_verify(range_tree_t *rt)
 	for (rs = avl_first(&rt->rt_root); rs != NULL;
 	    rs = AVL_NEXT(&rt->rt_root, rs)) {
 		uint64_t size = rs->rs_end - rs->rs_start;
-		int idx	= highbit(size) - 1;
+		int idx	= highbit64(size) - 1;
 
 		hist[idx]++;
 		ASSERT3U(hist[idx], !=, 0);
@@ -76,7 +76,7 @@ static void
 range_tree_stat_incr(range_tree_t *rt, range_seg_t *rs)
 {
 	uint64_t size = rs->rs_end - rs->rs_start;
-	int idx = highbit(size) - 1;
+	int idx = highbit64(size) - 1;
 
 	ASSERT(size != 0);
 	ASSERT3U(idx, <,
@@ -91,7 +91,7 @@ static void
 range_tree_stat_decr(range_tree_t *rt, range_seg_t *rs)
 {
 	uint64_t size = rs->rs_end - rs->rs_start;
-	int idx = highbit(size) - 1;
+	int idx = highbit64(size) - 1;
 
 	ASSERT(size != 0);
 	ASSERT3U(idx, <,

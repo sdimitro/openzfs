@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -359,7 +359,7 @@ dnode_setdblksz(dnode_t *dn, int size)
 	    1<<(sizeof (dn->dn_phys->dn_datablkszsec) * 8));
 	dn->dn_datablksz = size;
 	dn->dn_datablkszsec = size >> SPA_MINBLOCKSHIFT;
-	dn->dn_datablkshift = ISP2(size) ? highbit(size - 1) : 0;
+	dn->dn_datablkshift = ISP2(size) ? highbit64(size - 1) : 0;
 }
 
 /*

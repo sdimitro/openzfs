@@ -6059,7 +6059,7 @@ ztest_freeze(void)
 	    metaslab_class_get_alloc(spa_normal_class(spa)) < capacity) {
 		ztest_od_t od;
 		ztest_od_init(&od, 0, FTAG, 0, DMU_OT_UINT64_OTHER, 0, 0);
-		ztest_object_init(zd, &od, sizeof (od), B_FALSE);
+		VERIFY0(ztest_object_init(zd, &od, sizeof (od), B_FALSE));
 		ztest_io(zd, od.od_object,
 		    ztest_random(ZTEST_RANGE_LOCKS) << SPA_MAXBLOCKSHIFT);
 		txg_wait_synced(spa_get_dsl(spa), 0);

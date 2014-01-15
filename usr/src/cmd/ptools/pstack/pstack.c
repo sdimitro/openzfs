@@ -22,9 +22,6 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-/*
- * Copyright (c) 2013 by Delphix. All rights reserved.
- */
 
 #include <sys/isa_defs.h>
 
@@ -48,11 +45,10 @@
 #include <thread_db.h>
 #include <libproc.h>
 #include <setjmp.h>
-#include <libgen.h>
 
 static	char	*command;
 static	int	Fflag;
-static	boolean_t is64;
+static	int	is64;
 static	GElf_Sym sigh;
 
 /*
@@ -152,55 +148,6 @@ static	void	call_stack(pstack_handle_t *, const lwpstatus_t *);
  */
 static	int	nthreads;
 
-/*
- * This function reexecs the process so that its version is determined
- * by the target's data model, not the system architecture.  It takes
- * various pointers into the argv list to prevent any arguments from
- * being reexamined.  If is64 is nonzero, then the new version of
- * pstack will be the 64 bit version; otherwise, it will be the 32 bit
- * version.  This function doesn't return unless exec fails.
- */
-static void
-reexec(char **last_arg, char **orig_argv, char **first_arg) {
-	char fullpath[PATH_MAX]; /* First, we build path information */
-	char newpath[PATH_MAX];
-	char ename[PATH_MAX];
-	char *dir;
-	int moved = 0;
-
-	(void) strcpy(ename, getexecname());
-	(void) realpath(ename, fullpath);
-	dir = dirname(fullpath); /* this takes us from /a/b/c to /a/b */
-	dir = dirname(dir);	 /* and now we're at /a */
-
-	(void) snprintf(newpath, PATH_MAX, "%s/%s/%s", dir, (is64 ? "amd64": "i86"), basename(ename));
-
-	orig_argv[0] = newpath;
-
-	while (last_arg[-1] != NULL) { /* Slide args to prevent repeats */
-		*first_arg++ = *last_arg++;
-		moved++;
-	}
-	(void) proc_finistdio();
-	(void) execv(newpath, orig_argv);
-
-	/* If we get here, exec failed */
-	(void) fprintf(stderr, "%s: cannot exec %s to examine %s: %s\n",
-	    command, orig_argv[0], orig_argv[1], strerror(errno));
-	(void) proc_initstdio();
-
-	/*
-	 * After this loop, any args already traced will be corrupt.
-	 * To fix this, the replacements above and below can become
-	 * swaps.  However, these arguments aren't reused in this
-	 * version, so simple moves suffice.
-	 */
-	while (moved > 0) {
-		*last_arg-- = *first_arg--;
-		moved--;
-	}
-}
-
 int
 main(int argc, char **argv)
 {
@@ -210,16 +157,11 @@ main(int argc, char **argv)
 	core_content_t content = CC_CONTENT_DATA | CC_CONTENT_ANON |
 	    CC_CONTENT_STACK;
 	struct rlimit rlim;
-	boolean_t selfis64 = B_FALSE;
-	char **orig = argv;
-	char **argv_after_opts;
 
 	if ((command = strrchr(argv[0], '/')) != NULL)
 		command++;
 	else
 		command = argv[0];
-
-	selfis64 = (sizeof (void *) == 8);
 
 	/* options */
 	while ((opt = getopt(argc, argv, "F")) != EOF) {
@@ -241,7 +183,6 @@ main(int argc, char **argv)
 
 	argc -= optind;
 	argv += optind;
-	argv_after_opts = argv;
 
 	if (errflg || argc <= 0) {
 		(void) fprintf(stderr,
@@ -280,10 +221,6 @@ main(int argc, char **argv)
 
 		if ((Pr = proc_arg_xgrab(arg, NULL, PR_ARG_ANY,
 		    Fflag, &gcode, &lwps)) == NULL) {
-			if (gcode == G_LP64) {
-				is64 = B_TRUE;
-				reexec(argv - 1, orig, argv_after_opts);
-			}
 			(void) fprintf(stderr, "%s: cannot examine %s: %s\n",
 			    command, arg, Pgrab_error(gcode));
 			retc++;
@@ -300,35 +237,21 @@ main(int argc, char **argv)
 		(void) memcpy(&psinfo, tpsinfo, sizeof (psinfo_t));
 		proc_unctrl_psinfo(&psinfo);
 
-		if (Pstate(Pr) == PS_DEAD && (Pcontent(Pr) & content) != content) {
-			(void) fprintf(stderr, "%s: core '%s' has "
-			    "insufficient content\n", command, arg);
-			Prelease(Pr, 0);
-			retc++;
-			continue;
-		}
-
-		is64 = (psinfo.pr_dmodel == PR_MODEL_LP64);
-
-		/*
-		 * If we're running in a different mode from the
-		 * target, we need to reexec ourself to get around a
-		 * bug in libjvm_db.so.
-		 */
-		if (is64 != selfis64) {
-			reexec(argv - 1, orig, argv_after_opts);
-			Prelease(Pr, 0);
-			retc++;
-			continue;
-		}
-
 		if (Pstate(Pr) == PS_DEAD) {
+			if ((Pcontent(Pr) & content) != content) {
+				(void) fprintf(stderr, "%s: core '%s' has "
+				    "insufficient content\n", command, arg);
+				retc++;
+				continue;
+			}
 			(void) printf("core '%s' of %d:\t%.70s\n",
 			    arg, (int)psinfo.pr_pid, psinfo.pr_psargs);
 		} else {
 			(void) printf("%d:\t%.70s\n",
 			    (int)psinfo.pr_pid, psinfo.pr_psargs);
 		}
+
+		is64 = (psinfo.pr_dmodel == PR_MODEL_LP64);
 
 		if (Pgetauxval(Pr, AT_BASE) != -1L && Prd_agent(Pr) == NULL) {
 			(void) fprintf(stderr, "%s: warning: librtld_db failed "

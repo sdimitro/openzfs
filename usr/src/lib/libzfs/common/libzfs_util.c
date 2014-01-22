@@ -1543,7 +1543,7 @@ zfs_get_hole_count(const char *path, uint64_t *count, uint64_t *bs) {
 	struct stat64 ss;
 	uint64_t fill;
 
-	fd = open(path, O_RDONLY);
+	fd = open(path, O_RDONLY | O_LARGEFILE);
 	if (fd == -1)
 		return (errno);
 

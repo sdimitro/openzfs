@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  */
 
@@ -46,6 +46,7 @@
 #include <sys/sa.h>
 #include <sys/zfs_onexit.h>
 #include <sys/dsl_destroy.h>
+#include <sys/dmu_send.h>
 
 /*
  * Needed to close a window in dnode_move() that allows the objset to be freed
@@ -1205,7 +1206,20 @@ dmu_objset_mooch_obj_refd(objset_t *os, uint64_t obj, uint64_t *objp)
 {
 	objset_mooch_cb_t *cb = mooch_cbs[os->os_phys->os_type];
 	if (DMU_OBJECT_IS_SPECIAL(obj))
-		return (ENOENT);
+		return (SET_ERROR(ENOENT));
+
+	/*
+	 * We can not set dn_origin_obj_refd while receiving, because we
+	 * may not have received the ZFS_MOOCH_BYTESWAP_MAP yet.  Ignoring
+	 * the mooch map preserves the invariant that user data is not read
+	 * during receive, which in turn ensures that we do not need
+	 * to know the mooch_obj_refd during receive.  After receiving,
+	 * the objset is evicted, so subsequent accesses will re-create
+	 * the dnodes and find the correct origin_obj_refd.
+	 */
+	if (dmu_objset_is_receiving(os))
+		return (SET_ERROR(ENOENT));
+
 	if (cb == NULL)
 		return (SET_ERROR(ENOENT));
 	else

@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -552,6 +552,7 @@ dbuf_read_mooch(dmu_buf_impl_t *db, uint64_t refd_obj, uint32_t flags,
 	objset_t *origin_objset;
 	int error;
 
+	ASSERT(refd_obj != 0);
 	ASSERT(MUTEX_HELD(&db->db_mtx));
 	ASSERT(BP_IS_EMBEDDED(db->db_blkptr) &&
 	    BPE_GET_ETYPE(db->db_blkptr) == BP_EMBEDDED_TYPE_MOOCH_BYTESWAP);

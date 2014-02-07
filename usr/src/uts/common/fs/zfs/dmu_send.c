@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  */
 
@@ -1912,6 +1912,15 @@ dmu_recv_end_sync(void *arg, dmu_tx_t *tx)
 
 	spa_history_log_internal_ds(drc->drc_ds, "finish receiving",
 	    tx, "snap=%s", drc->drc_tosnap);
+
+	/*
+	 * We must evict the objset, because it may have invalid
+	 * dn_origin_obj_refd (see dmu_objset_mooch_obj_refd()).
+	 */
+	if (drc->drc_ds->ds_objset != NULL) {
+		dmu_objset_evict(drc->drc_ds->ds_objset);
+		drc->drc_ds->ds_objset = NULL;
+	}
 
 	if (!drc->drc_newfs) {
 		dsl_dataset_t *origin_head;

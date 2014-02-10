@@ -47,6 +47,13 @@
 		<service_fmri value='svc:/network/datalink:default' />
 	</dependency>
 
+	<dependency name='dhcp-network-loopback'
+		grouping='require_any'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/loopback:default' />
+	</dependency>
+
 	<dependent name='dhcp-network-physical'
 		grouping='optional_all'
 		restart_on='none'>

@@ -11,7 +11,6 @@
 
 #
 # Copyright 2012 Joyent, Inc.  All rights reserved.
-# Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
 include		../../Makefile.lib
@@ -22,10 +21,11 @@ OBJECTS =	libipd.o
 
 include ../../Makefile.lib
 
-SRCDIR =	../common
 LIBS =		$(DYNLIB) $(LINTLIB)
 LDLIBS +=	-lc
-CPPFLAGS +=	-I$(SRCDIR)
+CPPFLAGS +=	-I../common
+
+SRCDIR =	../common
 
 .KEEP_STATE:
 

@@ -186,8 +186,10 @@ zpool_feature_init(void)
 	    "Record txg at which a feature is enabled", B_TRUE, B_FALSE,
 	    B_FALSE, NULL);
 
-	static spa_feature_t hole_birth_deps[] = { SPA_FEATURE_ENABLED_TXG,
-	    SPA_FEATURE_NONE };
+	static spa_feature_t hole_birth_deps[] = {
+		SPA_FEATURE_ENABLED_TXG,
+		SPA_FEATURE_NONE
+	};
 	zfeature_register(SPA_FEATURE_HOLE_BIRTH,
 	    "com.delphix:hole_birth", "hole_birth",
 	    "Retain hole birth txg for more precise zfs send",

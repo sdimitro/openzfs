@@ -25,6 +25,7 @@
 #
 
 SUBDIRS = cpumem-retire \
+	disk-lights	\
 	disk-monitor	\
 	disk-transport	\
 	eversholt	\

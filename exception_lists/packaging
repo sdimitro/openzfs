@@ -993,8 +993,3 @@ usr/lib/sparcv9/llib-lpcidb.ln		sparc
 usr/lib/libpcidb.so
 usr/lib/llib-lpcidb
 usr/lib/llib-lpcidb.ln
-
-#
-# Private ioctl API used by libipd.so
-#
-usr/include/sys/ipd.h

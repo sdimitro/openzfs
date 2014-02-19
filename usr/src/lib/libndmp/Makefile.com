@@ -101,9 +101,9 @@ lint: lintcheck
 $(PICS): $(XDR_GEN)
 
 $(SRCDIR)/ndmp.h: $(SRCDIR)/ndmp.x
-	rpcgen -C -h -o $(SRCDIR)/ndmp.h $(SRCDIR)/ndmp.x
+	$(RPCGEN) -C -h -o $(SRCDIR)/ndmp.h $(SRCDIR)/ndmp.x
 
 $(SRCDIR)/ndmp_xdr.c: $(SRCDIR)/ndmp.x
-	rpcgen -c -o $(SRCDIR)/ndmp_xdr.c $(SRCDIR)/ndmp.x
+	$(RPCGEN) -c -o $(SRCDIR)/ndmp_xdr.c $(SRCDIR)/ndmp.x
 
 include ../../Makefile.targ

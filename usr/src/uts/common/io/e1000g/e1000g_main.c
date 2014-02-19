@@ -25,6 +25,7 @@
 /*
  * Copyright 2012 DEY Storage Systems, Inc.  All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc.  All rights reserved.
  */
 
 /*
@@ -683,6 +684,7 @@ e1000g_regs_map(struct e1000g *Adapter)
 	case e1000_ich10lan:
 	case e1000_pchlan:
 	case e1000_pch2lan:
+	case e1000_pch_lpt:
 		rnumber = ICH_FLASH_REG_SET;
 
 		/* get flash size */
@@ -889,6 +891,7 @@ e1000g_setup_max_mtu(struct e1000g *Adapter)
 		break;
 	/* pch2 can do jumbo frames up to 9K */
 	case e1000_pch2lan:
+	case e1000_pch_lpt:
 		Adapter->max_mtu = MAXIMUM_MTU_9K;
 		break;
 	/* types with a special limit */
@@ -1450,6 +1453,8 @@ e1000g_init(struct e1000g *Adapter)
 	} else if (hw->mac.type == e1000_pchlan) {
 		pba = E1000_PBA_26K;
 	} else if (hw->mac.type == e1000_pch2lan) {
+		pba = E1000_PBA_26K;
+	} else if (hw->mac.type == e1000_pch_lpt) {
 		pba = E1000_PBA_26K;
 	} else {
 		/*
@@ -2440,6 +2445,34 @@ e1000g_init_unicst(struct e1000g *Adapter)
 		/* Initialize the multiple unicast addresses */
 		Adapter->unicst_total = min(hw->mac.rar_entry_count,
 		    MAX_NUM_UNICAST_ADDRESSES);
+
+		/*
+		 * The common code does not correctly calculate the number of
+		 * rar's that could be reserved by firmware for the pch_lpt
+		 * macs. The interface has one primary rar, and 11 additional
+		 * ones. Those 11 additional ones are not always available.
+		 * According to the datasheet, we need to check a few of the
+		 * bits set in the FWSM register. If the value is zero,
+		 * everything is available. If the value is 1, none of the
+		 * additional registers are available. If the value is 2-7, only
+		 * that number are available.
+		 */
+		if (hw->mac.type == e1000_pch_lpt) {
+			uint32_t locked, rar;
+
+			locked = E1000_READ_REG(hw, E1000_FWSM) &
+			    E1000_FWSM_WLOCK_MAC_MASK;
+			locked >>= E1000_FWSM_WLOCK_MAC_SHIFT;
+			rar = 1;
+			if (locked == 0)
+				rar += 11;
+			else if (locked == 1)
+				rar += 0;
+			else
+				rar += locked;
+			Adapter->unicst_total = min(rar,
+			    MAX_NUM_UNICAST_ADDRESSES);
+		}
 
 		/* Workaround for an erratum of 82571 chipst */
 		if ((hw->mac.type == e1000_82571) &&

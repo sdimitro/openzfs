@@ -48,7 +48,7 @@ $(ROOTHDRDIR):
 	$(INS.dir)
 
 $(HDRDIR)/ndmp.h: $(HDRDIR)/ndmp.x
-	rpcgen -C -h -o $(HDRDIR)/ndmp.h $(HDRDIR)/ndmp.x
+	$(RPCGEN) -C -h -o $(HDRDIR)/ndmp.h $(HDRDIR)/ndmp.x
 
 check: $(CHECKHDRS)
 

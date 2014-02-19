@@ -43,15 +43,9 @@ LINTSUBDIRS = \
 	kmfcfg \
 	pktool
 
-$(CLOSED_BUILD)SUBDIRS1 += \
-	$(CLOSED)/cmd/cmd-crypto/kcfd
-
 SUBDIRS2 = \
 	etc \
 	scripts
-
-$(CLOSED_BUILD)SUBDIRS2 += \
-	$(CLOSED)/cmd/cmd-crypto/etc
 
 all:=           TARGET= all
 install:=       TARGET= install

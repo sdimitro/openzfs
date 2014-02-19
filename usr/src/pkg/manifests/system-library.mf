@@ -23,6 +23,7 @@
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright (c) 2013 Gary Mills
 # Copyright (c) 2013 by Delphix. All rights reserved.
 #
 
@@ -319,6 +320,7 @@ file path=lib/nss_files.so.1
 file path=lib/nss_nis.so.1
 file path=lib/nss_user.so.1
 file path=usr/lib/$(ARCH64)/0@0.so.1
+file path=usr/lib/$(ARCH64)/getloginx.so.1
 file path=usr/lib/$(ARCH64)/libadutils.so.1
 file path=usr/lib/$(ARCH64)/libast.so.1
 file path=usr/lib/$(ARCH64)/libbsdmalloc.so.1
@@ -366,6 +368,7 @@ file path=usr/lib/$(ARCH64)/libsoftcrypto.so.1
 file path=usr/lib/$(ARCH64)/libsum.so.1
 $(sparc_ONLY)file path=usr/lib/$(ARCH64)/libv12n.so.1
 file path=usr/lib/$(ARCH64)/libvolmgt.so.1
+file path=usr/lib/$(ARCH64)/libwrap.so.1.0
 file path=usr/lib/$(ARCH64)/liby.so.1
 file path=usr/lib/$(ARCH64)/libzoneinfo.so.1
 file path=usr/lib/$(ARCH64)/nss_ad.so.1
@@ -387,6 +390,7 @@ file path=usr/lib/cfgadm/scsi.so.1
 file path=usr/lib/cfgadm/shp.so.1
 file path=usr/lib/cfgadm/usb.so.1
 file path=usr/lib/extendedFILE.so.1
+file path=usr/lib/getloginx.so.1
 file path=usr/lib/lib.b mode=0444
 file path=usr/lib/libadutils.so.1
 file path=usr/lib/libast.so.1
@@ -997,6 +1001,8 @@ $(sparc_ONLY)link path=usr/lib/$(ARCH64)/libv12n.so target=./libv12n.so.1
 link path=usr/lib/$(ARCH64)/libvolmgt.so target=libvolmgt.so.1
 link path=usr/lib/$(ARCH64)/libw.so target=../../../lib/$(ARCH64)/libw.so.1
 link path=usr/lib/$(ARCH64)/libw.so.1 target=../../../lib/$(ARCH64)/libw.so.1
+link path=usr/lib/$(ARCH64)/libwrap.so target=libwrap.so.1.0
+link path=usr/lib/$(ARCH64)/libwrap.so.1 target=libwrap.so.1.0
 link path=usr/lib/$(ARCH64)/libxnet.so \
     target=../../../lib/$(ARCH64)/libxnet.so.1
 link path=usr/lib/$(ARCH64)/libxnet.so.1 \

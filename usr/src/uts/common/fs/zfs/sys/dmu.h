@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright 2013 DEY Storage Systems, Inc.
@@ -65,7 +65,7 @@ struct dsl_pool;
 struct dnode;
 struct drr_begin;
 struct drr_end;
-struct zbookmark;
+struct zbookmark_phys;
 struct spa;
 struct nvlist;
 struct arc_buf;

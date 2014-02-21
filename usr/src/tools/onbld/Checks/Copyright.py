@@ -23,7 +23,7 @@
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2008, 2010, Richard Lowe
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 # Make sure there is a copyright claim for the current year.
@@ -34,7 +34,7 @@ def err(stream, msg, fname):
 	stream.write("%s: %s\n" % (fname, msg))
 
 def is_delphix_copyright(line):
-	return re.search(r'Copyright \(c\) \d\d\d\d by Delphix\. ' +
+	return re.search(r'Copyright \(c\) (20\d\d, )?20\d\d by Delphix\. ' +
 			r'All rights reserved\.$', line)
 
 def is_copyright(line):

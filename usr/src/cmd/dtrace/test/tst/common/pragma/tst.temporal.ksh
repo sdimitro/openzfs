@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 ############################################################################
@@ -74,7 +74,7 @@ fi
 
 # dtrace outputs a blank line at the end, which will sort to the beginning,
 # so use head to remove the blank line.
-head -n -1 $file > $file.2
+/usr/gnu/bin/head -n -1 $file > $file.2
 
 sort -n $file.2 | diff $file.2 -
 status=$?

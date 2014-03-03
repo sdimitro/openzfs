@@ -67,10 +67,10 @@ function fix_dir
 	perms=$1
 	dir=$2
 
-	mkdir "$ROOT/$dir" || die "mkdir failed"
+	[[ -d "$ROOT/$dir" ]] || mkdir "$ROOT/$dir" || die "mkdir failed"
 	chmod $perms "$ROOT/$dir" || die "chmod failed"
 
-	mkdir "$ROOT_ND/$dir" || die "mkdir failed"
+	[[ -d "$ROOT_ND/$dir" ]] || mkdir "$ROOT_ND/$dir" || die "mkdir failed"
 	chmod $perms "$ROOT_ND/$dir" || die "chmod failed"
 }
 

@@ -52,6 +52,7 @@ MANIFEST_TOPDIRS=			\
 	ldmad				\
 	lms				\
 	dlmgmtd				\
+	ndmpd				\
 	nscd				\
 	oplhpd				\
 	pools				\

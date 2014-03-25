@@ -36,32 +36,34 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-LIBRARY= libndmp.a
-VERS= .1
-OBJECTS= libndmp.o libndmp_error.o libndmp_door_data.o libndmp_prop.o libndmp_base64.o
 
-include ../../Makefile.lib
+include ../Makefile.cmd
 
-SRCDIR =	../common
-INCS += -I$(SRCDIR)
-INCS += -I$(SRC)/cmd/ndmpd/include
+PROG=		ndmpstat
+OBJS=		ndmpstat_main.o
+SRCS =		$(OBJS:.o=.c)
+POFILES=	ndmpstat_main.po
+POFILE=		ndmpstat.po
 
-C99MODE=	-xc99=%all
-C99LMODE=	-Xc99=%all
-LIBS=	$(DYNLIB) $(LINTLIB)
-LDLIBS +=	-lc -lscf
-CPPFLAGS +=	$(INCS) -D_REENTRANT
-
-CERRWARN +=	-_gcc=-Wno-char-subscripts
-CERRWARN +=	-_gcc=-Wno-uninitialized
-
-SRCS=	$(OBJECTS:%.o=$(SRCDIR)/%.c)
-$(LINTLIB) := SRCS=	$(SRCDIR)/$(LINTSRC)
+LDLIBS += -lndmp
 
 .KEEP_STATE:
 
-all: $(LIBS)
+all: $(PROG)
 
-lint: lintcheck
+$(PROG): $(OBJS)
+	$(LINK.c) -o $@ $(OBJS) $(LDLIBS)
+	$(POST_PROCESS)
 
-include ../../Makefile.targ
+install: all $(ROOTUSRSBINPROG)
+
+$(POFILE): $(POFILES)
+	$(RM) $@
+	$(CAT) $(POFILES) > $@
+
+clean:
+	$(RM) $(OBJS) $(POFILES)
+
+lint:	lint_SRCS
+
+include ../Makefile.targ

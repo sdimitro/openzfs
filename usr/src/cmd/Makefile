@@ -270,6 +270,9 @@ COMMON_SUBDIRS=		\
 	mt		\
 	mv		\
 	mvdir		\
+	ndmpadm		\
+	ndmpd		\
+	ndmpstat	\
 	netadm		\
 	netfiles	\
 	newform		\
@@ -623,6 +626,8 @@ MSGSUBDIRS=		\
 	mpathadm	\
 	msgfmt		\
 	mv		\
+	ndmpadm		\
+	ndmpstat	\
 	newgrp		\
 	newtask		\
 	nice		\

@@ -36,32 +36,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-LIBRARY= libndmp.a
-VERS= .1
-OBJECTS= libndmp.o libndmp_error.o libndmp_door_data.o libndmp_prop.o libndmp_base64.o
+include ../Makefile.com
+include $(SRC)/lib/Makefile.lib.64
 
-include ../../Makefile.lib
+sparcv9_C_PICFLAGS= -K PIC
 
-SRCDIR =	../common
-INCS += -I$(SRCDIR)
-INCS += -I$(SRC)/cmd/ndmpd/include
-
-C99MODE=	-xc99=%all
-C99LMODE=	-Xc99=%all
-LIBS=	$(DYNLIB) $(LINTLIB)
-LDLIBS +=	-lc -lscf
-CPPFLAGS +=	$(INCS) -D_REENTRANT
-
-CERRWARN +=	-_gcc=-Wno-char-subscripts
-CERRWARN +=	-_gcc=-Wno-uninitialized
-
-SRCS=	$(OBJECTS:%.o=$(SRCDIR)/%.c)
-$(LINTLIB) := SRCS=	$(SRCDIR)/$(LINTSRC)
-
-.KEEP_STATE:
-
-all: $(LIBS)
-
-lint: lintcheck
-
-include ../../Makefile.targ
+install: all $(ROOTLIBS64) $(ROOTLINKS64)

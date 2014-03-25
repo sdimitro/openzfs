@@ -1,24 +1,41 @@
 #
-# CDDL HEADER START
+# Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License (the "License").
-# You may not use this file except in compliance with the License.
+
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
+# BSD 3 Clause License
 #
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
+# Copyright (c) 2007, The Storage Networking Industry Association.
 #
-# CDDL HEADER END
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 	- Redistributions of source code must retain the above copyright
+#	  notice, this list of conditions and the following disclaimer.
 #
-# Copyright 2012 by Delphix. All rights reserved.
+# 	- Redistributions in binary form must reproduce the above copyright
+#	  notice, this list of conditions and the following disclaimer in
+#	  the documentation and/or other materials provided with the
+#	  distribution.
+#
+#	- Neither the name of The Storage Networking Industry Association (SNIA)
+#	  nor the names of its contributors may be used to endorse or promote
+#	  products derived from this software without specific prior written
+#	  permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+
 #
 # MAPFILE HEADER START
 #
@@ -35,70 +52,42 @@
 
 $mapfile_version 2
 
-SYMBOL_VERSION DLPXprivate_1.1 {
+SYMBOL_VERSION SUNWprivate_1.1 {
     global:
-	ndmp_client_addr_free;
-	ndmp_client_authenticate;
-	ndmp_client_close;
-	ndmp_client_connect;
-	ndmp_client_butypes_get;
-	ndmp_client_butypes_info;
-	ndmp_client_data_abort;
-	ndmp_client_data_connect;
-	ndmp_client_data_listen;
-	ndmp_client_data_stop;
-	ndmp_client_disconnect;
-	ndmp_client_create;
-	ndmp_client_destroy;
-	ndmp_client_env_name;
-	ndmp_client_env_refresh;
-	ndmp_client_env_value;
-	ndmp_client_fs_info;
-	ndmp_client_fs_list;
-	ndmp_client_mover_abort;
-	ndmp_client_mover_close;
-	ndmp_client_mover_connect;
-	ndmp_client_mover_listen;
-	ndmp_client_mover_read;
-	ndmp_client_mover_set_record_size;
-	ndmp_client_mover_set_window;
-	ndmp_client_mover_stop;
-	ndmp_client_msg_body;
-	ndmp_client_msg_error;
-	ndmp_client_msg_free;
-	ndmp_client_notify_free;
-	ndmp_client_open;
-	ndmp_client_send;
-	ndmp_client_start_backup;
-	ndmp_client_start_recover;
-	ndmp_client_tape_close;
-	ndmp_client_tape_open;
-	ndmp_client_tape_read;
-	ndmp_client_tape_write;
-	ndmp_client_wait_notify;
-
-	ndmp_server_add_fs;
-	ndmp_server_bytes_processed;
-	ndmp_server_create;
-	ndmp_server_data_error;
-	ndmp_server_destroy;
-	ndmp_server_done;
-	ndmp_server_env_name;
-	ndmp_server_env_set;
-	ndmp_server_env_value;
-	ndmp_server_file_recovered;
-	ndmp_server_get_name;
-	ndmp_server_log;
-	ndmp_server_md5_digest;
-	ndmp_server_read;
-	ndmp_server_remote_addr;
-	ndmp_server_seek;
-	ndmp_server_start;
-	ndmp_server_stop;
-	ndmp_server_write;
-
-	ndmp_session_error;
-
+	ndmp_get_devinfo;
+	ndmp_get_devinfo_free;
+	ndmp_terminate_session;
+	ndmp_get_session_info;
+	ndmp_get_session_info_free;
+	ndmp_get_stats;
+	ndmp_get_prop;
+	ndmp_set_prop;	
+	ndmp_service_refresh;
+	ndmp_door_status;
+	ndmp_base64_encode;
+	ndmp_base64_decode;
+	ndmp_strerror;
+	ndmp_errno;
+	ndmp_door_decode_start;
+	ndmp_door_decode_finish;
+	ndmp_door_encode_start;
+	ndmp_door_encode_finish;
+	ndmp_door_get_int32;
+	ndmp_door_get_uint32;
+	ndmp_door_get_string;
+	ndmp_door_put_int32;
+	ndmp_door_put_uint32;
+	ndmp_door_put_string;
+	ndmp_door_free_string;
+	ndmp_door_get_int64;
+	ndmp_door_get_uint64;
+	ndmp_door_put_uint64;
+	ndmp_door_put_short;
+	ndmp_door_get_short;
+	ndmp_door_put_ushort;
+	ndmp_door_get_ushort;
+	ndmp_door_put_buf;
+	ndmp_door_get_buf;
     local:
 	*;
 };

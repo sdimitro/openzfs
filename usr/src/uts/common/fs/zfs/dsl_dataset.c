@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 RackTop Systems.
  */
@@ -690,7 +690,13 @@ dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
 		dsphys->ds_uncompressed_bytes =
 		    origin->ds_phys->ds_uncompressed_bytes;
 		dsphys->ds_bp = origin->ds_phys->ds_bp;
-		dsphys->ds_flags |= origin->ds_phys->ds_flags;
+
+		/*
+		 * Inherit flags that describe the dataset's contents
+		 * (INCONSISTENT) or properties (Case Insensitive).
+		 */
+		dsphys->ds_flags |= origin->ds_phys->ds_flags &
+		    (DS_FLAG_INCONSISTENT | DS_FLAG_CI_DATASET);
 
 		if (origin->ds_mooch_byteswap) {
 			dsl_dataset_activate_mooch_byteswap_sync_impl(dsobj,

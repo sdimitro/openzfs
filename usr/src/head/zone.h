@@ -23,10 +23,6 @@
  * Use is subject to license terms.
  */
 
-/*
- * Copyright (c) 2012 by Delphix. All rights reserved.
- */
-
 #ifndef _ZONE_H
 #define	_ZONE_H
 
@@ -67,7 +63,6 @@ extern ssize_t	zone_getattr(zoneid_t, int, void *, size_t);
 extern int	zone_setattr(zoneid_t, int, void *, size_t);
 extern int	zone_enter(zoneid_t);
 extern int	zone_list(zoneid_t *, uint_t *);
-extern int	zone_get_zoneids(zoneid_t **, uint_t *);
 extern int	zone_shutdown(zoneid_t);
 extern int	zone_version(int *);
 extern int	zone_add_datalink(zoneid_t, datalink_id_t);

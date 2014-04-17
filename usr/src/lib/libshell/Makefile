@@ -24,10 +24,6 @@
 # Use is subject to license terms.
 #
 
-#
-# Copyright (c) 2012, Joyent, Inc. All rights reserved.
-#
-
 SHELL=/usr/bin/ksh93
 
 include		../Makefile.lib

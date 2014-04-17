@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2004, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
  */
 /*
  * Ucred.xs contains XS wrappers for the process privilege maniplulation

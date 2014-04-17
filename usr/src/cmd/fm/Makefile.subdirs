@@ -25,10 +25,6 @@
 # Use is subject to license terms.
 #
 
-#
-# Copyright (c) 2013 by Delphix. All rights reserved.
-#
-
 .KEEP_STATE:
 
 all := TARGET += all
@@ -41,9 +37,7 @@ _msg := TARGET += _msg
 
 MACH:sh= mach
 
-all clean clobber install install_h: $(SUBDIRS)
-
-lint: $(LINTSUBDIRS)
+all clean clobber install install_h lint: $(SUBDIRS)
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; VERSION='$(VERSION)' $(MAKE) $(TARGET)

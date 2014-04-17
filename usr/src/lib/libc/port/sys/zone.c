@@ -24,10 +24,6 @@
  * Use is subject to license terms.
  */
 
-/*
- * Copyright (c) 2012 by Delphix. All rights reserved.
- */
-
 #include "lint.h"
 #include <sys/types.h>
 #include <sys/syscall.h>
@@ -187,39 +183,6 @@ int
 zone_list(zoneid_t *zonelist, uint_t *numzones)
 {
 	return (syscall(SYS_zone, ZONE_LIST, zonelist, numzones));
-}
-
-int
-zone_get_zoneids(zoneid_t **zonelist, uint_t *numzones)
-{
-	zoneid_t	*zids = NULL;
-	uint_t		nzids, nzids_saved;
-
-	if (zone_list(NULL, &nzids) != 0)
-		return (errno);
-again:
-	nzids *= 2;
-	if ((zids = malloc(nzids * sizeof (zoneid_t))) == NULL)
-		return (errno);
-	nzids_saved = nzids;
-	if (zone_list(zids, &nzids) != 0) {
-		free(zids);
-		return (errno);
-	}
-	if (nzids > nzids_saved) {
-		free(zids);
-		goto again;
-	}
-
-	if (zonelist != NULL)
-		*zonelist = zids;
-	else
-		free(zids);
-
-	if (numzones != NULL)
-		*numzones = nzids;
-
-	return (0);
 }
 
 /*

@@ -20,10 +20,7 @@
 #
 # Copyright (c) 2008-2009, Intel Corporation.
 # All Rights Reserved.
-#
-
-#
-# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
+# Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 #
 
 include ../Makefile.com

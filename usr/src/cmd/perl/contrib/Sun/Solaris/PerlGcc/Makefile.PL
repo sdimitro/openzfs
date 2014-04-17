@@ -21,7 +21,6 @@
 
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 require 5.8.4;

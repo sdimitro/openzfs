@@ -24,14 +24,6 @@
 # Use is subject to license terms.
 #
 
-#
-# Copyright (c) 2013 by Delphix. All rights reserved.
-#
-
-#
-# Copyright (c) 2013 OmniTI Computer Consulting, Inc. All rights reserved.
-#
-
 LIBRARY = libfmd_snmp.a
 VERS = .1
 

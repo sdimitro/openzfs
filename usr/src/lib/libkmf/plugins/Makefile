@@ -25,16 +25,11 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
-#
-
-#
 # KMF Prototype Makefile
 #
 include	../../Makefile.lib
 
 SUBDIRS		=	kmf_nss kmf_openssl kmf_pkcs11
-LINTSUBDIRS	=	kmf_nss kmf_pkcs11
 
 HDRS=
 HDRDIR= include
@@ -45,9 +40,7 @@ clobber :=      TARGET= clobber
 install :=      TARGET= install
 lint :=         TARGET= lint
 
-all clean clobber install: $(SUBDIRS)
-
-lint: $(LINTSUBDIRS)
+all clean clobber install lint: $(SUBDIRS)
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)

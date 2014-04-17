@@ -20,10 +20,7 @@
 #
 # Copyright 1998 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
-#
-
-#
-# Copyright (c) 2012, OmniTI Computer Consulting, Inc. All rights reserved.
+# Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 #
 
 # The initial machine wide defaults for csh.

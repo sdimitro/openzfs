@@ -24,10 +24,6 @@
  * Use is subject to license terms.
  */
 
-/*
- * Copyright (c) 2012 OmniTI Computer Consulting, Inc. All rights reserved.
- */
-
 #include <sys/fm/protocol.h>
 #include <fm/fmd_adm.h>
 #include <fm/fmd_snmp.h>

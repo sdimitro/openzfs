@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -63,6 +63,12 @@ static vdev_ops_t *vdev_ops_table[] = {
 
 /* maximum scrub/resilver I/O queue per leaf vdev */
 int zfs_scrub_limit = 10;
+
+/*
+ * When a vdev is added, it will be divided into approximately (but no
+ * more than) this number of metaslabs.
+ */
+int metaslabs_per_vdev = 200;
 
 /*
  * Given a vdev type, return the appropriate ops vector.
@@ -1551,9 +1557,9 @@ void
 vdev_metaslab_set_size(vdev_t *vd)
 {
 	/*
-	 * Aim for roughly 200 metaslabs per vdev.
+	 * Aim for roughly metaslabs_per_vdev (default 200) metaslabs per vdev.
 	 */
-	vd->vdev_ms_shift = highbit64(vd->vdev_asize / 200);
+	vd->vdev_ms_shift = highbit64(vd->vdev_asize / metaslabs_per_vdev);
 	vd->vdev_ms_shift = MAX(vd->vdev_ms_shift, SPA_MAXBLOCKSHIFT);
 }
 

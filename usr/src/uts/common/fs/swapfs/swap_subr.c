@@ -23,6 +23,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -111,8 +115,12 @@ swapfs_recalc(pgcnt_t pgs)
 		 * setting swapfs_desfree at boot time, not swapfs_minfree.
 		 * However, swapfs_minfree is tunable by install as a
 		 * workaround for bugid 1147463.
+		 *
+		 * Set swapfs_minfree to 2MB or 1/8 of physmem whichever
+		 * is greater with a 6GB maximum.
 		 */
-		new_swapfs_minfree = MAX(btopr(2 * 1024 * 1024), pgs >> 3);
+		new_swapfs_minfree = MIN(MAX(btopr(2 * 1024 * 1024), pgs >> 3),
+		    btop(6ULL * 1024 * 1024 * 1024));
 	}
 
 	/*

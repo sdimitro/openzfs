@@ -479,6 +479,7 @@ file path=usr/lib/security/$(ARCH64)/pam_allow.so.1
 file path=usr/lib/security/$(ARCH64)/pam_authtok_check.so.1
 file path=usr/lib/security/$(ARCH64)/pam_authtok_get.so.1
 file path=usr/lib/security/$(ARCH64)/pam_authtok_store.so.1
+file path=usr/lib/security/$(ARCH64)/pam_challenge_response.so.1
 file path=usr/lib/security/$(ARCH64)/pam_deny.so.1
 file path=usr/lib/security/$(ARCH64)/pam_dhkeys.so.1
 file path=usr/lib/security/$(ARCH64)/pam_dial_auth.so.1
@@ -508,6 +509,7 @@ file path=usr/lib/security/pam_allow.so.1
 file path=usr/lib/security/pam_authtok_check.so.1
 file path=usr/lib/security/pam_authtok_get.so.1
 file path=usr/lib/security/pam_authtok_store.so.1
+file path=usr/lib/security/pam_challenge_response.so.1
 file path=usr/lib/security/pam_deny.so.1
 file path=usr/lib/security/pam_dhkeys.so.1
 file path=usr/lib/security/pam_dial_auth.so.1
@@ -1228,6 +1230,8 @@ link path=usr/lib/security/$(ARCH64)/pam_authtok_get.so \
     target=./pam_authtok_get.so.1
 link path=usr/lib/security/$(ARCH64)/pam_authtok_store.so \
     target=./pam_authtok_store.so.1
+link path=usr/lib/security/$(ARCH64)/pam_challenge_response.so \
+    target=./pam_challenge_response.so.1
 link path=usr/lib/security/$(ARCH64)/pam_deny.so target=./pam_deny.so.1
 link path=usr/lib/security/$(ARCH64)/pam_dhkeys.so target=./pam_dhkeys.so.1
 link path=usr/lib/security/$(ARCH64)/pam_dial_auth.so \
@@ -1270,6 +1274,8 @@ link path=usr/lib/security/pam_authtok_check.so \
 link path=usr/lib/security/pam_authtok_get.so target=./pam_authtok_get.so.1
 link path=usr/lib/security/pam_authtok_store.so \
     target=./pam_authtok_store.so.1
+link path=usr/lib/security/pam_challenge_response.so \
+    target=./pam_challenge_response.so.1
 link path=usr/lib/security/pam_deny.so target=./pam_deny.so.1
 link path=usr/lib/security/pam_dhkeys.so target=./pam_dhkeys.so.1
 link path=usr/lib/security/pam_dial_auth.so target=./pam_dial_auth.so.1

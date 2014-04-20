@@ -32,6 +32,7 @@ SUBDIRS = \
 	authtok_get	\
 	authtok_check	\
 	authtok_store	\
+	challenge_response	\
 	deny		\
 	dhkeys		\
 	dial_auth	\

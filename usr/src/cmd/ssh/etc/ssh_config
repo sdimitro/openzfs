@@ -29,3 +29,34 @@
 #   CheckHostIP yes
 #   StrictHostKeyChecking ask
 #   EscapeChar ~
+
+#
+# Copyright (c) 2014 by Delphix.
+# All rights reserved.
+#
+
+# Delphix ssh config
+#
+# The Delphix appliance ships with an ssh_config similar to the Solaris
+# default ssh_config. The only Delphix-specific modifications ensure this
+# file complies with the Security Technical Implementation Guides (STIGs).
+# The configurations in this file that ensure compliance have been tagged with
+# comments. In particular, Delphix commits to meeting the following criteria:
+#
+# GEN005501    The SSH client must be configured to only use the SSHv2 protocol.
+# GEN005510    The SSH client must be configured to only use FIPS 140-2 approved ciphers.
+# GEN005511    The SSH client must be configured to not use CBC-based ciphers.
+# GEN005512    The SSH client must be configured to only use Message Authentication Codes (MACs)
+#              employing FIPS 140-2 approved cryptographic hash algorithms.
+# GEN005532    The SSH client must not permit tunnels.
+
+
+# Delphix STIGs Compliance
+# ID: GEN005501
+Protocol 2
+# ID: GEN005510, GEN005511
+Ciphers aes128-ctr,aes192-ctr,aes256-ctr
+# ID: GEN005512
+MACs hmac-sha1
+# ID: GEN005532
+# The option "Tunnel no" is a default because SunSSH does not support tun(4) device forwarding

@@ -4,6 +4,29 @@
 # Configuration file for sshd(1m) (see also sshd_config(4))
 #
 
+#
+# Copyright (c) 2014 by Delphix.
+# All rights reserved.
+#
+
+# Delphix sshd config
+#
+# The Delphix appliance ships with an sshd_config similar to the Solaris
+# default sshd_config. The only Delphix-specific modifications ensure this
+# file complies with the Security Technical Implementation Guides (STIGs).
+# The configurations in this file that ensure compliance have been tagged with
+# comments. In particular, Delphix commits to meeting the following criteria:
+#
+# GEN005505    The SSH daemon must be configured to only use FIPS 140-2 approved ciphers.
+# GEN005506    The SSH daemon must be configured to not use Cipher-Block Chaining (CBC) ciphers.
+# GEN005507    The SSH daemon must be configured to only use Message Authentication Codes (MACs)
+#              employing FIPS 140-2 approved cryptographic hash algorithms.
+# GEN005521    The SSH daemon must restrict login ability to specific users and/or groups.
+# GEN005531    The SSH daemon must not permit tunnels.
+# GEN005537    The SSH daemon must use privilege separation.
+# GEN005539    The SSH daemon must not allow compression or must only allow compression after
+#              successful authentication.
+
 # Protocol versions supported
 #
 # The sshd shipped in this release of Solaris has support for major versions
@@ -46,7 +69,7 @@ ListenAddress ::
 GatewayPorts no
 
 # X11 tunneling options
-X11Forwarding yes
+X11Forwarding no
 X11DisplayOffset 10
 X11UseLocalhost yes
 
@@ -56,7 +79,7 @@ X11UseLocalhost yes
 #MaxStartups 10:30:60
 
 # Banner to be printed before authentication starts.
-#Banner /etc/issue
+Banner /etc/issue
 
 # Should sshd print the /etc/motd file and check for mail.
 # On Solaris it is assumed that the login shell will do these (eg /etc/profile).
@@ -117,7 +140,7 @@ PasswordAuthentication yes
 PermitRootLogin no
 
 # sftp subsystem
-Subsystem	sftp	internal-sftp
+#Subsystem	sftp	internal-sftp
 
 
 # SSH protocol v1 specific options
@@ -143,3 +166,16 @@ RhostsRSAAuthentication no
 # Is pure RSA authentication allowed.
 # Default is yes
 RSAAuthentication yes
+
+# Delphix Custom Settings
+AuthorizedKeysFile2 /export/home/cli/.ssh/authorized_keys.%u
+PreUserauthHook /opt/delphix/server/bin/rewrite_username
+AllowTcpForwarding no
+
+# Delphix STIGs Compliance
+Ciphers aes128-ctr,aes192-ctr,aes256-ctr # ID: GEN005505, GEN005506
+MACs hmac-sha1 # ID: GEN005507
+AllowGroups staff # ID: GEN005521
+Compression no # ID: GEN005539
+# The option "PermitTunnel no" is a default because SunSSH does not support tun(4) device forwarding # ID: GEN005531
+# The option "UsePrivilegeSeparation yes" is a default and does not need to be specified # ID: GEN005537

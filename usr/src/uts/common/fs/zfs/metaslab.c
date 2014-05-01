@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  */
 
@@ -349,8 +349,10 @@ metaslab_class_fragmentation(metaslab_class_t *mc)
 		 * to the overall pool fragmentation metric.
 		 */
 		fragmentation += mg->mg_fragmentation *
-		    metaslab_group_get_space(mg) / metaslab_class_get_space(mc);
+		    metaslab_group_get_space(mg);
 	}
+	fragmentation /= metaslab_class_get_space(mc);
+
 	ASSERT3U(fragmentation, <=, 100);
 	spa_config_exit(mc->mc_spa, SCL_VDEV, FTAG);
 	return (fragmentation);

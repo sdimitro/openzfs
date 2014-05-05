@@ -23,14 +23,14 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
 #include <sys/zfs_debug.h>
 #include <sys/range_tree.h>
 
-static kmem_cache_t *range_seg_cache;
+kmem_cache_t *range_seg_cache;
 
 void
 range_tree_init(void)

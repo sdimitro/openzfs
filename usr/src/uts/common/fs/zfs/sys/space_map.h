@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_SPACE_MAP_H
@@ -132,17 +132,6 @@ typedef enum {
 	SM_ALLOC,
 	SM_FREE
 } maptype_t;
-
-/*
- * The data for a given space map can be kept on blocks of any size.
- * Larger blocks entail fewer i/o operations, but they also cause the
- * DMU to keep more data in-core, and also to waste more i/o bandwidth
- * when only a few blocks have changed since the last transaction group.
- * Rather than having a fixed block size for all space maps the block size
- * can adjust as needed (see space_map_max_blksz). Set the initial block
- * size for the space map to 4k.
- */
-#define	SPACE_MAP_INITIAL_BLOCKSIZE	(1ULL << 12)
 
 int space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype);
 

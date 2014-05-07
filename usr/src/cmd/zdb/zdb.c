@@ -2943,7 +2943,7 @@ dump_zpool(spa_t *spa)
 		dump_metaslab_groups(spa);
 
 	if (dump_opt['d'] || dump_opt['i']) {
-		uint64_t refcount;
+		uint64_t refcount = 0;
 		dump_dir(dp->dp_meta_objset);
 		if (dump_opt['d'] >= 3) {
 			dump_bpobj(&spa->spa_deferred_bpobj,

@@ -898,18 +898,26 @@ dbuf_unoverride(dbuf_dirty_record_t *dr)
  * receive; see comment below for details.
  */
 void
-dbuf_free_range(dnode_t *dn, uint64_t start, uint64_t end, dmu_tx_t *tx)
+dbuf_free_range(dnode_t *dn, uint64_t start_blkid, uint64_t end_blkid,
+    dmu_tx_t *tx)
 {
 	dmu_buf_impl_t *db, *db_next;
 	uint64_t txg = tx->tx_txg;
 
-	if (end > dn->dn_maxblkid && (end != DMU_SPILL_BLKID))
-		end = dn->dn_maxblkid;
-	dprintf_dnode(dn, "start=%llu end=%llu\n", start, end);
+	if (end_blkid > dn->dn_maxblkid && (end_blkid != DMU_SPILL_BLKID))
+		end_blkid = dn->dn_maxblkid;
+	dprintf_dnode(dn, "start=%llu end=%llu\n", start_blkid, end_blkid);
 
 	mutex_enter(&dn->dn_dbufs_mtx);
-	if (start >= dn->dn_unlisted_l0_blkid * dn->dn_datablksz) {
+	if (start_blkid >= dn->dn_unlisted_l0_blkid) {
 		/* There can't be any dbufs in this range; no need to search. */
+#ifdef DEBUG
+		for (db = list_head(&dn->dn_dbufs); db != NULL;
+		    db = list_next(&dn->dn_dbufs, db)) {
+			ASSERT(db->db_level != 0 ||
+			    db->db_blkid < dn->dn_unlisted_l0_blkid);
+		}
+#endif
 		mutex_exit(&dn->dn_dbufs_mtx);
 		return;
 	} else if (dmu_objset_is_receiving(dn->dn_objset)) {
@@ -929,7 +937,7 @@ dbuf_free_range(dnode_t *dn, uint64_t start, uint64_t end, dmu_tx_t *tx)
 
 		if (db->db_level != 0)
 			continue;
-		if (db->db_blkid < start || db->db_blkid > end)
+		if (db->db_blkid < start_blkid || db->db_blkid > end_blkid)
 			continue;
 
 		/* found a level 0 buffer in the range */

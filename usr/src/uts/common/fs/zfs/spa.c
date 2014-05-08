@@ -1842,9 +1842,6 @@ static int
 spa_load_verify_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
     const zbookmark_phys_t *zb, const dnode_phys_t *dnp, void *arg)
 {
-	if (issig(JUSTLOOKING) && issig(FORREAL))
-		return (EINTR);
-
 	if (BP_IS_HOLE(bp) || BP_IS_EMBEDDED(bp))
 		return (0);
 	/*
@@ -2844,8 +2841,6 @@ spa_load_best(spa_t *spa, spa_load_state_t state, int mosconfig,
 	 */
 	while (rewind_error && spa->spa_uberblock.ub_txg >= min_txg &&
 	    spa->spa_uberblock.ub_txg <= spa->spa_load_max_txg) {
-		if (issig(JUSTLOOKING) && issig(FORREAL))
-			break;
 		if (spa->spa_load_max_txg < safe_rewind_txg)
 			spa->spa_extreme_rewind = B_TRUE;
 		rewind_error = spa_load_retry(spa, state, mosconfig);

@@ -45,12 +45,23 @@
 #include <libintl.h>
 
 #define	DEFAULT_SECRET_KEY_FILE	"/etc/challenge_response.key"
+#define	DEFAULT_REGISTRATION_FILE	"/etc/engine-code"
 #define	POOL_LENGTH	4
 #define	CHALLENGE_LENGTH	8
 #define	SECRET_BYTE_LEN	64
 #define	RESPONSE_LENGTH	6
 #define	PROMPT_LENGTH	(30 + UUID_PRINTABLE_STRING_LENGTH + CHALLENGE_LENGTH)
 #define	OFFSET_INDEX	19
+#define	REG_AUTHTOK	""
+#define	COL_WIDTH	80
+#define	LINES_PER_MSG	((PAM_MAX_MSG_SIZE - 1) / (COL_WIDTH + 1))
+#define	REG_INFO_MSG	"\nAn empty response was entered. Please try again "\
+			"with a valid response. If the\nDelphix Engine is not "\
+			"registered, register it at\n\n    "\
+			"https://www.register.delphix.com/\n\nusing the "\
+			"registration code below:"
+#define	READ_BUF_SIZE	1024
+#define	MSG_OFFSET(line,col)	((line) * (COL_WIDTH + 1) + col)
 
 /*
  * Fetch the system's UUID from BIOS and construct a string version of it in the
@@ -64,12 +75,14 @@ get_system_uuid(char *uuidstr)
 	smbios_hdl_t *shp;
 
 	if ((shp = smbios_open(NULL, SMB_VERSION, 0, &err)) == NULL) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: failed to load SMBIOS: %s",
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: failed to load SMBIOS: %s",
 		    smbios_errmsg(err));
 		return (1);
 	}
 	if (smbios_info_system(shp, &sys) == SMB_ERR) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: failed to fetch SMBIOS info");
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: failed to fetch SMBIOS info");
 		return (1);
 	}
 
@@ -89,7 +102,8 @@ load_secret(const char *secret_key_file, char *key)
 	int nread;
 
 	if ((fp = fopen(secret_key_file, "r")) == NULL) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: error opening key file %s",
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: error opening key file %s",
 		    secret_key_file);
 		return (1);
 	}
@@ -98,10 +112,84 @@ load_secret(const char *secret_key_file, char *key)
 	(void) fclose(fp);
 
 	if (nread != SECRET_BYTE_LEN) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: error freading secret");
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: error freading secret");
 		return (1);
 	} else {
 		return (0);
+	}
+}
+
+/*
+ * Load this engine's registration code from the specified file into a buffer
+ * for displaying in the login prompt. PAM display functions accept message
+ * buffers of a fixed size, so load_registration formats the
+ * variable-length registration code into an appropriately sized buffer while
+ * limiting the output to 80 columns.
+ *
+ * On success, load_registration returns 0, fills reg_msg with the
+ * registration code, and sets *nmsgs to be the number of display messages
+ * created in reg_msg. On failure, load_registration returns 1.
+ */
+static int
+load_registration(const char *registration_file,
+    char reg_msg[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE], int *nmsgs)
+{
+	FILE *fp;
+	int nread, i;
+	int msg = 0;
+	int line = 0;
+	int column = 0;
+	char readbuf[READ_BUF_SIZE];
+
+	if ((fp = fopen(registration_file, "r")) == NULL) {
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: error opening file %s - %s",
+		    registration_file, strerror(errno));
+		return (1);
+	}
+
+	/* Read the registration code in chunks into readbuf. */
+	while ((nread = fread(readbuf, sizeof (char), sizeof (readbuf), fp)) ==
+	    sizeof (readbuf) || (feof(fp) && nread > 0)) {
+		for (i = 0; i < nread; i++) {
+			/* Skip new lines in the registration code. */
+			if (readbuf[i] == '\n') continue;
+
+			reg_msg[msg][MSG_OFFSET(line, column)] = readbuf[i];
+			column++;
+			if (column == COL_WIDTH) {
+				/*
+				 * When the end of a column has been reached,
+				 * increment to the next line and reset the
+				 * column. If this is also the last line in a
+				 * message, null-terminate the current message
+				 * and increment to the next one
+				 */
+				reg_msg[msg][MSG_OFFSET(line, column)] = '\n';
+				column = 0;
+				line++;
+				if (line == LINES_PER_MSG) {
+					reg_msg[msg][MSG_OFFSET(line, -1)] =
+					    '\0';
+					line = 0;
+					msg++;
+				}
+			}
+		}
+	}
+
+	if (feof(fp)) {
+		reg_msg[msg][MSG_OFFSET(line, column)] = '\0';
+		(void) fclose(fp);
+		*nmsgs = msg + 1;
+		return (0);
+	} else {
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: error reading from file %s - %s",
+		    registration_file, strerror(errno));
+		(void) fclose(fp);
+		return (1);
 	}
 }
 
@@ -140,7 +228,8 @@ calculate_response(char *challenge, char *key,
 	if (HMAC(EVP_sha1(), key, SECRET_BYTE_LEN,
 	    (unsigned char *)challenge, strlen(challenge),
 	    hmac, NULL) == NULL) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: HMAC failure");
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: HMAC failure");
 		return (1);
 	}
 	/*
@@ -201,14 +290,37 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char correct_response_val_str[RESPONSE_LENGTH + 1];
 	unsigned char rand_pool[POOL_LENGTH];
 	const char *secret_key_file = NULL;
+	const char *registration_file = NULL;
+	char reg_msg[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE];
 	char err_str[256];
+	char *username;
 
-	if (argc) {
+	if ((err = pam_get_item(pamh, PAM_USER, (void **)&username)) !=
+	    PAM_SUCCESS) {
+		syslog(LOG_ERR | LOG_AUTH,
+		    "pam_challenge_response: unable to fetch username");
+		return (err);
+	}
+
+	/* Skip challenge response if Delphix CLI is being accessed. */
+	if (strchr(username, '@') != NULL) {
+		return (PAM_IGNORE);
+	}
+
+	if (argc > 0) {
 		secret_key_file = argv[0];
 	} else {
 		secret_key_file = DEFAULT_SECRET_KEY_FILE;
 	}
-	__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: fetching key from %s", secret_key_file);
+
+	if (argc > 1) {
+		registration_file = argv[1];
+	} else {
+		registration_file = DEFAULT_REGISTRATION_FILE;
+	}
+
+	__pam_log(LOG_AUTH | LOG_DEBUG,
+	    "pam_challenge_response: fetching key from %s", secret_key_file);
 
 	/* Load this engine's secret key from disk. */
 	if (load_secret(secret_key_file, key)) {
@@ -217,7 +329,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Fetch the UUID for this engine from BIOS. */
 	if (get_system_uuid(uuidstr)) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: unable to fetch uuid");
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: unable to fetch uuid");
 		return (PAM_SYSTEM_ERR);
 	}
 
@@ -225,7 +338,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if (RAND_bytes(rand_pool, sizeof (rand_pool)) != 1) {
 		(void) ERR_error_string_n(ERR_get_error(), err_str,
 		    sizeof (err_str));
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: RAND_bytes failed: %s", err_str);
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: RAND_bytes failed: %s", err_str);
 		return (PAM_SYSTEM_ERR);
 	}
 
@@ -245,21 +359,55 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	if (strlen(user_response) > RESPONSE_LENGTH) {
-		__pam_log(LOG_AUTH | LOG_DEBUG, "pam_challenge_response: invalid response length");
+		__pam_log(LOG_AUTH | LOG_DEBUG,
+		    "pam_challenge_response: invalid response length");
 		return (PAM_AUTH_ERR);
 	}
 
-	/* Calculate the correct response. */
-	if (calculate_response(challenge_str, key, correct_response_val_str)) {
-		return (PAM_SYSTEM_ERR);
-	}
+	/*
+	 * If a response is entered that matches REG_AUTHTOK, display this
+	 * appliance's registration code in the login prompt along with
+	 * instructions on registering unregistered engines. REG_AUTHTOK must
+	 * not be a valid response.
+	 */
+	if (strlen(user_response) == strlen(REG_AUTHTOK) &&
+	    strncmp(user_response, REG_AUTHTOK, strlen(user_response)) == 0) {
+		int nmsgs;
 
-	/* Validate the calculated response against the entered response. */
-	if (strncmp(user_response, correct_response_val_str,
-	    strlen(correct_response_val_str)) == 0) {
-		return (PAM_SUCCESS);
+		/* Print registration instructions first. */
+		(void) memcpy(reg_msg[0], REG_INFO_MSG,
+		    strlen(REG_INFO_MSG) + 1);
+		(void) __pam_display_msg(pamh, PAM_TEXT_INFO, 1, reg_msg, NULL);
+
+		/*
+		 * Load the registation code into reg_msg, while using nmsgs to
+		 * track the number of PAM messages needed to hold it.
+		 */
+		if (load_registration(registration_file, reg_msg, &nmsgs)) {
+			return (PAM_SYSTEM_ERR);
+		}
+
+		/* Display the registration code. */
+		(void) __pam_display_msg(pamh, PAM_TEXT_INFO, nmsgs, reg_msg,
+		    NULL);
+		return (PAM_AUTH_ERR);
 	} else {
-		return (PAM_AUTH_ERR);
+		/* Calculate the correct response. */
+		if (calculate_response(challenge_str, key,
+		    correct_response_val_str)) {
+			return (PAM_SYSTEM_ERR);
+		}
+
+		/*
+		 * Validate the calculated response against the entered
+		 * response.
+		 */
+		if (strncmp(user_response, correct_response_val_str,
+			strlen(correct_response_val_str)) == 0) {
+			return (PAM_SUCCESS);
+		} else {
+			return (PAM_AUTH_ERR);
+		}
 	}
 }
 

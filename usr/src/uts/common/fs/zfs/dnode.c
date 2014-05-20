@@ -84,7 +84,7 @@ dbuf_compare(const void *x1, const void *x2)
 	 * removed from dn_dbufs, we can reach a state where there are two
 	 * dbufs of the same blkid and level in db_dbufs. To maintain the avl
 	 * invariant that there cannot be duplicate items, we distinguish
-	 * between these two dbufs based on the tim* they were created.
+	 * between these two dbufs based on the time they were created.
 	 */
 	if (d1->db_creation < d2->db_creation) {
 		return (-1);

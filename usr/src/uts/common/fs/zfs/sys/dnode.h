@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_DNODE_H
@@ -212,7 +212,7 @@ typedef struct dnode {
 	refcount_t dn_holds;
 
 	kmutex_t dn_dbufs_mtx;
-	list_t dn_dbufs;		/* descendent dbufs */
+	avl_tree_t dn_dbufs;		/* descendent dbufs */
 
 	/* protected by dn_struct_rwlock */
 	struct dmu_buf_impl *dn_bonus;	/* bonus buffer dbuf */

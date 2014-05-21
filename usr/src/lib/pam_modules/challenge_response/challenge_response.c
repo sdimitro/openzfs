@@ -121,8 +121,60 @@ load_secret(const char *secret_key_file, char *key)
 }
 
 /*
+ * Append buflen bytes from buf to the PAM message buffers in msg_buf, limiting
+ * the column width of the message in msg_buf to COL_WIDTH. msg_ref is an in-out
+ * argument that tracks which message buffer we are on currently, and jumps to
+ * the next when there is unsufficient space in the current buffer to complete
+ * another line of text. line_ref is an in-out argument that tracks the offset
+ * in lines in the current message. column_ref is an in-out argument that tracks
+ * the offset in columns in the message which wraps around after COL_WIDTH
+ * characters.
+ */
+static void
+append_to_msg_buf(char *buf, int buflen,
+    char msg_buf[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE], int *msg_ref,
+    int *line_ref, int *column_ref)
+{
+	int i;
+	int msg = *msg_ref;
+	int line = *line_ref;
+	int column = *column_ref;
+
+	for (i = 0; i < buflen; i++) {
+		/* Skip new lines in the registration code. */
+		if (buf[i] == '\n') continue;
+
+		msg_buf[msg][MSG_OFFSET(line, column)] = buf[i];
+		column++;
+		if (column == COL_WIDTH) {
+			/*
+			 * When the end of a column has been reached,
+			 * increment to the next line and reset the
+			 * column. If this is also the last line in a
+			 * message, null-terminate the current message
+			 * and increment to the next one
+			 */
+			msg_buf[msg][MSG_OFFSET(line, column)] = '\n';
+			column = 0;
+			line++;
+			if (line == LINES_PER_MSG) {
+				msg_buf[msg][MSG_OFFSET(line, -1)] =
+				    '\0';
+				line = 0;
+				msg++;
+			}
+		}
+	}
+
+	*msg_ref = msg;
+	*line_ref = line;
+	*column_ref = column;
+}
+
+/*
  * Load this engine's registration code from the specified file into a buffer
- * for displaying in the login prompt. PAM display functions accept message
+ * for displaying in the login prompt. Then, append the BIOS UUID of this
+ * machine to the end of that buffer. PAM display functions accept message
  * buffers of a fixed size, so load_registration formats the
  * variable-length registration code into an appropriately sized buffer while
  * limiting the output to 80 columns.
@@ -133,10 +185,11 @@ load_secret(const char *secret_key_file, char *key)
  */
 static int
 load_registration(const char *registration_file,
-    char reg_msg[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE], int *nmsgs)
+    char reg_msg[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE], int *nmsgs,
+    char uuidstr[UUID_PRINTABLE_STRING_LENGTH])
 {
 	FILE *fp;
-	int nread, i;
+	int nread;
 	int msg = 0;
 	int line = 0;
 	int column = 0;
@@ -152,36 +205,16 @@ load_registration(const char *registration_file,
 	/* Read the registration code in chunks into readbuf. */
 	while ((nread = fread(readbuf, sizeof (char), sizeof (readbuf), fp)) ==
 	    sizeof (readbuf) || (feof(fp) && nread > 0)) {
-		for (i = 0; i < nread; i++) {
-			/* Skip new lines in the registration code. */
-			if (readbuf[i] == '\n') continue;
-
-			reg_msg[msg][MSG_OFFSET(line, column)] = readbuf[i];
-			column++;
-			if (column == COL_WIDTH) {
-				/*
-				 * When the end of a column has been reached,
-				 * increment to the next line and reset the
-				 * column. If this is also the last line in a
-				 * message, null-terminate the current message
-				 * and increment to the next one
-				 */
-				reg_msg[msg][MSG_OFFSET(line, column)] = '\n';
-				column = 0;
-				line++;
-				if (line == LINES_PER_MSG) {
-					reg_msg[msg][MSG_OFFSET(line, -1)] =
-					    '\0';
-					line = 0;
-					msg++;
-				}
-			}
-		}
+		append_to_msg_buf(readbuf, nread, reg_msg, &msg, &line,
+		    &column);
 	}
 
 	if (feof(fp)) {
-		reg_msg[msg][MSG_OFFSET(line, column)] = '\0';
 		(void) fclose(fp);
+		append_to_msg_buf("|", 1, reg_msg, &msg, &line, &column);
+		append_to_msg_buf(uuidstr, strlen(uuidstr), reg_msg, &msg,
+		    &line, &column);
+		reg_msg[msg][MSG_OFFSET(line, column)] = '\0';
 		*nmsgs = msg + 1;
 		return (0);
 	} else {
@@ -383,7 +416,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		 * Load the registation code into reg_msg, while using nmsgs to
 		 * track the number of PAM messages needed to hold it.
 		 */
-		if (load_registration(registration_file, reg_msg, &nmsgs)) {
+		if (load_registration(registration_file, reg_msg, &nmsgs,
+		    uuidstr)) {
 			return (PAM_SYSTEM_ERR);
 		}
 

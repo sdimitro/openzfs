@@ -1,5 +1,6 @@
 #
 # Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 PROG=		in.ftpd ftpcount ftpshut ftprestart privatepw
@@ -23,10 +24,15 @@ PRIVATE_OBJS=	$(COMMON_OBJS) privatepw.o
 OBJS=		$(FTPD_OBJS) ftpcount.o ftpshut.o ftprestart.o ckconfig.o \
 		privatepw.o
 SRCS=		$(OBJS:%.o=%.c)
-CONFIGFILES=	ftpaccess ftpconversions ftpgroups ftphosts ftpservers ftpusers
+CONFIGFILES=	ftpaccess ftpconversions ftpgroups ftphosts ftpservers
 ETCFTPDDIR=	$(ROOTETC)/ftpd
 ETCFTPDFILES=	$(CONFIGFILES:%=$(ETCFTPDDIR)/%)
 $(ETCFTPDFILES):=	FILEMODE= 0644
+
+SECURE_CONFIGFILES=	ftpusers
+SECURE_ETCFTPDFILES=	$(SECURE_CONFIGFILES:%=$(ETCFTPDDIR)/%)
+$(SECURE_ETCFTPDFILES):=	FILEMODE= 0640
+
 ROOTUSRSBINSCRIPTS=	$(SCRIPTS:%=$(ROOTUSRSBIN)/%)
 ROOTFTPCOUNT=	$(ROOTUSRSBIN)/ftpcount
 ROOTFTPWHO=	$(ROOTUSRSBIN)/ftpwho
@@ -110,7 +116,8 @@ $(ROOTFTPWHO):	$(ROOTFTPCOUNT)
 		$(LN) $(ROOTFTPCOUNT) $@
 
 install:	all $(ROOTUSRSBINPROG) $(ROOTFTPWHO) $(ROOTUSRSBINSCRIPTS) \
-		$(ETCFTPDFILES) $(ROOTMANIFEST) $(ROOTSVCMETHOD)
+		$(ETCFTPDFILES) $(SECURE_ETCFTPDFILES) $(ROOTMANIFEST) \
+		$(ROOTSVCMETHOD)
 
 check:		$(CHKMANIFEST)
 

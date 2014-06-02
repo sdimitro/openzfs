@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  */
@@ -214,6 +214,7 @@ cksummer(void *arg)
 	struct drr_object *drro = &thedrr.drr_u.drr_object;
 	struct drr_write *drrw = &thedrr.drr_u.drr_write;
 	struct drr_spill *drrs = &thedrr.drr_u.drr_spill;
+	struct drr_write_embedded *drrwe = &thedrr.drr_u.drr_write_embedded;
 	FILE *ofp;
 	int outfd;
 	dmu_replay_record_t wbr_drr = {0};
@@ -407,6 +408,20 @@ cksummer(void *arg)
 				    &stream_cksum, outfd) == -1)
 					goto out;
 			}
+			break;
+		}
+
+		case DRR_WRITE_EMBEDDED:
+		{
+			if (cksum_and_write(drr, sizeof (dmu_replay_record_t),
+			    &stream_cksum, outfd) == -1)
+				goto out;
+			(void) ssread(buf,
+			    P2ROUNDUP((uint64_t)drrwe->drr_psize, 8), ofp);
+			if (cksum_and_write(buf,
+			    P2ROUNDUP((uint64_t)drrwe->drr_psize, 8),
+			    &stream_cksum, outfd) == -1)
+				goto out;
 			break;
 		}
 
@@ -2549,7 +2564,7 @@ recv_skip(libzfs_handle_t *hdl, int fd, boolean_t byteswap)
 		case DRR_WRITE_EMBEDDED:
 			if (byteswap) {
 				drr->drr_u.drr_write_embedded.drr_psize =
-				    BSWAP_64(drr->drr_u.drr_write_embedded.
+				    BSWAP_32(drr->drr_u.drr_write_embedded.
 				    drr_psize);
 			}
 			(void) recv_read(hdl, fd, buf,

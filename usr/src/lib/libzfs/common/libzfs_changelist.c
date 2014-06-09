@@ -22,8 +22,10 @@
 /*
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
- *
+ */
+/*
  * Portions Copyright 2007 Ramprakash Jelari
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <libintl.h>
@@ -455,6 +457,10 @@ change_one(zfs_handle_t *zhp, void *data)
 		if (clp->cl_sorted) {
 			uu_list_index_t idx;
 
+			/*
+			 * XXX this is O(n), making the overall operation
+			 * O(n^2).  We should use an AVL tree to sort it.
+			 */
 			(void) uu_list_find(clp->cl_list, cn, NULL,
 			    &idx);
 			uu_list_insert(clp->cl_list, cn, idx);

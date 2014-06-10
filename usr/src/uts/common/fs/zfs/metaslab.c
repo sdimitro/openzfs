@@ -195,6 +195,7 @@ metaslab_class_create(spa_t *spa, metaslab_ops_t *ops)
 	mc->mc_spa = spa;
 	mc->mc_rotor = NULL;
 	mc->mc_ops = ops;
+	mutex_init(&mc->mc_lock, NULL, MUTEX_DEFAULT, NULL);
 
 	return (mc);
 }
@@ -208,6 +209,7 @@ metaslab_class_destroy(metaslab_class_t *mc)
 	ASSERT(mc->mc_space == 0);
 	ASSERT(mc->mc_dspace == 0);
 
+	mutex_destroy(&mc->mc_lock);
 	kmem_free(mc, sizeof (metaslab_class_t));
 }
 
@@ -444,7 +446,8 @@ metaslab_group_alloc_update(metaslab_group_t *mg)
 	 * fragmentation into account if the metaslab group has a valid
 	 * fragmentation metric (i.e. a value between 0 and 100).
 	 */
-	mg->mg_allocatable = (mg->mg_free_capacity > zfs_mg_noalloc_threshold &&
+	mg->mg_allocatable = (mg->mg_activation_count > 0 &&
+	    mg->mg_free_capacity > zfs_mg_noalloc_threshold &&
 	    (mg->mg_fragmentation == ZFS_FRAG_INVALID ||
 	    mg->mg_fragmentation <= zfs_mg_fragmentation_threshold));
 
@@ -538,6 +541,7 @@ metaslab_group_activate(metaslab_group_t *mg)
 		mgnext->mg_prev = mg;
 	}
 	mc->mc_rotor = mg;
+	mc->mc_groups++;
 }
 
 void
@@ -570,6 +574,8 @@ metaslab_group_passivate(metaslab_group_t *mg)
 		mgnext->mg_prev = mgprev;
 	}
 
+	ASSERT3U(mc->mc_groups, >, 0);
+	mc->mc_groups--;
 	mg->mg_prev = NULL;
 	mg->mg_next = NULL;
 }
@@ -751,6 +757,18 @@ metaslab_group_allocatable(metaslab_group_t *mg)
 	vdev_t *vd = mg->mg_vd;
 	spa_t *spa = vd->vdev_spa;
 	metaslab_class_t *mc = mg->mg_class;
+
+	if (zio_dva_throttle_enabled) {
+		/*
+		 * Skip over this vdev if it has already reached its
+		 * queue depth and there are other vdevs that have
+		 * not.
+		 */
+		if (vd->vdev_async_write_queue_depth >=
+		    vd->vdev_max_async_write_queue_depth &&
+		    !metaslab_alloc_throttle(mg->mg_class))
+			return (B_FALSE);
+	}
 
 	/*
 	 * We use two key metrics to determine if a metaslab group is
@@ -2456,6 +2474,17 @@ metaslab_claim_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 	mutex_exit(&msp->ms_lock);
 
 	return (0);
+}
+
+boolean_t
+metaslab_alloc_throttle(metaslab_class_t *mc)
+{
+	boolean_t throttle;
+
+	mutex_enter(&mc->mc_lock);
+	throttle = (mc->mc_groups_throttled == mc->mc_groups);
+	mutex_exit(&mc->mc_lock);
+	return (throttle);
 }
 
 int

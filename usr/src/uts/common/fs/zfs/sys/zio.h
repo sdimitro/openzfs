@@ -246,6 +246,7 @@ enum zio_wait_type {
 
 typedef void zio_done_func_t(zio_t *zio);
 
+extern boolean_t zio_dva_throttle_enabled;
 extern const char *zio_type_name[ZIO_TYPES];
 
 /*
@@ -421,7 +422,9 @@ struct zio {
 
 	uint64_t	io_offset;
 	hrtime_t	io_timestamp;
+	hrtime_t	io_queued_timestamp;
 	avl_node_t	io_queue_node;
+	avl_node_t	io_alloc_node;
 
 	/* Internal pipeline state */
 	enum zio_flag	io_flags;
@@ -430,6 +433,7 @@ struct zio {
 	enum zio_flag	io_orig_flags;
 	enum zio_stage	io_orig_stage;
 	enum zio_stage	io_orig_pipeline;
+	enum zio_stage	io_pipeline_trace;
 	int		io_error;
 	int		io_child_error[ZIO_CHILD_TYPES];
 	uint64_t	io_children[ZIO_CHILD_TYPES][ZIO_WAIT_TYPES];
@@ -451,6 +455,8 @@ struct zio {
 	/* Taskq dispatching state */
 	taskq_ent_t	io_tqent;
 };
+
+extern int zio_timestamp_compare(const void *, const void *);
 
 extern zio_t *zio_null(zio_t *pio, spa_t *spa, vdev_t *vd,
     zio_done_func_t *done, void *private, enum zio_flag flags);
@@ -532,6 +538,7 @@ extern zio_t *zio_vdev_delegated_io(vdev_t *vd, uint64_t offset,
 extern void zio_vdev_io_bypass(zio_t *zio);
 extern void zio_vdev_io_reissue(zio_t *zio);
 extern void zio_vdev_io_redone(zio_t *zio);
+extern void zio_io_to_allocate(spa_t *spa);
 
 extern void zio_checksum_verified(zio_t *zio);
 extern int zio_worst_error(int e1, int e2);

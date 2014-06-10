@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_METASLAB_IMPL_H
@@ -59,10 +59,13 @@ extern "C" {
  * to use a block allocator that best suits that class.
  */
 struct metaslab_class {
+	kmutex_t		mc_lock;
 	spa_t			*mc_spa;
 	metaslab_group_t	*mc_rotor;
 	metaslab_ops_t		*mc_ops;
 	uint64_t		mc_aliquot;
+	uint64_t		mc_groups;	/* # of groups in this class */
+	uint64_t		mc_groups_throttled; /* # of throttled groups */
 	uint64_t		mc_alloc_groups; /* # of allocatable groups */
 	uint64_t		mc_alloc;	/* total allocated space */
 	uint64_t		mc_deferred;	/* total deferred frees */

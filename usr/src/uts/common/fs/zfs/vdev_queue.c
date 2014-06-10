@@ -33,6 +33,7 @@
 #include <sys/zio.h>
 #include <sys/avl.h>
 #include <sys/dsl_pool.h>
+#include <sys/metaslab_impl.h>
 
 /*
  * ZFS I/O Scheduler
@@ -166,6 +167,16 @@ int zfs_vdev_aggregation_limit = SPA_MAXBLOCKSIZE;
 int zfs_vdev_read_gap_limit = 32 << 10;
 int zfs_vdev_write_gap_limit = 4 << 10;
 
+/*
+ * Define the queue depth percentage for each top-level. This percentage is
+ * used in conjunction with zfs_vdev_async_max_active to determine how many
+ * allocations a specific top-level vdev should handle. Once the queue depth
+ * reaches zfs_vdev_queue_depth_pct * zfs_vdev_async_write_max_active / 100
+ * then allocator will stop allocating blocks on that top-level device.
+ * The default setting is 10000% which will yield 1000 allocations per device.
+ */
+int zfs_vdev_queue_depth_pct = 10000;
+
 int
 vdev_queue_offset_compare(const void *x1, const void *x2)
 {
@@ -244,11 +255,92 @@ vdev_queue_fini(vdev_t *vd)
 }
 
 static void
+vdev_queue_depth_increment(vdev_queue_t *vq)
+{
+	vdev_t *tvd = vq->vq_vdev->vdev_top;
+	spa_t *spa = tvd->vdev_spa;
+	boolean_t was_throttled;
+
+	/*
+	 * We only throttle vdevs that are part of a metaslab group (i.e. data,
+	 * and log devices only). Cache devices will never get throttled.
+	 */
+	if (tvd->vdev_mg == NULL)
+		return;
+
+	mutex_enter(&tvd->vdev_queue_lock);
+
+	was_throttled = (tvd->vdev_async_write_queue_depth >=
+	    tvd->vdev_max_async_write_queue_depth);
+	tvd->vdev_async_write_queue_depth++;
+
+	if (!was_throttled && spa_load_state(spa) == SPA_LOAD_NONE &&
+	    tvd->vdev_async_write_queue_depth >=
+	    tvd->vdev_max_async_write_queue_depth) {
+		metaslab_class_t *mc = tvd->vdev_mg->mg_class;
+
+		mutex_enter(&mc->mc_lock);
+		ASSERT3U(mc->mc_groups_throttled, <, mc->mc_groups);
+		mc->mc_groups_throttled++;
+		mutex_exit(&mc->mc_lock);
+	}
+
+	mutex_exit(&tvd->vdev_queue_lock);
+}
+
+static void
+vdev_queue_depth_decrement(vdev_queue_t *vq)
+{
+	vdev_t *tvd = vq->vq_vdev->vdev_top;
+	spa_t *spa = tvd->vdev_spa;
+	boolean_t was_throttled;
+
+	/*
+	 * We only throttle vdevs that are part of a metaslab group (i.e. data,
+	 * and log devices only). Cache devices will never get throttled.
+	 */
+	if (tvd->vdev_mg == NULL)
+		return;
+
+	mutex_enter(&tvd->vdev_queue_lock);
+
+	ASSERT3U(tvd->vdev_async_write_queue_depth, >, 0);
+	was_throttled = (tvd->vdev_async_write_queue_depth >=
+	    tvd->vdev_max_async_write_queue_depth);
+	tvd->vdev_async_write_queue_depth--;
+
+	if (was_throttled && spa_load_state(spa) == SPA_LOAD_NONE &&
+	    tvd->vdev_async_write_queue_depth <
+	    tvd->vdev_max_async_write_queue_depth) {
+		metaslab_class_t *mc = tvd->vdev_mg->mg_class;
+
+		mutex_enter(&mc->mc_lock);
+		ASSERT3U(mc->mc_groups_throttled, >, 0);
+		mc->mc_groups_throttled--;
+		mutex_exit(&mc->mc_lock);
+
+	}
+
+	/*
+	 * Call into the pipeline to see if there is more work that
+	 * needs to be done. If there is work to be done it will be
+	 * dispatched to another taskq thread.
+	 */
+	zio_io_to_allocate(spa);
+
+	mutex_exit(&tvd->vdev_queue_lock);
+}
+
+static void
 vdev_queue_io_add(vdev_queue_t *vq, zio_t *zio)
 {
 	spa_t *spa = zio->io_spa;
+
 	ASSERT3U(zio->io_priority, <, ZIO_PRIORITY_NUM_QUEUEABLE);
 	avl_add(&vq->vq_class[zio->io_priority].vqc_queued_tree, zio);
+
+	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE)
+		vdev_queue_depth_increment(vq);
 
 	mutex_enter(&spa->spa_iokstat_lock);
 	spa->spa_queue_stats[zio->io_priority].spa_queued++;
@@ -261,8 +353,12 @@ static void
 vdev_queue_io_remove(vdev_queue_t *vq, zio_t *zio)
 {
 	spa_t *spa = zio->io_spa;
+
 	ASSERT3U(zio->io_priority, <, ZIO_PRIORITY_NUM_QUEUEABLE);
 	avl_remove(&vq->vq_class[zio->io_priority].vqc_queued_tree, zio);
+
+	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE)
+		vdev_queue_depth_decrement(vq);
 
 	mutex_enter(&spa->spa_iokstat_lock);
 	ASSERT3U(spa->spa_queue_stats[zio->io_priority].spa_queued, >, 0);

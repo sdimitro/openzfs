@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1987, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -71,6 +72,7 @@
 #include <sys/fs/swapnode.h>
 #include <sys/policy.h>
 #include <sys/zone.h>
+#include <sys/dkio.h>
 
 #include <vm/as.h>
 #include <vm/seg.h>
@@ -1074,6 +1076,7 @@ swapadd(struct vnode *vp, ulong_t lowblk, ulong_t nblks, char *swapname)
 {
 	struct swapinfo **sipp, *nsip = NULL, *esip = NULL;
 	struct vnode *cvp;
+	struct vnode *cdev_vp;
 	struct vattr vattr;
 	pgcnt_t pages;
 	u_offset_t soff, eoff;
@@ -1163,6 +1166,26 @@ swapadd(struct vnode *vp, ulong_t lowblk, ulong_t nblks, char *swapname)
 		goto out;
 	else
 		error = 0;
+
+	/*
+	 * Attempt to enable the write cache on the swap device. It is a
+	 * best effort attempt since we don't want to abort adding the
+	 * swap device if we failed to enable the write cache.
+	 */
+	if (cvp->v_type == VBLK &&
+	    (cdev_vp = makespecvp(VTOS(cvp)->s_dev, VCHR)) != NULL) {
+		if (VOP_OPEN(&cdev_vp, FREAD | FWRITE, kcred, NULL) == 0) {
+			int wce = 1;
+
+			(void) VOP_IOCTL(cdev_vp, DKIOCSETWCE,
+			    (intptr_t)&wce, FKIOCTL, kcred, NULL, NULL);
+
+			(void) VOP_CLOSE(cdev_vp, FREAD | FWRITE, 1, 0,
+			    kcred, NULL);
+		}
+		VN_RELE(cdev_vp);
+	}
+
 	/*
 	 * If swapping on the root filesystem don't put swap blocks that
 	 * correspond to the miniroot filesystem on the swap free list.

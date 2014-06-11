@@ -17,7 +17,7 @@
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2008, 2012 Richard Lowe
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 import getopt
@@ -314,7 +314,7 @@ def nits(root, parent, paths):
             jstyle,
             keywords,
             mapfilechk]
-    run_checks(root, parent, cmds, paths)
+    return run_checks(root, parent, cmds, paths)
 
 
 def pbchk(root, parent, paths):
@@ -325,22 +325,31 @@ def pbchk(root, parent, paths):
             jstyle,
             keywords,
             mapfilechk]
-    run_checks(root, parent, cmds)
+    return run_checks(root, parent, cmds)
 
 
 def main(cmd, args):
-    parent_branch = None
 
     try:
-        opts, args = getopt.getopt(args, 'b:')
+        opts, args = getopt.getopt(args, 'b:', ['no-comment-check'])
     except getopt.GetoptError, e:
         sys.stderr.write(str(e) + '\n')
         sys.stderr.write("Usage: %s [-b branch] [path...]\n" % cmd)
         sys.exit(1)
 
+    func = nits
+    if cmd == 'git-pbchk':
+        func = pbchk
+        if args:
+            sys.stderr.write("only complete workspaces may be pbchk'd\n");
+            sys.exit(1)
+    parent_branch = None
+
     for opt, arg in opts:
         if opt == '-b':
             parent_branch = arg
+        if opt == '--no-comment-check':
+            func = nits
 
     if not parent_branch:
         branch = git_branch()
@@ -358,15 +367,8 @@ def main(cmd, args):
                              "specify the parent branch\n") % branch)
             sys.exit(1)
 
-    func = nits
-    if cmd == 'git-pbchk':
-        func = pbchk
-        if args:
-            sys.stderr.write("only complete workspaces may be pbchk'd\n");
-            sys.exit(1)
-
     print "Comparing to branch: " + parent_branch
-    func(git_root(), parent_branch, args)
+    sys.exit(func(git_root(), parent_branch, args))
 
 if __name__ == '__main__':
     try:

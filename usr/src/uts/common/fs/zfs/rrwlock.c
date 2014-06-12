@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/refcount.h>
@@ -69,6 +69,14 @@
  * rrw_node_t entry for the lock) or not. If they are a re-entrant lock, then
  * we must let the proceed.  If they are not, then the reader blocks for the
  * waiting writers.  Hence, we do not starve writers.
+ *
+ * Layered on top of the RRW locks are RRM (Recursive Read Mostly)
+ * locks.  These locks have the same semantics as RRW locks, but perform
+ * even better when readers are acquiring and releasing the lock very
+ * frequently.  The RRM is implemented as several RRW locks, and each
+ * thread grabs a specific RRW lock, thus reducing contention on the RRW
+ * locks' internal mutexes (which are only held while acquiring or
+ * releasing the RRW lock).
  */
 
 /* global key for TSD */
@@ -284,5 +292,80 @@ rrw_tsd_destroy(void *arg)
 	if (rn != NULL) {
 		panic("thread %p terminating with rrw lock %p held",
 		    (void *)curthread, (void *)rn->rn_rrl);
+	}
+}
+
+void
+rrm_init(rrmlock_t *rrl, boolean_t track_all)
+{
+	int i;
+
+	for (i = 0; i < RRM_NUM_LOCKS; i++)
+		rrw_init(&rrl->locks[i], track_all);
+}
+
+void
+rrm_destroy(rrmlock_t *rrl)
+{
+	int i;
+
+	for (i = 0; i < RRM_NUM_LOCKS; i++)
+		rrw_destroy(&rrl->locks[i]);
+}
+
+void
+rrm_enter(rrmlock_t *rrl, krw_t rw, void *tag)
+{
+	if (rw == RW_READER)
+		rrm_enter_read(rrl, tag);
+	else
+		rrm_enter_write(rrl);
+}
+
+/*
+ * This maps the current thread to a specific lock.  Note that the lock
+ * must be released by the same thread that acquired it.  We do this
+ * mapping by taking the thread pointer mod a prime number.  We examine
+ * only the low 32 bits of the thread pointer, because 32-bit division
+ * is faster than 64-bit division, and the high 32 bits have little
+ * entropy anyway.
+ */
+#define	RRM_TD_LOCK()	(((uint32_t)(uintptr_t)(curthread)) % RRM_NUM_LOCKS)
+
+void
+rrm_enter_read(rrmlock_t *rrl, void *tag)
+{
+	rrw_enter_read(&rrl->locks[RRM_TD_LOCK()], tag);
+}
+
+void
+rrm_enter_write(rrmlock_t *rrl)
+{
+	int i;
+
+	for (i = 0; i < RRM_NUM_LOCKS; i++)
+		rrw_enter_write(&rrl->locks[i]);
+}
+
+void
+rrm_exit(rrmlock_t *rrl, void *tag)
+{
+	int i;
+
+	if (rrl->locks[0].rr_writer == curthread) {
+		for (i = 0; i < RRM_NUM_LOCKS; i++)
+			rrw_exit(&rrl->locks[i], tag);
+	} else {
+		rrw_exit(&rrl->locks[RRM_TD_LOCK()], tag);
+	}
+}
+
+boolean_t
+rrm_held(rrmlock_t *rrl, krw_t rw)
+{
+	if (rw == RW_WRITER) {
+		return (rrw_held(&rrl->locks[0], rw));
+	} else {
+		return (rrw_held(&rrl->locks[RRM_TD_LOCK()], rw));
 	}
 }

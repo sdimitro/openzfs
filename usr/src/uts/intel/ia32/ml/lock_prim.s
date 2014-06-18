@@ -22,8 +22,9 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
 
 #if defined(lint) || defined(__lint)
 #include <sys/types.h>
@@ -979,11 +980,17 @@ rw_exit(krwlock_t *lp)
 	movl	$RW_READER, %edx
 	jmp	lockstat_wrapper_arg
 .rw_not_single_reader:
-	testl	$RW_WRITE_LOCKED, %eax	/* write-locked or write-wanted? */
+	testl	$RW_WRITE_LOCKED, %eax		/* write-locked? */
 	jnz	.rw_write_exit
 	leaq	-RW_READ_LOCK(%rax), %rdx	/* rdx = new value */
+/*
+ * If we are not the last reader (new value >= RW_READ_LOCK), it is safe
+ * to drop the lock even if there are writers waiting.  Note that if we
+ * are the last reader and there are no writers waiting, we would have
+ * handled that by falling directly into .rw_read_exit above.
+ */
 	cmpl	$RW_READ_LOCK, %edx
-	jge	.rw_read_exit		/* not last reader, safe to drop */
+	jge	.rw_read_exit
 	jmp	rw_exit_wakeup			/* last reader with waiters */
 .rw_write_exit:
 	movq	%gs:CPU_THREAD, %rax		/* rax = thread ptr */
@@ -1066,11 +1073,17 @@ rw_exit(krwlock_t *lp)
 	pushl	$RW_READER
 	jmp	lockstat_wrapper_arg
 .rw_not_single_reader:
-	testl	$RW_WRITE_LOCKED, %eax	/* write-locked or write-wanted? */
+	testl	$RW_WRITE_LOCKED, %eax		/* write-locked? */
 	jnz	.rw_write_exit
 	leal	-RW_READ_LOCK(%eax), %edx	/* edx = new value */
+/*
+ * If we are not the last reader (new value >= RW_READ_LOCK), it is safe
+ * to drop the lock even if there are writers waiting.  Note that if we
+ * are the last reader and there are no writers waiting, we would have
+ * handled that by falling directly into .rw_read_exit above.
+ */
 	cmpl	$RW_READ_LOCK, %edx
-	jge	.rw_read_exit		/* not last reader, safe to drop */
+	jge	.rw_read_exit
 	jmp	rw_exit_wakeup			/* last reader with waiters */
 .rw_write_exit:
 	movl	%gs:CPU_THREAD, %eax		/* eax = thread ptr */

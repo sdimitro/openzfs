@@ -422,6 +422,7 @@ struct zio {
 	hrtime_t	io_queued_timestamp;
 	avl_node_t	io_queue_node;
 	avl_node_t	io_alloc_node;
+	uint8_t		io_alloc_flags;
 
 	/* Internal pipeline state */
 	enum zio_flag	io_flags;

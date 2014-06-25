@@ -2511,8 +2511,10 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 		vdev_t *rvd = spa->spa_root_vdev;
 		for (uint64_t c = 0; c < rvd->vdev_children; c++) {
 			vdev_t *vd = rvd->vdev_child[c];
+			metaslab_group_t *mg = vd->vdev_mg;
 			for (uint64_t m = 0; m < vd->vdev_ms_count; m++) {
 				metaslab_t *msp = vd->vdev_ms[m];
+				ASSERT3P(msp->ms_group, ==, mg);
 				mutex_enter(&msp->ms_lock);
 				metaslab_unload(msp);
 
@@ -2544,7 +2546,15 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 					msp->ms_tree->rt_ops = NULL;
 					VERIFY0(space_map_load(msp->ms_sm,
 					    msp->ms_tree, SM_ALLOC));
-					msp->ms_loaded = B_TRUE;
+
+					if (!msp->ms_loaded) {
+						mutex_enter(&mg->mg_lock);
+						(void) refcount_add(
+						    &mg->mg_loaded_metaslabs,
+						    msp);
+						msp->ms_loaded = B_TRUE;
+						mutex_exit(&mg->mg_lock);
+					}
 				}
 				mutex_exit(&msp->ms_lock);
 			}
@@ -2566,8 +2576,10 @@ zdb_leak_fini(spa_t *spa)
 		vdev_t *rvd = spa->spa_root_vdev;
 		for (int c = 0; c < rvd->vdev_children; c++) {
 			vdev_t *vd = rvd->vdev_child[c];
+			metaslab_group_t *mg = vd->vdev_mg;
 			for (int m = 0; m < vd->vdev_ms_count; m++) {
 				metaslab_t *msp = vd->vdev_ms[m];
+				ASSERT3P(mg, ==, msp->ms_group);
 				mutex_enter(&msp->ms_lock);
 
 				/*
@@ -2581,7 +2593,14 @@ zdb_leak_fini(spa_t *spa)
 				 * from the ms_tree.
 				 */
 				range_tree_vacate(msp->ms_tree, zdb_leak, vd);
-				msp->ms_loaded = B_FALSE;
+
+				if (msp->ms_loaded) {
+					mutex_enter(&mg->mg_lock);
+					(void) refcount_remove(
+					    &mg->mg_loaded_metaslabs, msp);
+					msp->ms_loaded = B_FALSE;
+					mutex_exit(&mg->mg_lock);
+				}
 
 				mutex_exit(&msp->ms_lock);
 			}

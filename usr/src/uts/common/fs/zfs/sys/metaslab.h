@@ -36,8 +36,19 @@
 extern "C" {
 #endif
 
+typedef enum {
+	METASLAB_ALLOC_OPTIMAL,
+	METASLAB_ALLOC_BEST_FIT,
+	METASLAB_ALLOC_PERFECT_FIT,
+} metaslab_alloc_strategy_t;
+
 typedef struct metaslab_ops {
-	uint64_t (*msop_alloc)(metaslab_t *msp, uint64_t size);
+	/* METASLAB_ALLOC_OPTIMAL */
+	uint64_t (*msop_alloc)(metaslab_t *, uint64_t);
+	/* METASLAB_ALLOC_BEST_FIT */
+	uint64_t (*msop_bf_alloc)(metaslab_t *, uint64_t);
+	/* METASLAB_ALLOC_PERFECT_FIT */
+	uint64_t (*msop_pf_alloc)(metaslab_t *, uint64_t);
 } metaslab_ops_t;
 
 extern metaslab_ops_t *zfs_metaslab_ops;
@@ -55,14 +66,15 @@ void metaslab_sync_done(metaslab_t *, uint64_t);
 void metaslab_sync_reassess(metaslab_group_t *);
 uint64_t metaslab_block_maxsize(metaslab_t *);
 
-#define	METASLAB_HINTBP_FAVOR	0x0
-#define	METASLAB_HINTBP_AVOID	0x1
-#define	METASLAB_GANG_HEADER	0x2
-#define	METASLAB_GANG_CHILD	0x4
-#define	METASLAB_GANG_AVOID	0x8
+#define	METASLAB_HINTBP_FAVOR		0x0
+#define	METASLAB_HINTBP_AVOID		0x1
+#define	METASLAB_GANG_HEADER		0x2
+#define	METASLAB_GANG_CHILD		0x4
+#define	METASLAB_GANG_AVOID		0x8
+#define	METASLAB_HINT_CAN_HOLEFILL	0x10
 
 int metaslab_alloc(spa_t *, metaslab_class_t *, uint64_t,
-    blkptr_t *, int, uint64_t, blkptr_t *, int);
+    blkptr_t *, int, uint64_t, blkptr_t *, int, uint8_t *);
 boolean_t metaslab_alloc_throttle(metaslab_class_t *);
 void metaslab_free(spa_t *, const blkptr_t *, uint64_t, boolean_t);
 int metaslab_claim(spa_t *, const blkptr_t *, uint64_t);
@@ -90,6 +102,7 @@ uint64_t metaslab_group_get_space(metaslab_group_t *);
 void metaslab_group_histogram_verify(metaslab_group_t *);
 uint64_t metaslab_group_fragmentation(metaslab_group_t *);
 void metaslab_group_histogram_remove(metaslab_group_t *, metaslab_t *);
+void metaslab_group_sort_seg_array(metaslab_group_t *);
 
 #ifdef	__cplusplus
 }

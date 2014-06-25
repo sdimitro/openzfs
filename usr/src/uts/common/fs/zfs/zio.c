@@ -1888,9 +1888,14 @@ zio_write_gang_block(zio_t *pio)
 	zio_prop_t zp;
 	int error;
 
+	int flags = METASLAB_HINTBP_FAVOR | METASLAB_GANG_HEADER;
+	if (pio->io_priority == ZIO_PRIORITY_ASYNC_WRITE) {
+		flags |= METASLAB_HINT_CAN_HOLEFILL;
+	}
+
 	error = metaslab_alloc(spa, spa_normal_class(spa), SPA_GANGBLOCKSIZE,
-	    bp, gbh_copies, txg, pio == gio ? NULL : gio->io_bp,
-	    METASLAB_HINTBP_FAVOR | METASLAB_GANG_HEADER);
+	    bp, gbh_copies, txg, pio == gio ? NULL : gio->io_bp, flags,
+	    &pio->io_alloc_flags);
 	if (error) {
 		pio->io_error = error;
 		return (ZIO_PIPELINE_CONTINUE);
@@ -2471,11 +2476,18 @@ zio_dva_allocate(zio_t *zio)
 	 * behalf of the dump device (i.e. ZIO_FLAG_NODATA) must avoid
 	 * the "fast" gang feature.
 	 */
-	flags |= (zio->io_flags & ZIO_FLAG_NODATA) ? METASLAB_GANG_AVOID : 0;
-	flags |= (zio->io_flags & ZIO_FLAG_GANG_CHILD) ?
-	    METASLAB_GANG_CHILD : 0;
+	if (zio->io_flags & ZIO_FLAG_NODATA) {
+		flags |= METASLAB_GANG_AVOID;
+	}
+	if (zio->io_flags & ZIO_FLAG_GANG_CHILD) {
+		flags |= METASLAB_GANG_CHILD;
+	}
+	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE) {
+		flags |= METASLAB_HINT_CAN_HOLEFILL;
+	}
 	error = metaslab_alloc(spa, mc, zio->io_size, bp,
-	    zio->io_prop.zp_copies, zio->io_txg, NULL, flags);
+	    zio->io_prop.zp_copies, zio->io_txg, NULL, flags,
+	    &zio->io_alloc_flags);
 
 	if (error) {
 		spa_dbgmsg(spa, "%s: metaslab allocation failure: zio %p, "
@@ -2539,6 +2551,7 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
     uint64_t size, boolean_t use_slog)
 {
 	int error = 1;
+	uint8_t alloc_flags;
 
 	ASSERT(txg > spa_syncing_txg(spa));
 
@@ -2550,13 +2563,14 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
 	if (use_slog) {
 		error = metaslab_alloc(spa, spa_log_class(spa), size,
 		    new_bp, 1, txg, old_bp,
-		    METASLAB_HINTBP_AVOID | METASLAB_GANG_AVOID);
+		    METASLAB_HINTBP_AVOID | METASLAB_GANG_AVOID,
+		    &alloc_flags);
 	}
 
 	if (error) {
 		error = metaslab_alloc(spa, spa_normal_class(spa), size,
-		    new_bp, 1, txg, old_bp,
-		    METASLAB_HINTBP_AVOID);
+		    new_bp, 1, txg, old_bp, METASLAB_HINTBP_AVOID,
+		    &alloc_flags);
 	}
 
 	if (error == 0) {

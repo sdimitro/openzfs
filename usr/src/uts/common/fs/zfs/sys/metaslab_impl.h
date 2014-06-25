@@ -86,6 +86,8 @@ struct metaslab_class {
 struct metaslab_group {
 	kmutex_t		mg_lock;
 	avl_tree_t		mg_metaslab_tree;
+	/* metaslabs ordered by number of segments (holes). */
+	metaslab_t		**mg_seg_array;
 	uint64_t		mg_aliquot;
 	boolean_t		mg_allocatable;		/* can we allocate? */
 	uint64_t		mg_free_capacity;	/* percentage free */
@@ -96,6 +98,11 @@ struct metaslab_group {
 	taskq_t			*mg_taskq;
 	metaslab_group_t	*mg_prev;
 	metaslab_group_t	*mg_next;
+	refcount_t		mg_loaded_metaslabs;
+	uint64_t		mg_allocations;
+	uint64_t		mg_holefills;
+	uint64_t		mg_failed_allocations;
+	uint64_t		mg_failed_holefills;
 	uint64_t		mg_fragmentation;
 	uint64_t		mg_histogram[RANGE_TREE_HISTOGRAM_SIZE];
 };
@@ -167,6 +174,7 @@ struct metaslab {
 	uint64_t	ms_start;
 	uint64_t	ms_size;
 	uint64_t	ms_fragmentation;
+	uint64_t	ms_num_holes;
 
 	range_tree_t	*ms_alloctree[TXG_SIZE];
 	range_tree_t	*ms_freetree[TXG_SIZE];
@@ -175,6 +183,11 @@ struct metaslab {
 
 	boolean_t	ms_condensing;	/* condensing? */
 	boolean_t	ms_condense_wanted;
+
+	/*
+	 * We must hold both ms_lock and ms_group->mg_lock in order to
+	 * modify ms_loaded.
+	 */
 	boolean_t	ms_loaded;
 	boolean_t	ms_loading;
 

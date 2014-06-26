@@ -60,7 +60,7 @@ Port 22
 # IPv4 only
 #ListenAddress 0.0.0.0
 # IPv4 & IPv6
-ListenAddress ::
+#ListenAddress ::
 
 # If port forwarding is enabled (default), specify if the server can bind to
 # INADDR_ANY. 

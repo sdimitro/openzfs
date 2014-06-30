@@ -3277,12 +3277,12 @@ static const mdb_dcmd_t dcmds[] = {
 	{ "abuf_find", "dva_word[0] dva_word[1]",
 	    "find arc_buf_hdr_t of a specified DVA",
 	    abuf_find },
-	{ "spa", ":[-cvmMh]\n"
+	{ "spa", "?[-cevmMh]\n"
 	    "\t-c display spa config\n"
 	    "\t-e display vdev statistics\n"
-	    "\t-v display vdev information"
-	    "\t-m dispaly metaslab statistics\n"
-	    "\t-M display metaslab group statistic\n"
+	    "\t-v display vdev information\n"
+	    "\t-m display metaslab statistics\n"
+	    "\t-M display metaslab group statistics\n"
 	    "\t-h display histogram (requires -m or -M)\n",
 	    "spa_t summary", spa_print },
 	{ "spa_config", ":", "print spa_t configuration", spa_print_config },
@@ -3300,7 +3300,7 @@ static const mdb_dcmd_t dcmds[] = {
 	    "\t-M display metaslab group statistics\n"
 	    "\t-h display histogram (requires -m or -M)\n",
 	    "vdev_t summary", vdev_print },
-	{ "zio", ":[cpr]\n"
+	{ "zio", ":[-cpr]\n"
 	    "\t-c display children\n"
 	    "\t-p display parents\n"
 	    "\t-r display recursively",

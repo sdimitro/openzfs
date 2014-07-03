@@ -24,10 +24,6 @@
  * Use is subject to license terms.
  */
 
-/*
- * Copyright (c) 2014 by Delphix. All rights reserved.
- */
-
 #ifndef _SYS_XNF_H
 #define	_SYS_XNF_H
 
@@ -35,13 +31,8 @@
 extern "C" {
 #endif
 
-#define	NET_TX_RING_SIZE_DEFAULT  __RING_SIZE((netif_tx_sring_t *)0, PAGESIZE)
-#define	NET_RX_RING_SIZE_DEFAULT  __RING_SIZE((netif_rx_sring_t *)0, PAGESIZE)
-
-#define	NET_TX_RING_SIZE_MAX  \
-	__RING_SIZE((netif_tx_sring_t *)0, (PAGESIZE) * 16)
-#define	NET_RX_RING_SIZE_MAX  \
-	__RING_SIZE((netif_rx_sring_t *)0, (PAGESIZE) * 16)
+#define	NET_TX_RING_SIZE  __RING_SIZE((netif_tx_sring_t *)0, PAGESIZE)
+#define	NET_RX_RING_SIZE  __RING_SIZE((netif_rx_sring_t *)0, PAGESIZE)
 
 #define	XNF_MAXPKT	1500		/* MTU size */
 #define	XNF_FRAMESIZE	1514		/* frame size including MAC header */
@@ -154,7 +145,7 @@ typedef struct xnf {
 	paddr_t			xnf_tx_ring_phys_addr;
 	grant_ref_t		xnf_tx_ring_ref;
 
-	xnf_txid_t		*xnf_tx_pkt_id;
+	xnf_txid_t		xnf_tx_pkt_id[NET_TX_RING_SIZE];
 	uint16_t		xnf_tx_pkt_id_head;
 	kmutex_t		xnf_txlock;
 	kmutex_t		xnf_schedlock;
@@ -168,7 +159,7 @@ typedef struct xnf {
 	paddr_t			xnf_rx_ring_phys_addr;
 	grant_ref_t		xnf_rx_ring_ref;
 
-	xnf_buf_t		**xnf_rx_pkt_info;
+	xnf_buf_t		*xnf_rx_pkt_info[NET_RX_RING_SIZE];
 	kmutex_t		xnf_rxlock;
 	mblk_t			*xnf_rx_head;
 	mblk_t			*xnf_rx_tail;

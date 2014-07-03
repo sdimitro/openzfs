@@ -20,22 +20,19 @@
 #
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2014 Garrett D'Amore
 #
-# cmd/lp/filter/postscript/font/devpost/charlib/Makefile
+# cmd/lp/filter/postscript/font/devpost/fontmaps/Makefile
 #
 
 include			../../../../../Makefile.lp
 
-CHARFILES =		12 14 34 Fi Fl L1 Lb		\
-			Sl bx ci ff lc lf lh	\
-			ob rc rf rh sq
-MAPFILES =		L1.map Lb.map
-TXTS =			BRACKETS_NOTE README
-FILES =			$(CHARFILES) $(MAPFILES) $(TXTS)
+FONTMAPS =		post
+FILES =			$(FONTMAPS)
 
-ROOTCHARLIB =		$(ROOT)/usr/lib/font/devpost/charlib
+ROOTFONTMAPS =		$(ROOT)/usr/lib/font/devpost/fontmaps
 
-ROOTFILES =		$(FILES:%=$(ROOTCHARLIB)/%)
+ROOTFILES =		$(FILES:%=$(ROOTFONTMAPS)/%)
 
 FILEMODE =		0444
 
@@ -45,16 +42,12 @@ all:			$(FILES)
 
 # because of its name, the file ~= is a special case
 #
-install:		all $(ROOTCHARLIB) $(ROOTFILES)
-			$(RM) $(ROOTCHARLIB)/~=
-			$(INS) -m $(FILEMODE) -f $(ROOTCHARLIB) ~=
-			$(RM) $(ROOTCHARLIB)/'~'
-			$(LN) $(ROOTCHARLIB)/~= $(ROOTCHARLIB)/'~'
+install:		all $(ROOTFONTMAPS) $(ROOTFILES)
 
-$(ROOTCHARLIB):
+$(ROOTFONTMAPS):
 			$(INS.dir)
 
-$(ROOTCHARLIB)/% :	%
+$(ROOTFONTMAPS)/% :	% $(ROOTFONTMAPS)
 			$(INS.file)
 
 clean clobber strip lint :

@@ -37,6 +37,7 @@ dir path=usr/lib
 dir path=usr/lib/font
 dir path=usr/lib/font/devpost group=lp
 dir path=usr/lib/font/devpost/charlib group=lp
+dir path=usr/lib/font/devpost/fontmaps group=lp
 dir path=usr/lib/refer
 dir path=usr/lib/refer/papers
 dir path=usr/share
@@ -126,6 +127,18 @@ file path=usr/lib/font/devpost/HX.out group=lp mode=0444
 file path=usr/lib/font/devpost/I group=lp mode=0444
 file path=usr/lib/font/devpost/I.name group=lp mode=0444
 file path=usr/lib/font/devpost/I.out group=lp mode=0444
+file path=usr/lib/font/devpost/JB group=lp mode=0444
+file path=usr/lib/font/devpost/JB.name group=lp mode=0444
+file path=usr/lib/font/devpost/JB.out group=lp mode=0444
+file path=usr/lib/font/devpost/JI group=lp mode=0444
+file path=usr/lib/font/devpost/JI.name group=lp mode=0444
+file path=usr/lib/font/devpost/JI.out group=lp mode=0444
+file path=usr/lib/font/devpost/JR group=lp mode=0444
+file path=usr/lib/font/devpost/JR.name group=lp mode=0444
+file path=usr/lib/font/devpost/JR.out group=lp mode=0444
+file path=usr/lib/font/devpost/JX group=lp mode=0444
+file path=usr/lib/font/devpost/JX.name group=lp mode=0444
+file path=usr/lib/font/devpost/JX.out group=lp mode=0444
 file path=usr/lib/font/devpost/KB group=lp mode=0444
 file path=usr/lib/font/devpost/KB.name group=lp mode=0444
 file path=usr/lib/font/devpost/KB.out group=lp mode=0444
@@ -183,18 +196,6 @@ file path=usr/lib/font/devpost/VR.out group=lp mode=0444
 file path=usr/lib/font/devpost/VX group=lp mode=0444
 file path=usr/lib/font/devpost/VX.name group=lp mode=0444
 file path=usr/lib/font/devpost/VX.out group=lp mode=0444
-file path=usr/lib/font/devpost/W group=lp mode=0444
-file path=usr/lib/font/devpost/W.name group=lp mode=0444
-file path=usr/lib/font/devpost/W.out group=lp mode=0444
-file path=usr/lib/font/devpost/WB group=lp mode=0444
-file path=usr/lib/font/devpost/WB.name group=lp mode=0444
-file path=usr/lib/font/devpost/WB.out group=lp mode=0444
-file path=usr/lib/font/devpost/WI group=lp mode=0444
-file path=usr/lib/font/devpost/WI.name group=lp mode=0444
-file path=usr/lib/font/devpost/WI.out group=lp mode=0444
-file path=usr/lib/font/devpost/WX group=lp mode=0444
-file path=usr/lib/font/devpost/WX.name group=lp mode=0444
-file path=usr/lib/font/devpost/WX.out group=lp mode=0444
 file path=usr/lib/font/devpost/ZD group=lp mode=0444
 file path=usr/lib/font/devpost/ZD.name group=lp mode=0444
 file path=usr/lib/font/devpost/ZD.out group=lp mode=0444
@@ -211,10 +212,6 @@ file path=usr/lib/font/devpost/charlib/L1 group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/L1.map group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/Lb group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/Lb.map group=lp mode=0444
-file path=usr/lib/font/devpost/charlib/NEW_LH group=lp mode=0444
-file path=usr/lib/font/devpost/charlib/NEW_LH.map group=lp mode=0444
-file path=usr/lib/font/devpost/charlib/OLD_LH group=lp mode=0444
-file path=usr/lib/font/devpost/charlib/OLD_LH.map group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/README group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/Sl group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/bx group=lp mode=0444
@@ -229,6 +226,7 @@ file path=usr/lib/font/devpost/charlib/rf group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/rh group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/sq group=lp mode=0444
 file path=usr/lib/font/devpost/charlib/~ group=lp mode=0444
+file path=usr/lib/font/devpost/fontmaps/post group=lp mode=0444
 file path=usr/lib/font/makedev group=lp mode=0555
 file path=usr/lib/getNAME mode=0555
 file path=usr/lib/makewhatis mode=0555

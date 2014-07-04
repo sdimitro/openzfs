@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2014 Nexenta Systems, Inc. All rights reserved.
  */
 
 #ifndef _SYS_ZONE_H
@@ -231,7 +232,7 @@ typedef enum {
  */
 typedef enum zone_cmd {
 	Z_READY, Z_BOOT, Z_FORCEBOOT, Z_REBOOT, Z_HALT, Z_NOTE_UNINSTALLING,
-	Z_MOUNT, Z_FORCEMOUNT, Z_UNMOUNT
+	Z_MOUNT, Z_FORCEMOUNT, Z_UNMOUNT, Z_SHUTDOWN
 } zone_cmd_t;
 
 /*
@@ -537,6 +538,11 @@ typedef struct zone {
 	rctl_qty_t	zone_nprocs_ctl;	/* current limit protected by */
 						/* zone_rctls->rcs_lock */
 	kstat_t		*zone_nprocs_kstat;
+
+	/*
+	 * DTrace-private per-zone state
+	 */
+	int		zone_dtrace_getf;	/* # of unprivileged getf()s */
 } zone_t;
 
 /*

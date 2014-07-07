@@ -49,7 +49,7 @@ kctl_mod_decompress(struct modctl *modp)
 	if ((kmdb_kdi_get_flags() & KMDB_KDI_FL_NOCTF) || mp->ctfdata == NULL)
 		return (0);
 
-	if ((fp = ctf_modopen(mp, NULL, &rc)) == NULL)
+	if ((fp = ctf_modopen(mp, &rc)) == NULL)
 		return (rc);
 
 	ctf_close(fp);

@@ -21,7 +21,6 @@
 
 #
 # Copyright (c) 2013, Joyent, Inc. All rights reserved.
-# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 if [ $# != 1 ]; then
@@ -65,7 +64,7 @@ provider $oogle {
 };
 EOF
 
-	gcc -c $oogle.c
+	gcc -m32 -c $oogle.c
 
 	if [ $? -ne 0 ]; then
 		print -u2 "failed to compile $oogle.c"
@@ -88,7 +87,7 @@ echo "}" >> test.c
 
 echo 'END{printa("%-10s %@d\\n", @)}' >> test.d
 
-gcc -o test test.c $objs
+gcc -m32 -o test test.c $objs
 
 if [ $? -ne 0 ]; then
 	print -u2 "failed to compile test.c"

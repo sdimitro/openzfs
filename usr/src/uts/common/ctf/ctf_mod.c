@@ -117,7 +117,7 @@ ctf_version(int version)
 
 /*ARGSUSED*/
 ctf_file_t *
-ctf_modopen(struct module *mp, struct modctl *ctl, int *error)
+ctf_modopen(struct module *mp, int *error)
 {
 	ctf_sect_t ctfsect, symsect, strsect;
 	ctf_file_t *fp = NULL;
@@ -172,9 +172,6 @@ ctf_modopen(struct module *mp, struct modctl *ctl, int *error)
 		fp->ctf_data.cts_data = fp->ctf_base;
 		fp->ctf_data.cts_size = fp->ctf_size;
 	}
-
-	if (ctl && ctl->mod_modname)
-		fp->ctf_modname = ctf_strdup(ctl->mod_modname);
 
 	return (fp);
 }

@@ -1075,7 +1075,7 @@ fbt_provide_module(void *arg, struct modctl *ctl)
 	 * can be instrumented.  (But in particular, leaf functions will not be
 	 * instrumented.)
 	 */
-	fp = ctf_modopen(mp, ctl, &error);
+	fp = ctf_modopen(mp, &error);
 
 forreal:
 	if (!estimate) {
@@ -1625,7 +1625,7 @@ fbt_getargdesc(void *arg, dtrace_id_t id, void *parg, dtrace_argdesc_t *desc)
 		return;
 	}
 
-	if ((fp = ctf_modopen(mp, ctl, &error)) == NULL) {
+	if ((fp = ctf_modopen(mp, &error)) == NULL) {
 		/*
 		 * We have no CTF information for this module -- and therefore
 		 * no args[] information.
@@ -1654,7 +1654,7 @@ fbt_getargdesc(void *arg, dtrace_id_t id, void *parg, dtrace_argdesc_t *desc)
 		if (mod == NULL)
 			goto err;
 
-		if ((pfp = ctf_modopen(mod->mod_mp, NULL, &error)) == NULL)
+		if ((pfp = ctf_modopen(mod->mod_mp, &error)) == NULL)
 			goto err;
 
 		if (ctf_import(fp, pfp) != 0) {

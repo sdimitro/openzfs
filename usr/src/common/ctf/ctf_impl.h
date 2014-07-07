@@ -211,7 +211,6 @@ struct ctf_file {
 	ulong_t ctf_dtnextid;	/* next dynamic type id to assign */
 	ulong_t ctf_dtoldid;	/* oldest id that has been committed */
 	void *ctf_specific;	/* data for ctf_get/setspecific */
-	const char *ctf_modname;	/* name of module this file came from */
 };
 
 #define	LCTF_INDEX_TO_TYPEPTR(fp, i) \

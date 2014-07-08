@@ -25,6 +25,10 @@
  */
 
 /*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
+
+/*
  *
  * Copyright (c) 2004 Christian Limpach.
  * All rights reserved.
@@ -189,12 +193,24 @@ boolean_t xnf_multicast_control = B_TRUE;
  */
 size_t xnf_rx_copy_limit = 64;
 
+
+/*
+ * Provide a way to run with dynamic RX and TX ring sizes.
+ *
+ * Note: When specifying these variables in /etc/system the values must
+ *       be a power of 2 and less than or equal to NET_TX_RING_SIZE_MAX
+ *       or NET_RX_RING_SIZE respectively.
+ */
+unsigned int xnf_dynamic_tx_ring_size = NET_TX_RING_SIZE_DEFAULT;
+unsigned int xnf_dynamic_rx_ring_size = NET_RX_RING_SIZE_DEFAULT;
+
 #define	INVALID_GRANT_HANDLE	((grant_handle_t)-1)
 #define	INVALID_GRANT_REF	((grant_ref_t)-1)
 #define	INVALID_TX_ID		((uint16_t)-1)
 
 #define	TX_ID_TO_TXID(p, id) (&((p)->xnf_tx_pkt_id[(id)]))
-#define	TX_ID_VALID(i) (((i) != INVALID_TX_ID) && ((i) < NET_TX_RING_SIZE))
+#define	TX_ID_VALID(i) \
+	(((i) != INVALID_TX_ID) && ((i) < xnf_dynamic_tx_ring_size))
 
 /* Required system entry points */
 static int	xnf_attach(dev_info_t *, ddi_attach_cmd_t);
@@ -329,6 +345,28 @@ _init(void)
 	r = mod_install(&modlinkage);
 	if (r != DDI_SUCCESS)
 		mac_fini_ops(&xnf_dev_ops);
+
+	/*
+	 * Sanity check, because these values can be configured
+	 * via /etc/system
+	 */
+	if (xnf_dynamic_tx_ring_size > NET_TX_RING_SIZE_MAX ||
+	    xnf_dynamic_tx_ring_size < NET_TX_RING_SIZE_DEFAULT) {
+		cmn_err(CE_WARN, "xnf_dynamic_tx_ring_size invalid: %u",
+		    xnf_dynamic_tx_ring_size);
+		xnf_dynamic_tx_ring_size = NET_TX_RING_SIZE_DEFAULT;
+	} else {
+		xnf_dynamic_tx_ring_size = __RD32(xnf_dynamic_tx_ring_size);
+	}
+
+	if (xnf_dynamic_rx_ring_size > NET_RX_RING_SIZE_MAX ||
+	    xnf_dynamic_rx_ring_size < NET_RX_RING_SIZE_DEFAULT) {
+		cmn_err(CE_WARN, "xnf_dynamic_rx_ring_size invalid: %u",
+		    xnf_dynamic_rx_ring_size);
+		xnf_dynamic_rx_ring_size = NET_RX_RING_SIZE_DEFAULT;
+	} else {
+		xnf_dynamic_rx_ring_size = __RD32(xnf_dynamic_rx_ring_size);
+	}
 
 	return (r);
 }
@@ -518,7 +556,7 @@ xnf_setup_rings(xnf_t *xnfp)
 	 */
 	xnfp->xnf_tx_pkt_id_head = INVALID_TX_ID; /* I.e. emtpy list. */
 	for (i = 0, tidp = &xnfp->xnf_tx_pkt_id[0];
-	    i < NET_TX_RING_SIZE;
+	    i < xnf_dynamic_tx_ring_size;
 	    i++, tidp++) {
 		xnf_txbuf_t *txp;
 
@@ -566,8 +604,7 @@ xnf_setup_rings(xnf_t *xnfp)
 			 * over the empty slot.
 			 */
 			i++;
-			ASSERT(i < NET_TX_RING_SIZE);
-
+			ASSERT3U(i, <, xnf_dynamic_tx_ring_size);
 			break;
 
 		case TX_MCAST_RSP:
@@ -590,7 +627,7 @@ xnf_setup_rings(xnf_t *xnfp)
 	 * before we reset it.
 	 */
 	for (i = 0, bdescp = &xnfp->xnf_rx_pkt_info[0];
-	    i < NET_RX_RING_SIZE;
+	    i < xnf_dynamic_rx_ring_size;
 	    i++, bdescp++) {
 		if (*bdescp != NULL) {
 			xnf_buf_put(xnfp, *bdescp, B_FALSE);
@@ -607,7 +644,7 @@ xnf_setup_rings(xnf_t *xnfp)
 	/*
 	 * Fill the ring with buffers.
 	 */
-	for (i = 0; i < NET_RX_RING_SIZE; i++) {
+	for (i = 0; i < xnf_dynamic_rx_ring_size; i++) {
 		xnf_buf_t *bdesc;
 
 		bdesc = xnf_buf_get(xnfp, KM_SLEEP, B_FALSE);
@@ -828,6 +865,14 @@ xnf_attach(dev_info_t *devinfo, ddi_attach_cmd_t cmd)
 	if (macp == NULL)
 		return (DDI_FAILURE);
 	xnfp = kmem_zalloc(sizeof (*xnfp), KM_SLEEP);
+
+	xnfp->xnf_tx_pkt_id =
+	    kmem_zalloc(sizeof (xnf_txid_t) * xnf_dynamic_tx_ring_size,
+	    KM_SLEEP);
+
+	xnfp->xnf_rx_pkt_info =
+	    kmem_zalloc(sizeof (xnf_buf_t *) * xnf_dynamic_rx_ring_size,
+	    KM_SLEEP);
 
 	macp->m_dip = devinfo;
 	macp->m_driver = xnfp;
@@ -1657,7 +1702,7 @@ xnf_send(void *arg, mblk_t *mp)
 		 * into the ring in one go and would hence have to
 		 * un-prepare the extra.
 		 */
-		if (prepared == NET_TX_RING_SIZE)
+		if (prepared == xnf_dynamic_tx_ring_size)
 			break;
 	}
 
@@ -2261,7 +2306,7 @@ xnf_release_dma_resources(xnf_t *xnfp)
 	 * descriptors.
 	 */
 	mutex_enter(&xnfp->xnf_rxlock);
-	for (i = 0; i < NET_RX_RING_SIZE; i++) {
+	for (i = 0; i < xnf_dynamic_rx_ring_size; i++) {
 		xnf_buf_t *bp;
 
 		if ((bp = xnfp->xnf_rx_pkt_info[i]) == NULL)
@@ -2298,7 +2343,7 @@ xnf_release_mblks(xnf_t *xnfp)
 	xnf_txid_t *tidp;
 
 	for (i = 0, tidp = &xnfp->xnf_tx_pkt_id[0];
-	    i < NET_TX_RING_SIZE;
+	    i < xnf_dynamic_tx_ring_size;
 	    i++, tidp++) {
 		xnf_txbuf_t *txp = tidp->txbuf;
 

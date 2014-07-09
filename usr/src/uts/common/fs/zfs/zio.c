@@ -1140,8 +1140,6 @@ zio_write_bp_init(zio_t *zio)
 			zio->io_pipeline |= ZIO_STAGE_DDT_WRITE;
 			return (ZIO_PIPELINE_CONTINUE);
 		}
-		zio->io_bp_override = NULL;
-		BP_ZERO(bp);
 	}
 
 	return (ZIO_PIPELINE_CONTINUE);

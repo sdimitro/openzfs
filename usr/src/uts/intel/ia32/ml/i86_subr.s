@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2012 Nexenta Systems, Inc. All rights reserved.
+ * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
@@ -3948,6 +3948,8 @@ bcmp(const void *s1, const void *s2, size_t count)
 	pushq	%rbp
 	movq	%rsp, %rbp
 #ifdef DEBUG
+	testq	%rdx,%rdx
+	je	1f
 	movq	postbootkernelbase(%rip), %r11
 	cmpq	%r11, %rdi
 	jb	0f
@@ -3976,6 +3978,8 @@ bcmp(const void *s1, const void *s2, size_t count)
 	pushl	%ebp
 	movl	%esp, %ebp	/ create new stack frame
 #ifdef DEBUG
+	cmpl	$0, ARG_LENGTH(%ebp)
+	je	1f
 	movl    postbootkernelbase, %eax
 	cmpl    %eax, ARG_S1(%ebp)
 	jb	0f

@@ -251,6 +251,18 @@ file path=opt/SUNWdtrt/tst/common/aggs/err.D_TRUNC_AGGARG.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/aggs/err.D_TRUNC_PROTO.badmany.d mode=0444
 file path=opt/SUNWdtrt/tst/common/aggs/err.D_TRUNC_PROTO.badnone.d mode=0444
 file path=opt/SUNWdtrt/tst/common/aggs/err.D_TRUNC_SCALAR.bad.d mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggencoding.d mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggencoding.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.agghist.d mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.agghist.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggpack.d mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggpack.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggpackbanner.ksh mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggpackbanner.ksh.out mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggpackzoom.d mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggpackzoom.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggzoom.d mode=0444
+file path=opt/SUNWdtrt/tst/common/aggs/tst.aggzoom.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/aggs/tst.allquant.d mode=0444
 file path=opt/SUNWdtrt/tst/common/aggs/tst.allquant.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/aggs/tst.avg.d mode=0444
@@ -373,6 +385,7 @@ file path=opt/SUNWdtrt/tst/common/arithmetic/tst.compnarrowassign.d.out \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/arithmetic/tst.execcast.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arithmetic/tst.execcast.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/arithmetic/tst.nonarrow.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/arrays/err.D_ARR_BADREF.bad.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arrays/err.D_DECL_ARRBIG.toobig.d mode=0444
 file path=opt/SUNWdtrt/tst/common/arrays/err.D_DECL_ARRNULL.bad.d mode=0444
@@ -1058,6 +1071,7 @@ file path=opt/SUNWdtrt/tst/common/misc/err.D_PRAGMA_OPTSET.d mode=0444
 file path=opt/SUNWdtrt/tst/common/misc/tst.badopt.d mode=0444
 file path=opt/SUNWdtrt/tst/common/misc/tst.boolopt.d mode=0444
 file path=opt/SUNWdtrt/tst/common/misc/tst.boolopt.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/misc/tst.dofmax.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/misc/tst.dynopt.d mode=0444
 file path=opt/SUNWdtrt/tst/common/misc/tst.dynopt.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/misc/tst.enablerace.ksh mode=0444

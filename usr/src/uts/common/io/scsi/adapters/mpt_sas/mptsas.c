@@ -23,6 +23,7 @@
  * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
+ * Copyright 2014 OmniTI Computer Consulting, Inc. All rights reserved.
  */
 
 /*
@@ -2021,6 +2022,7 @@ mptsas_alloc_handshake_msg(mptsas_t *mpt, size_t alloc_size)
 {
 	ddi_dma_attr_t	task_dma_attrs;
 
+	mpt->m_hshk_dma_size = 0;
 	task_dma_attrs = mpt->m_msg_dma_attr;
 	task_dma_attrs.dma_attr_sgllen = 1;
 	task_dma_attrs.dma_attr_granular = (uint32_t)(alloc_size);
@@ -2039,6 +2041,8 @@ mptsas_alloc_handshake_msg(mptsas_t *mpt, size_t alloc_size)
 static void
 mptsas_free_handshake_msg(mptsas_t *mpt)
 {
+	if (mpt->m_hshk_dma_size == 0)
+		return;
 	mptsas_dma_addr_destroy(&mpt->m_hshk_dma_hdl, &mpt->m_hshk_acc_hdl);
 	mpt->m_hshk_dma_size = 0;
 }
@@ -15270,6 +15274,15 @@ mptsas_tgt_alloc(mptsas_t *mpt, uint16_t devhdl, uint64_t wwid,
 	return (tmp_tgt);
 }
 
+static void
+mptsas_smp_target_copy(mptsas_smp_t *src, mptsas_smp_t *dst)
+{
+	dst->m_devhdl = src->m_devhdl;
+	dst->m_deviceinfo = src->m_deviceinfo;
+	dst->m_pdevhdl = src->m_pdevhdl;
+	dst->m_pdevinfo = src->m_pdevinfo;
+}
+
 static mptsas_smp_t *
 mptsas_smp_alloc(mptsas_t *mpt, mptsas_smp_t *data)
 {
@@ -15279,8 +15292,14 @@ mptsas_smp_alloc(mptsas_t *mpt, mptsas_smp_t *data)
 	addr.mta_wwn = data->m_addr.mta_wwn;
 	addr.mta_phymask = data->m_addr.mta_phymask;
 	ret_data = refhash_lookup(mpt->m_smp_targets, &addr);
+	/*
+	 * If there's already a matching SMP target, update its fields
+	 * in place.  Since the address is not changing, it's safe to do
+	 * this.  We cannot just bcopy() here because the structure we've
+	 * been given has invalid hash links.
+	 */
 	if (ret_data != NULL) {
-		bcopy(data, ret_data, sizeof (mptsas_smp_t)); /* XXX - dupl */
+		mptsas_smp_target_copy(data, ret_data);
 		return (ret_data);
 	}
 
@@ -15444,7 +15463,6 @@ mptsas_dma_addr_create(mptsas_t *mpt, ddi_dma_attr_t dma_attr,
 
 	if (ddi_dma_alloc_handle(mpt->m_dip, &dma_attr, DDI_DMA_SLEEP,
 	    NULL, dma_hdp) != DDI_SUCCESS) {
-		dma_hdp = NULL;
 		return (FALSE);
 	}
 
@@ -15452,7 +15470,6 @@ mptsas_dma_addr_create(mptsas_t *mpt, ddi_dma_attr_t dma_attr,
 	    DDI_DMA_CONSISTENT, DDI_DMA_SLEEP, NULL, dma_memp, &alloc_len,
 	    acc_hdp) != DDI_SUCCESS) {
 		ddi_dma_free_handle(dma_hdp);
-		dma_hdp = NULL;
 		return (FALSE);
 	}
 
@@ -15461,7 +15478,6 @@ mptsas_dma_addr_create(mptsas_t *mpt, ddi_dma_attr_t dma_attr,
 	    cookiep, &ncookie) != DDI_DMA_MAPPED) {
 		(void) ddi_dma_mem_free(acc_hdp);
 		ddi_dma_free_handle(dma_hdp);
-		dma_hdp = NULL;
 		return (FALSE);
 	}
 
@@ -15477,5 +15493,4 @@ mptsas_dma_addr_destroy(ddi_dma_handle_t *dma_hdp, ddi_acc_handle_t *acc_hdp)
 	(void) ddi_dma_unbind_handle(*dma_hdp);
 	(void) ddi_dma_mem_free(acc_hdp);
 	ddi_dma_free_handle(dma_hdp);
-	dma_hdp = NULL;
 }

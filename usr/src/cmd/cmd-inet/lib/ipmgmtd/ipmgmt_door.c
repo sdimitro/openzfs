@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -313,7 +314,7 @@ ipmgmt_setaddr_handler(void *argp)
 	int			err = 0;
 
 	nvlbuf = (char *)argp + sizeof (ipmgmt_setaddr_arg_t);
-	if ((err = nvlist_unpack(nvlbuf, nvlsize, &nvl, NV_ENCODE_NATIVE)) != 0)
+	if ((err = nvlist_unpack(nvlbuf, nvlsize, &nvl, 0)) != 0)
 		goto ret;
 	if (flags & (IPMGMT_ACTIVE|IPMGMT_INIT)) {
 		if ((err = i_ipmgmt_nvl2aobjnode(nvl, &node)) != 0)
@@ -660,8 +661,7 @@ ipmgmt_getaddr_handler(void *argp)
 	if (err != 0)
 		goto fail;
 
-	if ((err = nvlist_size(cbarg.cb_onvl, &onvlsize,
-	    NV_ENCODE_NATIVE)) != 0) {
+	if ((err = nvlist_size(cbarg.cb_onvl, &onvlsize, NV_ENCODE_XDR)) != 0) {
 		goto fail;
 	}
 	buflen = onvlsize + sizeof (ipmgmt_get_rval_t);
@@ -672,7 +672,7 @@ ipmgmt_getaddr_handler(void *argp)
 	buf = alloca(buflen);
 	onvlbuf = buf + sizeof (ipmgmt_get_rval_t);
 	if ((err = nvlist_pack(cbarg.cb_onvl, &onvlbuf, &onvlsize,
-	    NV_ENCODE_NATIVE, 0)) != 0) {
+	    NV_ENCODE_XDR, 0)) != 0) {
 		goto fail;
 	}
 	nvlist_free(cbarg.cb_onvl);
@@ -786,7 +786,7 @@ ipmgmt_initif_handler(void *argp)
 	bzero(&cbarg, sizeof (cbarg));
 	invlbuf = (char *)argp + sizeof (ipmgmt_initif_arg_t);
 	nvlsize = initif->ia_nvlsize;
-	err = nvlist_unpack(invlbuf, nvlsize, &cbarg.cb_invl, NV_ENCODE_NATIVE);
+	err = nvlist_unpack(invlbuf, nvlsize, &cbarg.cb_invl, 0);
 	if (err != 0)
 		goto fail;
 
@@ -805,7 +805,7 @@ ipmgmt_initif_handler(void *argp)
 	if (err != 0)
 		goto fail;
 
-	if ((err = nvlist_size(cbarg.cb_onvl, &nvlsize, NV_ENCODE_NATIVE)) != 0)
+	if ((err = nvlist_size(cbarg.cb_onvl, &nvlsize, NV_ENCODE_XDR)) != 0)
 		goto fail;
 	buflen = nvlsize + sizeof (ipmgmt_get_rval_t);
 	/*
@@ -815,7 +815,7 @@ ipmgmt_initif_handler(void *argp)
 	buf = alloca(buflen);
 	onvlbuf = buf + sizeof (ipmgmt_get_rval_t);
 	if ((err = nvlist_pack(cbarg.cb_onvl, &onvlbuf, &nvlsize,
-	    NV_ENCODE_NATIVE, 0)) != 0) {
+	    NV_ENCODE_XDR, 0)) != 0) {
 		goto fail;
 	}
 	nvlist_free(cbarg.cb_invl);

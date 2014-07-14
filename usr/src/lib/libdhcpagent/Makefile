@@ -22,7 +22,7 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 include ../Makefile.lib
@@ -30,6 +30,7 @@ include ../Makefile.lib
 HDRS =		dhcp_hostconf.h dhcpagent_ipc.h dhcpagent_util.h dhcp_stable.h
 HDRDIR =	common
 SUBDIRS =	$(MACH)
+$(BUILD64)SUBDIRS += $(MACH64)
 
 all :=		TARGET = all
 clean :=	TARGET = clean

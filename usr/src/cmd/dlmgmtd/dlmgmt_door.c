@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -1102,7 +1103,7 @@ dlmgmt_getconfsnapshot(void *argp, void *retp, size_t *sz, zoneid_t zoneid,
 		}
 	}
 
-	if ((err = nvlist_size(nvl, &nvlsz, NV_ENCODE_NATIVE)) != 0)
+	if ((err = nvlist_size(nvl, &nvlsz, NV_ENCODE_XDR)) != 0)
 		goto done;
 
 	if (nvlsz + sizeof (dlmgmt_getconfsnapshot_retval_t) > *sz) {
@@ -1117,7 +1118,7 @@ dlmgmt_getconfsnapshot(void *argp, void *retp, size_t *sz, zoneid_t zoneid,
 	*sz = nvlsz + sizeof (dlmgmt_getconfsnapshot_retval_t);
 	retvalp->lr_nvlsz = nvlsz;
 	buf = (char *)retvalp + sizeof (dlmgmt_getconfsnapshot_retval_t);
-	err = nvlist_pack(nvl, &buf, &nvlsz, NV_ENCODE_NATIVE, 0);
+	err = nvlist_pack(nvl, &buf, &nvlsz, NV_ENCODE_XDR, 0);
 
 done:
 	dlmgmt_table_unlock();

@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <door.h>
@@ -397,7 +398,7 @@ again:
 	confp->ds_readonly = B_TRUE;
 	nvlbuf = (char *)retvalp + sizeof (dlmgmt_getconfsnapshot_retval_t);
 	if ((err = nvlist_unpack(nvlbuf, retvalp->lr_nvlsz,
-	    &(confp->ds_nvl), NV_ENCODE_NATIVE)) != 0) {
+	    &(confp->ds_nvl), 0)) != 0) {
 		status = dladm_errno2status(err);
 	}
 	free(retvalp);

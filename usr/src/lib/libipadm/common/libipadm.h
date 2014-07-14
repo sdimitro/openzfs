@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 #ifndef _LIBIPADM_H
 #define	_LIBIPADM_H
@@ -191,13 +192,20 @@ typedef enum {
 	IFIS_DISABLED		/* Interface has been disabled. */
 } ipadm_if_state_t;
 
+typedef union ipadm_if_info_linkage_u {
+	struct ipadm_if_info_s	*ifl_next;
+	uint64_t		_ifl_align;
+} ipadm_if_info_linkage_t;
+
 typedef struct ipadm_if_info_s {
-	struct ipadm_if_info_s	*ifi_next;
+	ipadm_if_info_linkage_t	ifi_linkage;
 	char			ifi_name[LIFNAMSIZ];	/* interface name */
 	ipadm_if_state_t	ifi_state;		/* see above */
 	uint_t			ifi_cflags;		/* current flags */
 	uint_t			ifi_pflags;		/* persistent flags */
 } ipadm_if_info_t;
+
+#define	ifi_next	ifi_linkage.ifl_next
 
 /* ipadm_if_info_t flags */
 #define	IFIF_BROADCAST		0x00000001

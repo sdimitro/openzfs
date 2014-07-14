@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -778,7 +779,7 @@ i_ipadm_init_ifs(ipadm_handle_t iph, const char *ifs, nvlist_t **allifs)
 	if ((err = ipadm_str2nvlist(ifs, &nvl, IPADM_NORVAL)) != 0)
 		return (ipadm_errno2status(err));
 
-	err = nvlist_pack(nvl, &nvlbuf, &nvlsize, NV_ENCODE_NATIVE, 0);
+	err = nvlist_pack(nvl, &nvlbuf, &nvlsize, NV_ENCODE_XDR, 0);
 	if (err != 0) {
 		status = ipadm_errno2status(err);
 		goto done;
@@ -813,7 +814,7 @@ i_ipadm_init_ifs(ipadm_handle_t iph, const char *ifs, nvlist_t **allifs)
 	 * nvlbuf contains a list of nvlists, each of which represents
 	 * configuration information for the given interface(s)
 	 */
-	err = nvlist_unpack(nvlbuf, nvlsize, allifs, NV_ENCODE_NATIVE);
+	err = nvlist_unpack(nvlbuf, nvlsize, allifs, 0);
 	if (err != 0)
 		status = ipadm_errno2status(err);
 done:

@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -98,9 +99,10 @@ typedef struct dlmgmt_door_setattr_s {
 	int			ld_cmd;
 	int			ld_confid;
 	char			ld_attr[MAXLINKATTRLEN];
-	size_t			ld_attrsz;
+	uint64_t		ld_attrsz;
 	dladm_datatype_t	ld_type;
 	char			ld_attrval[MAXLINKATTRVALLEN];
+	uint32_t		_ld_padding;
 } dlmgmt_door_setattr_t;
 
 typedef struct dlmgmt_door_unsetattr_s {
@@ -152,7 +154,8 @@ typedef struct dlmgmt_openconf_retval_s {
 
 typedef struct dlmgmt_getconfsnapshot_retval_s {
 	uint_t		lr_err;
-	size_t		lr_nvlsz;
+	uint32_t	_lr_padding;
+	uint64_t	lr_nvlsz;
 	/* buffer for nvl */
 } dlmgmt_getconfsnapshot_retval_t;
 

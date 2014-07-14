@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -2386,7 +2386,7 @@ i_ipadm_get_db_addr(ipadm_handle_t iph, const char *ifname,
 	if (err == 0) {
 		nvlsize = rvalp->ir_nvlsize;
 		nvlbuf = (char *)rvalp + sizeof (ipmgmt_get_rval_t);
-		err = nvlist_unpack(nvlbuf, nvlsize, onvl, NV_ENCODE_NATIVE);
+		err = nvlist_unpack(nvlbuf, nvlsize, onvl, 0);
 	}
 	free(rvalp);
 	return (ipadm_errno2status(err));
@@ -3129,7 +3129,7 @@ i_ipadm_addr_persist_nvl(ipadm_handle_t iph, nvlist_t *nvl, uint32_t flags)
 	ipmgmt_setaddr_arg_t	*sargp;
 	int			err;
 
-	err = nvlist_pack(nvl, &nvlbuf, &nvlsize, NV_ENCODE_NATIVE, 0);
+	err = nvlist_pack(nvl, &nvlbuf, &nvlsize, NV_ENCODE_XDR, 0);
 	if (err != 0)
 		return (ipadm_errno2status(err));
 	bufsize = sizeof (*sargp) + nvlsize;

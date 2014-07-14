@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #ifndef _IPADM_IPMGMT_H
@@ -172,7 +173,8 @@ typedef struct ipmgmt_initif_arg_s {
 	ipmgmt_door_cmd_type_t	ia_cmd;
 	uint32_t	ia_flags;
 	sa_family_t	ia_family;
-	size_t		ia_nvlsize;
+	uint32_t	_ia_padding;
+	uint64_t	ia_nvlsize;
 	/* packed nvl follows */
 } ipmgmt_initif_arg_t;
 
@@ -180,7 +182,7 @@ typedef struct ipmgmt_initif_arg_s {
 typedef struct ipmgmt_setaddr_arg_s {
 	ipmgmt_door_cmd_type_t	ia_cmd;
 	uint32_t		ia_flags;
-	size_t			ia_nvlsize;
+	uint64_t		ia_nvlsize;
 	/* packed nvl follows */
 } ipmgmt_setaddr_arg_t;
 
@@ -234,7 +236,8 @@ typedef struct ipmgmt_retval_s {
 /* IPMGMT_CMD_GETADDR door_return value */
 typedef struct ipmgmt_get_rval_s {
 	int32_t		ir_err;
-	size_t		ir_nvlsize;
+	uint32_t	_ir_padding;
+	uint64_t	ir_nvlsize;
 	/* packed nvl follows */
 } ipmgmt_get_rval_t;
 

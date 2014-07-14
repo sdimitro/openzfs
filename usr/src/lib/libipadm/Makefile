@@ -22,6 +22,7 @@
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 include $(SRC)/lib/Makefile.lib
@@ -29,6 +30,7 @@ include $(SRC)/lib/Makefile.lib
 HDRS =		libipadm.h ipadm_ndpd.h ipadm_ipmgmt.h
 HDRDIR =	common
 SUBDIRS =	$(MACH)
+$(BUILD64)SUBDIRS += $(MACH64)
 POFILE =	libipadm.po
 MSGFILES =	common/libipadm.c common/ipadm_prop.c common/ipadm_persist.c \
 		common/ipadm_addr.c common/ipadm_if.c common/ipadm_ndpd.c

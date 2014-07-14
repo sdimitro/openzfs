@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  */
 
 #include <errno.h>
@@ -1437,6 +1437,13 @@ ipadm_if_info(ipadm_handle_t iph, const char *ifname,
 		return (status);
 	if (ifname != NULL && *if_info == NULL)
 		return (IPADM_ENXIO);
+
+	/*
+	 * If there's more than one interface in the list we're returning and
+	 * the caller requested information for a single interface, then
+	 * there's something wrong.
+	 */
+	assert(ifname == NULL || (*if_info)->ifi_next == NULL);
 
 	return (IPADM_SUCCESS);
 }

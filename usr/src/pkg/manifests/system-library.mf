@@ -24,7 +24,7 @@
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright (c) 2013 Gary Mills
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 <include system-library.man3.inc>
@@ -182,6 +182,7 @@ file path=lib/$(ARCH64)/libcurses.so.1
 file path=lib/$(ARCH64)/libdevice.so.1
 file path=lib/$(ARCH64)/libdevid.so.1
 file path=lib/$(ARCH64)/libdevinfo.so.1
+file path=lib/$(ARCH64)/libdhcpagent.so.1
 file path=lib/$(ARCH64)/libdhcputil.so.1
 file path=lib/$(ARCH64)/libdl.so.1
 file path=lib/$(ARCH64)/libdladm.so.1
@@ -193,6 +194,7 @@ $(i386_ONLY)file path=lib/$(ARCH64)/libfdisk.so.1
 file path=lib/$(ARCH64)/libgen.so.1
 file path=lib/$(ARCH64)/libinetutil.so.1
 file path=lib/$(ARCH64)/libintl.so.1
+file path=lib/$(ARCH64)/libipadm.so.1
 file path=lib/$(ARCH64)/libkmf.so.1
 file path=lib/$(ARCH64)/libkmfberder.so.1
 file path=lib/$(ARCH64)/libkstat.so.1
@@ -614,6 +616,7 @@ link path=lib/$(ARCH64)/libelf.so target=libelf.so.1
 $(i386_ONLY)link path=lib/$(ARCH64)/libfdisk.so target=libfdisk.so.1
 link path=lib/$(ARCH64)/libgen.so target=libgen.so.1
 link path=lib/$(ARCH64)/libintl.so target=libintl.so.1
+link path=lib/$(ARCH64)/libipadm.so target=libipadm.so.1
 link path=lib/$(ARCH64)/libkmf.so target=libkmf.so.1
 link path=lib/$(ARCH64)/libkmfberder.so target=libkmfberder.so.1
 link path=lib/$(ARCH64)/libkstat.so target=libkstat.so.1

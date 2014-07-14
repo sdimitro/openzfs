@@ -23,7 +23,7 @@
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 #
@@ -119,6 +119,8 @@ usr/include/ipadm_ndpd.h
 usr/include/libipadm.h
 lib/llib-lipadm
 lib/llib-lipadm.ln
+lib/amd64/llib-lipadm.ln		i386
+lib/sparcv9/llib-lipadm.ln		sparc
 #
 # Private libsocket header file
 #
@@ -229,12 +231,16 @@ usr/include/sys/kmdb.h
 #
 lib/libdhcpagent.so
 lib/libdhcputil.so
+lib/amd64/libdhcpagent.so		i386
+lib/sparcv9/libdhcpagent.so		sparc
 lib/amd64/libdhcputil.so		i386
 lib/sparcv9/libdhcputil.so		sparc
 lib/llib-ldhcpagent
 lib/llib-ldhcpagent.ln
 lib/llib-ldhcputil
 lib/llib-ldhcputil.ln
+lib/amd64/llib-ldhcpagent.ln		i386
+lib/sparcv9/llib-ldhcpagent.ln		sparc
 lib/amd64/llib-ldhcputil.ln		i386
 lib/sparcv9/llib-ldhcputil.ln		sparc
 usr/include/dhcp_hostconf.h

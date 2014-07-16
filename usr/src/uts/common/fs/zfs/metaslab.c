@@ -501,9 +501,10 @@ metaslab_compare_seg(const void* x1, const void* x2)
 /*
  * Update the allocatable flag and the metaslab group's capacity.
  * The allocatable flag is set to true if the capacity is below
- * the zfs_mg_noalloc_threshold. If a metaslab group transitions
- * from allocatable to non-allocatable or vice versa then the metaslab
- * group's class is updated to reflect the transition.
+ * the zfs_mg_noalloc_threshold or has a fragmentation value that is
+ * greater than zfs_mg_fragmentation_threshold. If a metaslab group
+ * transitions from allocatable to non-allocatable or vice versa then the
+ * metaslab group's class is updated to reflect the transition.
  */
 static void
 metaslab_group_alloc_update(metaslab_group_t *mg)
@@ -837,39 +838,54 @@ metaslab_group_fragmentation(metaslab_group_t *mg)
  * that can still handle allocations.
  */
 static boolean_t
-metaslab_group_allocatable(metaslab_group_t *mg)
+metaslab_group_allocatable(metaslab_group_t *mg, uint64_t psize)
 {
 	vdev_t *vd = mg->mg_vd;
 	spa_t *spa = vd->vdev_spa;
 	metaslab_class_t *mc = mg->mg_class;
 
+	if (mc != spa_normal_class(spa))
+		return (B_TRUE);
+
 	if (zio_dva_throttle_enabled) {
+		/*
+		 * The call to metaslab_alloc_throttle() will determine
+		 * if all metaslab groups have been throttled. When we
+		 * reach this condition we no longer allow devices
+		 * to skip allocations based on queue depth. Since vdevs
+		 * update their throttled status only after updating their
+		 * queue depth value we must hold the mutex across the call
+		 * to metaslab_alloc_throttle(). If the mutex were not held
+		 * then we may inadvertently detect that a vdev has reached
+		 * its maximum queue depth before it has updated the metaslab
+		 * group's throttled status and skip it. This would lead
+		 * to premature ganging and would adversely impact performance.
+		 */
+		mutex_enter(&vd->vdev_queue_lock);
+		uint64_t qdepth = vd->vdev_async_write_queue_depth;
+		uint64_t qmax = vd->vdev_max_async_write_queue_depth;
+		boolean_t throttled = metaslab_alloc_throttle(mc);
+		mutex_exit(&vd->vdev_queue_lock);
+
 		/*
 		 * Skip over this vdev if it has already reached its
 		 * queue depth and there are other vdevs that have
 		 * not.
 		 */
-		if (vd->vdev_async_write_queue_depth >=
-		    vd->vdev_max_async_write_queue_depth &&
-		    !metaslab_alloc_throttle(mg->mg_class))
+		if (qdepth >= qmax && !throttled)
 			return (B_FALSE);
 	}
 
 	/*
-	 * We use two key metrics to determine if a metaslab group is
-	 * considered allocatable -- free space and fragmentation. If
-	 * the free space is greater than the free space threshold and
-	 * the fragmentation is less than the fragmentation threshold then
-	 * consider the group allocatable. There are two case when we will
-	 * not consider these key metrics. The first is if the group is
-	 * associated with a slog device and the second is if all groups
-	 * in this metaslab class have already been consider ineligible
-	 * for allocations.
+	 * If the metaslab group's mg_allocatable flag is set (see comments
+	 * in metaslab_group_alloc_update() for more information) then
+	 * allow allocations to this device. However, if all metaslab
+	 * groups are no longer considered allocatable (mc_alloc_groups == 0)
+	 * or we're trying to allocate the smallest gang block size then
+	 * we must allow allocations on this metaslab group.
 	 */
-	return ((mg->mg_free_capacity > zfs_mg_noalloc_threshold &&
-	    (mg->mg_fragmentation == ZFS_FRAG_INVALID ||
-	    mg->mg_fragmentation <= zfs_mg_fragmentation_threshold)) ||
-	    mc != spa_normal_class(spa) || mc->mc_alloc_groups == 0);
+	return (mg->mg_allocatable || mc->mc_alloc_groups == 0 ||
+	    psize == SPA_GANGBLOCKSIZE);
 }
 
 /*
@@ -2650,24 +2666,19 @@ top:
 
 		/*
 		 * Determine if the selected metaslab group is eligible
-		 * for allocations. If we're ganging or have requested
-		 * an allocation for the smallest gang block size
-		 * then we don't want to avoid allocating to the this
-		 * metaslab group. If we're in this condition we should
-		 * try to allocate from any device possible so that we
-		 * don't inadvertently return ENOSPC and suspend the pool
+		 * for allocations. If we're ganging then don't allow
+		 * this metaslab group to skip allocations since that would
+		 * inadvertently return ENOSPC and suspend the pool
 		 * even though space is still available.
 		 */
-		if (allocatable && CAN_FASTGANG(flags) &&
-		    psize > SPA_GANGBLOCKSIZE)
-			allocatable = metaslab_group_allocatable(mg);
+		if (allocatable && CAN_FASTGANG(flags))
+			allocatable = metaslab_group_allocatable(mg, psize);
 
 		if (!allocatable)
 			goto next;
 
 		/*
-		 * Avoid writing single-copy data to a failing vdev
-		 * unless the user instructs us that it is okay.
+		 * Avoid writing single-copy data to a failing vdev.
 		 */
 		if ((vd->vdev_stat.vs_write_errors > 0 ||
 		    vd->vdev_state < VDEV_STATE_HEALTHY) &&

@@ -318,7 +318,6 @@ vdev_queue_depth_decrement(vdev_queue_t *vq)
 		ASSERT3U(mc->mc_groups_throttled, >, 0);
 		mc->mc_groups_throttled--;
 		mutex_exit(&mc->mc_lock);
-
 	}
 
 	/*

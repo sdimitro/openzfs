@@ -1420,7 +1420,6 @@ metaslab_init(metaslab_group_t *mg, uint64_t id, uint64_t object, uint64_t txg)
 	metaslab_group_add(mg, msp);
 
 	metaslab_set_fragmentation(msp);
-	msp->ms_ops = mg->mg_class->mc_ops;
 
 	/*
 	 * If we're opening an existing pool (txg == 0) or creating
@@ -2278,16 +2277,17 @@ metaslab_block_alloc(metaslab_t *msp, uint64_t size,
 {
 	uint64_t start;
 	range_tree_t *rt = msp->ms_tree;
+	metaslab_class_t *mc = msp->ms_group->mg_class;
 
 	VERIFY(!msp->ms_condensing);
 
 	if (strategy == METASLAB_ALLOC_OPTIMAL) {
-		start = msp->ms_ops->msop_alloc(msp, size);
+		start = mc->mc_ops->msop_alloc(msp, size);
 	} else if (strategy == METASLAB_ALLOC_BEST_FIT) {
-		start = msp->ms_ops->msop_bf_alloc(msp, size);
+		start = mc->mc_ops->msop_bf_alloc(msp, size);
 	} else {
 		ASSERT3U(strategy, ==, METASLAB_ALLOC_PERFECT_FIT);
-		start = msp->ms_ops->msop_pf_alloc(msp, size);
+		start = mc->mc_ops->msop_pf_alloc(msp, size);
 	}
 	if (start != -1ULL) {
 		vdev_t *vd = msp->ms_group->mg_vd;

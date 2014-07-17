@@ -169,7 +169,6 @@ struct metaslab {
 	kmutex_t	ms_lock;
 	kcondvar_t	ms_load_cv;
 	space_map_t	*ms_sm;
-	metaslab_ops_t	*ms_ops;
 	uint64_t	ms_id;
 	uint64_t	ms_start;
 	uint64_t	ms_size;

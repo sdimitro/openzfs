@@ -2509,6 +2509,15 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 
 	if (!dump_opt['L']) {
 		vdev_t *rvd = spa->spa_root_vdev;
+
+		/*
+		 * We are going to be changing the meaning of the metaslab's
+		 * ms_tree.  Ensure that the allocator doesn't try to
+		 * use the tree.
+		 */
+		spa->spa_normal_class->mc_ops = &zdb_metaslab_ops;
+		spa->spa_log_class->mc_ops = &zdb_metaslab_ops;
+
 		for (uint64_t c = 0; c < rvd->vdev_children; c++) {
 			vdev_t *vd = rvd->vdev_child[c];
 			metaslab_group_t *mg = vd->vdev_mg;
@@ -2534,8 +2543,6 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 					    (longlong_t)rvd->vdev_children,
 					    (longlong_t)m,
 					    (longlong_t)vd->vdev_ms_count);
-
-					msp->ms_ops = &zdb_metaslab_ops;
 
 					/*
 					 * We don't want to spend the CPU

@@ -24,7 +24,9 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+ */
 
 #include <sys/dtrace_impl.h>
 #include <sys/stack.h>

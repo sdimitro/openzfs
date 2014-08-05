@@ -275,7 +275,7 @@ calculate_response(char *challenge, char *key,
 	hmac_offset = hmac[OFFSET_INDEX] & 0xF;
 	response_val = toint_truncate(hmac + hmac_offset,
 	    RESPONSE_LENGTH);
-	(void) snprintf(response, sizeof (response), "%u", response_val);
+	(void) snprintf(response, RESPONSE_LENGTH + 1, "%u", response_val);
 	return (0);
 }
 
@@ -436,6 +436,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		 * Validate the calculated response against the entered
 		 * response.
 		 */
+		if (strlen(user_response) != strlen(correct_response_val_str)) {
+			__pam_log(LOG_AUTH | LOG_DEBUG,
+			    "pam_challenge_response: wrong response length");
+			return (PAM_AUTH_ERR);
+		}
 		if (strncmp(user_response, correct_response_val_str,
 			strlen(correct_response_val_str)) == 0) {
 			return (PAM_SUCCESS);

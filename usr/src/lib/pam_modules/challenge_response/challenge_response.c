@@ -61,7 +61,7 @@
 			"https://www.register.delphix.com/\n\nusing the "\
 			"registration code below:"
 #define	READ_BUF_SIZE	1024
-#define	MSG_OFFSET(line,col)	((line) * (COL_WIDTH + 1) + col)
+#define	MSG_OFFSET(line, col)	((line) * (COL_WIDTH + 1) + col)
 
 /*
  * Fetch the system's UUID from BIOS and construct a string version of it in the
@@ -442,7 +442,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			return (PAM_AUTH_ERR);
 		}
 		if (strncmp(user_response, correct_response_val_str,
-			strlen(correct_response_val_str)) == 0) {
+		    strlen(correct_response_val_str)) == 0) {
 			return (PAM_SUCCESS);
 		} else {
 			return (PAM_AUTH_ERR);

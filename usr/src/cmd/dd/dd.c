@@ -25,6 +25,7 @@
  * Use is subject to license terms.
  * Copyright 2012, Josef 'Jeff' Sipek <jeffpc@31bits.net>. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -103,8 +104,8 @@
 #define	USAGE\
 	"usage: dd [if=file] [of=file] [ibs=n|nk|nb|nxm] [obs=n|nk|nb|nxm]\n"\
 	"	   [bs=n|nk|nb|nxm] [cbs=n|nk|nb|nxm] [files=n] [skip=n]\n"\
-	"	   [iseek=n] [oseek=n] [seek=n] [count=n] [conv=[ascii]\n"\
-	"	   [,ebcdic][,ibm][,asciib][,ebcdicb][,ibmb]\n"\
+	"	   [iseek=n] [oseek=n] [seek=n] [stride=n] [count=n]\n"\
+	"	   [conv=[ascii] [,ebcdic][,ibm][,asciib][,ebcdicb][,ibmb]\n"\
 	"	   [,block|unblock][,lcase|ucase][,swab]\n"\
 	"	   [,noerror][,notrunc][,sync]]\n"\
 	"	   [oflag=[dsync][sync]]\n"
@@ -147,6 +148,9 @@ static off_t	iseekn;	/* number of input records to seek past */
 static off_t	oseekn;	/* number of output records to seek past */
 static unsigned long long	count;	/* number of input records to copy */
 			/* (0 = all) */
+static off_t	ostriden;	/* number of output blocks to skip between */
+				/* records */
+
 static int	trantype; /* BSD or SVr4 compatible EBCDIC */
 
 static char		*string;	/* command arg pointer */
@@ -568,6 +572,11 @@ main(int argc, char **argv)
 			oseekn = number(BIG);
 			continue;
 		}
+		if (match("stride="))
+		{
+			ostriden = ((off_t)number(BIG)) - 1;
+			continue;
+		}
 		if (match("count="))
 		{
 			count = number(BIG);
@@ -716,6 +725,11 @@ main(int argc, char **argv)
 	{
 		(void) fprintf(stderr, "dd: %s\n",
 			gettext("buffer sizes cannot be zero"));
+		exit(2);
+	}
+	if (ostriden == (off_t)-1) {
+		(void) fprintf(stderr, "dd: %s\n",
+			gettext("stride must be greater than zero"));
 		exit(2);
 	}
 	if (conv == COPY)
@@ -1838,6 +1852,13 @@ static unsigned char
 				"wrote %d bytes, expected %d\n"), bc, oc);
 			term(2);
 		}
+
+		if (ostriden && lseek(obf, (((off_t)ostriden) * ((off_t)obs)),
+		    SEEK_CUR) == -1) {
+			perror("lseek");
+			exit(2);
+		}
+
 		obc -= oc;
 		op = obuf;
 		obytes += bc;

@@ -53,12 +53,41 @@
 #include <sys/blkptr.h>
 #include <sys/dsl_bookmark.h>
 #include <sys/zfeature.h>
+#include <sys/bqueue.h>
 
 /* Set this tunable to TRUE to replace corrupt data with 0x2f5baddb10c */
 int zfs_send_corrupt_data = B_FALSE;
+int zfs_send_queue_length = 16 * 1024 * 1024;
 
 static char *dmu_recv_tag = "dmu_recv_tag";
 static const char *recv_clone_name = "%recv";
+
+#define	BP_SPAN(datablkszsec, indblkshift, level) \
+	(((uint64_t)datablkszsec) << (SPA_MINBLOCKSHIFT + \
+	(level) * (indblkshift - SPA_BLKPTRSHIFT)))
+
+#define	BP_SPANB(indblkshift, level) \
+	(((uint64_t)1) << ((level) * ((indblkshift) - SPA_BLKPTRSHIFT)))
+#define	COMPARE_META_LEVEL	0x80000000ul
+
+struct send_thread_arg {
+	bqueue_t	q;
+	dsl_dataset_t	*ds;		/* Dataset to traverse */
+	uint64_t	fromtxg;	/* Traverse from this txg */
+	objset_t	*to_os;		/* The "to" objset (from thread only) */
+	int		flags;		/* flags to pass to traverse_dataset */
+	int		error_code;
+	boolean_t	cancel;
+};
+
+struct send_block_record {
+	boolean_t		eos_marker;
+	blkptr_t		bp;
+	zbookmark_phys_t	zb;
+	uint8_t			indblkshift;
+	uint16_t		datablkszsec;
+	bqueue_node_t		ln;
+};
 
 static int
 dump_bytes(dmu_sendarg_t *dsp, void *buf, int len)
@@ -435,38 +464,318 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
 	return (B_FALSE);
 }
 
-#define	BP_SPAN(dnp, level) \
-	(((uint64_t)dnp->dn_datablkszsec) << (SPA_MINBLOCKSHIFT + \
-	(level) * (dnp->dn_indblkshift - SPA_BLKPTRSHIFT)))
 
-/* ARGSUSED */
+/*
+ * Compare two zbookmark_phys_t's to see which we would reach first in a
+ * pre-order traversal of the object tree.
+ *
+ * This is simple in every case aside from the meta-dnode object. For all other
+ * objects, we traverse them in order (object 1 before object 2, and so on).
+ * However, all of these objects are traversed while traversing object 0, since
+ * the data it points to is the list of objects.  Thus, we need to convert to a
+ * canonical representation so we can compare meta-dnode bookmarks to
+ * non-meta-dnode bookmarks.
+ *
+ * We do this by calculating "equivalents" for each field of the zbookmark.
+ * zbookmarks outside of the meta-dnode use their own object and level, and
+ * calculate the level 0 equivalent (the first L0 blkid that is contained in the
+ * blocks this bookmark refers to) by multiplying their blkid by their span
+ * (the number of L0 blocks contained within one block at their level).
+ * zbookmarks inside the meta-dnode calculate their object equivalent
+ * (which is L0equiv * dnodes per data block), use 0 for their L0equiv, and use
+ * level + 1<<31 (any value larger than a level could ever be) for their level.
+ * This causes them to always compare before a bookmark in their object
+ * equivalent, compare appropriately to bookmarks in other objects, and to
+ * compare appropriately to other bookmarks in the meta-dnode.
+ */
 static int
-backup_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
-    const zbookmark_phys_t *zb, const dnode_phys_t *dnp, void *arg)
+zbookmark_compare(uint16_t dbss1, uint8_t ibs1, uint16_t dbss2, uint8_t ibs2,
+    const zbookmark_phys_t *zb1, const zbookmark_phys_t *zb2)
 {
-	dmu_sendarg_t *dsp = arg;
-	dmu_object_type_t type = bp ? BP_GET_TYPE(bp) : DMU_OT_NONE;
+	/*
+	 * These variables represent the "equivalent" values for the zbookmark,
+	 * after converting zbookmarks inside the meta dnode to their
+	 * normal-object equivalents.
+	 */
+	uint64_t zb1obj, zb2obj;
+	uint64_t zb1L0, zb2L0;
+	uint64_t zb1level, zb2level;
+
+	if (zb1->zb_object == zb2->zb_object &&
+	    zb1->zb_level == zb2->zb_level &&
+	    zb1->zb_blkid == zb2->zb_blkid)
+		return (0);
+
+	/*
+	 * BP_SPANB calculates the span in blocks.
+	 */
+	zb1L0 = (zb1->zb_blkid) * BP_SPANB(ibs1, zb1->zb_level);
+	zb2L0 = (zb2->zb_blkid) * BP_SPANB(ibs2, zb2->zb_level);
+
+	if (zb1->zb_object == DMU_META_DNODE_OBJECT) {
+		zb1obj = zb1L0 * (dbss1 << (SPA_MINBLOCKSHIFT - DNODE_SHIFT));
+		zb1L0 = 0;
+		zb1level = zb1->zb_level + COMPARE_META_LEVEL;
+	} else {
+		zb1obj = zb1->zb_object;
+		zb1level = zb1->zb_level;
+	}
+
+	if (zb2->zb_object == DMU_META_DNODE_OBJECT) {
+		zb2obj = zb2L0 * (dbss2 << (SPA_MINBLOCKSHIFT - DNODE_SHIFT));
+		zb2L0 = 0;
+		zb2level = zb2->zb_level + COMPARE_META_LEVEL;
+	} else {
+		zb2obj = zb2->zb_object;
+		zb2level = zb2->zb_level;
+	}
+
+	/* Now that we have a canonical representation, do the comparison. */
+	if (zb1obj != zb2obj)
+		return (zb1obj < zb2obj ? -1 : 1);
+	else if (zb1L0 != zb2L0)
+		return (zb1L0 < zb2L0 ? -1 : 1);
+	else if (zb1level != zb2level)
+		return (zb1level > zb2level ? -1 : 1);
+	/*
+	 * This can (theoretically) happen if the bookmarks have the same object
+	 * and level, but different blkids, if the block sizes are not the same.
+	 * There is presently no way to change the indirect block sizes
+	 */
+	return (0);
+}
+
+/*
+ * This thread finds any blocks in the given object between start and start +
+ * len (or the end of the file, if len is 0), and creates artificial records for
+ * them.  This will force the main thread to use the to_ds's version of the
+ * data.  It does this via dmu_offset_next, which intelligently traverses the
+ * tree using the blkfill field in the blkptrs.
+ */
+static int
+enqueue_range_blocks(objset_t *os, uint64_t object, uint64_t start,
+    uint64_t len, bqueue_t *bq) {
+	uint64_t offset = start;
+	int err = 0;
+	dmu_object_info_t doi;
+	err = dmu_object_info(os, object, &doi);
+	if (err != 0)
+		return (err);
+
+	err = dmu_offset_next(os, object, B_FALSE, &offset);
+	while ((len == 0 || offset < start + len) && err == 0) {
+		struct send_block_record *record;
+		record = kmem_zalloc(sizeof (*record), KM_SLEEP);
+		record->eos_marker = B_FALSE;
+		record->zb.zb_objset = os->os_dsl_dataset->ds_object;
+		record->zb.zb_object = object;
+		record->zb.zb_level = 0;
+		record->zb.zb_blkid = offset / (doi.doi_data_block_size);
+		record->indblkshift = highbit64(doi.doi_metadata_block_size)
+		    - 1;
+		record->datablkszsec = doi.doi_data_block_size >>
+		    SPA_MINBLOCKSHIFT;
+
+		dmu_prefetch(os, record->zb.zb_object, record->zb.zb_blkid,
+		    record->datablkszsec << SPA_MINBLOCKSHIFT,
+		    ZIO_PRIORITY_ASYNC_READ);
+		bqueue_enqueue(bq, record, doi.doi_data_block_size);
+		offset += doi.doi_data_block_size;
+		err = dmu_offset_next(os, object, B_FALSE, &offset);
+	}
+	if (err == ESRCH)
+		err = 0;
+	return (err);
+}
+
+static int
+enqueue_whole_object(objset_t *os, uint64_t object, bqueue_t *bq) {
+	int err = enqueue_range_blocks(os, object, 0, 0, bq);
+	if (err == ENOENT)
+		err = 0;
+	return (err);
+}
+
+/*
+ * This function handles some of the special cases described in send_cb.  If a
+ * hole is created in the meta-dnode, this thread calls hole_object on every
+ * object that is allocated in the corresponding range in the to_ds.  It finds
+ * these objects by using dmu_object_next, which uses the blkfill field of the
+ * blkptrs to efficiently traverse the tree.
+ *
+ * If a hole is created inside an object, we calculate the range it covers, and
+ * use equiv_find to fabricate records for any data blocks that might exist in
+ * to_ds.
+ *
+ * Finally, if neither of the above happened, and this is a level 0 block, we
+ * prefetch the data in the to_ds version of this block so that when the main
+ * thread goes to dump a write record, it ideally won't have to block too long,
+ * if at all.
+ */
+static int
+enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
+    uint8_t indblkshift, uint16_t datablkszsec, objset_t *to_os,
+    struct send_thread_arg *sta)
+{
+	uint64_t span = BP_SPAN(datablkszsec, indblkshift, zb->zb_level);
+	uint64_t blkid = zb->zb_blkid;
+	if (zb->zb_object == DMU_META_DNODE_OBJECT && BP_IS_HOLE(bp)) {
+		uint64_t start_object = 0;
+		uint64_t end_object = 0;
+		uint64_t curr;
+
+		start_object = curr = span * blkid >> DNODE_SHIFT;
+		end_object = start_object + (span >> DNODE_SHIFT);
+		err = dmu_object_next(to_os, &curr, B_FALSE, 0);
+		while (err == 0 && curr < end_object) {
+			err = enqueue_whole_object(to_os, curr, &sta->q);
+			if (err != 0)
+				break;
+			curr++;
+			err = dmu_object_next(to_os, &curr, B_FALSE, 0);
+		}
+		if (err == ESRCH)
+			err = 0;
+	} else if (BP_IS_HOLE(bp) && zb->zb_level > 0) {
+		err = enqueue_range_blocks(to_os, zb->zb_object, span * blkid,
+		    span, &sta->q);
+	} else if (zb->zb_level == 0 && zb->zb_object != DMU_META_DNODE_OBJECT) {
+		dmu_prefetch(to_os, zb->zb_object, blkid * span, span,
+		    ZIO_PRIORITY_ASYNC_READ);
+	}
+
+	return (err);
+}
+
+/*
+ * This is the callback function to traverse_dataset that acts as the worker
+ * thread for dmu_send_impl.  This thread manages some of the special cases that
+ * come up so dmu_send_impl doesn't have to worry about them.  These special
+ * cases only apply to the from_ds.
+ *
+ * The first case is if a hole is created in the meta-dnode.  This means that
+ * some block of dnodes was unallocated in the from_ds.  We need to go through
+ * each object in that range that is present in the to_ds and manually traverse
+ * it, because the to_ds may not do so if those objects have not been modified
+ * since the common ancestor.  This case is handled in enqueue_holes_prefetch.
+ *
+ * The second case is when one object is freed in the from_ds.  We need to
+ * manually traverse the version of the object in the to_ds, because to_ds
+ * thread won't necessarily do so.  We call hole_object to handle
+ * this if we find an unallocated dnode that is allocated in the to_ds.
+ *
+ * The third case is if a hole is created inside an object.  Again, we need to
+ * manually traverse that area.  This is also handled in enqueue_holes_prefetch.
+ */
+/*ARGSUSED*/
+static int
+send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
+    const zbookmark_phys_t *zb, const struct dnode_phys *dnp, void *arg) {
+	struct send_thread_arg *sta = arg;
+	objset_t *to_os = sta->to_os;
+	struct send_block_record *record;
+	uint64_t record_size;
 	int err = 0;
 
-	if (issig(JUSTLOOKING) && issig(FORREAL))
+	if (sta->cancel)
 		return (SET_ERROR(EINTR));
+
+	if (bp == NULL) {
+		if (dnp->dn_type == DMU_OT_NONE && to_os) {
+			dmu_object_info_t doi;
+			if (zb->zb_object == 0)
+				return (err);
+			err = dmu_object_info(to_os, zb->zb_object, &doi);
+			if (err == ENOENT) {
+				err = 0;
+			} else {
+				err = enqueue_whole_object(to_os, zb->zb_object,
+				    &sta->q);
+			}
+		}
+		return (err);
+	} else if (zb->zb_level < 0) {
+		return (0);
+	}
+
+	record = kmem_zalloc(sizeof (struct send_block_record), KM_SLEEP);
+	record->eos_marker = B_FALSE;
+	record->bp = *bp;
+	record->zb = *zb;
+	record->indblkshift = dnp->dn_indblkshift;
+	record->datablkszsec = dnp->dn_datablkszsec;
+	record_size = dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT;
+	bqueue_enqueue(&sta->q, record, record_size);
+
+	/*
+	 * If the data was modified in the from_ds, we will need to send the
+	 * data in the to_os, so we prefetch it first.  However, we also need to
+	 * handle another case: If there is a new hole in the from_ds that was
+	 * not modified from the common ancestor in the to_ds, we have to
+	 * iterate over the data in the to_ds to get the blocks to send so that
+	 * we can recreate the to_ds.  This function, enqueue_holes_prefetch,
+	 * handles both of those things.  We only call it when to_os is passed
+	 * in because that is how we know we're the thread handling the from_ds.
+	 */
+	if (to_os != NULL) {
+		err = enqueue_holes_prefetch(zb, bp, err, dnp->dn_indblkshift,
+		    dnp->dn_datablkszsec, to_os, sta);
+	}
+	return (err);
+}
+
+/*
+ * This function kicks off the traverse_dataset.  It also handles setting the
+ * error code of the thread in case something goes wrong, and pushes the End of
+ * Stream record when the traverse_dataset call has finished.  If there is no
+ * dataset to traverse, the thread immediately pushes End of Stream marker.
+ */
+static void
+send_traverse_thread(void *arg) {
+	struct send_thread_arg *st_arg = arg;
+	int err;
+	struct send_block_record *data;
+
+	if (st_arg->ds != NULL) {
+		err = traverse_dataset(st_arg->ds, st_arg->fromtxg,
+		    st_arg->flags, send_cb, arg);
+		if (err != EINTR)
+			st_arg->error_code = err;
+	}
+	data = kmem_zalloc(sizeof (*data), KM_SLEEP);
+	data->eos_marker = B_TRUE;
+	bqueue_enqueue(&st_arg->q, data, 1);
+}
+
+/*
+ * This function actually handles figuring out what kind of record needs to be
+ * dumped, reading the data (which has hopefully been prefetched), and calling
+ * the appropriate helper function.
+ */
+static int
+do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
+{
+	const blkptr_t *bp = &data->bp;
+	const zbookmark_phys_t *zb = &data->zb;
+	uint8_t indblkshift = data->indblkshift;
+	uint16_t dblkszsec = data->datablkszsec;
+	spa_t *spa = ds->ds_dir->dd_pool->dp_spa;
+	dmu_object_type_t type = bp ? BP_GET_TYPE(bp) : DMU_OT_NONE;
+
+	int err = 0;
+
+	ASSERT3U(zb->zb_level, >=, 0);
 
 	if (zb->zb_object != DMU_META_DNODE_OBJECT &&
 	    DMU_OBJECT_IS_SPECIAL(zb->zb_object)) {
 		return (0);
-	} else if (zb->zb_level == ZB_ZIL_LEVEL) {
-		/*
-		 * If we are sending a non-snapshot (which is allowed on
-		 * read-only pools), it may have a ZIL, which must be ignored.
-		 */
-		return (0);
 	} else if (BP_IS_HOLE(bp) &&
 	    zb->zb_object == DMU_META_DNODE_OBJECT) {
-		uint64_t span = BP_SPAN(dnp, zb->zb_level);
+		uint64_t span = BP_SPAN(dblkszsec, indblkshift, zb->zb_level);
 		uint64_t dnobj = (zb->zb_blkid * span) >> DNODE_SHIFT;
 		err = dump_freeobjects(dsp, dnobj, span >> DNODE_SHIFT);
 	} else if (BP_IS_HOLE(bp)) {
-		uint64_t span = BP_SPAN(dnp, zb->zb_level);
+		uint64_t span = BP_SPAN(dblkszsec, indblkshift, zb->zb_level);
 		err = dump_free(dsp, zb->zb_object, zb->zb_blkid * span, span);
 	} else if (zb->zb_level > 0 || type == DMU_OT_OBJSET) {
 		return (0);
@@ -505,13 +814,13 @@ backup_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 		(void) arc_buf_remove_ref(abuf, &abuf);
 	} else if (backup_do_embed(dsp, bp)) {
 		/* it's an embedded level-0 block of a regular object */
-		int blksz = dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT;
+		int blksz = dblkszsec << SPA_MINBLOCKSHIFT;
 		err = dump_write_embedded(dsp, zb->zb_object,
 		    zb->zb_blkid * blksz, blksz, bp);
 	} else { /* it's a level-0 block of a regular object */
 		arc_flags_t aflags = ARC_FLAG_WAIT;
 		arc_buf_t *abuf;
-		int blksz = dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT;
+		int blksz = dblkszsec << SPA_MINBLOCKSHIFT;
 
 		ASSERT0(zb->zb_level);
 
@@ -566,12 +875,97 @@ backup_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 }
 
 /*
- * Releases dp using the specified tag.
+ * Utility function that causes End of Stream records to compare ahead of all
+ * others, so that the main thread's logic can stay simple.
  */
 static int
-dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
-    zfs_bookmark_phys_t *fromzb, boolean_t is_clone, boolean_t embedok,
-    int outfd, vnode_t *vp, offset_t *off)
+send_record_compare(struct send_block_record *from,
+    struct send_block_record *to)
+{
+	if (from->eos_marker == B_TRUE)
+		return (1);
+	else if (to->eos_marker == B_TRUE)
+		return (-1);
+	return (zbookmark_compare(from->datablkszsec,
+	    from->indblkshift, to->datablkszsec,
+	    to->indblkshift, &from->zb, &to->zb));
+}
+
+/*
+ * Pop the new data off the queue, check that the records we receive are in
+ * the right order, and free the old data.
+ */
+static struct send_block_record *
+get_next_record(bqueue_t *bq, struct send_block_record *data) {
+	struct send_block_record *tmp = bqueue_dequeue(bq);
+	ASSERT3S(send_record_compare(data, tmp), ==, -1);
+	kmem_free(data, sizeof (*data));
+	return (tmp);
+}
+
+/*
+ * We pull the data out of the embedded bp, whether it's compressed or not;
+ * either way, byte-by-byte equality will test for data equality, since there's
+ * only one compression algorithm for embedded block pointers.
+ */
+static int
+embedded_bp_eq(blkptr_t *from_bp, blkptr_t *to_bp)
+{
+	if (BP_GET_LSIZE(from_bp) == BP_GET_LSIZE(to_bp)) {
+		uint64_t from_buf[BPE_PAYLOAD_SIZE];
+		uint64_t to_buf[BPE_PAYLOAD_SIZE];
+		bzero(from_buf, sizeof (from_buf));
+		bzero(to_buf, sizeof (to_buf));
+		decode_embedded_bp_compressed(to_bp, to_buf);
+		decode_embedded_bp_compressed(from_bp, from_buf);
+		return (bcmp(to_buf, from_buf, sizeof (from_buf)) == 0);
+	}
+	return (0);
+}
+
+/*
+ * Actually do the bulk of the work in a zfs send.
+ *
+ * The idea is that we want to do a send from from_ds to to_ds, and their common
+ * ancestor's information is in ancestor_zb.  We do this by creating two worker
+ * threads; each one will do dataset_traverse on one of the two datasets.  As
+ * they encounter changes made by their dataset since the common ancestor, they
+ * will push them onto a blocking queue.  Since traverse_dataset has a canonical
+ * order, we can compare each change as they're pulled off the queues.
+ *
+ * If this is not a rebase send, the from_ds will be null.  We just send
+ * everything that was changed in the to_ds since the ancestor's creation txg.
+ *
+ * If this is a rebase send, we need to send all the differences between from_ds
+ * and to_ds.  Anything that hasn't been modified since the common ancestor
+ * can't be different between them.  Thus, we send:
+ *
+ * 1) Everything that's changed in to_ds since the common ancestor (just like in
+ * the non-rebase case).
+ * 2) Everything that's changed in from_ds since the common ancestor, but we
+ * send the the data in to_ds.  For example, from_ds changed object 6 block
+ * 10, so we send a record for object 6 block 10, but the data is the data from
+ * to_ds.
+ * 3) As an exception to the above, if the data has the same checksum (and the
+ * checksums are cryptographically secure), then we don't need to send it.
+ *
+ * To keep performance acceptable, we want to prefetch the data in the worker
+ * threads.  The to_ds thread can simply use the PREFETCH_DATA feature built
+ * into traverse_dataset, but the from_ds thread needs to manually prefetch data
+ * in the to_ds.  In addition, to prevent the prefetchers getting too far ahead
+ * of the main thread, the blocking queues are capped not by the number of
+ * entries in the queue, but by the sum of the size of the prefetches associated
+ * with them.  The limit on the amount of data that the threads can prefetch
+ * beyond what the main thread has reached is controlled by the global variable
+ * zfs_send_queue_length.
+ *
+ * Note: Releases dp using the specified tag.
+ */
+static int
+dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
+    dsl_dataset_t *from_ds, zfs_bookmark_phys_t *ancestor_zb,
+    boolean_t is_clone, boolean_t embedok, int outfd, vnode_t *vp,
+    offset_t *off)
 {
 	objset_t *os;
 	dmu_replay_record_t *drr;
@@ -579,8 +973,9 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	int err;
 	uint64_t fromtxg = 0;
 	uint64_t featureflags = 0;
+	struct send_thread_arg from_arg, to_arg;
 
-	err = dmu_objset_from_ds(ds, &os);
+	err = dmu_objset_from_ds(to_ds, &os);
 	if (err != 0) {
 		dsl_pool_rele(dp, tag);
 		return (err);
@@ -618,7 +1013,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	 * we can not send mooch records, because the receiver won't have
 	 * the origin to mooch from.
 	 */
-	if (embedok && ds->ds_mooch_byteswap && fromzb != NULL) {
+	if (embedok && to_ds->ds_mooch_byteswap && ancestor_zb != NULL) {
 		featureflags |= DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP;
 	}
 
@@ -626,20 +1021,33 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	    featureflags);
 
 	drr->drr_u.drr_begin.drr_creation_time =
-	    ds->ds_phys->ds_creation_time;
+	    to_ds->ds_phys->ds_creation_time;
 	drr->drr_u.drr_begin.drr_type = dmu_objset_type(os);
 	if (is_clone)
 		drr->drr_u.drr_begin.drr_flags |= DRR_FLAG_CLONE;
-	drr->drr_u.drr_begin.drr_toguid = ds->ds_phys->ds_guid;
-	if (ds->ds_phys->ds_flags & DS_FLAG_CI_DATASET)
+	drr->drr_u.drr_begin.drr_toguid = to_ds->ds_phys->ds_guid;
+	if (to_ds->ds_phys->ds_flags & DS_FLAG_CI_DATASET)
 		drr->drr_u.drr_begin.drr_flags |= DRR_FLAG_CI_DATA;
 
-	if (fromzb != NULL) {
-		drr->drr_u.drr_begin.drr_fromguid = fromzb->zbm_guid;
-		fromtxg = fromzb->zbm_creation_txg;
+	if (ancestor_zb != NULL) {
+		/*
+		 * We're doing an incremental send; if from_ds is non-null, then
+		 * this is a rebase send, and we have to specify the guid of the
+		 * snapshot we're rebasing from.  If it is null, then this is a
+		 * normal incremental send, and we should specify the guid of
+		 * the ancestor_zb.
+		 */
+		if (from_ds != NULL) {
+			drr->drr_u.drr_begin.drr_fromguid =
+			    from_ds->ds_phys->ds_guid;
+		} else {
+			drr->drr_u.drr_begin.drr_fromguid =
+			    ancestor_zb->zbm_guid;
+		}
+		fromtxg = ancestor_zb->zbm_creation_txg;
 	}
-	dsl_dataset_name(ds, drr->drr_u.drr_begin.drr_toname);
-	if (!dsl_dataset_is_snapshot(ds)) {
+	dsl_dataset_name(to_ds, drr->drr_u.drr_begin.drr_toname);
+	if (!dsl_dataset_is_snapshot(to_ds)) {
 		(void) strlcat(drr->drr_u.drr_begin.drr_toname, "@--head--",
 		    sizeof (drr->drr_u.drr_begin.drr_toname));
 	}
@@ -652,16 +1060,16 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	dsp->dsa_proc = curproc;
 	dsp->dsa_os = os;
 	dsp->dsa_off = off;
-	dsp->dsa_toguid = ds->ds_phys->ds_guid;
+	dsp->dsa_toguid = to_ds->ds_phys->ds_guid;
 	dsp->dsa_pending_op = PENDING_NONE;
-	dsp->dsa_incremental = (fromzb != NULL);
+	dsp->dsa_incremental = (ancestor_zb != NULL);
 	dsp->dsa_featureflags = featureflags;
 
-	mutex_enter(&ds->ds_sendstream_lock);
-	list_insert_head(&ds->ds_sendstreams, dsp);
-	mutex_exit(&ds->ds_sendstream_lock);
+	mutex_enter(&to_ds->ds_sendstream_lock);
+	list_insert_head(&to_ds->ds_sendstreams, dsp);
+	mutex_exit(&to_ds->ds_sendstream_lock);
 
-	dsl_dataset_long_hold(ds, FTAG);
+	dsl_dataset_long_hold(to_ds, FTAG);
 	dsl_pool_rele(dp, tag);
 
 	if (dump_record(dsp, NULL, 0) != 0) {
@@ -669,8 +1077,117 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 		goto out;
 	}
 
-	err = traverse_dataset(ds, fromtxg, TRAVERSE_PRE | TRAVERSE_PREFETCH,
-	    backup_cb, dsp);
+	err = bqueue_init(&to_arg.q, zfs_send_queue_length,
+	    offsetof(struct send_block_record, ln));
+	to_arg.error_code = 0;
+	to_arg.cancel = B_FALSE;
+	to_arg.ds = to_ds;
+	to_arg.fromtxg = fromtxg;
+	to_arg.flags = TRAVERSE_PRE | TRAVERSE_PREFETCH;
+	to_arg.to_os = NULL;
+	(void) thread_create(NULL, 0, send_traverse_thread, &to_arg, 0, curproc,
+	    TS_RUN, minclsyspri);
+
+	err = bqueue_init(&from_arg.q, zfs_send_queue_length,
+	    offsetof(struct send_block_record, ln));
+
+	from_arg.error_code = 0;
+	from_arg.cancel = B_FALSE;
+	from_arg.ds = from_ds;
+	from_arg.fromtxg = fromtxg;
+	from_arg.flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA;
+	from_arg.to_os = os;
+
+	/*
+	 * If from_ds is null, send_traverse_thread just returns success and
+	 * enqueues an eos marker.
+	 */
+	(void) thread_create(NULL, 0, send_traverse_thread, &from_arg, 0,
+	    curproc, TS_RUN, minclsyspri);
+
+	struct send_block_record *from_data, *to_data;
+	from_data = bqueue_dequeue(&from_arg.q);
+	to_data = bqueue_dequeue(&to_arg.q);
+
+	while (!(from_data->eos_marker == B_TRUE &&
+	    to_data->eos_marker == B_TRUE) && err == 0) {
+		int cmp = send_record_compare(from_data, to_data);
+		/*
+		 * Bookmarks are the same: send data unless it's identical.
+		 */
+		if (cmp == 0) {
+			boolean_t strong = zio_checksum_table
+			    [BP_GET_CHECKSUM(&to_data->bp)].ci_dedup;
+			if (BP_IS_EMBEDDED(&to_data->bp) &&
+			    BP_IS_EMBEDDED(&from_data->bp)) {
+				if (!embedded_bp_eq(&from_data->bp,
+				    &to_data->bp))
+					err = do_dump(to_ds, to_data, dsp);
+			} else if (!(strong && BP_GET_CHECKSUM(&to_data->bp) ==
+			    BP_GET_CHECKSUM(&from_data->bp) &&
+			    ZIO_CHECKSUM_EQUAL(to_data->bp.blk_cksum,
+			    from_data->bp.blk_cksum))) {
+				err = do_dump(to_ds, to_data, dsp);
+			}
+			from_data = get_next_record(&from_arg.q, from_data);
+			to_data = get_next_record(&to_arg.q, to_data);
+		/*
+		 * From bookmark is ahead, get and send to's version of the data
+		 */
+		} else if (cmp < 0) {
+			blkptr_t bp;
+			const zbookmark_phys_t *zb = &from_data->zb;
+
+			err = dbuf_bookmark_findbp(os, zb->zb_object,
+			    zb->zb_level, zb->zb_blkid, &bp,
+			    &from_data->datablkszsec,
+			    &from_data->indblkshift);
+			if (err == ENOENT) {
+				/*
+				 * The block was modified in the from dataset,
+				 * but doesn't exist in the to dataset; if it
+				 * was deleted in the to dataset, then we'll
+				 * visit the hole bp for it at some point.
+				 */
+				err = 0;
+			} else if (err == 0) {
+				from_data->zb.zb_objset = to_ds->ds_object;
+				from_data->bp = bp;
+				err = do_dump(to_ds, from_data, dsp);
+			}
+			from_data = get_next_record(&from_arg.q, from_data);
+		/*
+		 * To bookmark is ahead, send the data.
+		 */
+		} else {
+			err = do_dump(to_ds, to_data, dsp);
+			to_data = get_next_record(&to_arg.q, to_data);
+		}
+	}
+
+	if (err != 0) {
+		to_arg.cancel = B_TRUE;
+		while (!to_data->eos_marker) {
+			to_data = get_next_record(&to_arg.q, to_data);
+		}
+		from_arg.cancel = B_TRUE;
+		while (!from_data->eos_marker) {
+			from_data = get_next_record(&from_arg.q, from_data);
+		}
+	}
+	kmem_free(from_data, sizeof (*from_data));
+	kmem_free(to_data, sizeof (*to_data));
+
+	bqueue_destroy(&to_arg.q);
+	bqueue_destroy(&from_arg.q);
+
+	if (err == 0 && from_arg.error_code != 0)
+		err = from_arg.error_code;
+	if (err == 0 && to_arg.error_code != 0)
+		err = to_arg.error_code;
+
+	if (err != 0)
+		goto out;
 
 	if (dsp->dsa_pending_op != PENDING_NONE)
 		if (dump_record(dsp, NULL, 0) != 0)
@@ -687,21 +1204,184 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *ds,
 	drr->drr_u.drr_end.drr_checksum = dsp->dsa_zc;
 	drr->drr_u.drr_end.drr_toguid = dsp->dsa_toguid;
 
-	if (dump_record(dsp, NULL, 0) != 0) {
+	if (dump_record(dsp, NULL, 0) != 0)
 		err = dsp->dsa_err;
-		goto out;
-	}
 
 out:
-	mutex_enter(&ds->ds_sendstream_lock);
-	list_remove(&ds->ds_sendstreams, dsp);
-	mutex_exit(&ds->ds_sendstream_lock);
+	mutex_enter(&to_ds->ds_sendstream_lock);
+	list_remove(&to_ds->ds_sendstreams, dsp);
+	mutex_exit(&to_ds->ds_sendstream_lock);
 
 	kmem_free(drr, sizeof (dmu_replay_record_t));
 	kmem_free(dsp, sizeof (dmu_sendarg_t));
 
-	dsl_dataset_long_rele(ds, FTAG);
+	dsl_dataset_long_rele(to_ds, FTAG);
 
+	return (err);
+}
+
+static int
+dsl_dataset_walk_origin(dsl_pool_t *dp, dsl_dataset_t **ds, void *tag) {
+	uint64_t origin_obj = (*ds)->ds_dir->dd_phys->dd_origin_obj;
+	dsl_dataset_t *prev;
+	int err = dsl_dataset_hold_obj(dp, origin_obj, tag, &prev);
+	if (err != 0)
+		return (err);
+	dsl_dataset_rele(*ds, tag);
+	*ds = prev;
+	prev = NULL;
+	return (err);
+}
+
+/*
+ * Find the common ancestor of two datasets.
+ *
+ * We first measure how far each dataset is from the ORIGIN$ORIGIN by stepping
+ * back through each object's origin snapshot.  We then walk the one that is
+ * further up it's origin snapshots until each dataset is the same distance from
+ * ORIGIN$ORIGIN.  Now, at each step we compare to see whether the two datasets
+ * are in the same ds_dir.  Once they are, we compare the two snapshots; the
+ * older of the two is the common ancestor of the two datasets.
+ */
+static int
+find_common_ancestor(dsl_pool_t *dp, dsl_dataset_t *ds1, dsl_dataset_t *ds2,
+    zfs_bookmark_phys_t *zb)
+{
+	uint32_t steps1, steps2, diff;
+	dsl_dataset_t *walker1, *walker2;
+	int err = 0;
+
+	if (ds1->ds_dir == ds2->ds_dir) {
+		err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker1);
+		if (err != 0)
+			return (err);
+		err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker2);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			return (err);
+		}
+		goto fini;
+	}
+
+	/*
+	 * Count how far ds1 is from $ORIGIN.
+	 */
+	err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker1);
+	if (err != 0)
+		return (err);
+
+	steps1 = 0;
+	while (dsl_dataset_is_clone(walker1, dp->dp_origin_snap)) {
+		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			return (err);
+		}
+		steps1++;
+	}
+	dsl_dataset_rele(walker1, FTAG);
+
+	/*
+	 * Count how far ds2 is from $ORIGIN
+	 */
+	err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker1);
+	if (err != 0)
+		return (err);
+
+	steps2 = 0;
+	while (dsl_dataset_is_clone(walker1, dp->dp_origin_snap)) {
+		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			return (err);
+		}
+		steps2++;
+	}
+	dsl_dataset_rele(walker1, FTAG);
+
+	/*
+	 * Calculate which ds is farther from $ORIGIN, assign that to walker1,
+	 * and assign the other to walker2.  Assign the difference in distances
+	 * to diff.
+	 */
+	if (steps1 > steps2) {
+		diff = steps1 - steps2;
+		err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker1);
+		if (err != 0)
+			return (err);
+		err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker2);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			return (err);
+		}
+	} else {
+		diff = steps2 - steps1;
+		err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker1);
+		if (err != 0)
+			return (err);
+		err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker2);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			return (err);
+		}
+	}
+
+	/*
+	 * Walk walker1 back diff steps so both systems are the same distance
+	 * from $ORIGIN.
+	 */
+	for (int i = 0; i < diff; i++) {
+		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			dsl_dataset_rele(walker2, FTAG);
+			return (err);
+		}
+	}
+
+	/*
+	 * Walk back in step, and stop when the two walkers are snapshots in the
+	 * same dataset dir.
+	 */
+	while ((walker1->ds_dir != walker2->ds_dir) &&
+	    !(walker1->ds_dir->dd_phys->dd_origin_obj == 0 &&
+	    walker2->ds_dir->dd_phys->dd_origin_obj == 0)) {
+		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			dsl_dataset_rele(walker2, FTAG);
+			return (err);
+		}
+
+
+		err = dsl_dataset_walk_origin(dp, &walker2, FTAG);
+		if (err != 0) {
+			dsl_dataset_rele(walker1, FTAG);
+			dsl_dataset_rele(walker2, FTAG);
+			return (err);
+		}
+	}
+
+fini:
+	/*
+	 * Load the zb with the data from the older snapshot.
+	 */
+	if (walker1->ds_dir != walker2->ds_dir) {
+		zb->zbm_creation_txg = 0;
+		zb->zbm_creation_time = 0;
+		zb->zbm_guid = 0;
+	} else if (walker1->ds_phys->ds_creation_txg >
+	    walker2->ds_phys->ds_creation_txg) {
+		zb->zbm_creation_txg = walker2->ds_phys->ds_creation_txg;
+		zb->zbm_creation_time = walker2->ds_phys->ds_creation_time;
+		zb->zbm_guid = walker2->ds_phys->ds_guid;
+	} else {
+		zb->zbm_creation_txg = walker1->ds_phys->ds_creation_txg;
+		zb->zbm_creation_time = walker1->ds_phys->ds_creation_time;
+		zb->zbm_guid = walker1->ds_phys->ds_guid;
+	}
+	dsl_dataset_rele(walker1, FTAG);
+	dsl_dataset_rele(walker2, FTAG);
 	return (err);
 }
 
@@ -734,17 +1414,30 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 			dsl_pool_rele(dp, FTAG);
 			return (err);
 		}
-		if (!dsl_dataset_is_before(ds, fromds, 0))
-			err = SET_ERROR(EXDEV);
-		zb.zbm_creation_time = fromds->ds_phys->ds_creation_time;
-		zb.zbm_creation_txg = fromds->ds_phys->ds_creation_txg;
-		zb.zbm_guid = fromds->ds_phys->ds_guid;
-		is_clone = (fromds->ds_dir != ds->ds_dir);
-		dsl_dataset_rele(fromds, FTAG);
-		err = dmu_send_impl(FTAG, dp, ds, &zb, is_clone, embedok,
-		    outfd, vp, off);
+
+		err = find_common_ancestor(dp, fromds, ds, &zb);
+		if (err != 0) {
+			dsl_dataset_rele(ds, FTAG);
+			dsl_dataset_rele(fromds, FTAG);
+			dsl_pool_rele(dp, FTAG);
+			return (err);
+		}
+
+		if (dsl_dataset_is_before(ds, fromds, 0)) {
+			is_clone = (ds->ds_dir != fromds->ds_dir);
+			dsl_dataset_rele(fromds, FTAG);
+			fromds = NULL;
+		} else {
+			is_clone = B_FALSE;
+		}
+
+		err = dmu_send_impl(FTAG, dp, ds, fromds, &zb, is_clone,
+		    embedok, outfd, vp, off);
+
+		if (fromds != NULL)
+			dsl_dataset_rele(fromds, FTAG);
 	} else {
-		err = dmu_send_impl(FTAG, dp, ds, NULL, B_FALSE, embedok,
+		err = dmu_send_impl(FTAG, dp, ds, NULL, NULL, B_FALSE, embedok,
 		    outfd, vp, off);
 	}
 	dsl_dataset_rele(ds, FTAG);
@@ -784,6 +1477,7 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 
 	if (fromsnap != NULL) {
 		zfs_bookmark_phys_t zb;
+		dsl_dataset_t *fromds = NULL;
 		boolean_t is_clone = B_FALSE;
 		int fsnamelen = strchr(tosnap, '@') - tosnap;
 
@@ -798,31 +1492,33 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 		}
 
 		if (strchr(fromsnap, '@')) {
-			dsl_dataset_t *fromds;
 			err = dsl_dataset_hold(dp, fromsnap, FTAG, &fromds);
-			if (err == 0) {
-				if (!dsl_dataset_is_before(ds, fromds, 0))
-					err = SET_ERROR(EXDEV);
-				zb.zbm_creation_time =
-				    fromds->ds_phys->ds_creation_time;
-				zb.zbm_creation_txg =
-				    fromds->ds_phys->ds_creation_txg;
-				zb.zbm_guid = fromds->ds_phys->ds_guid;
+			if (err != 0)
+				goto out;
+
+			err = find_common_ancestor(dp, fromds, ds, &zb);
+			if (err != 0)
+				goto out;
+
+			if (dsl_dataset_is_before(ds, fromds, 0)) {
 				is_clone = (ds->ds_dir != fromds->ds_dir);
 				dsl_dataset_rele(fromds, FTAG);
+				fromds = NULL;
+			} else {
+				is_clone = B_FALSE;
 			}
 		} else {
 			err = dsl_bookmark_lookup(dp, fromsnap, ds, &zb);
+			if (err != 0)
+				goto out;
 		}
-		if (err != 0) {
-			dsl_dataset_rele(ds, FTAG);
-			dsl_pool_rele(dp, FTAG);
-			return (err);
-		}
-		err = dmu_send_impl(FTAG, dp, ds, &zb, is_clone, embedok,
-		    outfd, vp, off);
+		err = dmu_send_impl(FTAG, dp, ds, fromds, &zb, is_clone,
+		    embedok, outfd, vp, off);
+out:
+		if (fromds != NULL)
+			dsl_dataset_rele(fromds, FTAG);
 	} else {
-		err = dmu_send_impl(FTAG, dp, ds, NULL, B_FALSE, embedok,
+		err = dmu_send_impl(FTAG, dp, ds, NULL, NULL, B_FALSE, embedok,
 		    outfd, vp, off);
 	}
 	if (owned)
@@ -1043,7 +1739,8 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 		 * If it's a non-clone incremental, we are missing the
 		 * target fs, so fail the recv.
 		 */
-		if (fromguid != 0 && !(flags & DRR_FLAG_CLONE))
+		if (fromguid != 0 && !(flags & DRR_FLAG_CLONE ||
+		    drba->drba_origin))
 			return (SET_ERROR(ENOENT));
 
 		/* Open the parent of tofs */

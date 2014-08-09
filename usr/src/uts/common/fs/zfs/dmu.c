@@ -530,7 +530,8 @@ dmu_buf_rele_array(dmu_buf_t **dbp_fake, int numbufs, void *tag)
  * causing this function to block if they are not already cached.
  */
 void
-dmu_prefetch(objset_t *os, uint64_t object, uint64_t offset, uint64_t len)
+dmu_prefetch(objset_t *os, uint64_t object, uint64_t offset, uint64_t len,
+    zio_priority_t pri)
 {
 	dnode_t *dn;
 	uint64_t blkid;
@@ -547,7 +548,7 @@ dmu_prefetch(objset_t *os, uint64_t object, uint64_t offset, uint64_t len)
 
 		rw_enter(&dn->dn_struct_rwlock, RW_READER);
 		blkid = dbuf_whichblock(dn, object * sizeof (dnode_phys_t));
-		dbuf_prefetch(dn, blkid, ZIO_PRIORITY_SYNC_READ);
+		dbuf_prefetch(dn, blkid, pri);
 		rw_exit(&dn->dn_struct_rwlock);
 		return;
 	}
@@ -573,7 +574,7 @@ dmu_prefetch(objset_t *os, uint64_t object, uint64_t offset, uint64_t len)
 	if (nblks != 0) {
 		blkid = dbuf_whichblock(dn, offset);
 		for (int i = 0; i < nblks; i++)
-			dbuf_prefetch(dn, blkid + i, ZIO_PRIORITY_SYNC_READ);
+			dbuf_prefetch(dn, blkid + i, pri);
 	}
 
 	rw_exit(&dn->dn_struct_rwlock);

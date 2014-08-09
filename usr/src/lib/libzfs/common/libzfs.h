@@ -571,6 +571,9 @@ typedef struct sendflags {
 	/* recursive send  (ie, -R) */
 	boolean_t replicate;
 
+	/* For incremental, allow sending from non-ancestor snapshots */
+	boolean_t rebase;
+
 	/* for incrementals, do all intermediate snapshots */
 	boolean_t doall;
 
@@ -648,8 +651,8 @@ typedef struct recvflags {
 	boolean_t nomount;
 } recvflags_t;
 
-extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t *,
-    int, avl_tree_t *);
+extern int zfs_receive(libzfs_handle_t *, const char *, nvlist_t *,
+    recvflags_t *, int, avl_tree_t *);
 
 typedef enum diff_flags {
 	ZFS_DIFF_PARSEABLE = 0x1,

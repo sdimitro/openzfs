@@ -250,8 +250,9 @@ get_usage(zfs_help_t idx)
 		return (gettext("\tpromote <clone-filesystem>\n"));
 	case HELP_RECEIVE:
 		return (gettext("\treceive [-vnFu] <filesystem|volume|"
-		"snapshot>\n"
-		"\treceive [-vnFu] [-d | -e] <filesystem>\n"));
+		    "snapshot>\n"
+		    "\treceive [-vnFu] [-o origin=<snapshot>] [-d | -e] "
+		    "<filesystem>\n"));
 	case HELP_RENAME:
 		return (gettext("\trename [-f] <filesystem|volume|snapshot> "
 		    "<filesystem|volume|snapshot>\n"
@@ -260,7 +261,7 @@ get_usage(zfs_help_t idx)
 	case HELP_ROLLBACK:
 		return (gettext("\trollback [-rRf] <snapshot>\n"));
 	case HELP_SEND:
-		return (gettext("\tsend [-DnPpRve] [-[iI] snapshot] "
+		return (gettext("\tsend [-DnPpRbve] [-[iI] snapshot] "
 		    "<snapshot>\n"
 		    "\tsend [-e] [-i snapshot|bookmark] "
 		    "<filesystem|volume|snapshot>\n"));
@@ -3663,7 +3664,7 @@ zfs_do_send(int argc, char **argv)
 	boolean_t extraverbose = B_FALSE;
 
 	/* check options */
-	while ((c = getopt(argc, argv, ":i:I:RDpvnPe")) != -1) {
+	while ((c = getopt(argc, argv, ":i:I:RbDpvnPe")) != -1) {
 		switch (c) {
 		case 'i':
 			if (fromname)
@@ -3675,6 +3676,9 @@ zfs_do_send(int argc, char **argv)
 				usage(B_FALSE);
 			fromname = optarg;
 			flags.doall = B_TRUE;
+			break;
+		case 'b':
+			flags.rebase = B_TRUE;
 			break;
 		case 'R':
 			flags.replicate = B_TRUE;
@@ -3726,6 +3730,13 @@ zfs_do_send(int argc, char **argv)
 		usage(B_FALSE);
 	}
 
+	if (flags.rebase && fromname == NULL) {
+		(void) fprintf(stderr,
+		    gettext("Error: Specified rebase without specifying an \n"
+		    "incremental send.\n"));
+		return (1);
+	}
+
 	if (!flags.dryrun && isatty(STDOUT_FILENO)) {
 		(void) fprintf(stderr,
 		    gettext("Error: Stream can not be written to a terminal.\n"
@@ -3734,10 +3745,11 @@ zfs_do_send(int argc, char **argv)
 	}
 
 	/*
-	 * Special case sending a filesystem, or from a bookmark.
+	 * Special case sending to a filesystem, from a bookmark, or doing a
+	 * rebase send.
 	 */
 	if (strchr(argv[0], '@') == NULL ||
-	    (fromname && strchr(fromname, '#') != NULL)) {
+	    (fromname && strchr(fromname, '#') != NULL) || flags.rebase) {
 		char frombuf[ZFS_MAXNAMELEN];
 		enum lzc_send_flags lzc_flags = 0;
 
@@ -3745,8 +3757,14 @@ zfs_do_send(int argc, char **argv)
 		    flags.dedup || flags.dryrun || flags.verbose ||
 		    flags.progress) {
 			(void) fprintf(stderr,
-			    gettext("Error: "
-			    "Unsupported flag with filesystem or bookmark.\n"));
+			    gettext("Error: Unsupported flag with filesystem,"
+			    "bookmark or rebase.\n"));
+			return (1);
+		}
+
+		if (flags.rebase && strchr(fromname, '#')) {
+			(void) fprintf(stderr, gettext("Error:"
+			    "Cannot do a rebase on top of a bookmark."));
 			return (1);
 		}
 
@@ -3845,10 +3863,19 @@ zfs_do_receive(int argc, char **argv)
 {
 	int c, err;
 	recvflags_t flags = { 0 };
+	nvlist_t *props;
+	nvpair_t *nvp = NULL;
+
+	if (nvlist_alloc(&props, NV_UNIQUE_NAME, 0) != 0)
+		nomem();
 
 	/* check options */
-	while ((c = getopt(argc, argv, ":denuvF")) != -1) {
+	while ((c = getopt(argc, argv, ":o:denuvF")) != -1) {
 		switch (c) {
+		case 'o':
+			if (parseprop(props, optarg))
+				return (1);
+			break;
 		case 'd':
 			flags.isprefix = B_TRUE;
 			break;
@@ -3893,6 +3920,13 @@ zfs_do_receive(int argc, char **argv)
 		usage(B_FALSE);
 	}
 
+	while ((nvp = nvlist_next_nvpair(props, nvp))) {
+		if (strcmp(nvpair_name(nvp), "origin") != 0) {
+			(void) fprintf(stderr, gettext("invalid option"));
+			usage(B_FALSE);
+		}
+	}
+
 	if (isatty(STDIN_FILENO)) {
 		(void) fprintf(stderr,
 		    gettext("Error: Backup stream can not be read "
@@ -3901,7 +3935,7 @@ zfs_do_receive(int argc, char **argv)
 		return (1);
 	}
 
-	err = zfs_receive(g_zfs, argv[0], &flags, STDIN_FILENO, NULL);
+	err = zfs_receive(g_zfs, argv[0], props, &flags, STDIN_FILENO, NULL);
 
 	return (err != 0);
 }

@@ -181,17 +181,17 @@ zfs \- configures ZFS file systems
 
 .LP
 .nf
-\fBzfs\fR \fBsend\fR [\fB-e\fR] [\fB-i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
+\fBzfs\fR \fBsend\fR [\fB-e\fR] [\fB[\fB-b\fR] -i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
 .fi
 
 .LP
 .nf
-\fBzfs\fR \fBreceive\fR [\fB-vnFu\fR] \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
+\fBzfs\fR \fBreceive\fR [\fB-vnFu\fR] [\fB-o \fIorigin=<snapshot>\fR\fR] \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
 .fi
 
 .LP
 .nf
-\fBzfs\fR \fBreceive\fR [\fB-vnFu\fR] [\fB-d\fR|\fB-e\fR] \fIfilesystem\fR
+\fBzfs\fR \fBreceive\fR [\fB-vnFu\fR] [\fB-d\fR|\fB-e\fR] [\fB-o \fIorigin=<snapshot>\fR\fR] \fIfilesystem\fR
 .fi
 
 .LP
@@ -3082,7 +3082,7 @@ on future versions of \fBZFS\fR.
 .sp
 .ne 2
 .na
-\fBzfs send\fR [\fB-e\fR] [\fB-i\fR \fIsnapshot\fR|\fIbookmark\fR] \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
+\fBzfs\fR \fBsend\fR [\fB-e\fR] [\fB[\fB-b\fR] -i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
 .ad
 .sp .6
 .RS 4n
@@ -3113,6 +3113,26 @@ or the origin's origin, etc.
 .sp
 .ne 2
 .na
+\fB\fB-b\fR\fR
+.ad
+.sp .6
+.RS 4n
+Generate an incremental send stream between two datatsets which are
+not direct descendents of each other.  Using this flag removes the
+requirement that the incremental source must be an earlier snapshot in
+the destination's history.  This can be used to rebase the destination
+on top of the source snapshot.  Note that by default, rebase streams
+must be received into an existing filesystem whose most recent shapshot
+is the same as the incremental source snapshot.  This can be overridden
+by setting the "origin" property to a snapshot that is the same as the
+incremental source snapshot; this will allow the rebase stream to be
+received as a clone of that snapshot.
+.RE
+.RE
+
+.sp
+.ne 2
+.na
 \fB\fB-e\fR\fR
 .ad
 .sp .6
@@ -3131,12 +3151,12 @@ then the receiving system must have that feature enabled as well. See
 .sp
 .ne 2
 .na
-\fB\fBzfs receive\fR [\fB-vnFu\fR]
+\fB\fBzfs receive\fR [\fB-vnFu\fR] [\fB-o \fIorigin=<snapshot>\fR\fR]
 \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR\fR
 .ad
 .br
 .na
-\fB\fBzfs receive\fR [\fB-vnFu\fR] [\fB-d\fR|\fB-e\fR] \fIfilesystem\fR\fR
+\fB\fBzfs receive\fR [\fB-vnFu\fR] [\fB-d\fR|\fB-e\fR] [\fB-o \fIorigin=<snapshot>\fR\fR] \fIfilesystem\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3175,6 +3195,18 @@ pool name) is used and any required intermediate file systems within the
 specified one are created.  If the \fB-e\fR option is specified, then only the
 last element of the sent snapshot's file system name (i.e. the name of the
 source file system itself) is used as the target file system name.
+.sp
+.ne 2
+.na
+\fB\fB-o\fR \fIorigin=<snapshot>\fR\fR
+.ad
+.sp .6
+.RS 4n
+Forces the stream to be received as a clone of the given snapshot.
+This is only valid if the stream is an incremental stream whose source
+is the same as the provided origin.
+.RE
+
 .sp
 .ne 2
 .na

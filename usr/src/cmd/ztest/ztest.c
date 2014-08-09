@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  */
@@ -986,7 +986,7 @@ ztest_spa_get_ashift() {
 	for (i = 0; i < rvd->vdev_children; i++) {
 		ashift = MAX(ashift, rvd->vdev_child[i]->vdev_ashift);
 	}
-	return ashift;
+	return (ashift);
 }
 
 static int
@@ -3845,7 +3845,8 @@ ztest_dmu_read_write(ztest_ds_t *zd, uint64_t id)
 	 */
 	n = ztest_random(regions) * stride + ztest_random(width);
 	s = 1 + ztest_random(2 * width - 1);
-	dmu_prefetch(os, bigobj, n * chunksize, s * chunksize);
+	dmu_prefetch(os, bigobj, n * chunksize, s * chunksize,
+	    ZIO_PRIORITY_SYNC_READ);
 
 	/*
 	 * Pick a random index and compute the offsets into packobj and bigobj.
@@ -5968,7 +5969,8 @@ ztest_run(ztest_shared_t *zs)
 	 * spa_close() should wait for it to complete.
 	 */
 	for (uint64_t object = 1; object < 50; object++)
-		dmu_prefetch(spa->spa_meta_objset, object, 0, 1ULL << 20);
+		dmu_prefetch(spa->spa_meta_objset, object, 0, 1ULL << 20,
+		    ZIO_PRIORITY_SYNC_READ);
 
 	spa_close(spa, FTAG);
 

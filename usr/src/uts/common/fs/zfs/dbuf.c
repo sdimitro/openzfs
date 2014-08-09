@@ -1783,6 +1783,12 @@ dbuf_clear(dmu_buf_impl_t *db)
 		dbuf_rele(parent, db);
 }
 
+/*
+ * Note: While bpp will always be updated if the function returns success,
+ * parentp will not be updated if the dnode does not have dn_dbuf filled in;
+ * this happens when the dnode is the meta-dnode, or a userused or groupused
+ * object.
+ */
 static int
 dbuf_findbp(dnode_t *dn, int level, uint64_t blkid, int fail_sparse,
     dmu_buf_impl_t **parentp, blkptr_t **bpp)
@@ -2000,6 +2006,50 @@ dbuf_destroy(dmu_buf_impl_t *db)
 	arc_space_return(sizeof (dmu_buf_impl_t), ARC_SPACE_OTHER);
 }
 
+/*
+ * This function lets you get a block pointer given the data in a
+ * zbookmark_phys_t.  It returns the block pointer and some other important
+ * data.  This is different from dbuf_findbp in two ways: dbuf_findbp takes a
+ * dnode instead of an objset and object number, and dbuf_findbp returns with a
+ * dbuf held, while this just fills in the provided fields.
+ */
+int
+dbuf_bookmark_findbp(objset_t *os, uint64_t object, int level, uint64_t blkid,
+    blkptr_t *bp, uint16_t *datablkszsec, uint8_t *indblkshift) {
+	dnode_t *dn = NULL;
+	dmu_buf_impl_t *dbp = NULL;
+	blkptr_t *bp2;
+	int err = 0;
+
+	if (object == 0) {
+		zrl_add(&os->os_meta_dnode.dnh_zrlock);
+		dn = os->os_meta_dnode.dnh_dnode;
+	} else {
+		err = dnode_hold(os, object, FTAG, &dn);
+		if (err != 0)
+			return (err);
+	}
+	rw_enter(&dn->dn_struct_rwlock, RW_READER);
+	err = dbuf_findbp(dn, level, blkid, B_FALSE, &dbp, &bp2);
+	rw_exit(&dn->dn_struct_rwlock);
+	if (err == 0) {
+		*bp = *bp2;
+		if (dbp != NULL)
+			dbuf_rele(dbp, NULL);
+		if (datablkszsec != 0)
+			*datablkszsec = dn->dn_phys->dn_datablkszsec;
+		if (indblkshift != 0)
+			*indblkshift = dn->dn_phys->dn_indblkshift;
+	}
+
+	if (object != 0)
+		dnode_rele(dn, FTAG);
+	else
+		zrl_remove(&os->os_meta_dnode.dnh_zrlock);
+
+	return (err);
+}
+
 void
 dbuf_prefetch(dnode_t *dn, uint64_t blkid, zio_priority_t prio)
 {
@@ -2030,7 +2080,8 @@ dbuf_prefetch(dnode_t *dn, uint64_t blkid, zio_priority_t prio)
 			if (dmu_objset_mooch_origin(dn->dn_objset,
 			    &origin_os) == 0) {
 				dmu_prefetch(origin_os, dn->dn_origin_obj_refd,
-				    blkid * dn->dn_datablksz, dn->dn_datablksz);
+				    blkid * dn->dn_datablksz, dn->dn_datablksz,
+				    prio);
 			}
 		}
 		if (bp && !BP_IS_HOLE(bp) && !BP_IS_EMBEDDED(bp)) {

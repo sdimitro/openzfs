@@ -639,7 +639,8 @@ enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
 	} else if (BP_IS_HOLE(bp) && zb->zb_level > 0) {
 		err = enqueue_range_blocks(to_os, zb->zb_object, span * blkid,
 		    span, &sta->q);
-	} else if (zb->zb_level == 0 && zb->zb_object != DMU_META_DNODE_OBJECT) {
+	} else if (zb->zb_level == 0 &&
+	    zb->zb_object != DMU_META_DNODE_OBJECT) {
 		dmu_prefetch(to_os, zb->zb_object, blkid * span, span,
 		    ZIO_PRIORITY_ASYNC_READ);
 	}
@@ -2498,7 +2499,7 @@ restore_process_record(struct restorearg *ra)
 	{
 		struct drr_object *drro = &ra->drr->drr_u.drr_object;
 		err = restore_read_payload_and_next_header(ra,
-		    drro->drr_bonuslen, ra->buf);
+		    P2ROUNDUP(drro->drr_bonuslen, 8), ra->buf);
 		if (err != 0)
 			return (err);
 		return (restore_object(ra, drro, ra->buf));

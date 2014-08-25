@@ -23,6 +23,7 @@
  * Use is subject to license terms.
  * Copyright 2012 Milan Jurik. All rights reserved.
  * Copyright (c) 2013 Gary Mills
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -1781,10 +1782,11 @@ writemsg(int selection, struct filed *f)
 
 	cp = line;
 
-	if (flags & ADDDATE)
-		(void) strncpy(cp, ctime_r(&ts, cbuf) + 4, 15);
-	else
-		(void) strncpy(cp, msg, 15);
+	/*
+	 * We want the timestamp for all syslog messages to be
+	 * based on syslogd's TZ. Generate a new timestamp here.
+	 */
+	(void) strncpy(cp, ctime_r(&ts, cbuf) + 4, 15);
 
 	line[15] = '\0';
 	(void) strcat(cp, " ");

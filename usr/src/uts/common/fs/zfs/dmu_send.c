@@ -1164,6 +1164,8 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 			err = do_dump(to_ds, to_data, dsp);
 			to_data = get_next_record(&to_arg.q, to_data);
 		}
+		if (issig(JUSTLOOKING) && issig(FORREAL))
+	                err = EINTR;
 	}
 
 	if (err != 0) {

@@ -592,7 +592,7 @@ dmu_tx_count_free(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
  * in the amount of space used (but it's OK if that is occasionally not true).
  */
 void
-dmu_tx_hold_netfree(dmu_tx_t *tx)
+dmu_tx_mark_netfree(dmu_tx_t *tx)
 {
 	dmu_tx_hold_t *txh;
 

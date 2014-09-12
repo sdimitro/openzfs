@@ -1846,7 +1846,7 @@ top:
 	 * (due to active holds on the vnode due to the file being open).
 	 */
 	if (may_delete_now)
-		dmu_tx_hold_netfree(tx);
+		dmu_tx_mark_netfree(tx);
 
 	error = dmu_tx_assign(tx, waited ? TXG_WAITED : TXG_NOWAIT);
 	if (error) {

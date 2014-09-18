@@ -4,6 +4,8 @@
  Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  Use is subject to license terms.
 
+ Copyright (c) 2014 by Delphix. All rights reserved.
+
  CDDL HEADER START
 
  The contents of this file are subject to the terms of the
@@ -59,7 +61,7 @@
 		type='method'
 		name='start'
 		exec='/lib/svc/method/boot-archive'
-		timeout_seconds='60' />
+		timeout_seconds='300' />
 
 	<exec_method
 		type='method'

@@ -157,7 +157,7 @@ resume_skip_check(traverse_data_t *td, const dnode_phys_t *dnp,
 		 * If we already visited this bp & everything below,
 		 * don't bother doing it again.
 		 */
-		if (zbookmark_is_before(dnp, zb, td->td_resume))
+		if (zbookmark_subtree_completed(dnp, zb, td->td_resume))
 			return (RESUME_SKIP_ALL);
 
 		/*

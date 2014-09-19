@@ -66,10 +66,6 @@ static const char *recv_clone_name = "%recv";
 	(((uint64_t)datablkszsec) << (SPA_MINBLOCKSHIFT + \
 	(level) * (indblkshift - SPA_BLKPTRSHIFT)))
 
-#define	BP_SPANB(indblkshift, level) \
-	(((uint64_t)1) << ((level) * ((indblkshift) - SPA_BLKPTRSHIFT)))
-#define	COMPARE_META_LEVEL	0x80000000ul
-
 struct send_thread_arg {
 	bqueue_t	q;
 	dsl_dataset_t	*ds;		/* Dataset to traverse */
@@ -462,87 +458,6 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
 		return (B_FALSE);
 	}
 	return (B_FALSE);
-}
-
-
-/*
- * Compare two zbookmark_phys_t's to see which we would reach first in a
- * pre-order traversal of the object tree.
- *
- * This is simple in every case aside from the meta-dnode object. For all other
- * objects, we traverse them in order (object 1 before object 2, and so on).
- * However, all of these objects are traversed while traversing object 0, since
- * the data it points to is the list of objects.  Thus, we need to convert to a
- * canonical representation so we can compare meta-dnode bookmarks to
- * non-meta-dnode bookmarks.
- *
- * We do this by calculating "equivalents" for each field of the zbookmark.
- * zbookmarks outside of the meta-dnode use their own object and level, and
- * calculate the level 0 equivalent (the first L0 blkid that is contained in the
- * blocks this bookmark refers to) by multiplying their blkid by their span
- * (the number of L0 blocks contained within one block at their level).
- * zbookmarks inside the meta-dnode calculate their object equivalent
- * (which is L0equiv * dnodes per data block), use 0 for their L0equiv, and use
- * level + 1<<31 (any value larger than a level could ever be) for their level.
- * This causes them to always compare before a bookmark in their object
- * equivalent, compare appropriately to bookmarks in other objects, and to
- * compare appropriately to other bookmarks in the meta-dnode.
- */
-static int
-zbookmark_compare(uint16_t dbss1, uint8_t ibs1, uint16_t dbss2, uint8_t ibs2,
-    const zbookmark_phys_t *zb1, const zbookmark_phys_t *zb2)
-{
-	/*
-	 * These variables represent the "equivalent" values for the zbookmark,
-	 * after converting zbookmarks inside the meta dnode to their
-	 * normal-object equivalents.
-	 */
-	uint64_t zb1obj, zb2obj;
-	uint64_t zb1L0, zb2L0;
-	uint64_t zb1level, zb2level;
-
-	if (zb1->zb_object == zb2->zb_object &&
-	    zb1->zb_level == zb2->zb_level &&
-	    zb1->zb_blkid == zb2->zb_blkid)
-		return (0);
-
-	/*
-	 * BP_SPANB calculates the span in blocks.
-	 */
-	zb1L0 = (zb1->zb_blkid) * BP_SPANB(ibs1, zb1->zb_level);
-	zb2L0 = (zb2->zb_blkid) * BP_SPANB(ibs2, zb2->zb_level);
-
-	if (zb1->zb_object == DMU_META_DNODE_OBJECT) {
-		zb1obj = zb1L0 * (dbss1 << (SPA_MINBLOCKSHIFT - DNODE_SHIFT));
-		zb1L0 = 0;
-		zb1level = zb1->zb_level + COMPARE_META_LEVEL;
-	} else {
-		zb1obj = zb1->zb_object;
-		zb1level = zb1->zb_level;
-	}
-
-	if (zb2->zb_object == DMU_META_DNODE_OBJECT) {
-		zb2obj = zb2L0 * (dbss2 << (SPA_MINBLOCKSHIFT - DNODE_SHIFT));
-		zb2L0 = 0;
-		zb2level = zb2->zb_level + COMPARE_META_LEVEL;
-	} else {
-		zb2obj = zb2->zb_object;
-		zb2level = zb2->zb_level;
-	}
-
-	/* Now that we have a canonical representation, do the comparison. */
-	if (zb1obj != zb2obj)
-		return (zb1obj < zb2obj ? -1 : 1);
-	else if (zb1L0 != zb2L0)
-		return (zb1L0 < zb2L0 ? -1 : 1);
-	else if (zb1level != zb2level)
-		return (zb1level > zb2level ? -1 : 1);
-	/*
-	 * This can (theoretically) happen if the bookmarks have the same object
-	 * and level, but different blkids, if the block sizes are not the same.
-	 * There is presently no way to change the indirect block sizes
-	 */
-	return (0);
 }
 
 /*

@@ -295,6 +295,19 @@ rrw_tsd_destroy(void *arg)
 	}
 }
 
+/*
+ * A reader-mostly lock implementation, tuning above reader-writer locks
+ * for hightly parallel read acquisitions, while pessimizing writes.
+ *
+ * The idea is to split single busy lock into array of locks, so that
+ * each reader can lock only one of them for read, depending on result
+ * of simple hash function.  That proportionally reduces lock congestion.
+ * Writer same time has to sequentially aquire write on all the locks.
+ * That makes write aquisition proportionally slower, but in places where
+ * it is used (filesystem unmount) performance is not critical.
+ *
+ * All the functions below are direct wrappers around functions above.
+ */
 void
 rrm_init(rrmlock_t *rrl, boolean_t track_all)
 {

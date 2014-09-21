@@ -81,6 +81,9 @@ void rrw_tsd_destroy(void *arg);
 	(rrw_held(x, RW_WRITER) || rrw_held(x, RW_READER))
 
 /*
+ * A reader-mostly lock implementation, tuning above reader-writer locks
+ * for hightly parallel read acquisitions, pessimizing write acquisitions.
+ *
  * This should be a prime number.  See comment in rrwlock.c near
  * RRM_TD_LOCK() for details.
  */

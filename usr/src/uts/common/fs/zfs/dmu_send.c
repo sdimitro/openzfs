@@ -1537,7 +1537,8 @@ dmu_calculate_send_traversal(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
  * whole snapshot will be sent.
  */
 int
-dmu_send_estimate_from_txg(dsl_dataset_t *ds, uint64_t from_txg, uint64_t *sizep)
+dmu_send_estimate_from_txg(dsl_dataset_t *ds, uint64_t from_txg,
+    uint64_t *sizep)
 {
 	dsl_pool_t *dp = ds->ds_dir->dd_pool;
 	int err;

@@ -24,6 +24,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2014 by Delphix. All rights reserved.
+#
+
 # This is a wrapper script around the ndrgen compiler (ndrgen1).
 # CC must be defined in the environment or on the command line.
 
@@ -80,7 +84,7 @@ if [[ $CC_FLAG = "y" ]] ; then
 
 		# Check for cw being invoked with -_cc or -_gcc
 		if [[ $1 = "-_cc" || $1 = "-_gcc" ]] ; then
-			CC_ARG=$1
+			CC_ARG="$1 -_noecho"
 			shift $(($OPTIND - 1))
 		fi
 	fi

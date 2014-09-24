@@ -25,6 +25,10 @@
  */
 
 /*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
+
+/*
  * Wrapper for the GNU C compiler to make it accept the Sun C compiler
  * arguments where possible.
  *
@@ -1650,19 +1654,19 @@ invoke(cw_ictx_t *ctx)
 		nomem();
 
 	if (ctx->i_flags & CW_F_ECHO)
-		(void) fprintf(stderr, "+ ");
+		(void) printf("+ ");
 
 	for (ac = 0, a = ctx->i_ae->ael_head; a; a = a->ae_next, ac++) {
 		newargv[ac] = a->ae_arg;
 		if (ctx->i_flags & CW_F_ECHO)
-			(void) fprintf(stderr, "%s ", a->ae_arg);
+			(void) printf("%s ", a->ae_arg);
 		if (a == ctx->i_ae->ael_tail)
 			break;
 	}
 
 	if (ctx->i_flags & CW_F_ECHO) {
-		(void) fprintf(stderr, "\n");
-		(void) fflush(stderr);
+		(void) printf("\n");
+		(void) fflush(stdout);
 	}
 
 	if (!(ctx->i_flags & CW_F_EXEC))

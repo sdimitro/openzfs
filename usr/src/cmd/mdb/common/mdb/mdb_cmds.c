@@ -25,7 +25,7 @@
  */
 
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2013 Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Josef 'Jeff' Sipek <jeffpc@josefsipek.net>
  */
@@ -1544,16 +1544,11 @@ cmd_objects(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	return (DCMD_OK);
 }
 
-/*ARGSUSED*/
-static int
-showrev_addversion(void *vers_nv, const mdb_map_t *ignored, const char *object)
+static const char *
+showrev_objname_to_version(const char *objname)
 {
-	ctf_file_t *ctfp;
 	const char *version = NULL;
-	char *objname;
-
-	objname = mdb_alloc(strlen(object) + 1, UM_SLEEP | UM_GC);
-	(void) strcpy(objname, object);
+	ctf_file_t *ctfp;
 
 	if ((ctfp = mdb_tgt_name_to_ctf(mdb.m_target, objname)) != NULL)
 		version = ctf_label_topmost(ctfp);
@@ -1563,6 +1558,21 @@ showrev_addversion(void *vers_nv, const mdb_map_t *ignored, const char *object)
 	 */
 	if (version == NULL)
 		version = "Unknown";
+
+	return (version);
+}
+
+/*ARGSUSED*/
+static int
+showrev_addversion(void *vers_nv, const mdb_map_t *ignored, const char *object)
+{
+	const char *version = NULL;
+	char *objname;
+
+	objname = mdb_alloc(strlen(object) + 1, UM_SLEEP | UM_GC);
+	(void) strcpy(objname, object);
+
+	version = showrev_objname_to_version(objname);
 
 	(void) mdb_nv_insert(vers_nv, version, NULL, (uintptr_t)objname,
 	    MDB_NV_OVERLOAD);
@@ -1676,16 +1686,36 @@ static int
 cmd_showrev(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	uint_t opt_p = FALSE, opt_v = FALSE;
+	int i;
 
-	if ((flags & DCMD_ADDRSPEC) || mdb_getopts(argc, argv,
-	    'p', MDB_OPT_SETBITS, TRUE, &opt_p,
-	    'v', MDB_OPT_SETBITS, TRUE, &opt_v, NULL) != argc)
+	if (flags & DCMD_ADDRSPEC)
 		return (DCMD_USAGE);
 
-	if (opt_p || opt_v)
+	i = mdb_getopts(argc, argv,
+	    'p', MDB_OPT_SETBITS, TRUE, &opt_p,
+	    'v', MDB_OPT_SETBITS, TRUE, &opt_v,
+	    NULL);
+
+	argc -= i;
+	argv += i;
+
+	if (argc > 1)
+		return (DCMD_USAGE);
+
+	if (argc == 1) {
+		const char *version;
+		if (argv->a_type != MDB_TYPE_STRING) {
+			return (DCMD_USAGE);
+		}
+
+		version = showrev_objname_to_version(argv->a_un.a_str);
+		mdb_printf("%s\n", version);
+		return (DCMD_OK);
+	} else if (opt_p || opt_v) {
 		return (showrev_objectversions(opt_v));
-	else
+	} else {
 		return (showrev_sysinfo());
+	}
 }
 
 #ifdef __sparc
@@ -2968,7 +2998,8 @@ const mdb_dcmd_t mdb_dcmd_builtins[] = {
 	{ "regs", NULL, "print general purpose registers", cmd_notsup },
 	{ "set", "[-wF] [+/-o opt] [-s dist] [-I path] [-L path] [-P prompt]",
 	    "get/set debugger properties", cmd_set },
-	{ "showrev", "[-pv]", "print version information", cmd_showrev },
+	{ "showrev", "[-pv | name]", "print version information",
+	    cmd_showrev },
 	{ "sizeof", "type", "print the size of a type", cmd_sizeof, NULL,
 	    cmd_sizeof_tab },
 	{ "stack", "?[cnt]", "print stack backtrace", cmd_notsup },

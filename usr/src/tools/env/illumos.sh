@@ -21,7 +21,7 @@
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2010, 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 Joshua M. Clulow <josh@sysmgr.org>
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2014 by Delphix. All rights reserved.
 #
 
 # Configuration variables for the runtime environment of the nightly
@@ -161,7 +161,7 @@ export MULTI_PROTO="no"
 # when the release slips (nah) or you move an environment file to a new
 # release
 #
-export VERSION="$GATE"
+export VERSION="$GATE $(git describe --tags)"
 
 #
 # the RELEASE and RELEASE_DATE variables are set in Makefile.master;

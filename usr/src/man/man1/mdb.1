@@ -1,6 +1,7 @@
 '\" te
 .\" Copyright (c) 2005, Sun Microsystems, Inc. All Rights Reserved.
 .\" Copyright (c) 2012, Joyent, Inc. All Rights Reserved.
+.\" Copyright (c) 2014 by Delphix. All rights reserved.
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License.
 .\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.  See the License for the specific language governing permissions and limitations under the License.
 .\" When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
@@ -3355,18 +3356,19 @@ Re-opens the target for writing, as if \fBmdb\fR had been executed with the
 .sp
 .ne 2
 .na
-\fB\fB::showrev\fR [ \fB-pv\fR ]\fR
+\fB\fB::showrev\fR [ \fB-pv\fR | \fBname\fR ]\fR
 .ad
 .sp .6
 .RS 4n
 Display revision information for the hardware and software. With no options
-specified, general system information is displayed. The \fB-v\fR option
-displays version information for all load objects, whereas the \fB-p\fR option
-displays the version information only for the load objects that have been
-installed on the system as part of a patch. Version information is not
-available for all load objects. Load objects without version information is
-omitted from the output for the \fB-p\fR option and is listed as having a
-version of "\fBUnknown\fR" in the output for the \fB-v\fR option.
+specified, general system information is displayed. When the \fBname\fR
+argument is given, information about the specified load object is displayed.
+The \fB-v\fR option displays version information for all load objects, whereas
+the \fB-p\fR option displays the version information only for the load objects
+that have been installed on the system as part of a patch. Version information
+is not available for all load objects. Load objects without version
+information is omitted from the output for the \fB-p\fR option and is listed
+as having a version of "\fBUnknown\fR" in the output for the \fB-v\fR option.
 .RE
 
 .sp

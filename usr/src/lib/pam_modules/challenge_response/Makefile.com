@@ -10,7 +10,7 @@
 #
 #
 #
-# Copyright 2014 Delphix.  All rights reserved.
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 LIBRARY=	pam_challenge_response.a
@@ -19,7 +19,9 @@ OBJECTS=	challenge_response.o
 
 include		../../Makefile.pam_modules
 
-LDLIBS +=	-lpam -lc -lm -lsmbios -luuid -lcrypto
+LDLIBS +=	-lpam -lc -lm -lsmbios -luuid
+# Don't depend on crypto lint libraries
+$(LIBS) := LDLIBS +=	-lcrypto
 
 all: $(LIBS)
 

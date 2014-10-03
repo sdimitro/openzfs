@@ -775,7 +775,7 @@ do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
 				for (ptr = abuf->b_data;
 				    (char *)ptr < (char *)abuf->b_data + blksz;
 				    ptr++)
-					*ptr = 0x2f5baddb10c;
+					*ptr = 0x2f5baddb10cULL;
 			} else {
 				return (SET_ERROR(EIO));
 			}

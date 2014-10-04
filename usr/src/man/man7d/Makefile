@@ -12,7 +12,7 @@
 #
 # Copyright 2011, Richard Lowe
 # Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
-# Copyright 2013 Garrett D'Amore <garrett@damore.org>
+# Copyright 2014 Garrett D'Amore <garrett@damore.org>
 #
 
 include		$(SRC)/Makefile.master
@@ -30,6 +30,7 @@ _MANFILES=	aac.7d		\
 		audiots.7d	\
 		av1394.7d	\
 		bge.7d		\
+		blkdev.7d	\
 		bscv.7d		\
 		chxge.7d	\
 		console.7d	\
@@ -40,6 +41,7 @@ _MANFILES=	aac.7d		\
 		dmfe.7d		\
 		dtrace.7d	\
 		ehci.7d		\
+		elxl.7d		\
 		fasttrap.7d	\
 		fbt.7d		\
 		fcip.7d		\
@@ -69,6 +71,7 @@ _MANFILES=	aac.7d		\
 		igb.7d		\
 		ii.7d		\
 		ipnet.7d	\
+		iprb.7d		\
 		iscsi.7d	\
 		iser.7d		\
 		ixgbe.7d	\
@@ -106,6 +109,7 @@ _MANFILES=	aac.7d		\
 		ramdisk.7d	\
 		random.7d	\
 		rge.7d		\
+		rtls.7d		\
 		sad.7d		\
 		sata.7d		\
 		scsa1394.7d	\
@@ -227,7 +231,6 @@ i386_MANFILES=	ahci.7d		\
 		rwd.7d		\
 		rwn.7d		\
 		sda.7d		\
-		sdcard.7d	\
 		sdhost.7d	\
 		si3124.7d	\
 		smbios.7d	\

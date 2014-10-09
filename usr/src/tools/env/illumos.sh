@@ -236,4 +236,4 @@ export GCC_ROOT=/opt/gcc-4.4.4
 export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
 export CW_NO_SHADOW=1
-export ONNV_BUILDNUM=151008
+export ONNV_BUILDNUM=151012

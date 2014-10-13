@@ -24,6 +24,7 @@
  */
 /*
  * Copyright 2014 Josef 'Jeff' Sipek <jeffpc@josefsipek.net>
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/cpuvar.h>
@@ -65,6 +66,9 @@ static void local_x2apic_write_int_cmd(uint32_t cpu_id, uint32_t cmd1);
  */
 int	x2apic_enable = 1;
 apic_mode_t apic_mode = LOCAL_APIC;	/* Default mode is Local APIC */
+
+/* Enable directed EOIs */
+boolean_t apic_allow_directed_eoi = B_TRUE;
 
 /* Uses MMIO (Memory Mapped IO) */
 static apic_reg_ops_t local_apic_regs_ops = {
@@ -293,6 +297,9 @@ int
 apic_directed_EOI_supported()
 {
 	uint32_t ver;
+
+	if (!apic_allow_directed_eoi)
+		return (0);
 
 	ver = apic_reg_ops->apic_read(APIC_VERS_REG);
 	if (ver & APIC_DIRECTED_EOI_BIT)

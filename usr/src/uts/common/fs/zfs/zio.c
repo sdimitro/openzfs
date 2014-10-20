@@ -101,6 +101,8 @@ int zio_buf_debug_limit = 16384;
 int zio_buf_debug_limit = 0;
 #endif
 
+static void zio_taskq_dispatch(zio_t *, zio_taskq_type_t, boolean_t);
+
 void
 zio_init(void)
 {
@@ -474,9 +476,18 @@ zio_notify_parent(zio_t *pio, zio_t *zio, enum zio_wait_type wait)
 	(*countp)--;
 
 	if (*countp == 0 && pio->io_stall == countp) {
+		zio_taskq_type_t type =
+		    pio->io_stage < ZIO_STAGE_VDEV_IO_START ? ZIO_TASKQ_ISSUE :
+		    ZIO_TASKQ_INTERRUPT;
 		pio->io_stall = NULL;
 		mutex_exit(&pio->io_lock);
-		zio_execute(pio);
+		/*
+		 * Dispatch the parent zio in its own taskq so that
+		 * the child can continue to make progress. This also
+		 * prevents overflowing the stack when we have deeply nested
+		 * parent-child relationships.
+		 */
+		zio_taskq_dispatch(pio, type, B_FALSE);
 	} else {
 		mutex_exit(&pio->io_lock);
 	}
@@ -2506,7 +2517,14 @@ zio_dva_throttle(zio_t *zio)
 	if (nio != NULL) {
 		ASSERT3U(nio->io_queued_timestamp, <=,
 		    zio->io_queued_timestamp);
-		zio_execute(nio);
+		ASSERT(nio->io_stage == ZIO_STAGE_DVA_THROTTLE);
+		/*
+		 * We are passing control to a new zio so make sure that
+		 * it is processed by a different thread. We do this to
+		 * avoid stack overflows that can occur when parents are
+		 * throttled and children are making progress.
+		 */
+		zio_taskq_dispatch(nio, ZIO_TASKQ_ISSUE, B_FALSE);
 	}
 	return (ZIO_PIPELINE_STOP);
 }

@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2002, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2014 Toomas Soome <tsoome@me.com>
  * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
@@ -70,6 +71,7 @@ static struct uuid_to_ptag {
 	{ EFI_DELL_RESV },
 	{ EFI_AAPL_HFS },
 	{ EFI_AAPL_UFS },
+	{ EFI_BIOS_BOOT },
 	{ EFI_FREEBSD_BOOT },
 	{ EFI_FREEBSD_SWAP },
 	{ EFI_FREEBSD_UFS },

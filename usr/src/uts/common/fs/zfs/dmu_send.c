@@ -77,7 +77,7 @@ struct send_thread_arg {
 };
 
 struct send_block_record {
-	boolean_t		eos_marker;
+	boolean_t		eos_marker; /* Marks the end of the stream */
 	blkptr_t		bp;
 	zbookmark_phys_t	zb;
 	uint8_t			indblkshift;
@@ -986,6 +986,8 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 	mutex_exit(&to_ds->ds_sendstream_lock);
 
 	dsl_dataset_long_hold(to_ds, FTAG);
+	if (from_ds != NULL)
+		dsl_dataset_long_hold(from_ds, FTAG);
 	dsl_pool_rele(dp, tag);
 
 	if (dump_record(dsp, NULL, 0) != 0) {
@@ -1133,6 +1135,8 @@ out:
 	kmem_free(drr, sizeof (dmu_replay_record_t));
 	kmem_free(dsp, sizeof (dmu_sendarg_t));
 
+	if (from_ds != NULL)
+		dsl_dataset_long_rele(from_ds, FTAG);
 	dsl_dataset_long_rele(to_ds, FTAG);
 
 	return (err);
@@ -1411,28 +1415,39 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 
 		if (strchr(fromsnap, '@')) {
 			err = dsl_dataset_hold(dp, fromsnap, FTAG, &fromds);
-			if (err != 0)
-				goto out;
 
-			err = find_common_ancestor(dp, fromds, ds, &zb);
-			if (err != 0)
-				goto out;
-
-			if (dsl_dataset_is_before(ds, fromds, 0)) {
-				is_clone = (ds->ds_dir != fromds->ds_dir);
-				dsl_dataset_rele(fromds, FTAG);
-				fromds = NULL;
+			if (err != 0) {
+				ASSERT3P(fromds, ==, NULL);
 			} else {
-				is_clone = B_FALSE;
+				if (dsl_dataset_is_before(ds, fromds, 0)) {
+					ASSERT3U(is_clone, ==, (ds->ds_dir !=
+					    fromds->ds_dir));
+					zb.zbm_creation_txg =
+					    fromds->ds_phys->ds_creation_txg;
+					zb.zbm_creation_time =
+					    fromds->ds_phys->ds_creation_time;
+					zb.zbm_guid =
+					    fromds->ds_phys->ds_guid;
+					dsl_dataset_rele(fromds, FTAG);
+					fromds = NULL;
+				} else {
+					is_clone = B_FALSE;
+					err = find_common_ancestor(dp, fromds,
+					    ds, &zb);
+				}
 			}
 		} else {
 			err = dsl_bookmark_lookup(dp, fromsnap, ds, &zb);
-			if (err != 0)
-				goto out;
 		}
-		err = dmu_send_impl(FTAG, dp, ds, fromds, &zb, is_clone,
-		    embedok, outfd, vp, off);
-out:
+
+		if (err == 0) {
+			/* dmu_send_impl will call dsl_pool_rele for us. */
+			err = dmu_send_impl(FTAG, dp, ds, fromds, &zb, is_clone,
+			    embedok, outfd, vp, off);
+		} else {
+			dsl_pool_rele(dp, FTAG);
+		}
+
 		if (fromds != NULL)
 			dsl_dataset_rele(fromds, FTAG);
 	} else {

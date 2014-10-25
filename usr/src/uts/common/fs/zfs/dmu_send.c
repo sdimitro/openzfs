@@ -71,6 +71,7 @@ struct send_thread_arg {
 	dsl_dataset_t	*ds;		/* Dataset to traverse */
 	uint64_t	fromtxg;	/* Traverse from this txg */
 	objset_t	*to_os;		/* The "to" objset (from thread only) */
+	uint64_t	ignore_object;	/* ignore further callbacks on this */
 	int		flags;		/* flags to pass to traverse_dataset */
 	int		error_code;
 	boolean_t	cancel;
@@ -535,25 +536,33 @@ enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
 	uint64_t span = BP_SPAN(datablkszsec, indblkshift, zb->zb_level);
 	uint64_t blkid = zb->zb_blkid;
 	if (zb->zb_object == DMU_META_DNODE_OBJECT && BP_IS_HOLE(bp)) {
-		uint64_t start_object = 0;
-		uint64_t end_object = 0;
-		uint64_t curr;
+		int epb = span >> DNODE_SHIFT; /* entries per block */
 
-		start_object = curr = span * blkid >> DNODE_SHIFT;
-		end_object = start_object + (span >> DNODE_SHIFT);
-		err = dmu_object_next(to_os, &curr, B_FALSE, 0);
-		while (err == 0 && curr < end_object) {
-			err = enqueue_whole_object(to_os, curr, &sta->q);
+		for (uint64_t obj = blkid * epb;
+		    err == 0 && obj < (blkid + 1) * epb;
+		    err = dmu_object_next(to_os, &obj, B_FALSE, 0)) {
+			/*
+			 * Object 0 is invalid (used to specify
+			 * the META_DNODE object).
+			 */
+			if (obj == 0)
+				obj = 1;
+			err = enqueue_whole_object(to_os, obj, &sta->q);
+			/*
+			 * Note: we must explicitly "break" so that
+			 * dmu_object_next() does not overwrite "err".
+			 */
 			if (err != 0)
 				break;
-			curr++;
-			err = dmu_object_next(to_os, &curr, B_FALSE, 0);
 		}
+
 		if (err == ESRCH)
 			err = 0;
 	} else if (BP_IS_HOLE(bp) && zb->zb_level > 0) {
 		err = enqueue_range_blocks(to_os, zb->zb_object, span * blkid,
 		    span, &sta->q);
+		if (err == ENOENT)
+			err = 0;
 	} else if (zb->zb_level == 0 &&
 	    zb->zb_object != DMU_META_DNODE_OBJECT) {
 		dmu_prefetch(to_os, zb->zb_object, blkid * span, span,
@@ -596,20 +605,45 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	if (sta->cancel)
 		return (SET_ERROR(EINTR));
 
+	if (sta->ignore_object != 0 && zb->zb_object == sta->ignore_object)
+		return (0);
+
 	if (bp == NULL) {
-		if (dnp->dn_type == DMU_OT_NONE && to_os) {
-			dmu_object_info_t doi;
-			if (zb->zb_object == 0)
-				return (err);
-			err = dmu_object_info(to_os, zb->zb_object, &doi);
-			if (err == ENOENT) {
-				err = 0;
-			} else {
-				err = enqueue_whole_object(to_os, zb->zb_object,
-				    &sta->q);
-			}
+		ASSERT3U(zb->zb_level, ==, ZB_DNODE_LEVEL);
+
+		/* Ignore if we are traversing the tosnap. */
+		if (to_os == NULL || zb->zb_object == 0)
+			return (0);
+
+		/*
+		 * If this object is fundamentally different
+		 * from the corresponding object in the tosnap,
+		 * then we must enqueue the whole object, and ignore
+		 * any further callbacks for this object.  Any callbacks
+		 * we receive later that we do not ignore, then, must be
+		 * for a compatible object.
+		 */
+		if (dnp->dn_type == DMU_OT_NONE) {
+			sta->ignore_object = zb->zb_object;
+			return (enqueue_whole_object(to_os, zb->zb_object,
+			    &sta->q));
 		}
-		return (err);
+
+		dmu_object_info_t tosnap_obj_info;
+		err = dmu_object_info(to_os, zb->zb_object, &tosnap_obj_info);
+		if (err == ENOENT)
+			return (0);
+		if (err != 0)
+			return (err);
+		if (tosnap_obj_info.doi_data_block_size !=
+		    dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT ||
+		    tosnap_obj_info.doi_metadata_block_size !=
+		    1 << dnp->dn_indblkshift) {
+			sta->ignore_object = zb->zb_object;
+			return (enqueue_whole_object(to_os, zb->zb_object,
+			    &sta->q));
+		}
+		return (0);
 	} else if (zb->zb_level < 0) {
 		return (0);
 	}

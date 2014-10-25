@@ -36,6 +36,7 @@ PROGS = cleanup \
 	rsend_015_pos \
 	rsend_016_neg \
 	rsend_017_pos \
+	rsend_018_pos \
 	setup
 
 FILES = rsend.cfg \

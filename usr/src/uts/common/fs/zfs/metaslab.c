@@ -2048,7 +2048,7 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 
 	/*
 	 * Note: metaslab_condense() clears the space_map's histogram.
-	 * Therefore we muse verify and remove this histogram before
+	 * Therefore we must verify and remove this histogram before
 	 * condensing.
 	 */
 	metaslab_group_histogram_verify(mg);

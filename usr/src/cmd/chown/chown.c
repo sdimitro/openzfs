@@ -22,6 +22,9 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
 /*	  All Rights Reserved  	*/
@@ -30,8 +33,6 @@
  * Portions of this source code were derived from Berkeley 4.3 BSD
  * under license from the Regents of the University of California.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
  * chown [-fhR] uid[:gid] file ...
@@ -55,10 +56,10 @@
 #include <errno.h>
 #include <libcmdutils.h>
 #include <aclutils.h>
+#include <pthread.h>
+#include <taskq.h>
 
-static struct		passwd	*pwd;
-static struct		group	*grp;
-static struct		stat	stbuf;
+static taskq_t		*taskq;
 static uid_t		uid = (uid_t)-1;
 static gid_t		gid = (gid_t)-1;
 static int		status = 0;	/* total number of errors received */
@@ -68,13 +69,17 @@ static int		hflag = 0,
 			Hflag = 0,
 			Lflag = 0,
 			Pflag = 0,
-			sflag = 0;
+			sflag = 0,
+			tflag = 16;	/* default to 16 threads */
 static avl_tree_t	*tree;
+static pthread_mutex_t	tree_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	perror_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static int		Perror(char *);
+static void		Perror(char *);
 static int		isnumber(char *);
-static void		chownr(char *, uid_t, gid_t);
+static void		chownr(void *);
 static void		usage();
+static char		*dir_alloc(char *parent, char *name);
 
 #ifdef XPG4
 /*
@@ -112,22 +117,19 @@ static void		usage();
 #define	FOLLOW_D_LINKS	(Lflag)
 #endif
 
-#define	CHOWN(f, u, g)	if (chown(f, u, g) < 0) { \
-				status += Perror(f); \
-			}
-#define	LCHOWN(f, u, g)	if (lchown(f, u, g) < 0) { \
-				status += Perror(f); \
-			}
-
-
 int
 main(int argc, char *argv[])
 {
-	int c;
-	int ch;
-	char *grpp;			/* pointer to group name arg */
-	extern int optind;
-	int errflg = 0;
+	struct passwd	*pwd;
+	struct group	*grp;
+	struct stat	st;
+	int		c;
+	int		ch;
+	char		*grpp;
+	extern int	optind;
+	int		errflg = 0;
+	char		*dir;
+	taskqid_t	tid;
 
 	(void) setlocale(LC_ALL, "");
 #if !defined(TEXT_DOMAIN)		/* Should be defined by cc -D */
@@ -135,7 +137,7 @@ main(int argc, char *argv[])
 #endif
 	(void) textdomain(TEXT_DOMAIN);
 
-	while ((ch = getopt(argc, argv, "hRfHLPs")) != EOF) {
+	while ((ch = getopt(argc, argv, "hRfHLPst:")) != EOF) {
 		switch (ch) {
 		case 'h':
 			hflag++;
@@ -174,6 +176,13 @@ main(int argc, char *argv[])
 			sflag++;
 			break;
 
+		case 't':
+			if (!isnumber(optarg))
+				errflg++;
+			else
+				tflag = strtoul(optarg, NULL, 10);
+			break;
+
 		default:
 			errflg++;
 			break;
@@ -187,7 +196,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv = &argv[optind];
 
-	if (errflg || (argc < 2) ||
+	if (errflg || (argc < 2) || (rflag && tflag < 1) ||
 	    ((Hflag || Lflag || Pflag) && !rflag) ||
 	    ((Hflag || Lflag || Pflag) && hflag)) {
 		usage();
@@ -262,13 +271,16 @@ main(int argc, char *argv[])
 		}
 	}
 
+	if (rflag)
+		taskq = taskq_create("chown_taskq", tflag, 0, 4, INT_MAX, 0);
+
 	for (c = 1; c < argc; c++) {
 		tree = NULL;
-		if (lstat(argv[c], &stbuf) < 0) {
-			status += Perror(argv[c]);
+		if (lstat(argv[c], &st) < 0) {
+			Perror(argv[c]);
 			continue;
 		}
-		if (rflag && ((stbuf.st_mode & S_IFMT) == S_IFLNK)) {
+		if (rflag && S_ISLNK(st.st_mode)) {
 			if (hflag || Pflag) {
 				/*
 				 * Change the ownership of the symlink
@@ -276,11 +288,13 @@ main(int argc, char *argv[])
 				 * Don't follow the symbolic link to
 				 * any other part of the file hierarchy.
 				 */
-				LCHOWN(argv[c], uid, gid);
+				if (lchown(argv[c], uid, gid) < 0) {
+					Perror(argv[c]);
+				}
 			} else {
-				struct stat stbuf2;
-				if (stat(argv[c], &stbuf2) < 0) {
-					status += Perror(argv[c]);
+				struct stat st2;
+				if (stat(argv[c], &st2) < 0) {
+					Perror(argv[c]);
 					continue;
 				}
 				/*
@@ -291,57 +305,71 @@ main(int argc, char *argv[])
 				 * the symlink to any other part of the
 				 * file hierarchy.
 				 */
-				if (FOLLOW_CL_LINKS) {
-					if ((stbuf2.st_mode & S_IFMT)
-					    == S_IFDIR) {
+				if (FOLLOW_CL_LINKS && S_ISDIR(st2.st_mode)) {
+					/*
+					 * We are following symlinks so
+					 * traverse into the directory. Add
+					 * this node to the search tree so
+					 * we don't get into an endless loop.
+					 */
+					int rc = pthread_mutex_lock(&tree_lock);
+					if (rc != 0) {
+						Perror(argv[c]);
+						continue;
+					}
+
+					rc = add_tnode(&tree, st2.st_dev,
+					    st2.st_ino);
+					(void) pthread_mutex_unlock(&tree_lock);
+
+					if (rc != 1) {
 						/*
-						 * We are following symlinks so
-						 * traverse into the directory.
-						 * Add this node to the search
-						 * tree so we don't get into an
-						 * endless loop.
+						 * Error occurred. rc can't
+						 * be 0 as this is the first
+						 * node to be added to the
+						 * search tree.
 						 */
-						if (add_tnode(&tree,
-						    stbuf2.st_dev,
-						    stbuf2.st_ino) == 1) {
-							chownr(argv[c],
-							    uid, gid);
-						} else {
-							/*
-							 * Error occurred.
-							 * rc can't be 0
-							 * as this is the first
-							 * node to be added to
-							 * the search tree.
-							 */
-							status += Perror(
-							    argv[c]);
-						}
-					} else {
-						/*
-						 * Change the user ID of the
-						 * file referenced by the
-						 * symlink.
-						 */
-						CHOWN(argv[c], uid, gid);
+						Perror(argv[c]);
+						continue;
+					}
+
+					dir = dir_alloc(NULL, argv[c]);
+					if (dir == NULL) {
+						Perror(argv[c]);
+						continue;
+					}
+
+					tid = taskq_dispatch(taskq, chownr,
+					    dir, TQ_SLEEP);
+					if (tid == 0) {
+						Perror(argv[c]);
+						free(dir);
 					}
 				} else {
 					/*
 					 * Change the user ID of the file
 					 * referenced by the symbolic link.
 					 */
-					CHOWN(argv[c], uid, gid);
+					if (chown(argv[c], uid, gid) < 0) {
+						Perror(argv[c]);
+					}
 				}
 			}
-		} else if (rflag && ((stbuf.st_mode & S_IFMT) == S_IFDIR)) {
+		} else if (rflag && S_ISDIR(st.st_mode)) {
 			/*
 			 * Add this node to the search tree so we don't
 			 * get into a endless loop.
 			 */
-			if (add_tnode(&tree, stbuf.st_dev,
-			    stbuf.st_ino) == 1) {
-				chownr(argv[c], uid, gid);
-			} else {
+			int rc = pthread_mutex_lock(&tree_lock);
+			if (rc != 0) {
+				Perror(argv[c]);
+				continue;
+			}
+
+			rc = add_tnode(&tree, st.st_dev, st.st_ino);
+			(void) pthread_mutex_unlock(&tree_lock);
+
+			if (rc != 1) {
 				/*
 				 * An error occurred while trying
 				 * to add the node to the tree.
@@ -350,14 +378,35 @@ main(int argc, char *argv[])
 				 * be 0 as this was the first node
 				 * being added to the search tree.
 				 */
-				status += Perror(argv[c]);
+				Perror(argv[c]);
+				continue;
+			}
+
+			dir = dir_alloc(NULL, argv[c]);
+			if (dir == NULL) {
+				Perror(argv[c]);
+				continue;
+			}
+
+			tid = taskq_dispatch(taskq, chownr, dir, TQ_SLEEP);
+			if (tid == 0) {
+				Perror(argv[c]);
+				free(dir);
 			}
 		} else if (hflag || Pflag) {
-			LCHOWN(argv[c], uid, gid);
+			if (lchown(argv[c], uid, gid) < 0) {
+				Perror(argv[c]);
+			}
 		} else {
-			CHOWN(argv[c], uid, gid);
+			if (chown(argv[c], uid, gid) < 0) {
+				Perror(argv[c]);
+			}
 		}
 	}
+
+	if (rflag)
+		taskq_destroy(taskq);
+
 	return (status);
 }
 
@@ -373,17 +422,15 @@ main(int argc, char *argv[])
  * through the global "status" variable.
  */
 static void
-chownr(char *dir, uid_t uid, gid_t gid)
+chownr(void *arg)
 {
+	char *dir = arg;
+	char *path;
+	int fd;
 	DIR *dirp;
 	struct dirent *dp;
 	struct stat st, st2;
-	char savedir[1024];
-
-	if (getcwd(savedir, 1024) == (char *)0) {
-		(void) Perror("getcwd");
-		exit(255);
-	}
+	taskqid_t tid;
 
 	/*
 	 * Attempt to chown the directory, however don't return if we
@@ -391,26 +438,35 @@ chownr(char *dir, uid_t uid, gid_t gid)
 	 * directory.  Note: the calling routine resets the SUID bits
 	 * on this directory so we don't have to perform an extra 'stat'.
 	 */
-	CHOWN(dir, uid, gid);
+	if (chown(dir, uid, gid) < 0) {
+		Perror(dir);
+	}
 
-	if (chdir(dir) < 0) {
-		status += Perror(dir);
+	if ((fd = open(dir, O_RDONLY)) == -1) {
+		Perror(dir);
+
+		free(dir);
 		return;
 	}
-	if ((dirp = opendir(".")) == NULL) {
-		status += Perror(dir);
+
+	if ((dirp = fdopendir(fd)) == NULL) {
+		Perror(dir);
+
+		(void) close(fd);
+		free(dir);
 		return;
 	}
+
 	for (dp = readdir(dirp); dp != NULL; dp = readdir(dirp)) {
 		if (strcmp(dp->d_name, ".") == 0 ||	/* skip . and .. */
 		    strcmp(dp->d_name, "..") == 0) {
 			continue;
 		}
-		if (lstat(dp->d_name, &st) < 0) {
-			status += Perror(dp->d_name);
+		if (fstatat(fd, dp->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+			Perror(dp->d_name);
 			continue;
 		}
-		if ((st.st_mode & S_IFMT) == S_IFLNK) {
+		if (S_ISLNK(st.st_mode)) {
 			if (hflag || Pflag) {
 				/*
 				 * Change the ownership of the symbolic link
@@ -419,10 +475,13 @@ chownr(char *dir, uid_t uid, gid_t gid)
 				 * link to any other part of the file
 				 * hierarchy.
 				 */
-				LCHOWN(dp->d_name, uid, gid);
+				if (fchownat(fd, dp->d_name,
+				    uid, gid, AT_SYMLINK_NOFOLLOW) < 0) {
+					Perror(dp->d_name);
+				}
 			} else {
-				if (stat(dp->d_name, &st2) < 0) {
-					status += Perror(dp->d_name);
+				if (fstatat(fd, dp->d_name, &st2, 0) < 0) {
+					Perror(dp->d_name);
 					continue;
 				}
 				/*
@@ -433,81 +492,106 @@ chownr(char *dir, uid_t uid, gid_t gid)
 				 * are to follow the symlink to any other
 				 * part of the file hierarchy.
 				 */
-				if (FOLLOW_D_LINKS) {
-					if ((st2.st_mode & S_IFMT) == S_IFDIR) {
+				if (FOLLOW_D_LINKS && S_ISDIR(st2.st_mode)) {
+					/*
+					 * We are following symlinks so
+					 * traverse into the directory. Add
+					 * this node to the search tree so
+					 * we don't get into an endless loop.
+					 */
+					int rc = pthread_mutex_lock(&tree_lock);
+					if (rc != 0) {
+						Perror(dp->d_name);
+						continue;
+					}
+
+					rc = add_tnode(&tree,
+					    st2.st_dev, st2.st_ino);
+					(void) pthread_mutex_unlock(&tree_lock);
+
+					if (rc == 0) {
+						/* already visited */
+						continue;
+					} else if (rc != 1) {
 						/*
-						 * We are following symlinks so
-						 * traverse into the directory.
-						 * Add this node to the search
-						 * tree so we don't get into an
-						 * endless loop.
+						 * An error occurred
+						 * while trying to add
+						 * the node to the tree.
 						 */
-						int rc;
-						if ((rc = add_tnode(&tree,
-						    st2.st_dev,
-						    st2.st_ino)) == 1) {
-							chownr(dp->d_name,
-							    uid, gid);
-						} else if (rc == 0) {
-							/* already visited */
-							continue;
-						} else {
-							/*
-							 * An error occurred
-							 * while trying to add
-							 * the node to the tree.
-							 */
-							status += Perror(
-							    dp->d_name);
-							continue;
-						}
-					} else {
-						/*
-						 * Change the user id of the
-						 * file referenced by the
-						 * symbolic link.
-						 */
-						CHOWN(dp->d_name, uid, gid);
+						Perror(dp->d_name);
+						continue;
+					}
+
+					path = dir_alloc(dir, dp->d_name);
+					if (path == NULL) {
+						Perror(dp->d_name);
+						continue;
+					}
+
+					tid = taskq_dispatch(taskq, chownr,
+					    path, TQ_SLEEP);
+					if (tid == 0) {
+						Perror(dp->d_name);
+						free(path);
 					}
 				} else {
 					/*
 					 * Change the user id of the file
 					 * referenced by the symbolic link.
 					 */
-					CHOWN(dp->d_name, uid, gid);
+					if (fchownat(fd, dp->d_name,
+					    uid, gid, 0) < 0) {
+						Perror(dp->d_name);
+					}
 				}
 			}
-		} else if ((st.st_mode & S_IFMT) == S_IFDIR) {
+		} else if (S_ISDIR(st.st_mode)) {
 			/*
 			 * Add this node to the search tree so we don't
 			 * get into a endless loop.
 			 */
-			int rc;
-			if ((rc = add_tnode(&tree, st.st_dev,
-			    st.st_ino)) == 1) {
-				chownr(dp->d_name, uid, gid);
-			} else if (rc == 0) {
+			int rc = pthread_mutex_lock(&tree_lock);
+			if (rc != 0) {
+				Perror(dp->d_name);
+				continue;
+			}
+
+			rc = add_tnode(&tree, st.st_dev, st.st_ino);
+			(void) pthread_mutex_unlock(&tree_lock);
+
+			if (rc == 0) {
 				/* already visited */
 				continue;
-			} else {
+			} else if (rc != 1) {
 				/*
 				 * An error occurred while trying
 				 * to add the node to the search tree.
 				 */
-				status += Perror(dp->d_name);
+				Perror(dp->d_name);
 				continue;
 			}
+
+			path = dir_alloc(dir, dp->d_name);
+			if (path == NULL) {
+				Perror(dp->d_name);
+				continue;
+			}
+
+			tid = taskq_dispatch(taskq, chownr, path, TQ_SLEEP);
+			if (tid == 0) {
+				Perror(dp->d_name);
+				free(path);
+			}
 		} else {
-			CHOWN(dp->d_name, uid, gid);
+			if (fchownat(fd, dp->d_name, uid, gid, 0) < 0) {
+				Perror(dp->d_name);
+			}
 		}
 	}
 
+	/* Upon calling closedir() the file descriptor is closed. */
 	(void) closedir(dirp);
-	if (chdir(savedir) < 0) {
-		(void) fprintf(stderr, gettext(
-		    "chown: can't change back to %s\n"), savedir);
-		exit(255);
-	}
+	free(dir);
 }
 
 static int
@@ -521,14 +605,26 @@ isnumber(char *s)
 	return (1);
 }
 
-static int
+static void
 Perror(char *s)
 {
 	if (!fflag) {
+		/*
+		 * This lock is needed so that the following calls to
+		 * fprintf and perror happen as if they were a single
+		 * print statement. Otherwise the error messages get
+		 * intermixed when running with many threads, and many
+		 * errors. Also, incrementing the global "status"
+		 * variable is serialized here, using the same lock.
+		 * The performance impact only affects the error
+		 * case, which I'm not too interested in optimizing.
+		 */
+		(void) pthread_mutex_lock(&perror_lock);
 		(void) fprintf(stderr, "chown: ");
 		perror(s);
+		status++;
+		(void) pthread_mutex_unlock(&perror_lock);
 	}
-	return (!fflag);
 }
 
 static void
@@ -537,8 +633,21 @@ usage()
 	(void) fprintf(stderr, gettext(
 	    "usage:\n"
 	    "\tchown [-fhR] owner[:group] file...\n"
-	    "\tchown -R [-f] [-H|-L|-P] owner[:group] file...\n"
+	    "\tchown -R [-t #] [-f] [-H|-L|-P] owner[:group] file...\n"
 	    "\tchown -s [-fhR] ownersid[:groupsid] file...\n"
 	    "\tchown -s -R [-f] [-H|-L|-P] ownersid[:groupsid] file...\n"));
 	exit(2);
+}
+
+static char *
+dir_alloc(char *parent, char *name)
+{
+	char *path;
+
+	if (parent == NULL) {
+		return (strdup(name));
+	} else {
+		(void) asprintf(&path, "%s/%s", parent, name);
+		return (path);
+	}
 }

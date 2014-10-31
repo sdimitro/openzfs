@@ -274,7 +274,7 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks)
 	mutex_exit(&zs->zs_lock);
 	rw_exit(&zf->zf_rwlock);
 	for (int i = 0; i < pf_nblks; i++) {
-		dbuf_prefetch(zf->zf_dnode, pf_start + i,
+		dbuf_prefetch(zf->zf_dnode, 0, pf_start + i,
 		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH);
 	}
 	ZFETCHSTAT_BUMP(zfetchstat_hits);

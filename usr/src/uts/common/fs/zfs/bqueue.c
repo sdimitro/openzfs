@@ -20,7 +20,8 @@
 #include	<sys/zfs_context.h>
 
 static inline bqueue_node_t *
-obj2node(bqueue_t *q, void *data) {
+obj2node(bqueue_t *q, void *data)
+{
 	return ((bqueue_node_t *)((char *)data + q->bq_node_offset));
 }
 
@@ -34,7 +35,7 @@ int
 bqueue_init(bqueue_t *q, uint64_t size, size_t node_offset)
 {
 	list_create(&q->bq_list, node_offset + sizeof (bqueue_node_t),
-	    node_offset + offsetof (bqueue_node_t, bqn_node));
+	    node_offset + offsetof(bqueue_node_t, bqn_node));
 	cv_init(&q->bq_add_cv, NULL, CV_DEFAULT, NULL);
 	cv_init(&q->bq_pop_cv, NULL, CV_DEFAULT, NULL);
 	mutex_init(&q->bq_lock, NULL, MUTEX_DEFAULT, NULL);

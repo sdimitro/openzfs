@@ -937,10 +937,11 @@ dsl_dataset_is_dirty(dsl_dataset_t *ds)
 }
 
 boolean_t
-dsl_dataset_is_clone(dsl_dataset_t *ds, dsl_dataset_t *origin_snap) {
+dsl_dataset_is_clone(dsl_dataset_t *ds, dsl_dataset_t *origin_snap)
+{
 	uint64_t origin_obj = ds->ds_dir->dd_phys->dd_origin_obj;
-	return origin_obj != 0 && (origin_snap == NULL ||
-	    origin_obj != origin_snap->ds_object);
+	return (origin_obj != 0 && (origin_snap == NULL ||
+	    origin_obj != origin_snap->ds_object));
 }
 
 static int

@@ -58,6 +58,7 @@
 /* Set this tunable to TRUE to replace corrupt data with 0x2f5baddb10c */
 int zfs_send_corrupt_data = B_FALSE;
 int zfs_send_queue_length = 16 * 1024 * 1024;
+int zfs_recv_queue_length = 16 * 1024 * 1024;
 
 static char *dmu_recv_tag = "dmu_recv_tag";
 static const char *recv_clone_name = "%recv";
@@ -469,35 +470,46 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
  * tree using the blkfill field in the blkptrs.
  */
 static int
-enqueue_range_blocks(objset_t *os, uint64_t object, uint64_t start,
-    uint64_t len, bqueue_t *bq) {
-	uint64_t offset = start;
+enqueue_block_range(struct send_thread_arg *sta,
+    uint64_t object, uint64_t offset, uint64_t len)
+{
+	objset_t *to_os = sta->to_os;
+	uint64_t end;
 	int err = 0;
 	dmu_object_info_t doi;
-	err = dmu_object_info(os, object, &doi);
+
+	ASSERT(object != 0);
+
+	if (len == 0)
+		end = UINT64_MAX;
+	else
+		end = offset + len;
+
+	err = dmu_object_info(to_os, object, &doi);
 	if (err != 0)
 		return (err);
 
-	err = dmu_offset_next(os, object, B_FALSE, &offset);
-	while ((len == 0 || offset < start + len) && err == 0) {
+	err = dmu_offset_next(to_os, object, B_FALSE, &offset);
+	while (offset < end && err == 0) {
 		struct send_block_record *record;
+
 		record = kmem_zalloc(sizeof (*record), KM_SLEEP);
 		record->eos_marker = B_FALSE;
-		record->zb.zb_objset = os->os_dsl_dataset->ds_object;
+		record->zb.zb_objset = dmu_objset_id(to_os);
 		record->zb.zb_object = object;
 		record->zb.zb_level = 0;
-		record->zb.zb_blkid = offset / (doi.doi_data_block_size);
-		record->indblkshift = highbit64(doi.doi_metadata_block_size)
-		    - 1;
-		record->datablkszsec = doi.doi_data_block_size >>
-		    SPA_MINBLOCKSHIFT;
+		record->zb.zb_blkid = offset / doi.doi_data_block_size;
+		record->indblkshift =
+		    highbit64(doi.doi_metadata_block_size) - 1;
+		record->datablkszsec =
+		    doi.doi_data_block_size >> SPA_MINBLOCKSHIFT;
 
-		dmu_prefetch(os, record->zb.zb_object, record->zb.zb_blkid,
+		dmu_prefetch(to_os, object, 0, record->zb.zb_blkid,
 		    record->datablkszsec << SPA_MINBLOCKSHIFT,
 		    ZIO_PRIORITY_ASYNC_READ);
-		bqueue_enqueue(bq, record, doi.doi_data_block_size);
+		bqueue_enqueue(&sta->q, record, doi.doi_data_block_size);
 		offset += doi.doi_data_block_size;
-		err = dmu_offset_next(os, object, B_FALSE, &offset);
+		err = dmu_offset_next(to_os, object, B_FALSE, &offset);
 	}
 	if (err == ESRCH)
 		err = 0;
@@ -505,36 +517,39 @@ enqueue_range_blocks(objset_t *os, uint64_t object, uint64_t start,
 }
 
 static int
-enqueue_whole_object(objset_t *os, uint64_t object, bqueue_t *bq) {
-	int err = enqueue_range_blocks(os, object, 0, 0, bq);
+enqueue_whole_object(struct send_thread_arg *sta, uint64_t object)
+{
+	int err = enqueue_block_range(sta, object, 0, 0);
 	if (err == ENOENT)
 		err = 0;
 	return (err);
 }
 
 /*
- * This function handles some of the special cases described in send_cb.  If a
- * hole is created in the meta-dnode, this thread calls hole_object on every
- * object that is allocated in the corresponding range in the to_ds.  It finds
- * these objects by using dmu_object_next, which uses the blkfill field of the
- * blkptrs to efficiently traverse the tree.
+ * This function handles some of the special cases described in send_cb.
+ * If a hole is created in the meta-dnode, this thread calls
+ * enqueue_whole_object on every object that is allocated in the
+ * corresponding range in the to_ds.  It finds these objects by using
+ * dmu_object_next, which uses the blkfill field of the blkptrs to
+ * efficiently traverse the tree.
  *
- * If a hole is created inside an object, we calculate the range it covers, and
- * use equiv_find to fabricate records for any data blocks that might exist in
- * to_ds.
+ * If a hole is created inside an object, we calculate the range it
+ * covers, and use equiv_find to fabricate records for any data blocks
+ * that might exist in to_ds.
  *
- * Finally, if neither of the above happened, and this is a level 0 block, we
- * prefetch the data in the to_ds version of this block so that when the main
- * thread goes to dump a write record, it ideally won't have to block too long,
- * if at all.
+ * Finally, if neither of the above happened, and this is a level 0
+ * block, we prefetch the data in the to_ds version of this block so
+ * that when the main thread goes to dump a write record, it ideally
+ * won't have to block too long, if at all.
  */
 static int
-enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
-    uint8_t indblkshift, uint16_t datablkszsec, objset_t *to_os,
-    struct send_thread_arg *sta)
+enqueue_holes_prefetch(struct send_thread_arg *sta, const zbookmark_phys_t *zb,
+    const blkptr_t *bp, uint8_t indblkshift, uint16_t datablkszsec)
 {
+	objset_t *to_os = sta->to_os;
 	uint64_t span = BP_SPAN(datablkszsec, indblkshift, zb->zb_level);
 	uint64_t blkid = zb->zb_blkid;
+	int err = 0;
 	if (zb->zb_object == DMU_META_DNODE_OBJECT && BP_IS_HOLE(bp)) {
 		int epb = span >> DNODE_SHIFT; /* entries per block */
 
@@ -547,7 +562,7 @@ enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
 			 */
 			if (obj == 0)
 				obj = 1;
-			err = enqueue_whole_object(to_os, obj, &sta->q);
+			err = enqueue_whole_object(sta, obj);
 			/*
 			 * Note: we must explicitly "break" so that
 			 * dmu_object_next() does not overwrite "err".
@@ -559,13 +574,13 @@ enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
 		if (err == ESRCH)
 			err = 0;
 	} else if (BP_IS_HOLE(bp) && zb->zb_level > 0) {
-		err = enqueue_range_blocks(to_os, zb->zb_object, span * blkid,
-		    span, &sta->q);
+		err = enqueue_block_range(sta, zb->zb_object, span * blkid,
+		    span);
 		if (err == ENOENT)
 			err = 0;
 	} else if (zb->zb_level == 0 &&
 	    zb->zb_object != DMU_META_DNODE_OBJECT) {
-		dmu_prefetch(to_os, zb->zb_object, blkid * span, span,
+		dmu_prefetch(to_os, zb->zb_object, 0, blkid * span, span,
 		    ZIO_PRIORITY_ASYNC_READ);
 	}
 
@@ -595,7 +610,8 @@ enqueue_holes_prefetch(const zbookmark_phys_t *zb, const blkptr_t *bp, int err,
 /*ARGSUSED*/
 static int
 send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
-    const zbookmark_phys_t *zb, const struct dnode_phys *dnp, void *arg) {
+    const zbookmark_phys_t *zb, const struct dnode_phys *dnp, void *arg)
+{
 	struct send_thread_arg *sta = arg;
 	objset_t *to_os = sta->to_os;
 	struct send_block_record *record;
@@ -625,8 +641,7 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 		 */
 		if (dnp->dn_type == DMU_OT_NONE) {
 			sta->ignore_object = zb->zb_object;
-			return (enqueue_whole_object(to_os, zb->zb_object,
-			    &sta->q));
+			return (enqueue_whole_object(sta, zb->zb_object));
 		}
 
 		dmu_object_info_t tosnap_obj_info;
@@ -640,8 +655,7 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 		    tosnap_obj_info.doi_metadata_block_size !=
 		    1 << dnp->dn_indblkshift) {
 			sta->ignore_object = zb->zb_object;
-			return (enqueue_whole_object(to_os, zb->zb_object,
-			    &sta->q));
+			return (enqueue_whole_object(sta, zb->zb_object));
 		}
 		return (0);
 	} else if (zb->zb_level < 0) {
@@ -652,6 +666,8 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	record->eos_marker = B_FALSE;
 	record->bp = *bp;
 	record->zb = *zb;
+	if (to_os != NULL)
+		record->zb.zb_objset = dmu_objset_id(to_os);
 	record->indblkshift = dnp->dn_indblkshift;
 	record->datablkszsec = dnp->dn_datablkszsec;
 	record_size = dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT;
@@ -661,15 +677,15 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 	 * If the data was modified in the from_ds, we will need to send the
 	 * data in the to_os, so we prefetch it first.  However, we also need to
 	 * handle another case: If there is a new hole in the from_ds that was
-	 * not modified from the common ancestor in the to_ds, we have to
+	 * not modified since the common ancestor in the to_ds, we have to
 	 * iterate over the data in the to_ds to get the blocks to send so that
 	 * we can recreate the to_ds.  This function, enqueue_holes_prefetch,
 	 * handles both of those things.  We only call it when to_os is passed
 	 * in because that is how we know we're the thread handling the from_ds.
 	 */
 	if (to_os != NULL) {
-		err = enqueue_holes_prefetch(zb, bp, err, dnp->dn_indblkshift,
-		    dnp->dn_datablkszsec, to_os, sta);
+		err = enqueue_holes_prefetch(sta, zb, bp, dnp->dn_indblkshift,
+		    dnp->dn_datablkszsec);
 	}
 	return (err);
 }
@@ -681,7 +697,8 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
  * dataset to traverse, the thread immediately pushes End of Stream marker.
  */
 static void
-send_traverse_thread(void *arg) {
+send_traverse_thread(void *arg)
+{
 	struct send_thread_arg *st_arg = arg;
 	int err;
 	struct send_block_record *data;
@@ -703,15 +720,15 @@ send_traverse_thread(void *arg) {
  * the appropriate helper function.
  */
 static int
-do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
+do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 {
+	dsl_dataset_t *ds = dmu_objset_ds(dsa->dsa_os);
 	const blkptr_t *bp = &data->bp;
 	const zbookmark_phys_t *zb = &data->zb;
 	uint8_t indblkshift = data->indblkshift;
 	uint16_t dblkszsec = data->datablkszsec;
 	spa_t *spa = ds->ds_dir->dd_pool->dp_spa;
 	dmu_object_type_t type = bp ? BP_GET_TYPE(bp) : DMU_OT_NONE;
-
 	int err = 0;
 
 	ASSERT3U(zb->zb_level, >=, 0);
@@ -723,29 +740,29 @@ do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
 	    zb->zb_object == DMU_META_DNODE_OBJECT) {
 		uint64_t span = BP_SPAN(dblkszsec, indblkshift, zb->zb_level);
 		uint64_t dnobj = (zb->zb_blkid * span) >> DNODE_SHIFT;
-		err = dump_freeobjects(dsp, dnobj, span >> DNODE_SHIFT);
+		err = dump_freeobjects(dsa, dnobj, span >> DNODE_SHIFT);
 	} else if (BP_IS_HOLE(bp)) {
 		uint64_t span = BP_SPAN(dblkszsec, indblkshift, zb->zb_level);
-		err = dump_free(dsp, zb->zb_object, zb->zb_blkid * span, span);
+		uint64_t offset = zb->zb_blkid * span;
+		err = dump_free(dsa, zb->zb_object, offset, span);
 	} else if (zb->zb_level > 0 || type == DMU_OT_OBJSET) {
 		return (0);
 	} else if (type == DMU_OT_DNODE) {
-		dnode_phys_t *blk;
-		int i;
 		int blksz = BP_GET_LSIZE(bp);
 		arc_flags_t aflags = ARC_FLAG_WAIT;
 		arc_buf_t *abuf;
+
+		ASSERT0(zb->zb_level);
 
 		if (arc_read(NULL, spa, bp, arc_getbuf_func, &abuf,
 		    ZIO_PRIORITY_ASYNC_READ, ZIO_FLAG_CANFAIL,
 		    &aflags, zb) != 0)
 			return (SET_ERROR(EIO));
 
-		blk = abuf->b_data;
-		for (i = 0; i < blksz >> DNODE_SHIFT; i++) {
-			uint64_t dnobj = (zb->zb_blkid <<
-			    (DNODE_BLOCK_SHIFT - DNODE_SHIFT)) + i;
-			err = dump_dnode(dsp, dnobj, blk+i);
+		dnode_phys_t *blk = abuf->b_data;
+		uint64_t dnobj = zb->zb_blkid * (blksz >> DNODE_SHIFT);
+		for (int i = 0; i < blksz >> DNODE_SHIFT; i++) {
+			err = dump_dnode(dsa, dnobj + i, blk + i);
 			if (err != 0)
 				break;
 		}
@@ -760,14 +777,16 @@ do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
 		    &aflags, zb) != 0)
 			return (SET_ERROR(EIO));
 
-		err = dump_spill(dsp, zb->zb_object, blksz, abuf->b_data);
+		err = dump_spill(dsa, zb->zb_object, blksz, abuf->b_data);
 		(void) arc_buf_remove_ref(abuf, &abuf);
-	} else if (backup_do_embed(dsp, bp)) {
+	} else if (backup_do_embed(dsa, bp)) {
 		/* it's an embedded level-0 block of a regular object */
 		int blksz = dblkszsec << SPA_MINBLOCKSHIFT;
-		err = dump_write_embedded(dsp, zb->zb_object,
+		ASSERT0(zb->zb_level);
+		err = dump_write_embedded(dsa, zb->zb_object,
 		    zb->zb_blkid * blksz, blksz, bp);
-	} else { /* it's a level-0 block of a regular object */
+	} else {
+		/* it's a level-0 block of a regular object */
 		arc_flags_t aflags = ARC_FLAG_WAIT;
 		arc_buf_t *abuf;
 		int blksz = dblkszsec << SPA_MINBLOCKSHIFT;
@@ -780,9 +799,9 @@ do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
 			dmu_buf_t *origin_db;
 			uint64_t origin_obj;
 
-			VERIFY0(dmu_objset_mooch_origin(dsp->dsa_os,
+			VERIFY0(dmu_objset_mooch_origin(dsa->dsa_os,
 			    &origin_objset));
-			VERIFY0(dmu_objset_mooch_obj_refd(dsp->dsa_os,
+			VERIFY0(dmu_objset_mooch_obj_refd(dsa->dsa_os,
 			    zb->zb_object, &origin_obj));
 			err = dmu_buf_hold(origin_objset, origin_obj,
 			    zb->zb_blkid * blksz, FTAG, &origin_db, 0);
@@ -815,7 +834,7 @@ do_dump(dsl_dataset_t *ds, struct send_block_record *data, dmu_sendarg_t *dsp)
 			}
 		}
 
-		err = dump_write(dsp, type, zb->zb_object, zb->zb_blkid * blksz,
+		err = dump_write(dsa, type, zb->zb_object, zb->zb_blkid * blksz,
 		    blksz, bp, abuf->b_data);
 		(void) arc_buf_remove_ref(abuf, &abuf);
 	}
@@ -846,7 +865,8 @@ send_record_compare(struct send_block_record *from,
  * the right order, and free the old data.
  */
 static struct send_block_record *
-get_next_record(bqueue_t *bq, struct send_block_record *data) {
+get_next_record(bqueue_t *bq, struct send_block_record *data)
+{
 	struct send_block_record *tmp = bqueue_dequeue(bq);
 	ASSERT3S(send_record_compare(data, tmp), ==, -1);
 	kmem_free(data, sizeof (*data));
@@ -923,7 +943,8 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 	int err;
 	uint64_t fromtxg = 0;
 	uint64_t featureflags = 0;
-	struct send_thread_arg from_arg, to_arg;
+	struct send_thread_arg from_arg = { 0 };
+	struct send_thread_arg to_arg = { 0 };
 
 	err = dmu_objset_from_ds(to_ds, &os);
 	if (err != 0) {
@@ -1037,8 +1058,8 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 	to_arg.fromtxg = fromtxg;
 	to_arg.flags = TRAVERSE_PRE | TRAVERSE_PREFETCH;
 	to_arg.to_os = NULL;
-	(void) thread_create(NULL, 0, send_traverse_thread, &to_arg, 0, curproc,
-	    TS_RUN, minclsyspri);
+	(void) thread_create(NULL, 0, send_traverse_thread, &to_arg, 0,
+	    curproc, TS_RUN, minclsyspri);
 
 	err = bqueue_init(&from_arg.q, zfs_send_queue_length,
 	    offsetof(struct send_block_record, ln));
@@ -1064,36 +1085,35 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 	while (!(from_data->eos_marker == B_TRUE &&
 	    to_data->eos_marker == B_TRUE) && err == 0) {
 		int cmp = send_record_compare(from_data, to_data);
-		/*
-		 * Bookmarks are the same: send data unless it's identical.
-		 */
 		if (cmp == 0) {
+			/*
+			 * Bookmarks are the same.
+			 * Send data unless it's verifiably identical.
+			 */
 			boolean_t strong = zio_checksum_table
 			    [BP_GET_CHECKSUM(&to_data->bp)].ci_dedup;
 			if (BP_IS_EMBEDDED(&to_data->bp) &&
 			    BP_IS_EMBEDDED(&from_data->bp)) {
 				if (!embedded_bp_eq(&from_data->bp,
 				    &to_data->bp))
-					err = do_dump(to_ds, to_data, dsp);
+					err = do_dump(dsp, to_data);
 			} else if (!(strong && BP_GET_CHECKSUM(&to_data->bp) ==
 			    BP_GET_CHECKSUM(&from_data->bp) &&
 			    ZIO_CHECKSUM_EQUAL(to_data->bp.blk_cksum,
 			    from_data->bp.blk_cksum))) {
-				err = do_dump(to_ds, to_data, dsp);
+				err = do_dump(dsp, to_data);
 			}
 			from_data = get_next_record(&from_arg.q, from_data);
 			to_data = get_next_record(&to_arg.q, to_data);
-		/*
-		 * From bookmark is ahead, get and send to's version of the data
-		 */
 		} else if (cmp < 0) {
+			/*
+			 * The "from" bookmark is ahead.
+			 * Get and send to's version of the data.
+			 */
 			blkptr_t bp;
-			const zbookmark_phys_t *zb = &from_data->zb;
 
-			err = dbuf_bookmark_findbp(os, zb->zb_object,
-			    zb->zb_level, zb->zb_blkid, &bp,
-			    &from_data->datablkszsec,
-			    &from_data->indblkshift);
+			err = dbuf_bookmark_findbp(os, &from_data->zb, &bp,
+			    &from_data->datablkszsec, &from_data->indblkshift);
 			if (err == ENOENT) {
 				/*
 				 * The block was modified in the from dataset,
@@ -1103,16 +1123,17 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 				 */
 				err = 0;
 			} else if (err == 0) {
-				from_data->zb.zb_objset = to_ds->ds_object;
+				ASSERT3U(from_data->zb.zb_objset, ==,
+				    to_ds->ds_object);
 				from_data->bp = bp;
-				err = do_dump(to_ds, from_data, dsp);
+				err = do_dump(dsp, from_data);
 			}
 			from_data = get_next_record(&from_arg.q, from_data);
-		/*
-		 * To bookmark is ahead, send the data.
-		 */
 		} else {
-			err = do_dump(to_ds, to_data, dsp);
+			/*
+			 * The "to" bookmark is ahead. Send the data.
+			 */
+			err = do_dump(dsp, to_data);
 			to_data = get_next_record(&to_arg.q, to_data);
 		}
 		if (issig(JUSTLOOKING) && issig(FORREAL))
@@ -1177,7 +1198,8 @@ out:
 }
 
 static int
-dsl_dataset_walk_origin(dsl_pool_t *dp, dsl_dataset_t **ds, void *tag) {
+dsl_dataset_walk_origin(dsl_pool_t *dp, dsl_dataset_t **ds, void *tag)
+{
 	uint64_t origin_obj = (*ds)->ds_dir->dd_phys->dd_origin_obj;
 	dsl_dataset_t *prev;
 	int err = dsl_dataset_hold_obj(dp, origin_obj, tag, &prev);
@@ -1951,21 +1973,57 @@ dmu_recv_begin(char *tofs, char *tosnap, struct drr_begin *drrb,
 	    &drba, 5, ZFS_SPACE_CHECK_NORMAL));
 }
 
-struct restorearg {
-	objset_t *os;
-	int err;
-	boolean_t byteswap;
-	vnode_t *vp;
-	uint64_t voff;
-	int bufsize; /* amount of memory allocated for buf */
+struct receive_record_arg {
+	dmu_replay_record_t header;
+	void *payload; /* Pointer to a buffer containing the payload */
+	/*
+	 * If the record is a write, pointer to the arc_buf_t containing the
+	 * payload.
+	 */
+	arc_buf_t *write_buf;
+	int payload_size;
+	boolean_t eos_marker; /* Marks the end of the stream */
+	bqueue_node_t node;
+};
 
-	dmu_replay_record_t *drr;
-	dmu_replay_record_t *next_drr;
-	char *buf;
+struct receive_writer_arg {
+	objset_t *os;
+	boolean_t byteswap;
+	bqueue_t q;
+	/*
+	 * These three args are used to signal to the main thread that we're
+	 * done.
+	 */
+	kmutex_t mutex;
+	kcondvar_t cv;
+	boolean_t done;
+	int err;
+	/* A map from guid to dataset to help handle dedup'd streams. */
+	avl_tree_t *guid_to_ds_map;
+};
+
+struct receive_arg  {
+	objset_t *os;
+	vnode_t *vp; /* The vnode to read the stream from */
+	uint64_t voff; /* The current offset in the stream */
+	/*
+	 * A record that has had its payload read in, but hasn't yet been handed
+	 * off to the worker thread.
+	 */
+	struct receive_record_arg *rrd;
+	/* A record that has had its header read in, but not its payload. */
+	struct receive_record_arg *next_rrd;
 	zio_cksum_t cksum;
 	zio_cksum_t prev_cksum;
+	int err;
+	boolean_t byteswap;
+	/* Sorted list of objects not to issue prefetches for. */
+	list_t ignore_obj_list;
+};
 
-	avl_tree_t *guid_to_ds_map;
+struct receive_ign_obj_node {
+	list_node_t node;
+	uint64_t object;
 };
 
 typedef struct guid_map_entry {
@@ -2004,7 +2062,7 @@ free_guid_map_onexit(void *arg)
 }
 
 static int
-restore_read(struct restorearg *ra, int len, void *buf)
+receive_read(struct receive_arg *ra, int len, void *buf)
 {
 	int done = 0;
 
@@ -2128,7 +2186,8 @@ deduce_nblkptr(dmu_object_type_t bonus_type, uint64_t bonus_size)
 }
 
 static int
-restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
+receive_object(struct receive_writer_arg *rwa, struct drr_object *drro,
+    void *data)
 {
 	dmu_object_info_t doi;
 	dmu_tx_t *tx;
@@ -2147,7 +2206,7 @@ restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
 		return (SET_ERROR(EINVAL));
 	}
 
-	err = dmu_object_info(ra->os, drro->drr_object, &doi);
+	err = dmu_object_info(rwa->os, drro->drr_object, &doi);
 
 	if (err != 0 && err != ENOENT)
 		return (SET_ERROR(EINVAL));
@@ -2166,14 +2225,14 @@ restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
 
 		if (drro->drr_blksz != doi.doi_data_block_size ||
 		    nblkptr < doi.doi_nblkptr) {
-			err = dmu_free_long_range(ra->os, drro->drr_object,
+			err = dmu_free_long_range(rwa->os, drro->drr_object,
 			    0, DMU_OBJECT_END);
 			if (err != 0)
 				return (SET_ERROR(EINVAL));
 		}
 	}
 
-	tx = dmu_tx_create(ra->os);
+	tx = dmu_tx_create(rwa->os);
 	dmu_tx_hold_bonus(tx, object);
 	err = dmu_tx_assign(tx, TXG_WAIT);
 	if (err != 0) {
@@ -2183,7 +2242,7 @@ restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
 
 	if (object == DMU_NEW_OBJECT) {
 		/* currently free, want to be allocated */
-		err = dmu_object_claim(ra->os, drro->drr_object,
+		err = dmu_object_claim(rwa->os, drro->drr_object,
 		    drro->drr_type, drro->drr_blksz,
 		    drro->drr_bonustype, drro->drr_bonuslen, tx);
 	} else if (drro->drr_type != doi.doi_type ||
@@ -2191,7 +2250,7 @@ restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
 	    drro->drr_bonustype != doi.doi_bonus_type ||
 	    drro->drr_bonuslen != doi.doi_bonus_size) {
 		/* currently allocated, but with different properties */
-		err = dmu_object_reclaim(ra->os, drro->drr_object,
+		err = dmu_object_reclaim(rwa->os, drro->drr_object,
 		    drro->drr_type, drro->drr_blksz,
 		    drro->drr_bonustype, drro->drr_bonuslen, tx);
 	}
@@ -2200,20 +2259,20 @@ restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
 		return (SET_ERROR(EINVAL));
 	}
 
-	dmu_object_set_checksum(ra->os, drro->drr_object,
+	dmu_object_set_checksum(rwa->os, drro->drr_object,
 	    drro->drr_checksumtype, tx);
-	dmu_object_set_compress(ra->os, drro->drr_object,
+	dmu_object_set_compress(rwa->os, drro->drr_object,
 	    drro->drr_compress, tx);
 
 	if (data != NULL) {
 		dmu_buf_t *db;
 
-		VERIFY0(dmu_bonus_hold(ra->os, drro->drr_object, FTAG, &db));
+		VERIFY0(dmu_bonus_hold(rwa->os, drro->drr_object, FTAG, &db));
 		dmu_buf_will_dirty(db, tx);
 
 		ASSERT3U(db->db_size, >=, drro->drr_bonuslen);
 		bcopy(data, db->db_data, drro->drr_bonuslen);
-		if (ra->byteswap) {
+		if (rwa->byteswap) {
 			dmu_object_byteswap_t byteswap =
 			    DMU_OT_BYTESWAP(drro->drr_bonustype);
 			dmu_ot_byteswap[byteswap].ob_func(db->db_data,
@@ -2227,7 +2286,7 @@ restore_object(struct restorearg *ra, struct drr_object *drro, void *data)
 
 /* ARGSUSED */
 static int
-restore_freeobjects(struct restorearg *ra,
+receive_freeobjects(struct receive_writer_arg *rwa,
     struct drr_freeobjects *drrfo)
 {
 	uint64_t obj;
@@ -2237,13 +2296,13 @@ restore_freeobjects(struct restorearg *ra,
 
 	for (obj = drrfo->drr_firstobj;
 	    obj < drrfo->drr_firstobj + drrfo->drr_numobjs;
-	    (void) dmu_object_next(ra->os, &obj, FALSE, 0)) {
+	    (void) dmu_object_next(rwa->os, &obj, FALSE, 0)) {
 		int err;
 
-		if (dmu_object_info(ra->os, obj, NULL) != 0)
+		if (dmu_object_info(rwa->os, obj, NULL) != 0)
 			continue;
 
-		err = dmu_free_long_object(ra->os, obj);
+		err = dmu_free_long_object(rwa->os, obj);
 		if (err != 0)
 			return (err);
 	}
@@ -2251,7 +2310,8 @@ restore_freeobjects(struct restorearg *ra,
 }
 
 static int
-restore_write(struct restorearg *ra, struct drr_write *drrw, arc_buf_t *abuf)
+receive_write(struct receive_writer_arg *rwa, struct drr_write *drrw,
+    arc_buf_t *abuf)
 {
 	dmu_tx_t *tx;
 	int err;
@@ -2260,10 +2320,10 @@ restore_write(struct restorearg *ra, struct drr_write *drrw, arc_buf_t *abuf)
 	    !DMU_OT_IS_VALID(drrw->drr_type))
 		return (SET_ERROR(EINVAL));
 
-	if (dmu_object_info(ra->os, drrw->drr_object, NULL) != 0)
+	if (dmu_object_info(rwa->os, drrw->drr_object, NULL) != 0)
 		return (SET_ERROR(EINVAL));
 
-	tx = dmu_tx_create(ra->os);
+	tx = dmu_tx_create(rwa->os);
 
 	dmu_tx_hold_write(tx, drrw->drr_object,
 	    drrw->drr_offset, drrw->drr_length);
@@ -2272,7 +2332,7 @@ restore_write(struct restorearg *ra, struct drr_write *drrw, arc_buf_t *abuf)
 		dmu_tx_abort(tx);
 		return (err);
 	}
-	if (ra->byteswap) {
+	if (rwa->byteswap) {
 		dmu_object_byteswap_t byteswap =
 		    DMU_OT_BYTESWAP(drrw->drr_type);
 		dmu_ot_byteswap[byteswap].ob_func(abuf->b_data,
@@ -2280,7 +2340,7 @@ restore_write(struct restorearg *ra, struct drr_write *drrw, arc_buf_t *abuf)
 	}
 
 	dmu_buf_t *bonus;
-	if (dmu_bonus_hold(ra->os, drrw->drr_object, FTAG, &bonus) != 0)
+	if (dmu_bonus_hold(rwa->os, drrw->drr_object, FTAG, &bonus) != 0)
 		return (SET_ERROR(EINVAL));
 	dmu_assign_arcbuf(bonus, drrw->drr_offset, abuf, tx);
 	dmu_tx_commit(tx);
@@ -2296,7 +2356,8 @@ restore_write(struct restorearg *ra, struct drr_write *drrw, arc_buf_t *abuf)
  * data from the stream to fulfill this write.
  */
 static int
-restore_write_byref(struct restorearg *ra, struct drr_write_byref *drrwbr)
+receive_write_byref(struct receive_writer_arg *rwa,
+    struct drr_write_byref *drrwbr)
 {
 	dmu_tx_t *tx;
 	int err;
@@ -2315,14 +2376,14 @@ restore_write_byref(struct restorearg *ra, struct drr_write_byref *drrwbr)
 	 */
 	if (drrwbr->drr_toguid != drrwbr->drr_refguid) {
 		gmesrch.guid = drrwbr->drr_refguid;
-		if ((gmep = avl_find(ra->guid_to_ds_map, &gmesrch,
+		if ((gmep = avl_find(rwa->guid_to_ds_map, &gmesrch,
 		    &where)) == NULL) {
 			return (SET_ERROR(EINVAL));
 		}
 		if (dmu_objset_from_ds(gmep->gme_ds, &ref_os))
 			return (SET_ERROR(EINVAL));
 	} else {
-		ref_os = ra->os;
+		ref_os = rwa->os;
 	}
 
 	err = dmu_buf_hold(ref_os, drrwbr->drr_refobject,
@@ -2330,7 +2391,7 @@ restore_write_byref(struct restorearg *ra, struct drr_write_byref *drrwbr)
 	if (err != 0)
 		return (err);
 
-	tx = dmu_tx_create(ra->os);
+	tx = dmu_tx_create(rwa->os);
 
 	dmu_tx_hold_write(tx, drrwbr->drr_object,
 	    drrwbr->drr_offset, drrwbr->drr_length);
@@ -2339,7 +2400,7 @@ restore_write_byref(struct restorearg *ra, struct drr_write_byref *drrwbr)
 		dmu_tx_abort(tx);
 		return (err);
 	}
-	dmu_write(ra->os, drrwbr->drr_object,
+	dmu_write(rwa->os, drrwbr->drr_object,
 	    drrwbr->drr_offset, drrwbr->drr_length, dbp->db_data, tx);
 	dmu_buf_rele(dbp, FTAG);
 	dmu_tx_commit(tx);
@@ -2347,7 +2408,7 @@ restore_write_byref(struct restorearg *ra, struct drr_write_byref *drrwbr)
 }
 
 static int
-restore_write_embedded(struct restorearg *ra,
+receive_write_embedded(struct receive_writer_arg *rwa,
     struct drr_write_embedded *drrwnp, void *data)
 {
 	dmu_tx_t *tx;
@@ -2364,7 +2425,7 @@ restore_write_embedded(struct restorearg *ra,
 	if (drrwnp->drr_compression >= ZIO_COMPRESS_FUNCTIONS)
 		return (EINVAL);
 
-	tx = dmu_tx_create(ra->os);
+	tx = dmu_tx_create(rwa->os);
 
 	dmu_tx_hold_write(tx, drrwnp->drr_object,
 	    drrwnp->drr_offset, drrwnp->drr_length);
@@ -2374,17 +2435,18 @@ restore_write_embedded(struct restorearg *ra,
 		return (err);
 	}
 
-	dmu_write_embedded(ra->os, drrwnp->drr_object,
+	dmu_write_embedded(rwa->os, drrwnp->drr_object,
 	    drrwnp->drr_offset, data, drrwnp->drr_etype,
 	    drrwnp->drr_compression, drrwnp->drr_lsize, drrwnp->drr_psize,
-	    ra->byteswap ^ ZFS_HOST_BYTEORDER, tx);
+	    rwa->byteswap ^ ZFS_HOST_BYTEORDER, tx);
 
 	dmu_tx_commit(tx);
 	return (0);
 }
 
 static int
-restore_spill(struct restorearg *ra, struct drr_spill *drrs, void *data)
+receive_spill(struct receive_writer_arg *rwa, struct drr_spill *drrs,
+    void *data)
 {
 	dmu_tx_t *tx;
 	dmu_buf_t *db, *db_spill;
@@ -2394,16 +2456,16 @@ restore_spill(struct restorearg *ra, struct drr_spill *drrs, void *data)
 	    drrs->drr_length > SPA_MAXBLOCKSIZE)
 		return (SET_ERROR(EINVAL));
 
-	if (dmu_object_info(ra->os, drrs->drr_object, NULL) != 0)
+	if (dmu_object_info(rwa->os, drrs->drr_object, NULL) != 0)
 		return (SET_ERROR(EINVAL));
 
-	VERIFY(0 == dmu_bonus_hold(ra->os, drrs->drr_object, FTAG, &db));
+	VERIFY0(dmu_bonus_hold(rwa->os, drrs->drr_object, FTAG, &db));
 	if ((err = dmu_spill_hold_by_bonus(db, FTAG, &db_spill)) != 0) {
 		dmu_buf_rele(db, FTAG);
 		return (err);
 	}
 
-	tx = dmu_tx_create(ra->os);
+	tx = dmu_tx_create(rwa->os);
 
 	dmu_tx_hold_spill(tx, db->db_object);
 
@@ -2430,7 +2492,7 @@ restore_spill(struct restorearg *ra, struct drr_spill *drrs, void *data)
 
 /* ARGSUSED */
 static int
-restore_free(struct restorearg *ra, struct drr_free *drrf)
+receive_free(struct receive_writer_arg *rwa, struct drr_free *drrf)
 {
 	int err;
 
@@ -2438,11 +2500,12 @@ restore_free(struct restorearg *ra, struct drr_free *drrf)
 	    drrf->drr_offset + drrf->drr_length < drrf->drr_offset)
 		return (SET_ERROR(EINVAL));
 
-	if (dmu_object_info(ra->os, drrf->drr_object, NULL) != 0)
+	if (dmu_object_info(rwa->os, drrf->drr_object, NULL) != 0)
 		return (SET_ERROR(EINVAL));
 
-	err = dmu_free_long_range(ra->os, drrf->drr_object,
+	err = dmu_free_long_range(rwa->os, drrf->drr_object,
 	    drrf->drr_offset, drrf->drr_length);
+
 	return (err);
 }
 
@@ -2457,7 +2520,7 @@ dmu_recv_cleanup_ds(dmu_recv_cookie_t *drc)
 }
 
 static void
-restore_cksum(struct restorearg *ra, int len, void *buf)
+receive_cksum(struct receive_arg *ra, int len, void *buf)
 {
 	if (ra->byteswap) {
 		fletcher_4_incremental_byteswap(buf, len, &ra->cksum);
@@ -2467,30 +2530,42 @@ restore_cksum(struct restorearg *ra, int len, void *buf)
 }
 
 /*
- * If len != 0, read payload into buf.
- * Read next record's header into ra->next_drr.
+ * Read the payload into a buffer of size len, and update the current record's
+ * payload field.
+ * Allocate ra->next_rrd and read the next record's header into
+ * ra->next_rrd->header.
  * Verify checksum of payload and next record.
  */
 static int
-restore_read_payload_and_next_header(struct restorearg *ra, int len, void *buf)
+receive_read_payload_and_next_header(struct receive_arg *ra, int len, void *buf)
 {
 	int err;
 
 	if (len != 0) {
-		ASSERT3U(len, <=, ra->bufsize);
-		err = restore_read(ra, len, buf);
+		ASSERT3U(len, <=, SPA_MAXBLOCKSIZE);
+		ra->rrd->payload = buf;
+		ra->rrd->payload_size = len;
+		err = receive_read(ra, len, ra->rrd->payload);
 		if (err != 0)
 			return (err);
-		restore_cksum(ra, len, buf);
+		receive_cksum(ra, len, ra->rrd->payload);
 	}
 
 	ra->prev_cksum = ra->cksum;
 
-	err = restore_read(ra, sizeof (*ra->next_drr), ra->next_drr);
-	if (err != 0)
+	ra->next_rrd = kmem_zalloc(sizeof (*ra->next_rrd), KM_SLEEP);
+	err = receive_read(ra, sizeof (ra->next_rrd->header),
+	    &ra->next_rrd->header);
+	if (err != 0) {
+		kmem_free(ra->next_rrd, sizeof (*ra->next_rrd));
+		ra->next_rrd = NULL;
 		return (err);
-	if (ra->next_drr->drr_type == DRR_BEGIN)
+	}
+	if (ra->next_rrd->header.drr_type == DRR_BEGIN) {
+		kmem_free(ra->next_rrd, sizeof (*ra->next_rrd));
+		ra->next_rrd = NULL;
 		return (SET_ERROR(EINVAL));
+	}
 
 	/*
 	 * Note: checksum is of everything up to but not including the
@@ -2498,107 +2573,178 @@ restore_read_payload_and_next_header(struct restorearg *ra, int len, void *buf)
 	 */
 	ASSERT3U(offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
 	    ==, sizeof (dmu_replay_record_t) - sizeof (zio_cksum_t));
-	restore_cksum(ra,
+	receive_cksum(ra,
 	    offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
-	    ra->next_drr);
+	    &ra->next_rrd->header);
 
-	zio_cksum_t cksum_orig = ra->next_drr->drr_u.drr_checksum.drr_checksum;
-	zio_cksum_t *cksump = &ra->next_drr->drr_u.drr_checksum.drr_checksum;
+	zio_cksum_t cksum_orig =
+	    ra->next_rrd->header.drr_u.drr_checksum.drr_checksum;
+	zio_cksum_t *cksump =
+	    &ra->next_rrd->header.drr_u.drr_checksum.drr_checksum;
 
 	if (ra->byteswap)
-		byteswap_record(ra->next_drr);
+		byteswap_record(&ra->next_rrd->header);
 
 	if ((!ZIO_CHECKSUM_IS_ZERO(cksump)) &&
-	    !ZIO_CHECKSUM_EQUAL(ra->cksum, *cksump))
+	    !ZIO_CHECKSUM_EQUAL(ra->cksum, *cksump)) {
+		kmem_free(ra->next_rrd, sizeof (*ra->next_rrd));
+		ra->next_rrd = NULL;
 		return (SET_ERROR(ECKSUM));
+	}
 
-	restore_cksum(ra, sizeof (cksum_orig), &cksum_orig);
+	receive_cksum(ra, sizeof (cksum_orig), &cksum_orig);
 
 	return (0);
 }
 
+/*
+ * Issue the prefetch reads for any necessary indirect blocks.
+ *
+ * We use the object ignore list to tell us whether or not to issue prefetches
+ * for a given object.  We do this for both correctness (in case the blocksize
+ * of an object has changed) and performance (if the object doesn't exist, don't
+ * needlessly try to issue prefetches).  We also trim the list as we go through
+ * the stream to prevent it from growing to an unbounded size.
+ *
+ * The object numbers within will always be in sorted order, and any write
+ * records we see will also be in sorted order, but they're not sorted with
+ * respect to each other (i.e. we can get several object records before
+ * receiving each object's write records).  As a result, once we've reached a
+ * given object number, we can safely remove any reference to lower object
+ * numbers in the ignore list. In practice, we receive up to 32 object records
+ * before receiving write records, so the list can have up to 32 nodes in it.
+ */
+/* ARGSUSED */
+static void
+receive_read_prefetch(struct receive_arg *ra,
+    uint64_t object, uint64_t offset, uint64_t length)
+{
+	struct receive_ign_obj_node *node = list_head(&ra->ignore_obj_list);
+	while (node != NULL && node->object < object) {
+		VERIFY3P(node, ==, list_remove_head(&ra->ignore_obj_list));
+		kmem_free(node, sizeof (*node));
+		node = list_head(&ra->ignore_obj_list);
+	}
+	if (node == NULL || node->object > object) {
+		dmu_prefetch(ra->os, object, 1, offset, length,
+		    ZIO_PRIORITY_SYNC_READ);
+	}
+}
+
+/*
+ * Read records off the stream, issuing any necessary prefetches.
+ */
 static int
-restore_process_record(struct restorearg *ra)
+receive_read_record(struct receive_arg *ra)
 {
 	int err;
 
-	switch (ra->drr->drr_type) {
+	switch (ra->rrd->header.drr_type) {
 	case DRR_OBJECT:
 	{
-		struct drr_object *drro = &ra->drr->drr_u.drr_object;
-		err = restore_read_payload_and_next_header(ra,
-		    P2ROUNDUP(drro->drr_bonuslen, 8), ra->buf);
+		struct drr_object *drro = &ra->rrd->header.drr_u.drr_object;
+		uint32_t size = P2ROUNDUP(drro->drr_bonuslen, 8);
+		void *buf = kmem_zalloc(size, KM_SLEEP);
+		dmu_object_info_t doi;
+		err = receive_read_payload_and_next_header(ra, size, buf);
 		if (err != 0)
-			return (err);
-		return (restore_object(ra, drro, ra->buf));
+			kmem_free(buf, size);
+		err = dmu_object_info(ra->os, drro->drr_object, &doi);
+		/*
+		 * See receive_read_prefetch for an explanation why we're
+		 * storing this object in the ignore_obj_list.
+		 */
+		if (err == ENOENT ||
+		    (err == 0 && doi.doi_data_block_size != drro->drr_blksz)) {
+			struct receive_ign_obj_node *node =
+			    kmem_zalloc(sizeof (*node),
+			    KM_SLEEP);
+			node->object = drro->drr_object;
+#ifdef ZFS_DEBUG
+			struct receive_ign_obj_node *last_object =
+			    list_tail(&ra->ignore_obj_list);
+			uint64_t last_objnum = (last_object != NULL ?
+			    last_object->object : 0);
+			ASSERT3U(node->object, >, last_objnum);
+#endif
+			list_insert_tail(&ra->ignore_obj_list, node);
+			err = 0;
+		}
+		return (err);
 	}
 	case DRR_FREEOBJECTS:
 	{
-		struct drr_freeobjects *drrfo =
-		    &ra->drr->drr_u.drr_freeobjects;
-		err = restore_read_payload_and_next_header(ra, 0, NULL);
-		if (err != 0)
-			return (err);
-		return (restore_freeobjects(ra, drrfo));
+		err = receive_read_payload_and_next_header(ra, 0, NULL);
+		return (err);
 	}
 	case DRR_WRITE:
 	{
-		struct drr_write *drrw = &ra->drr->drr_u.drr_write;
+		struct drr_write *drrw = &ra->rrd->header.drr_u.drr_write;
 		arc_buf_t *abuf = arc_loan_buf(dmu_objset_spa(ra->os),
 		    drrw->drr_length);
 
-		err = restore_read_payload_and_next_header(ra,
+		err = receive_read_payload_and_next_header(ra,
 		    drrw->drr_length, abuf->b_data);
-		if (err != 0)
-			return (err);
-		err = restore_write(ra, drrw, abuf);
-		/* if restore_write() is successful, it consumes the arc_buf */
-		if (err != 0)
+		if (err != 0) {
 			dmu_return_arcbuf(abuf);
+			return (err);
+		}
+		ra->rrd->write_buf = abuf;
+		receive_read_prefetch(ra, drrw->drr_object, drrw->drr_offset,
+		    drrw->drr_length);
 		return (err);
 	}
 	case DRR_WRITE_BYREF:
 	{
-		struct drr_write_byref *drrwbr =
-		    &ra->drr->drr_u.drr_write_byref;
-		err = restore_read_payload_and_next_header(ra, 0, NULL);
-		if (err != 0)
-			return (err);
-		return (restore_write_byref(ra, drrwbr));
+		struct drr_write_byref *drrwb =
+		    &ra->rrd->header.drr_u.drr_write_byref;
+		err = receive_read_payload_and_next_header(ra, 0, NULL);
+		receive_read_prefetch(ra, drrwb->drr_object, drrwb->drr_offset,
+		    drrwb->drr_length);
+		return (err);
 	}
 	case DRR_WRITE_EMBEDDED:
 	{
 		struct drr_write_embedded *drrwe =
-		    &ra->drr->drr_u.drr_write_embedded;
-		err = restore_read_payload_and_next_header(ra,
-		    P2ROUNDUP(drrwe->drr_psize, 8), ra->buf);
-		if (err != 0)
+		    &ra->rrd->header.drr_u.drr_write_embedded;
+		uint32_t size = P2ROUNDUP(drrwe->drr_psize, 8);
+		void *buf = kmem_zalloc(size, KM_SLEEP);
+
+		err = receive_read_payload_and_next_header(ra, size, buf);
+		if (err != 0) {
+			kmem_free(buf, size);
 			return (err);
-		return (restore_write_embedded(ra, drrwe, ra->buf));
+		}
+
+		receive_read_prefetch(ra, drrwe->drr_object, drrwe->drr_offset,
+		    drrwe->drr_length);
+		return (err);
 	}
 	case DRR_FREE:
 	{
-		struct drr_free *drrf = &ra->drr->drr_u.drr_free;
-		err = restore_read_payload_and_next_header(ra, 0, NULL);
-		if (err != 0)
-			return (err);
-		return (restore_free(ra, drrf));
+		/*
+		 * It might be beneficial to prefetch indirect blocks here, but
+		 * we don't really have the data to decide for sure.
+		 */
+		err = receive_read_payload_and_next_header(ra, 0, NULL);
+		return (err);
 	}
 	case DRR_END:
 	{
-		struct drr_end *drre = &ra->drr->drr_u.drr_end;
+		struct drr_end *drre = &ra->rrd->header.drr_u.drr_end;
 		if (!ZIO_CHECKSUM_EQUAL(ra->prev_cksum, drre->drr_checksum))
 			return (SET_ERROR(EINVAL));
 		return (0);
 	}
 	case DRR_SPILL:
 	{
-		struct drr_spill *drrs = &ra->drr->drr_u.drr_spill;
-		err = restore_read_payload_and_next_header(ra,
-		    drrs->drr_length, ra->buf);
+		struct drr_spill *drrs = &ra->rrd->header.drr_u.drr_spill;
+		void *buf = kmem_zalloc(drrs->drr_length, KM_SLEEP);
+		err = receive_read_payload_and_next_header(ra, drrs->drr_length,
+		    buf);
 		if (err != 0)
-			return (err);
-		return (restore_spill(ra, drrs, ra->buf));
+			kmem_free(buf, drrs->drr_length);
+		return (err);
 	}
 	default:
 		return (SET_ERROR(EINVAL));
@@ -2606,6 +2752,106 @@ restore_process_record(struct restorearg *ra)
 }
 
 /*
+ * Commit the records to the pool.
+ */
+static int
+receive_process_record(struct receive_writer_arg *rwa,
+    struct receive_record_arg *rrd)
+{
+	int err;
+
+	switch (rrd->header.drr_type) {
+	case DRR_OBJECT:
+	{
+		struct drr_object *drro = &rrd->header.drr_u.drr_object;
+		err = receive_object(rwa, drro, rrd->payload);
+		kmem_free(rrd->payload, rrd->payload_size);
+		return (err);
+	}
+	case DRR_FREEOBJECTS:
+	{
+		struct drr_freeobjects *drrfo =
+		    &rrd->header.drr_u.drr_freeobjects;
+		return (receive_freeobjects(rwa, drrfo));
+	}
+	case DRR_WRITE:
+	{
+		struct drr_write *drrw = &rrd->header.drr_u.drr_write;
+		err = receive_write(rwa, drrw, rrd->write_buf);
+		/* if receive_write() is successful, it consumes the arc_buf */
+		if (err != 0)
+			dmu_return_arcbuf(rrd->write_buf);
+		return (err);
+	}
+	case DRR_WRITE_BYREF:
+	{
+		struct drr_write_byref *drrwbr =
+		    &rrd->header.drr_u.drr_write_byref;
+		return (receive_write_byref(rwa, drrwbr));
+	}
+	case DRR_WRITE_EMBEDDED:
+	{
+		struct drr_write_embedded *drrwe =
+		    &rrd->header.drr_u.drr_write_embedded;
+		err = receive_write_embedded(rwa, drrwe, rrd->payload);
+		kmem_free(rrd->payload, rrd->payload_size);
+		return (err);
+	}
+	case DRR_FREE:
+	{
+		struct drr_free *drrf = &rrd->header.drr_u.drr_free;
+		return (receive_free(rwa, drrf));
+	}
+	case DRR_SPILL:
+	{
+		struct drr_spill *drrs = &rrd->header.drr_u.drr_spill;
+		err = receive_spill(rwa, drrs, rrd->payload);
+		kmem_free(rrd->payload, rrd->payload_size);
+		return (err);
+	}
+	default:
+		return (SET_ERROR(EINVAL));
+	}
+}
+
+/*
+ * dmu_recv_stream's worker thread; pull records off the queue, and then call
+ * receive_process_record  When we're done, signal the main thread and exit.
+ */
+static void
+receive_writer_thread(void *arg)
+{
+	struct receive_writer_arg *rwa = arg;
+	struct receive_record_arg *rrd;
+	for (rrd = bqueue_dequeue(&rwa->q); !rrd->eos_marker;
+	    rrd = bqueue_dequeue(&rwa->q)) {
+		/*
+		 * If there's an error, the main thread will stop putting things
+		 * on the queue, but we need to clear everything in it before we
+		 * can exit.
+		 */
+		if (rwa->err == 0) {
+			rwa->err = receive_process_record(rwa, rrd);
+		}
+		kmem_free(rrd, sizeof (*rrd));
+	}
+	kmem_free(rrd, sizeof (*rrd));
+	mutex_enter(&rwa->mutex);
+	rwa->done = B_TRUE;
+	cv_signal(&rwa->cv);
+	mutex_exit(&rwa->mutex);
+}
+
+/*
+ * Read in the stream's records, one by one, and apply them to the pool.  There
+ * are two threads involved; the thread that calls this function will spin up a
+ * worker thread, read the records off the stream one by one, and issue
+ * prefetches for any necessary indirect blocks.  It will then push the records
+ * onto an internal blocking queue.  The worker thread will pull the records off
+ * the queue, and actually write the data into the DMU.  This way, the worker
+ * thread doesn't have to wait for reads to complete, since everything it needs
+ * (the indirect blocks) will be prefetched.
+ *
  * NB: callers *must* call dmu_recv_end() if this succeeds.
  */
 int
@@ -2613,17 +2859,16 @@ dmu_recv_stream(dmu_recv_cookie_t *drc, vnode_t *vp, offset_t *voffp,
     int cleanup_fd, uint64_t *action_handlep)
 {
 	int err = 0;
-	struct restorearg ra = { 0 };
+	struct receive_arg ra = { 0 };
+	struct receive_writer_arg rwa = { 0 };
 	int featureflags;
 
 	ra.byteswap = drc->drc_byteswap;
 	ra.cksum = drc->drc_cksum;
 	ra.vp = vp;
 	ra.voff = *voffp;
-	ra.bufsize = SPA_MAXBLOCKSIZE;
-	ra.drr = kmem_alloc(sizeof (*ra.drr), KM_SLEEP);
-	ra.buf = kmem_alloc(ra.bufsize, KM_SLEEP);
-	ra.next_drr = kmem_alloc(sizeof (*ra.next_drr), KM_SLEEP);
+	list_create(&ra.ignore_obj_list, sizeof (struct receive_ign_obj_node),
+	    offsetof(struct receive_ign_obj_node, node));
 
 	/* these were verified in dmu_recv_begin */
 	ASSERT3U(DMU_GET_STREAM_HDRTYPE(drc->drc_drrb->drr_versioninfo), ==,
@@ -2654,48 +2899,92 @@ dmu_recv_stream(dmu_recv_cookie_t *drc, vnode_t *vp, offset_t *voffp,
 		}
 
 		if (*action_handlep == 0) {
-			ra.guid_to_ds_map =
+			rwa.guid_to_ds_map =
 			    kmem_alloc(sizeof (avl_tree_t), KM_SLEEP);
-			avl_create(ra.guid_to_ds_map, guid_compare,
+			avl_create(rwa.guid_to_ds_map, guid_compare,
 			    sizeof (guid_map_entry_t),
 			    offsetof(guid_map_entry_t, avlnode));
 			err = zfs_onexit_add_cb(minor,
-			    free_guid_map_onexit, ra.guid_to_ds_map,
+			    free_guid_map_onexit, rwa.guid_to_ds_map,
 			    action_handlep);
 			if (ra.err != 0)
 				goto out;
 		} else {
 			err = zfs_onexit_cb_data(minor, *action_handlep,
-			    (void **)&ra.guid_to_ds_map);
+			    (void **)&rwa.guid_to_ds_map);
 			if (ra.err != 0)
 				goto out;
 		}
 
-		drc->drc_guid_to_ds_map = ra.guid_to_ds_map;
+		drc->drc_guid_to_ds_map = rwa.guid_to_ds_map;
 	}
 
-	err = restore_read_payload_and_next_header(&ra, 0, NULL);
-	if (err != 0)
+	err = receive_read_payload_and_next_header(&ra, 0, NULL);
+	if (err)
 		goto out;
-	for (;;) {
-		void *tmp;
 
+	(void) bqueue_init(&rwa.q, zfs_recv_queue_length,
+	    offsetof(struct receive_record_arg, node));
+	cv_init(&rwa.cv, NULL, CV_DEFAULT, NULL);
+	mutex_init(&rwa.mutex, NULL, MUTEX_DEFAULT, NULL);
+	rwa.os = ra.os;
+	rwa.byteswap = drc->drc_byteswap;
+
+	(void) thread_create(NULL, 0, receive_writer_thread, &rwa, 0, curproc,
+	    TS_RUN, minclsyspri);
+	/*
+	 * We're reading rwa.err without locks, which is safe since we are the
+	 * only reader, and the worker thread is the only writer.  It's ok if we
+	 * miss a write for an iteration or two of the loop, since the writer
+	 * thread will keep freeing records we send it until we send it an eos
+	 * marker.
+	 *
+	 * We can leave this loop in 3 ways:  First, if rwa.err is
+	 * non-zero.  In that case, the writer thread will free the rrd we just
+	 * pushed.  Second, if  we're interrupted; in that case, either it's the
+	 * first loop and ra.rrd was never allocated, or it's later, and ra.rrd
+	 * has been handed off to the writer thread who will free it.  Finally,
+	 * if receive_read_record fails or we're at the end of the stream, then
+	 * we free ra.rrd and exit.
+	 */
+	while (rwa.err == 0) {
 		if (issig(JUSTLOOKING) && issig(FORREAL)) {
 			err = SET_ERROR(EINTR);
 			break;
 		}
 
-		tmp = ra.next_drr;
-		ra.next_drr = ra.drr;
-		ra.drr = tmp;
+		ASSERT3P(ra.rrd, ==, NULL);
+		ra.rrd = ra.next_rrd;
+		ra.next_rrd = NULL;
+		/* Allocates and loads header into ra.next_rrd */
+		err = receive_read_record(&ra);
 
-		/* process ra.drr, read in ra.next_drr */
-		err = restore_process_record(&ra);
-		if (err != 0)
+		if (ra.rrd->header.drr_type == DRR_END || err != 0) {
+			kmem_free(ra.rrd, sizeof (*ra.rrd));
+			ra.rrd = NULL;
 			break;
-		if (ra.drr->drr_type == DRR_END)
-			break;
+		}
+
+		bqueue_enqueue(&rwa.q, ra.rrd,
+		    sizeof (struct receive_record_arg) + ra.rrd->payload_size);
+		ra.rrd = NULL;
 	}
+	if (ra.next_rrd == NULL)
+		ra.next_rrd = kmem_zalloc(sizeof (*ra.next_rrd), KM_SLEEP);
+	ra.next_rrd->eos_marker = B_TRUE;
+	bqueue_enqueue(&rwa.q, ra.next_rrd, 1);
+
+	mutex_enter(&rwa.mutex);
+	while (!rwa.done) {
+		cv_wait(&rwa.cv, &rwa.mutex);
+	}
+	mutex_exit(&rwa.mutex);
+
+	cv_destroy(&rwa.cv);
+	mutex_destroy(&rwa.mutex);
+	bqueue_destroy(&rwa.q);
+	if (err == 0)
+		err = rwa.err;
 
 out:
 	if ((featureflags & DMU_BACKUP_FEATURE_DEDUP) && (cleanup_fd != -1))
@@ -2709,10 +2998,13 @@ out:
 		dmu_recv_cleanup_ds(drc);
 	}
 
-	kmem_free(ra.drr, sizeof (*ra.drr));
-	kmem_free(ra.buf, ra.bufsize);
-	kmem_free(ra.next_drr, sizeof (*ra.next_drr));
 	*voffp = ra.voff;
+	for (struct receive_ign_obj_node *n =
+	    list_remove_head(&ra.ignore_obj_list); n != NULL;
+	    n = list_remove_head(&ra.ignore_obj_list)) {
+		kmem_free(n, sizeof (*n));
+	}
+	list_destroy(&ra.ignore_obj_list);
 	return (err);
 }
 

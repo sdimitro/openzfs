@@ -4341,7 +4341,7 @@ arc_kstat_update(kstat_t *ksp, int rw)
 		    &as->arcstat_mfu_size,
 		    &as->arcstat_mfu_evictable_data,
 		    &as->arcstat_mfu_evictable_metadata);
-		arc_kstat_update_state(arc_mru_ghost,
+		arc_kstat_update_state(arc_mfu_ghost,
 		    &as->arcstat_mfu_ghost_size,
 		    &as->arcstat_mfu_ghost_evictable_data,
 		    &as->arcstat_mfu_ghost_evictable_metadata);

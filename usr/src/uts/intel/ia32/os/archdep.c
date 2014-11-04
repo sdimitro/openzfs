@@ -27,6 +27,7 @@
 /*
  * Copyright (c) 2012, Joyent, Inc.  All rights reserved.
  * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 #include <sys/param.h>
@@ -1223,6 +1224,9 @@ traceback(caddr_t fpreg)
 		printf("Warning - stack not written to the dump buffer\n");
 	}
 
+	if (dump_stack_scratch != NULL)
+		dump_stack_scratch[0] = '\0';
+
 	fp = (struct frame *)plat_traceback(fpreg);
 	if ((uintptr_t)fp < KERNELBASE)
 		goto out;
@@ -1269,7 +1273,8 @@ traceback(caddr_t fpreg)
 				bcopy(stack_buffer, dump_stack_scratch + offset,
 				    strlen(stack_buffer));
 				offset = next_offset;
-			} else {
+				dump_stack_scratch[offset] = '\0';
+			} else if (offset < STACK_BUF_SIZE) {
 				/*
 				 * In attempting to save the panic stack
 				 * to the dumpbuf we have overflowed that area.
@@ -1289,8 +1294,6 @@ out:
 	if (!panicstr) {
 		printf("end of traceback\n");
 		DELAY(2 * MICROSEC);
-	} else if (dump_stack_scratch) {
-		dump_stack_scratch[offset] = '\0';
 	}
 }
 

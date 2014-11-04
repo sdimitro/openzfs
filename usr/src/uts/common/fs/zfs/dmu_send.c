@@ -2647,8 +2647,10 @@ receive_read_record(struct receive_arg *ra)
 		void *buf = kmem_zalloc(size, KM_SLEEP);
 		dmu_object_info_t doi;
 		err = receive_read_payload_and_next_header(ra, size, buf);
-		if (err != 0)
+		if (err != 0) {
 			kmem_free(buf, size);
+			return (err);
+		}
 		err = dmu_object_info(ra->os, drro->drr_object, &doi);
 		/*
 		 * See receive_read_prefetch for an explanation why we're

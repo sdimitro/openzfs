@@ -2140,6 +2140,14 @@ metaslab_group_should_holefill(metaslab_group_t *mg)
 	int probability;
 	int slope;
 
+#ifndef _KERNEL
+	/*
+	 * When in userland periodically avoid hole-filling.
+	 */
+	if (spa_get_random(3) == 0)
+		return (B_FALSE);
+#endif
+
 	if (dirty_data_pct >= zfs_holefill_max_dirty_data_pct) {
 		return (B_FALSE);
 	}

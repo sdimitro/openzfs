@@ -64,7 +64,15 @@ struct metaslab_class {
 	metaslab_group_t	*mc_rotor;
 	metaslab_ops_t		*mc_ops;
 	uint64_t		mc_aliquot;
-	uint64_t		mc_groups;	/* # of groups in this class */
+
+	/*
+	 * Track the number of metaslab groups that have been initialized
+	 * and can accept allocations. An initialized metaslab group is
+	 * one has been completely added to the config (i.e. we have
+	 * updated the MOS config and the space has been added to the pool).
+	 */
+	uint64_t		mc_groups;
+
 	uint64_t		mc_groups_throttled; /* # of throttled groups */
 	uint64_t		mc_alloc_groups; /* # of allocatable groups */
 	uint64_t		mc_alloc;	/* total allocated space */
@@ -90,6 +98,15 @@ struct metaslab_group {
 	metaslab_t		**mg_seg_array;
 	uint64_t		mg_aliquot;
 	boolean_t		mg_allocatable;		/* can we allocate? */
+
+	/*
+	 * A metaslab group is considered to be initialized only after
+	 * we have updated the MOS config and added the space to the pool.
+	 * We only allow allocation attempts to a metaslab group if it
+	 * has been initialized.
+	 */
+	boolean_t		mg_initialized;
+
 	uint64_t		mg_free_capacity;	/* percentage free */
 	int64_t			mg_bias;
 	int64_t			mg_activation_count;

@@ -513,14 +513,30 @@ metaslab_group_alloc_update(metaslab_group_t *mg)
 	metaslab_class_t *mc = mg->mg_class;
 	vdev_stat_t *vs = &vd->vdev_stat;
 	boolean_t was_allocatable;
+	boolean_t was_initialized;
 
 	ASSERT(vd == vd->vdev_top);
 
 	mutex_enter(&mg->mg_lock);
 	was_allocatable = mg->mg_allocatable;
+	was_initialized = mg->mg_initialized;
 
 	mg->mg_free_capacity = ((vs->vs_space - vs->vs_alloc) * 100) /
 	    (vs->vs_space + 1);
+
+	/*
+	 * If the metaslab group was just added then it won't
+	 * have any space until we finish syncing out this txg.
+	 * At that point we will consider it initialized and available
+	 * for allocations.
+	 */
+	mg->mg_initialized = (vs->vs_space != 0);
+	if (!was_initialized && mg->mg_initialized) {
+		mc->mc_groups++;
+	} else if (was_initialized && !mg->mg_initialized) {
+		ASSERT3U(mc->mc_groups, >, 0);
+		mc->mc_groups--;
+	}
 
 	/*
 	 * A metaslab group is considered allocatable if it has plenty
@@ -568,6 +584,7 @@ metaslab_group_create(metaslab_class_t *mc, vdev_t *vd)
 	mg->mg_vd = vd;
 	mg->mg_class = mc;
 	mg->mg_activation_count = 0;
+	mg->mg_initialized = B_FALSE;
 	refcount_create(&mg->mg_loaded_metaslabs);
 
 	mg->mg_taskq = taskq_create("metaslab_group_taskq", metaslab_load_pct,
@@ -625,7 +642,6 @@ metaslab_group_activate(metaslab_group_t *mg)
 		mgnext->mg_prev = mg;
 	}
 	mc->mc_rotor = mg;
-	mc->mc_groups++;
 }
 
 void
@@ -658,8 +674,6 @@ metaslab_group_passivate(metaslab_group_t *mg)
 		mgnext->mg_prev = mgprev;
 	}
 
-	ASSERT3U(mc->mc_groups, >, 0);
-	mc->mc_groups--;
 	mg->mg_prev = NULL;
 	mg->mg_next = NULL;
 }
@@ -844,7 +858,13 @@ metaslab_group_allocatable(metaslab_group_t *mg, uint64_t psize)
 	spa_t *spa = vd->vdev_spa;
 	metaslab_class_t *mc = mg->mg_class;
 
-	if (mc != spa_normal_class(spa))
+	/*
+	 * We can only consider skipping this metaslab group if it's
+	 * in the normal metaslab class and there are other metaslab
+	 * groups to select from. Otherwise, we always consider it eligible
+	 * for allocations.
+	 */
+	if (mc != spa_normal_class(spa) || mc->mc_groups <= 1)
 		return (B_TRUE);
 
 	if (zio_dva_throttle_enabled) {
@@ -2686,6 +2706,8 @@ top:
 
 		if (!allocatable)
 			goto next;
+
+		ASSERT(mg->mg_initialized);
 
 		/*
 		 * Avoid writing single-copy data to a failing vdev.

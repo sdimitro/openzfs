@@ -2598,7 +2598,8 @@ vdev_allocatable(vdev_t *vd)
 	 * we're asking two separate questions about it.
 	 */
 	return (!(state < VDEV_STATE_DEGRADED && state != VDEV_STATE_CLOSED) &&
-	    !vd->vdev_cant_write && !vd->vdev_ishole);
+	    !vd->vdev_cant_write && !vd->vdev_ishole &&
+	    vd->vdev_mg->mg_initialized);
 }
 
 boolean_t

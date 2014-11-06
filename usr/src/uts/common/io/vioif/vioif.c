@@ -349,6 +349,8 @@ static uchar_t vioif_broadcast[ETHERADDRL] = {
 #define	VIOIF_TX_THRESH_MAX	640
 #define	VIOIF_RX_THRESH_MAX	640
 
+#define CACHE_NAME_SIZE	32
+
 static char vioif_txcopy_thresh[] =
 	"vioif_txcopy_thresh";
 static char vioif_rxcopy_thresh[] =
@@ -1692,6 +1694,7 @@ vioif_attach(dev_info_t *devinfo, ddi_attach_cmd_t cmd)
 	struct vioif_softc *sc;
 	struct virtio_softc *vsc;
 	mac_register_t *macp;
+	char cache_name[CACHE_NAME_SIZE];
 
 	instance = ddi_get_instance(devinfo);
 
@@ -1748,7 +1751,8 @@ vioif_attach(dev_info_t *devinfo, ddi_attach_cmd_t cmd)
 
 	vsc->sc_nvqs = vioif_has_feature(sc, VIRTIO_NET_F_CTRL_VQ) ? 3 : 2;
 
-	sc->sc_rxbuf_cache = kmem_cache_create("vioif_rx",
+	(void) snprintf(cache_name, CACHE_NAME_SIZE, "vioif%d_rx", instance);
+	sc->sc_rxbuf_cache = kmem_cache_create(cache_name,
 	    sizeof (struct vioif_rx_buf), 0, vioif_rx_construct,
 	    vioif_rx_destruct, NULL, sc, NULL, KM_SLEEP);
 	if (sc->sc_rxbuf_cache == NULL) {

@@ -1364,6 +1364,7 @@ ZFS_COMMON_OBJS +=		\
 	lzjb.o			\
 	metaslab.o		\
 	mooch_byteswap.o	\
+	multilist.o		\
 	range_tree.o		\
 	refcount.o		\
 	rrwlock.o		\

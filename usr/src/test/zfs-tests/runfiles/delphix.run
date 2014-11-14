@@ -237,7 +237,7 @@ tests = ['zpool_export_001_pos', 'zpool_export_002_pos',
 
 [/opt/zfs-tests/tests/functional/cli_root/zpool_get]
 tests = ['zpool_get_001_pos', 'zpool_get_002_pos', 'zpool_get_003_pos',
-    'zpool_get_004_neg']
+    'zpool_get_004_neg', 'zpool_get_005_pos']
 
 [/opt/zfs-tests/tests/functional/cli_root/zpool_history]
 tests = ['zpool_history_001_neg', 'zpool_history_002_pos']

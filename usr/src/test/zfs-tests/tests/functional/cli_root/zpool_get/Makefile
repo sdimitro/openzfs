@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 include $(SRC)/Makefile.master
@@ -23,9 +23,10 @@ PROGS = cleanup \
 	zpool_get_001_pos \
 	zpool_get_002_pos \
 	zpool_get_003_pos \
-	zpool_get_004_neg
+	zpool_get_004_neg \
+	zpool_get_005_pos
 
-FILES = zpool_get.cfg
+FILES = zpool_get.cfg zpool_get_parsable.cfg
 
 CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555

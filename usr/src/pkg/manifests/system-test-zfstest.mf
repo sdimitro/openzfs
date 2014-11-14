@@ -1131,6 +1131,11 @@ file path=opt/zfs-tests/tests/functional/cli_root/zpool_get/zpool_get_003_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zpool_get/zpool_get_004_neg \
     mode=0555
+file path=opt/zfs-tests/tests/functional/cli_root/zpool_get/zpool_get_005_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zpool_get/zpool_get_parsable.cfg \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zpool_history/cleanup \
     mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zpool_history/setup \

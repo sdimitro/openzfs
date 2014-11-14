@@ -2389,10 +2389,24 @@ arc_evict_state_impl(multilist_t *ml, int idx, arc_buf_hdr_t *marker,
 			/*
 			 * If arc_size isn't overflowing, signal any
 			 * threads that might happen to be waiting.
+			 *
+			 * For each header evicted, we wake up a single
+			 * thread. If we used cv_broadcast, we could
+			 * wake up "too many" threads causing arc_size
+			 * to significantly overflow arc_c; since
+			 * arc_get_data_buf() doesn't check for overflow
+			 * when it's woken up (it doesn't because it's
+			 * possible for the ARC to be overflowing while
+			 * full of un-evictable buffers, and the
+			 * function should proceed in this case).
+			 *
+			 * If threads are left sleeping, due to not
+			 * using cv_broadcast, they will be woken up
+			 * just before arc_reclaim_thread() sleeps.
 			 */
 			mutex_enter(&arc_reclaim_lock);
 			if (!arc_is_overflowing())
-				cv_broadcast(&arc_reclaim_waiters_cv);
+				cv_signal(&arc_reclaim_waiters_cv);
 			mutex_exit(&arc_reclaim_lock);
 		} else {
 			ARCSTAT_BUMP(arcstat_mutex_miss);
@@ -2583,10 +2597,11 @@ arc_adjust_impl(arc_state_t *state, uint64_t spa, int64_t bytes,
  * Evict metadata buffers from the cache, such that arc_meta_used is
  * capped by the arc_meta_limit tunable.
  */
-static void
+static uint64_t
 arc_adjust_meta(void)
 {
-	int64_t bytes;
+	uint64_t total_evicted = 0;
+	int64_t target;
 
 	/*
 	 * If we're over the meta limit, we want to evict enough
@@ -2595,20 +2610,22 @@ arc_adjust_meta(void)
 	 * we're over the meta limit more than we're over arc_p, we
 	 * evict some from the MRU here, and some from the MFU below.
 	 */
-	bytes = MIN((int64_t)(arc_meta_used - arc_meta_limit),
+	target = MIN((int64_t)(arc_meta_used - arc_meta_limit),
 	    (int64_t)(arc_anon->arcs_size + arc_mru->arcs_size - arc_p));
 
-	(void) arc_adjust_impl(arc_mru, 0, bytes, ARC_BUFC_METADATA);
+	total_evicted += arc_adjust_impl(arc_mru, 0, target, ARC_BUFC_METADATA);
 
 	/*
 	 * Similar to the above, we want to evict enough bytes to get us
 	 * below the meta limit, but not so much as to drop us below the
 	 * space alloted to the MFU (which is defined as arc_c - arc_p).
 	 */
-	bytes = MIN((int64_t)(arc_meta_used - arc_meta_limit),
+	target = MIN((int64_t)(arc_meta_used - arc_meta_limit),
 	    (int64_t)(arc_mfu->arcs_size - (arc_c - arc_p)));
 
-	(void) arc_adjust_impl(arc_mfu, 0, bytes, ARC_BUFC_METADATA);
+	total_evicted += arc_adjust_impl(arc_mfu, 0, target, ARC_BUFC_METADATA);
+
+	return (total_evicted);
 }
 
 /*
@@ -2689,16 +2706,18 @@ arc_adjust_type(arc_state_t *state)
 /*
  * Evict buffers from the cache, such that arc_size is capped by arc_c.
  */
-static void
+static uint64_t
 arc_adjust(void)
 {
-	int64_t bytes;
+	uint64_t total_evicted = 0;
+	uint64_t bytes;
+	int64_t target;
 
 	/*
 	 * If we're over arc_meta_limit, we want to correct that before
 	 * potentially evicting data buffers below.
 	 */
-	arc_adjust_meta();
+	total_evicted += arc_adjust_meta();
 
 	/*
 	 * Adjust MRU size
@@ -2710,7 +2729,7 @@ arc_adjust(void)
 	 * the MRU is over arc_p, we'll evict enough to get back to
 	 * arc_p here, and then evict more from the MFU below.
 	 */
-	bytes = MIN((int64_t)(arc_size - arc_c),
+	target = MIN((int64_t)(arc_size - arc_c),
 	    (int64_t)(arc_anon->arcs_size + arc_mru->arcs_size + arc_meta_used -
 	    arc_p));
 
@@ -2724,11 +2743,29 @@ arc_adjust(void)
 	 */
 	if (arc_adjust_type(arc_mru) == ARC_BUFC_METADATA &&
 	    arc_meta_used > arc_meta_min) {
-		bytes -= arc_adjust_impl(arc_mru, 0, bytes, ARC_BUFC_METADATA);
-		(void) arc_adjust_impl(arc_mru, 0, bytes, ARC_BUFC_DATA);
+		bytes = arc_adjust_impl(arc_mru, 0, target, ARC_BUFC_METADATA);
+		total_evicted += bytes;
+
+		/*
+		 * If we couldn't evict our target number of bytes from
+		 * metadata, we try to get the rest from data.
+		 */
+		target -= bytes;
+
+		total_evicted +=
+		    arc_adjust_impl(arc_mru, 0, target, ARC_BUFC_DATA);
 	} else {
-		bytes -= arc_adjust_impl(arc_mru, 0, bytes, ARC_BUFC_DATA);
-		(void) arc_adjust_impl(arc_mru, 0, bytes, ARC_BUFC_METADATA);
+		bytes = arc_adjust_impl(arc_mru, 0, target, ARC_BUFC_DATA);
+		total_evicted += bytes;
+
+		/*
+		 * If we couldn't evict our target number of bytes from
+		 * data, we try to get the rest from metadata.
+		 */
+		target -= bytes;
+
+		total_evicted +=
+		    arc_adjust_impl(arc_mru, 0, target, ARC_BUFC_METADATA);
 	}
 
 	/*
@@ -2738,15 +2775,33 @@ arc_adjust(void)
 	 * size back to arc_p, if we're still above the target cache
 	 * size, we evict the rest from the MFU.
 	 */
-	bytes = arc_size - arc_c;
+	target = arc_size - arc_c;
 
 	if (arc_adjust_type(arc_mru) == ARC_BUFC_METADATA &&
 	    arc_meta_used > arc_meta_min) {
-		bytes -= arc_adjust_impl(arc_mfu, 0, bytes, ARC_BUFC_METADATA);
-		(void) arc_adjust_impl(arc_mfu, 0, bytes, ARC_BUFC_DATA);
+		bytes = arc_adjust_impl(arc_mfu, 0, target, ARC_BUFC_METADATA);
+		total_evicted += bytes;
+
+		/*
+		 * If we couldn't evict our target number of bytes from
+		 * metadata, we try to get the rest from data.
+		 */
+		target -= bytes;
+
+		total_evicted +=
+		    arc_adjust_impl(arc_mfu, 0, target, ARC_BUFC_DATA);
 	} else {
-		bytes -= arc_adjust_impl(arc_mfu, 0, bytes, ARC_BUFC_DATA);
-		(void) arc_adjust_impl(arc_mfu, 0, bytes, ARC_BUFC_METADATA);
+		bytes = arc_adjust_impl(arc_mfu, 0, target, ARC_BUFC_DATA);
+		total_evicted += bytes;
+
+		/*
+		 * If we couldn't evict our target number of bytes from
+		 * data, we try to get the rest from data.
+		 */
+		target -= bytes;
+
+		total_evicted +=
+		    arc_adjust_impl(arc_mfu, 0, target, ARC_BUFC_METADATA);
 	}
 
 	/*
@@ -2760,10 +2815,15 @@ arc_adjust(void)
 	 * cache. The following logic enforces these limits on the ghost
 	 * caches, and evicts from them as needed.
 	 */
-	bytes = arc_mru->arcs_size + arc_mru_ghost->arcs_size - arc_c;
+	target = arc_mru->arcs_size + arc_mru_ghost->arcs_size - arc_c;
 
-	bytes -= arc_adjust_impl(arc_mru_ghost, 0, bytes, ARC_BUFC_DATA);
-	(void) arc_adjust_impl(arc_mru_ghost, 0, bytes, ARC_BUFC_METADATA);
+	bytes = arc_adjust_impl(arc_mru_ghost, 0, target, ARC_BUFC_DATA);
+	total_evicted += bytes;
+
+	target -= bytes;
+
+	total_evicted +=
+	    arc_adjust_impl(arc_mru_ghost, 0, target, ARC_BUFC_METADATA);
 
 	/*
 	 * We assume the sum of the mru list and mfu list is less than
@@ -2773,10 +2833,17 @@ arc_adjust(void)
 	 *	mru + mfu + mru ghost + mfu ghost <= 2 * arc_c
 	 *		    mru ghost + mfu ghost <= arc_c
 	 */
-	bytes = arc_mru_ghost->arcs_size + arc_mfu_ghost->arcs_size - arc_c;
+	target = arc_mru_ghost->arcs_size + arc_mfu_ghost->arcs_size - arc_c;
 
-	bytes -= arc_adjust_impl(arc_mfu_ghost, 0, bytes, ARC_BUFC_DATA);
-	(void) arc_adjust_impl(arc_mfu_ghost, 0, bytes, ARC_BUFC_METADATA);
+	bytes = arc_adjust_impl(arc_mfu_ghost, 0, target, ARC_BUFC_DATA);
+	total_evicted += bytes;
+
+	target -= bytes;
+
+	total_evicted +=
+	    arc_adjust_impl(arc_mfu_ghost, 0, target, ARC_BUFC_METADATA);
+
+	return (total_evicted);
 }
 
 static void
@@ -2853,7 +2920,7 @@ arc_shrink(int64_t to_free)
 	}
 
 	if (arc_size > arc_c)
-		arc_adjust();
+		(void) arc_adjust();
 }
 
 typedef enum free_memory_reason_t {
@@ -3080,6 +3147,7 @@ arc_reclaim_thread(void)
 	mutex_enter(&arc_reclaim_lock);
 	while (!arc_reclaim_thread_exit) {
 		int64_t free_memory = arc_available_memory();
+		uint64_t evicted = 0;
 
 		mutex_exit(&arc_reclaim_lock);
 
@@ -3116,15 +3184,27 @@ arc_reclaim_thread(void)
 			arc_no_grow = B_FALSE;
 		}
 
-		arc_adjust();
+		evicted = arc_adjust();
 
 		mutex_enter(&arc_reclaim_lock);
 
-		if (!arc_is_overflowing())
+		/*
+		 * If evicted is zero, we couldn't evict anything via
+		 * arc_adjust(). This could be due to hash lock
+		 * collisions, but more likely due to the majority of
+		 * arc buffers being unevictable. Therefore, even if
+		 * arc_size is above arc_c, another pass is unlikely to
+		 * be helpful and could potentially cause us to enter an
+		 * infinite loop.
+		 */
+		if (arc_size <= arc_c || evicted == 0) {
+			/*
+			 * We're either no longer overflowing, or we
+			 * can't evict anything more, so we should wake
+			 * up any threads before we go to sleep.
+			 */
 			cv_broadcast(&arc_reclaim_waiters_cv);
 
-		if (!(arc_reclaim_needed() ||
-		    arc_size > arc_c || arc_meta_used > arc_meta_limit)) {
 			/*
 			 * Block until signaled, or after one second (we
 			 * might need to perform arc_kmem_reap_now()
@@ -3288,18 +3368,31 @@ arc_get_data_buf(arc_buf_t *buf)
 
 	/*
 	 * If arc_size is currently overflowing, and has grown past our
-	 * upper limit, we must be data faster than the evict thread can
-	 * evict. Thus, to ensure we don't compound the problem by
-	 * adding more data and forcing arc_size to grow even further
-	 * past it's target size, we halt and wait for the eviction
-	 * thread to catch up.
+	 * upper limit, we must be adding data faster than the evict
+	 * thread can evict. Thus, to ensure we don't compound the
+	 * problem by adding more data and forcing arc_size to grow even
+	 * further past it's target size, we halt and wait for the
+	 * eviction thread to catch up.
+	 *
+	 * It's also possible that the reclaim thread is unable to evict
+	 * enough buffers to get arc_size below the overflow limit (e.g.
+	 * due to buffers being un-evictable, or hash lock collisions).
+	 * In this case, we want to proceed regardless if we're
+	 * overflowing; thus we don't use a while loop here.
 	 */
-	while (arc_is_overflowing()) {
+	if (arc_is_overflowing()) {
 		mutex_enter(&arc_reclaim_lock);
 
 		/*
 		 * Now that we've acquired the lock, we may no longer be
 		 * over the overflow limit, lets check.
+		 *
+		 * We're ignoring the case of spurious wake ups. If that
+		 * were to happen, it'd let this thread consume an ARC
+		 * buffer before it should have (i.e. before we're under
+		 * the overflow limit and were signalled by the reclaim
+		 * thread). As long as that is a rare occurrence, it
+		 * shouldn't cause any harm.
 		 */
 		if (arc_is_overflowing()) {
 			cv_signal(&arc_reclaim_thread_cv);

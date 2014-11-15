@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -40,6 +40,8 @@
 #include <fcntl.h>
 #include <strings.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <dirent.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/sockio.h>
@@ -67,7 +69,8 @@ static ipadm_status_t	i_ipadm_validate_if(ipadm_handle_t, const char *,
 static ipadm_pd_getf_t	i_ipadm_get_prop, i_ipadm_get_ifprop_flags,
 			i_ipadm_get_mtu, i_ipadm_get_metric,
 			i_ipadm_get_usesrc, i_ipadm_get_forwarding,
-			i_ipadm_get_ecnsack, i_ipadm_get_hostmodel;
+			i_ipadm_get_ecnsack, i_ipadm_get_hostmodel,
+			i_ipadm_get_algos;
 
 /*
  * Callback function to set property values. These functions translate the
@@ -153,6 +156,9 @@ static const char *ecn_sack_vals[] = {"never", "passive", "active", NULL};
 
 /* Supported TCP protocol properties */
 static ipadm_prop_desc_t ipadm_tcp_prop_table[] = {
+	{ "cc_algorithm", NULL, IPADMPROP_CLASS_MODULE, MOD_PROTO_TCP, 0,
+	    i_ipadm_set_prop, i_ipadm_get_algos, i_ipadm_get_prop },
+
 	{ "ecn", NULL, IPADMPROP_CLASS_MODULE, MOD_PROTO_TCP, 0,
 	    i_ipadm_set_ecnsack, i_ipadm_get_ecnsack, i_ipadm_get_ecnsack },
 
@@ -810,6 +816,42 @@ i_ipadm_get_ecnsack(ipadm_handle_t iph, const void *arg,
 	}
 
 	return (status);
+}
+
+/*
+ * Retrieves the list of possible congestion control algorithms by enumerating
+ * the modules in /kernel/cc.
+ */
+/* ARGSUSED */
+ipadm_status_t
+i_ipadm_get_algos(ipadm_handle_t iph, const void *arg, ipadm_prop_desc_t *pdp,
+    char *buf, uint_t *bufsize, uint_t proto, uint_t valtype)
+{
+	DIR *dir;
+	struct dirent *ent;
+	boolean_t first = B_TRUE;
+	uint_t bytes = 0;
+
+	assert(valtype == MOD_PROP_POSSIBLE);
+
+	/* We assume that all platforms have the same algorithms installed. */
+	if ((dir = opendir("/kernel/cc")) != NULL) {
+		while ((ent = readdir(dir)) != NULL) {
+			/* By convention, modules are named cc_<algo>. */
+			if (strstr(ent->d_name, "cc_") != NULL) {
+				bytes += snprintf(buf + bytes,
+				    bytes < *bufsize ? *bufsize - bytes : 0,
+				    "%s%s", first ? "" : ",", ent->d_name + 3);
+				first = B_FALSE;
+			}
+		}
+		(void) closedir(dir);
+	}
+	if (bytes >= *bufsize) {
+		*bufsize = bytes + 1;
+		return (IPADM_NO_BUFS);
+	}
+	return (IPADM_SUCCESS);
 }
 
 /* ARGSUSED */

@@ -74,6 +74,7 @@
 #include <inet/ipsec_impl.h>
 
 #include <inet/common.h>
+#include <inet/cc.h>
 #include <inet/ip.h>
 #include <inet/ip_impl.h>
 #include <inet/ip6.h>
@@ -1422,6 +1423,10 @@ tcp_free(tcp_t *tcp)
 	 */
 	tcp_close_mpp(&tcp->tcp_conn.tcp_eager_conn_ind);
 
+	/* Allow the CC algorithm to clean up after itself. */
+	if (tcp->tcp_cc_algo != NULL && tcp->tcp_cc_algo->cb_destroy != NULL)
+		tcp->tcp_cc_algo->cb_destroy(&tcp->tcp_ccv);
+
 	/*
 	 * If this is a non-STREAM socket still holding on to an upper
 	 * handle, release it. As a result of fallback we might also see
@@ -1468,7 +1473,7 @@ tcp_free(tcp_t *tcp)
  * collector will free up the freelist is the connection ends up sitting
  * there for too long.
  */
-void *
+conn_t *
 tcp_get_conn(void *arg, tcp_stack_t *tcps)
 {
 	tcp_t			*tcp = NULL;
@@ -1507,7 +1512,7 @@ tcp_get_conn(void *arg, tcp_stack_t *tcps)
 		connp->conn_recv = tcp_input_data;
 		ASSERT(connp->conn_recvicmp == tcp_icmp_input);
 		ASSERT(connp->conn_verifyicmp == tcp_verifyicmp);
-		return ((void *)connp);
+		return (connp);
 	}
 	mutex_exit(&tcp_time_wait->tcp_time_wait_lock);
 	/*
@@ -1542,7 +1547,7 @@ tcp_get_conn(void *arg, tcp_stack_t *tcps)
 	connp->conn_ixa->ixa_notify = tcp_notify;
 	connp->conn_ixa->ixa_notify_cookie = tcp;
 
-	return ((void *)connp);
+	return (connp);
 }
 
 /*
@@ -2322,6 +2327,11 @@ tcp_reinit_values(tcp)
 	ASSERT(tcp->tcp_listen_cnt == NULL);
 	ASSERT(tcp->tcp_reass_tid == 0);
 
+        /* Allow the CC algorithm to clean up after itself. */
+        if (tcp->tcp_cc_algo->cb_destroy != NULL)
+                tcp->tcp_cc_algo->cb_destroy(&tcp->tcp_ccv);
+        tcp->tcp_cc_algo = NULL;
+
 #undef	DONTCARE
 #undef	PRESERVE
 }
@@ -2343,7 +2353,12 @@ tcp_init_values(tcp_t *tcp, tcp_t *parent)
 	    (connp->conn_ipversion == IPV4_VERSION ||
 	    connp->conn_ipversion == IPV6_VERSION)));
 
+	tcp->tcp_ccv.type = IPPROTO_TCP;
+	tcp->tcp_ccv.ccvc.tcp = tcp;
+
 	if (parent == NULL) {
+		tcp->tcp_cc_algo = tcps->tcps_default_cc_algo;
+
 		tcp->tcp_naglim = tcps->tcps_naglim_def;
 
 		tcp->tcp_rto_initial = tcps->tcps_rexmit_interval_initial;
@@ -2371,6 +2386,8 @@ tcp_init_values(tcp_t *tcp, tcp_t *parent)
 		 */
 	} else {
 		/* Inherit various TCP parameters from the parent. */
+		tcp->tcp_cc_algo = parent->tcp_cc_algo;
+
 		tcp->tcp_naglim = parent->tcp_naglim;
 
 		tcp->tcp_rto_initial = parent->tcp_rto_initial;
@@ -2396,6 +2413,9 @@ tcp_init_values(tcp_t *tcp, tcp_t *parent)
 
 		tcp->tcp_init_cwnd = parent->tcp_init_cwnd;
 	}
+
+	if (tcp->tcp_cc_algo->cb_init != NULL)
+		VERIFY(tcp->tcp_cc_algo->cb_init(&tcp->tcp_ccv) == 0);
 
 	/*
 	 * Initialize tcp_rtt_sa and tcp_rtt_sd so that the calculated RTO
@@ -2643,7 +2663,7 @@ tcp_create_common(cred_t *credp, boolean_t isv6, boolean_t issocket,
 	}
 
 	sqp = IP_SQUEUE_GET((uint_t)gethrtime());
-	connp = (conn_t *)tcp_get_conn(sqp, tcps);
+	connp = tcp_get_conn(sqp, tcps);
 	/*
 	 * Both tcp_get_conn and netstack_find_by_cred incremented refcnt,
 	 * so we drop it by one.
@@ -3832,6 +3852,9 @@ tcp_stack_init(netstackid_t stackid, netstack_t *ns)
 	mutex_init(&tcps->tcps_listener_conf_lock, NULL, MUTEX_DEFAULT, NULL);
 	list_create(&tcps->tcps_listener_conf, sizeof (tcp_listener_t),
 	    offsetof(tcp_listener_t, tl_link));
+
+	tcps->tcps_default_cc_algo = cc_load_algo(CC_DEFAULT_ALGO_NAME);
+	ASSERT3P(tcps->tcps_default_cc_algo, !=, NULL);
 
 	return (tcps);
 }

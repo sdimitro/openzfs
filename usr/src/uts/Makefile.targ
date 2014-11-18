@@ -18,9 +18,12 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
+
 #	This Makefiles contains the common targets and definitions for
 #	all kernels. It is to be included in the Makefiles for specific
 #	implementation architectures and processor architecture dependent

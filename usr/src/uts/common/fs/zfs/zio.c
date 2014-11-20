@@ -557,6 +557,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	    offsetof(zio_link_t, zl_parent_node));
 	list_create(&zio->io_child_list, sizeof (zio_link_t),
 	    offsetof(zio_link_t, zl_child_node));
+	metaslab_trace_init(&zio->io_alloc_list);
 
 	if (vd != NULL)
 		zio->io_child_type = ZIO_CHILD_VDEV;
@@ -615,6 +616,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 static void
 zio_destroy(zio_t *zio)
 {
+	metaslab_trace_fini(&zio->io_alloc_list);
 	list_destroy(&zio->io_parent_list);
 	list_destroy(&zio->io_child_list);
 	mutex_destroy(&zio->io_lock);
@@ -1982,7 +1984,7 @@ zio_write_gang_block(zio_t *pio)
 
 	error = metaslab_alloc(spa, spa_normal_class(spa), SPA_GANGBLOCKSIZE,
 	    bp, gbh_copies, txg, pio == gio ? NULL : gio->io_bp, flags,
-	    &pio->io_alloc_flags);
+	    &pio->io_alloc_list);
 	if (error) {
 		pio->io_error = error;
 		return (ZIO_PIPELINE_CONTINUE);
@@ -2579,9 +2581,10 @@ zio_dva_allocate(zio_t *zio)
 	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE) {
 		flags |= METASLAB_HINT_CAN_HOLEFILL;
 	}
+
 	error = metaslab_alloc(spa, mc, zio->io_size, bp,
 	    zio->io_prop.zp_copies, zio->io_txg, NULL, flags,
-	    &zio->io_alloc_flags);
+	    &zio->io_alloc_list);
 
 	if (error) {
 		spa_dbgmsg(spa, "%s: metaslab allocation failure: zio %p, "
@@ -2645,9 +2648,11 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
     uint64_t size, boolean_t use_slog)
 {
 	int error = 1;
-	uint8_t alloc_flags;
+	zio_alloc_list_t io_alloc_list;
 
 	ASSERT(txg > spa_syncing_txg(spa));
+
+	metaslab_trace_init(&io_alloc_list);
 
 	/*
 	 * ZIL blocks are always contiguous (i.e. not gang blocks) so we
@@ -2658,14 +2663,15 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
 		error = metaslab_alloc(spa, spa_log_class(spa), size,
 		    new_bp, 1, txg, old_bp,
 		    METASLAB_HINTBP_AVOID | METASLAB_GANG_AVOID,
-		    &alloc_flags);
+		    &io_alloc_list);
 	}
 
 	if (error) {
 		error = metaslab_alloc(spa, spa_normal_class(spa), size,
 		    new_bp, 1, txg, old_bp, METASLAB_HINTBP_AVOID,
-		    &alloc_flags);
+		    &io_alloc_list);
 	}
+	metaslab_trace_fini(&io_alloc_list);
 
 	if (error == 0) {
 		BP_SET_LSIZE(new_bp, size);

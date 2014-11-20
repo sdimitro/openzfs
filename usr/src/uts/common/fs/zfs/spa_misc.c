@@ -1616,7 +1616,7 @@ spa_get_asize(spa_t *spa, uint64_t lsize)
 
 /*
  * Return the amount of slop space in bytes.  It is 1/32 of the pool (3.2%),
- * or at least 32MB.
+ * or at least 32MB (kernel-mode) or 64MB (userland).
  *
  * See the comment above spa_slop_shift for details.
  */
@@ -1624,7 +1624,17 @@ uint64_t
 spa_get_slop_space(spa_t *spa)
 {
 	uint64_t space = spa_get_dspace(spa);
+
+	/*
+	 * Until we can increase the minimum device size in the zfs
+	 * test suite we must continue to leave the min slop space
+	 * at 32MB.
+	 */
+#ifdef _KERNEL
 	return (MAX(space >> spa_slop_shift, SPA_MINDEVSIZE >> 1));
+#else
+	return (MAX(space >> spa_slop_shift, SPA_MINDEVSIZE));
+#endif
 }
 
 uint64_t
@@ -1816,6 +1826,7 @@ spa_init(int mode)
 	refcount_init();
 	unique_init();
 	range_tree_init();
+	metaslab_alloc_trace_init();
 	zio_init();
 	dmu_init();
 	zil_init();
@@ -1838,6 +1849,7 @@ spa_fini(void)
 	zil_fini();
 	dmu_fini();
 	zio_fini();
+	metaslab_alloc_trace_fini();
 	range_tree_fini();
 	unique_fini();
 	refcount_fini();

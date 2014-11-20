@@ -36,7 +36,8 @@
 extern "C" {
 #endif
 
-typedef enum {
+typedef enum metaslab_alloc_strategy {
+	METASLAB_ALLOC_NONE,		/* Used for allocation tracing only */
 	METASLAB_ALLOC_OPTIMAL,
 	METASLAB_ALLOC_BEST_FIT,
 	METASLAB_ALLOC_PERFECT_FIT,
@@ -50,6 +51,7 @@ typedef struct metaslab_ops {
 	/* METASLAB_ALLOC_PERFECT_FIT */
 	uint64_t (*msop_pf_alloc)(metaslab_t *, uint64_t);
 } metaslab_ops_t;
+
 
 extern metaslab_ops_t *zfs_metaslab_ops;
 
@@ -74,11 +76,16 @@ uint64_t metaslab_block_maxsize(metaslab_t *);
 #define	METASLAB_HINT_CAN_HOLEFILL	0x10
 
 int metaslab_alloc(spa_t *, metaslab_class_t *, uint64_t,
-    blkptr_t *, int, uint64_t, blkptr_t *, int, uint8_t *);
+    blkptr_t *, int, uint64_t, blkptr_t *, int, zio_alloc_list_t *);
 boolean_t metaslab_alloc_throttle(metaslab_class_t *);
 void metaslab_free(spa_t *, const blkptr_t *, uint64_t, boolean_t);
 int metaslab_claim(spa_t *, const blkptr_t *, uint64_t);
 void metaslab_check_free(spa_t *, const blkptr_t *);
+
+void metaslab_alloc_trace_init(void);
+void metaslab_alloc_trace_fini(void);
+void metaslab_trace_init(zio_alloc_list_t *);
+void metaslab_trace_fini(zio_alloc_list_t *);
 
 metaslab_class_t *metaslab_class_create(spa_t *, metaslab_ops_t *);
 void metaslab_class_destroy(metaslab_class_t *);

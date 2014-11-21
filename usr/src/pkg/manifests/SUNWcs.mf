@@ -645,6 +645,7 @@ file path=sbin/devprop mode=0555
 file path=sbin/dhcpagent mode=0555
 file path=sbin/dhcpinfo mode=0555
 file path=sbin/dlmgmtd mode=0555
+file path=sbin/efilabel mode=0555
 file path=sbin/fdisk mode=0555
 file path=sbin/fiocompress mode=0555
 file path=sbin/hostconfig mode=0555
@@ -1787,6 +1788,7 @@ link path=usr/sbin/devnm target=./df
 link path=usr/sbin/dladm target=../../sbin/dladm
 link path=usr/sbin/dlstat target=../../sbin/dlstat
 link path=usr/sbin/edquota target=../lib/fs/ufs/edquota
+link path=usr/sbin/efilabel target=../../sbin/efilabel
 link path=usr/sbin/fdisk target=../../sbin/fdisk
 link path=usr/sbin/fiocompress target=../../sbin/fiocompress
 link path=usr/sbin/flowadm target=../../sbin/flowadm

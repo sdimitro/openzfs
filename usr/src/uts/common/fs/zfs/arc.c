@@ -1321,6 +1321,7 @@ arc_hdr_realloc(arc_buf_hdr_t *hdr, kmem_cache_t *old, kmem_cache_t *new)
 	mutex_exit(&dev->l2ad_mtx);
 
 	buf_discard_identity(hdr);
+	hdr->b_freeze_cksum = NULL;
 	kmem_cache_free(old, hdr);
 
 	return (nhdr);
@@ -1736,6 +1737,7 @@ arc_buf_alloc(spa_t *spa, int32_t size, void *tag, arc_buf_contents_t type)
 	ASSERT3U(size, >, 0);
 	hdr = kmem_cache_alloc(hdr_full_cache, KM_PUSHPAGE);
 	ASSERT(BUF_EMPTY(hdr));
+	ASSERT3P(hdr->b_freeze_cksum, ==, NULL);
 	hdr->b_size = size;
 	hdr->b_spa = spa_load_guid(spa);
 
@@ -2015,6 +2017,11 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 	if (!BUF_EMPTY(hdr))
 		buf_discard_identity(hdr);
 
+	if (hdr->b_freeze_cksum != NULL) {
+		kmem_free(hdr->b_freeze_cksum, sizeof (zio_cksum_t));
+		hdr->b_freeze_cksum = NULL;
+	}
+
 	if (HDR_HAS_L1HDR(hdr)) {
 		while (hdr->b_l1hdr.b_buf) {
 			arc_buf_t *buf = hdr->b_l1hdr.b_buf;
@@ -2034,10 +2041,6 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 			} else {
 				arc_buf_destroy(hdr->b_l1hdr.b_buf, TRUE);
 			}
-		}
-		if (hdr->b_freeze_cksum != NULL) {
-			kmem_free(hdr->b_freeze_cksum, sizeof (zio_cksum_t));
-			hdr->b_freeze_cksum = NULL;
 		}
 #ifdef ZFS_DEBUG
 		if (hdr->b_l1hdr.b_thawed != NULL) {

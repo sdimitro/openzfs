@@ -2356,10 +2356,10 @@ i_ipadm_do_addif(ipadm_handle_t iph, ipadm_addrobj_t addr)
 
 /*
  * Reads all the address lines from the persistent DB into the nvlist `onvl',
- * when both `ifname' and `aobjname' are NULL. If an `ifname' is provided,
- * it returns all the addresses for the given interface `ifname'.
- * If an `aobjname' is specified, then the address line corresponding to
- * that name will be returned.
+ * when both `ifname' and `aobjname' are NULL. If an `ifname' is provided, it
+ * returns all the addresses for the given interface `ifname'.  If an
+ * `aobjname' is specified, then the address line corresponding to that name
+ * will be returned. The caller is responsible for freeing the onvl nvlist.
  */
 static ipadm_status_t
 i_ipadm_get_db_addr(ipadm_handle_t iph, const char *ifname,
@@ -3578,6 +3578,7 @@ ipadm_enable_addr(ipadm_handle_t iph, const char *aobjname, uint32_t flags)
 			break;
 	}
 
+	nvlist_free(addrnvl);
 	return (status);
 }
 

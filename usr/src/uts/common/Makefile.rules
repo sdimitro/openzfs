@@ -24,7 +24,6 @@
 # Copyright 2013 Garrett D'Amore <garrett@damore.org>
 # Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
-# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 #
@@ -529,10 +528,6 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/inet/sockmods/%.c
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/common/inet/dlpistub/%.c
-	$(COMPILE.c) -o $@ $<
-	$(CTFCONVERT_O)
-
-$(OBJS_DIR)/%.o:		$(UTSBASE)/common/inet/cc/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
@@ -1939,9 +1934,6 @@ $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/inet/nca/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/inet/dlpistub/%.c
-	@($(LHEAD) $(LINT.c) $< $(LTAIL))
-
-$(LINTS_DIR)/%.ln:		$(UTSBASE)/common/inet/cc/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/%.c

@@ -322,22 +322,17 @@ struct {								\
 	_NOTE(CONSTCOND)						\
 } while (0)
 
+#define	STAILQ_FOREACH(var, head, field)				\
+	for ((var) = ((head)->stqh_first);				\
+		(var);							\
+		(var) = ((var)->field.stqe_next))
+
 /*
  * Singly-linked Tail queue access methods.
  */
 #define	STAILQ_EMPTY(head)	((head)->stqh_first == NULL)
 #define	STAILQ_FIRST(head)	((head)->stqh_first)
 #define	STAILQ_NEXT(elm, field)	((elm)->field.stqe_next)
-
-#define	STAILQ_FOREACH(var, head, field)				\
-	for ((var) = ((head)->stqh_first);				\
-		(var);							\
-		(var) = ((var)->field.stqe_next))
-
-#define	STAILQ_FOREACH_SAFE(var, head, field, tvar)                     \
-	for ((var) = STAILQ_FIRST((head));                              \
-		(var) && ((tvar) = STAILQ_NEXT((var), field), 1);	\
-		(var) = (tvar))
 
 
 /*

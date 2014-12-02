@@ -80,21 +80,6 @@ static void	tcp_wput_proto(void *, mblk_t *, void *, ip_recv_attr_t *);
  */
 static int tcp_tx_pull_len = 16;
 
-/*
- * CC wrapper hook functions
- */
-static inline void
-cc_after_idle(tcp_t *tcp)
-{
-	uint32_t old_cwnd = tcp->tcp_cwnd;
-
-        if (CC_ALGO(tcp)->after_idle != NULL)
-                CC_ALGO(tcp)->after_idle(&tcp->tcp_ccv);
-
-        DTRACE_PROBE3(cwnd__cc__after__idle, tcp_t *, tcp, uint32_t, old_cwnd,
-            uint32_t, tcp->tcp_cwnd);
-}
-
 void
 tcp_wput(queue_t *q, mblk_t *mp)
 {
@@ -232,6 +217,7 @@ tcp_wput_data(tcp_t *tcp, mblk_t *mp, boolean_t urgent)
 	int32_t		total_hdr_len;
 	int32_t		tcp_hdr_len;
 	int		rc;
+	tcp_stack_t	*tcps = tcp->tcp_tcps;
 	conn_t		*connp = tcp->tcp_connp;
 	clock_t		now = LBOLT_FASTPATH;
 
@@ -386,7 +372,7 @@ data_null:
 
 	if ((tcp->tcp_suna == snxt) && !tcp->tcp_localnet &&
 	    (TICK_TO_MSEC(now - tcp->tcp_last_recv_time) >= tcp->tcp_rto)) {
-		cc_after_idle(tcp);
+		TCP_SET_INIT_CWND(tcp, mss, tcps->tcps_slow_start_after_idle);
 	}
 	if (tcpstate == TCPS_SYN_RCVD) {
 		/*
@@ -1204,7 +1190,7 @@ tcp_output(void *arg, mblk_t *mp, void *arg2, ip_recv_attr_t *dummy)
 	now = LBOLT_FASTPATH;
 	if ((tcp->tcp_suna == snxt) && !tcp->tcp_localnet &&
 	    (TICK_TO_MSEC(now - tcp->tcp_last_recv_time) >= tcp->tcp_rto)) {
-		cc_after_idle(tcp);
+		TCP_SET_INIT_CWND(tcp, mss, tcps->tcps_slow_start_after_idle);
 	}
 
 	usable = tcp->tcp_swnd;		/* tcp window size */

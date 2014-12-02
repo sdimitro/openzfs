@@ -533,8 +533,6 @@ extern uint32_t tcp_early_abort;
 #define	tcps_dev_flow_ctl		tcps_propinfo_tbl[58].prop_cur_bval
 #define	tcps_reass_timeout		tcps_propinfo_tbl[59].prop_cur_uval
 #define	tcps_iss_incr			tcps_propinfo_tbl[65].prop_cur_uval
-#define	tcps_abc			tcps_propinfo_tbl[67].prop_cur_bval
-#define	tcps_abc_l_var			tcps_propinfo_tbl[68].prop_cur_uval
 
 extern struct qinit tcp_rinitv4, tcp_rinitv6;
 extern boolean_t do_tcp_fusion;
@@ -651,7 +649,6 @@ extern mblk_t	*tcp_xmit_mp(tcp_t *, mblk_t *, int32_t, int32_t *,
 /*
  * Input related functions in tcp_input.c.
  */
-extern void	cc_cong_signal(tcp_t *, uint32_t, uint32_t);
 extern void	tcp_icmp_input(void *, mblk_t *, void *, ip_recv_attr_t *);
 extern void	tcp_input_data(void *, mblk_t *, void *, ip_recv_attr_t *);
 extern void	tcp_input_listener_unbound(void *, mblk_t *, void *,

@@ -116,7 +116,6 @@ GENUNIX_OBJS +=	\
 		bz2huffman.o	\
 		callb.o		\
 		callout.o	\
-		cc.o		\
 		chdir.o		\
 		chmod.o		\
 		chown.o		\
@@ -479,12 +478,6 @@ AC97_OBJS += ac97.o ac97_ad.o ac97_alc.o ac97_cmi.o
 BLKDEV_OBJS += blkdev.o
 
 CARDBUS_OBJS += cardbus.o cardbus_hp.o cardbus_cfg.o
-
-CC_CUBIC_OBJS += cc_cubic.o
-
-CC_NEWRENO_OBJS += cc_newreno.o
-
-CC_SUNRENO_OBJS += cc_sunreno.o
 
 CONSKBD_OBJS += conskbd.o
 

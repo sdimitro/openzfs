@@ -3174,6 +3174,14 @@ metaslab_group_alloc(metaslab_group_t *mg, zio_alloc_list_t *zal,
 }
 
 /*
+ * If we have to write a ditto block (i.e. more than one DVA for a given BP)
+ * on the same vdev as an existing DVA of this BP, then try to allocate it
+ * at least (vdev_asize / (2 ^ ditto_same_vdev_distance_shift)) away from the
+ * existing DVAs.
+ */
+int ditto_same_vdev_distance_shift = 3;
+
+/*
  * Allocate a block for the specified i/o.
  */
 static int
@@ -3183,13 +3191,7 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 {
 	metaslab_group_t *mg, *rotor;
 	vdev_t *vd;
-	int dshift = 3;
-	int all_zero;
-	int zio_lock = B_FALSE;
-	boolean_t allocatable;
-	uint64_t offset = -1ULL;
-	uint64_t asize;
-	uint64_t distance;
+	boolean_t try_hard = B_FALSE;
 
 	ASSERT(!DVA_IS_VALID(&dva[d]));
 
@@ -3257,8 +3259,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 
 	rotor = mg;
 top:
-	all_zero = B_TRUE;
 	do {
+		boolean_t allocatable;
+
 		ASSERT(mg->mg_activation_count == 1);
 
 		vd = mg->mg_vd;
@@ -3266,7 +3269,7 @@ top:
 		/*
 		 * Don't allocate from faulted devices.
 		 */
-		if (zio_lock) {
+		if (try_hard) {
 			spa_config_enter(spa, SCL_ZIO, FTAG, RW_READER);
 			allocatable = vdev_allocatable(vd);
 			spa_config_exit(spa, SCL_ZIO, FTAG);
@@ -3294,12 +3297,13 @@ top:
 		ASSERT(mg->mg_initialized);
 
 		/*
-		 * Avoid writing single-copy data to a failing vdev.
+		 * Avoid writing single-copy data to a failing,
+		 * non-redundant vdev, unless we've already tried all
+		 * other vdevs.
 		 */
 		if ((vd->vdev_stat.vs_write_errors > 0 ||
 		    vd->vdev_state < VDEV_STATE_HEALTHY) &&
-		    d == 0 && dshift == 3 && vd->vdev_children == 0) {
-			all_zero = B_FALSE;
+		    d == 0 && !try_hard && vd->vdev_children == 0) {
 			metaslab_trace_add(zal, mg, NULL, psize, d,
 			    METASLAB_ALLOC_NONE, TRACE_VDEV_ERROR);
 			goto next;
@@ -3307,16 +3311,24 @@ top:
 
 		ASSERT(mg->mg_class == mc);
 
-		distance = vd->vdev_asize >> dshift;
-		if (distance <= (1ULL << vd->vdev_ms_shift))
-			distance = 0;
-		else
-			all_zero = B_FALSE;
+		/*
+		 * If we don't need to try hard, then require that the
+		 * block be 1/8th of the device away from any other DVAs
+		 * in this BP.  If we are trying hard, allow any offset
+		 * to be used (distance=0).
+		 */
+		uint64_t distance = 0;
+		if (!try_hard) {
+			distance = vd->vdev_asize >>
+			    ditto_same_vdev_distance_shift;
+			if (distance <= (1ULL << vd->vdev_ms_shift))
+				distance = 0;
+		}
 
-		asize = vdev_psize_to_asize(vd, psize);
+		uint64_t asize = vdev_psize_to_asize(vd, psize);
 		ASSERT(P2PHASE(asize, 1ULL << vd->vdev_ashift) == 0);
 
-		offset = metaslab_group_alloc(mg, zal, asize, txg,
+		uint64_t offset = metaslab_group_alloc(mg, zal, asize, txg,
 		    distance, dva, d, flags);
 
 		mutex_enter(&mg->mg_lock);
@@ -3377,15 +3389,11 @@ next:
 		mc->mc_aliquot = 0;
 	} while ((mg = mg->mg_next) != rotor);
 
-	if (!all_zero) {
-		dshift++;
-		ASSERT(dshift < 64);
-		goto top;
-	}
-
-	if (!allocatable && !zio_lock) {
-		dshift = 3;
-		zio_lock = B_TRUE;
+	/*
+	 * If we haven't tried hard, do so now.
+	 */
+	if (!try_hard) {
+		try_hard = B_TRUE;
 		goto top;
 	}
 

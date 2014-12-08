@@ -1913,7 +1913,7 @@ metaslab_segment_weight(metaslab_t *msp)
 /*
  * Determine if we should attempt to allocate from this metaslab. If the
  * metaslab has a maximum size then we can quickly determine if the desired
- * allocation size can be satisified. Otherwise, if we're using segment-based
+ * allocation size can be satisfied. Otherwise, if we're using segment-based
  * weighting then we can determine the maximum allocation that this metaslab
  * can accommodate based on the index encoded in the weight. If we're using
  * space-based weights then rely on the entire weight (excluding the weight
@@ -2959,7 +2959,6 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 {
 	metaslab_t *msp = NULL;
 	uint64_t offset = -1ULL;
-	avl_tree_t *t = &mg->mg_metaslab_tree;
 	uint64_t activation_weight;
 	uint64_t target_distance;
 	int i;
@@ -2972,11 +2971,34 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 		}
 	}
 
+	metaslab_t *search = kmem_alloc(sizeof (*search), KM_SLEEP);
+	search->ms_weight = UINT64_MAX;
+	search->ms_start = 0;
 	for (;;) {
 		boolean_t was_active;
+		avl_tree_t *t = &mg->mg_metaslab_tree;
+		avl_index_t idx;
 
 		mutex_enter(&mg->mg_lock);
-		for (msp = avl_first(t); msp; msp = AVL_NEXT(t, msp)) {
+
+		/*
+		 * Find the metaslab with the highest weight that is less
+		 * than what we've already tried.  In the common case, this
+		 * means that we will examine each metaslab at most once.
+		 * Note that concurrent callers could reorder metaslabs
+		 * by activation/passivation once we have dropped the mg_lock.
+		 * If a metaslab is activated by another thread, and we fail
+		 * to allocate from the metaslab we have selected, we may
+		 * not try the newly-activated metaslab, and instead activate
+		 * another metaslab.  This is not optimal, but generally
+		 * does not cause any problems (a possible exception being
+		 * if every metaslab is completely full except for the
+		 * the newly-activated metaslab which we fail to examine).
+		 */
+		msp = avl_find(t, search, &idx);
+		if (msp == NULL)
+			msp = avl_nearest(t, idx, AVL_AFTER);
+		for (; msp != NULL; msp = AVL_NEXT(t, msp)) {
 
 			if (!metaslab_should_allocate(msp, asize)) {
 				metaslab_trace_add(zal, mg, msp, asize, d,
@@ -3007,8 +3029,12 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 				break;
 		}
 		mutex_exit(&mg->mg_lock);
-		if (msp == NULL)
+		if (msp == NULL) {
+			kmem_free(search, sizeof (*search));
 			return (-1ULL);
+		}
+		search->ms_weight = msp->ms_weight;
+		search->ms_start = msp->ms_start + 1;
 
 		mutex_enter(&msp->ms_lock);
 
@@ -3117,6 +3143,7 @@ next:
 		mutex_exit(&msp->ms_lock);
 	}
 	mutex_exit(&msp->ms_lock);
+	kmem_free(search, sizeof (*search));
 	return (offset);
 }
 

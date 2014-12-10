@@ -348,6 +348,9 @@ range_tree_clear(range_tree_t *rt, uint64_t start, uint64_t size)
 {
 	range_seg_t *rs;
 
+	if (size == 0)
+		return;
+
 	while ((rs = range_tree_find_impl(rt, start, size)) != NULL) {
 		uint64_t free_start = MAX(rs->rs_start, start);
 		uint64_t free_end = MIN(rs->rs_end, start + size);

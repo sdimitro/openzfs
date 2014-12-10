@@ -107,6 +107,7 @@ GENUNIX_OBJS +=	\
 		bitmap.o	\
 		blabel.o	\
 		brandsys.o	\
+		bsearch.o	\
 		bz2blocksort.o	\
 		bz2compress.o	\
 		bz2decompress.o	\
@@ -1383,11 +1384,13 @@ ZFS_COMMON_OBJS +=		\
 	vdev.o			\
 	vdev_cache.o		\
 	vdev_file.o		\
+	vdev_indirect.o		\
 	vdev_label.o		\
 	vdev_mirror.o		\
 	vdev_missing.o		\
 	vdev_queue.o		\
 	vdev_raidz.o		\
+	vdev_removal.o		\
 	vdev_root.o		\
 	zap.o			\
 	zap_leaf.o		\

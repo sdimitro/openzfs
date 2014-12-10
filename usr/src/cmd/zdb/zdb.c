@@ -73,8 +73,10 @@
 	dmu_ot[(idx)].ot_name : DMU_OT_IS_VALID(idx) ?	\
 	dmu_ot_byteswap[DMU_OT_BYTESWAP(idx)].ob_name : "UNKNOWN")
 #define	ZDB_OT_TYPE(idx) ((idx) < DMU_OT_NUMTYPES ? (idx) :		\
-	(((idx) == DMU_OTN_ZAP_DATA || (idx) == DMU_OTN_ZAP_METADATA) ?	\
-	DMU_OT_ZAP_OTHER : DMU_OT_NUMTYPES))
+	(idx) == DMU_OTN_ZAP_DATA || (idx) == DMU_OTN_ZAP_METADATA ?	\
+	DMU_OT_ZAP_OTHER : \
+	(idx) == DMU_OTN_UINT64_DATA || (idx) == DMU_OTN_UINT64_METADATA ? \
+	DMU_OT_UINT64_OTHER : DMU_OT_NUMTYPES)
 
 #ifndef lint
 extern boolean_t zfs_recover;
@@ -129,10 +131,12 @@ usage(void)
 	    "poolname [vdev [metaslab...]]\n"
 	    "       %s -R [-A] [-e [-p path...]] poolname "
 	    "vdev:offset:size[:flags]\n"
+	    "       %s -E [-A] word0:word1:...:word15\n"
 	    "       %s -S [-PA] [-e [-p path...]] [-U config] poolname\n"
 	    "       %s -l [-uA] device\n"
 	    "       %s -C [-A] [-U config]\n\n",
-	    cmdname, cmdname, cmdname, cmdname, cmdname, cmdname, cmdname);
+	    cmdname, cmdname, cmdname, cmdname, cmdname, cmdname,
+	    cmdname, cmdname);
 
 	(void) fprintf(stderr, "    Dataset name must include at least one "
 	    "separator character '/' or '@'\n");
@@ -160,6 +164,8 @@ usage(void)
 	    "load spacemaps)\n");
 	(void) fprintf(stderr, "        -R read and display block from a "
 	    "device\n\n");
+	(void) fprintf(stderr, "        -E decode and display block from an "
+	    "embedded block pointer\n\n");
 	(void) fprintf(stderr, "    Below options are intended for use "
 	    "with other options:\n");
 	(void) fprintf(stderr, "        -A ignore assertions (-A), enable "
@@ -632,7 +638,7 @@ get_metaslab_refcount(vdev_t *vd)
 {
 	int refcount = 0;
 
-	if (vd->vdev_top == vd && !vd->vdev_removing) {
+	if (vd->vdev_top == vd) {
 		for (int m = 0; m < vd->vdev_ms_count; m++) {
 			space_map_t *sm = vd->vdev_ms[m]->ms_sm;
 
@@ -674,7 +680,7 @@ dump_spacemap(objset_t *os, space_map_t *sm)
 {
 	uint64_t alloc, offset, entry;
 	char *ddata[] = { "ALLOC", "FREE", "CONDENSE", "INVALID",
-			    "INVALID", "INVALID", "INVALID", "INVALID" };
+	    "INVALID", "INVALID", "INVALID", "INVALID" };
 
 	if (sm == NULL)
 		return;
@@ -839,6 +845,49 @@ dump_metaslab_groups(spa_t *spa)
 }
 
 static void
+print_vdev_indirect(vdev_t *vd)
+{
+	if (vd->vdev_im_object == 0)
+		return;
+
+	dmu_buf_t *bonus;
+	VERIFY0(dmu_bonus_hold(vd->vdev_spa->spa_meta_objset,
+	    vd->vdev_im_object, FTAG, &bonus));
+	vdev_indirect_mapping_phys_t *vimp = bonus->db_data;
+
+	ASSERT3U(vimp->vim_count, ==, vd->vdev_im_count);
+
+	(void) printf("indirect mapping obj %llu:\n",
+	    (longlong_t)vd->vdev_im_object);
+	(void) printf("    vim_max_offset = 0x%llx\n",
+	    (longlong_t)vimp->vim_max_offset);
+	(void) printf("    vim_bytes_mapped = 0x%llx\n",
+	    (longlong_t)vimp->vim_bytes_mapped);
+	(void) printf("    vim_count = %llu\n",
+	    (longlong_t)vimp->vim_count);
+	dmu_buf_rele(bonus, FTAG);
+	bonus = NULL;
+	vimp = NULL;
+
+	if (dump_opt['d'] <= 5 && dump_opt['m'] <= 3)
+		return;
+
+	for (uint64_t i = 0; i < vd->vdev_im_count; i++) {
+		vdev_indirect_mapping_entry_phys_t *dmp =
+		    &vd->vdev_indirect_mapping[i];
+		(void) printf("\t%c <%llx:%llx:%llx> -> <%llx:%llx:%llx>\n",
+		    DVA_MAPPING_GET_MARK(dmp) ? 'M' : ' ',
+		    (longlong_t)vd->vdev_id,
+		    (longlong_t)DVA_MAPPING_GET_SRC_OFFSET(dmp),
+		    (longlong_t)DVA_GET_ASIZE(&dmp->dm_dst),
+		    (longlong_t)DVA_GET_VDEV(&dmp->dm_dst),
+		    (longlong_t)DVA_GET_OFFSET(&dmp->dm_dst),
+		    (longlong_t)DVA_GET_ASIZE(&dmp->dm_dst));
+	}
+	(void) printf("\n");
+}
+
+static void
 dump_metaslabs(spa_t *spa)
 {
 	vdev_t *vd, *rvd = spa->spa_root_vdev;
@@ -873,6 +922,8 @@ dump_metaslabs(spa_t *spa)
 	for (; c < children; c++) {
 		vd = rvd->vdev_child[c];
 		print_vdev_metaslab_header(vd);
+
+		print_vdev_indirect(vd);
 
 		for (m = 0; m < vd->vdev_ms_count; m++)
 			dump_metaslab(vd->vdev_ms[m]);
@@ -2258,6 +2309,7 @@ static char *zdb_ot_extname[] = {
 
 typedef struct zdb_cb {
 	zdb_blkstats_t	zcb_type[ZB_TOTAL + 1][ZDB_OT_TOTAL + 1];
+	uint64_t	zcb_removing_size;
 	uint64_t	zcb_dedup_asize;
 	uint64_t	zcb_dedup_blocks;
 	uint64_t	zcb_embedded_blocks[NUM_BP_EMBEDDED_TYPES];
@@ -2583,6 +2635,81 @@ zdb_ddt_leak_init(spa_t *spa, zdb_cb_t *zcb)
 	ASSERT(error == ENOENT);
 }
 
+/* ARGSUSED */
+static void
+claim_segment_impl_cb(uint64_t inner_offset, vdev_t *vd, uint64_t offset,
+    uint64_t size, void *arg)
+{
+	VERIFY0(metaslab_claim_impl(vd, offset, size,
+	    spa_first_txg(vd->vdev_spa)));
+}
+
+static void
+claim_segment_cb(void *arg, uint64_t offset, uint64_t size)
+{
+	vdev_t *vd = arg;
+
+	vdev_indirect_ops.vdev_op_remap(vd, offset, size,
+	    claim_segment_impl_cb, NULL);
+}
+
+/*
+ * After accounting for all allocated blocks that are directly referenced,
+ * we might have missed a reference to a block from a partially complete
+ * (and thus unused) indirect mapping object. We perform a secondary pass
+ * through the metaslabs we have already mapped and claim the destination
+ * blocks.
+ */
+static void
+zdb_claim_removing(spa_t *spa, zdb_cb_t *zcb)
+{
+	if (spa->spa_vdev_removal == NULL)
+		return;
+
+	spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
+
+	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
+	vdev_t *vd = svr->svr_vdev;
+
+	for (uint64_t msi = 0; msi < vd->vdev_ms_count; msi++) {
+		metaslab_t *msp = vd->vdev_ms[msi];
+
+		if (msp->ms_start >= svr->svr_max_synced_offset)
+			break;
+
+		ASSERT0(range_tree_space(svr->svr_allocd_segs));
+
+		mutex_enter(&msp->ms_lock);
+
+		if (msp->ms_sm != NULL) {
+
+			mutex_enter(&svr->svr_lock);
+			VERIFY0(space_map_load(msp->ms_sm,
+			    svr->svr_allocd_segs, SM_ALLOC));
+
+			/*
+			 * Clear everything past what has been synced,
+			 * because we have not allocated mappings for it yet.
+			 */
+			uint64_t maxsync = svr->svr_max_synced_offset;
+			range_tree_clear(svr->svr_allocd_segs, maxsync,
+			    msp->ms_sm->sm_start + msp->ms_sm->sm_size -
+			    maxsync);
+
+			mutex_exit(&svr->svr_lock);
+		}
+		mutex_exit(&msp->ms_lock);
+
+		mutex_enter(&svr->svr_lock);
+		zcb->zcb_removing_size +=
+		    range_tree_space(svr->svr_allocd_segs);
+		range_tree_vacate(svr->svr_allocd_segs, claim_segment_cb, vd);
+		mutex_exit(&svr->svr_lock);
+	}
+
+	spa_config_exit(spa, SCL_CONFIG, FTAG);
+}
+
 static void
 zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 {
@@ -2743,10 +2870,14 @@ dump_block_stats(spa_t *spa)
 	 */
 	(void) bpobj_iterate_nofree(&spa->spa_deferred_bpobj,
 	    count_block_cb, &zcb, NULL);
+
 	if (spa_version(spa) >= SPA_VERSION_DEADLISTS) {
 		(void) bpobj_iterate_nofree(&spa->spa_dsl_pool->dp_free_bpobj,
 		    count_block_cb, &zcb, NULL);
 	}
+
+	zdb_claim_removing(spa, &zcb);
+
 	if (spa_feature_is_active(spa, SPA_FEATURE_ASYNC_DESTROY)) {
 		VERIFY3U(0, ==, bptree_iterate(spa->spa_meta_objset,
 		    spa->spa_dsl_pool->dp_bptree_obj, B_FALSE, count_block_cb,
@@ -2796,7 +2927,8 @@ dump_block_stats(spa_t *spa)
 	norm_space = metaslab_class_get_space(spa_normal_class(spa));
 
 	total_alloc = norm_alloc + metaslab_class_get_alloc(spa_log_class(spa));
-	total_found = tzb->zb_asize - zcb.zcb_dedup_asize;
+	total_found = tzb->zb_asize - zcb.zcb_dedup_asize +
+	    zcb.zcb_removing_size;
 
 	if (total_found == total_alloc) {
 		if (!dump_opt['L'])
@@ -2861,6 +2993,49 @@ dump_block_stats(spa_t *spa)
 	if (tzb->zb_ditto_samevdev != 0) {
 		(void) printf("\tDittoed blocks on same vdev: %llu\n",
 		    (longlong_t)tzb->zb_ditto_samevdev);
+	}
+
+	for (uint64_t v = 0; v < spa->spa_root_vdev->vdev_children; v++) {
+		vdev_t *vd = spa->spa_root_vdev->vdev_child[v];
+		if (vd->vdev_indirect_mapping == NULL)
+			continue;
+
+		/*
+		 * We mark the mapping entries when we claim blocks.
+		 * A given (logical) BP may appear in multiple snapshots and
+		 * clones, with different DVAs (indirect vs concrete).  We
+		 * claim the BP when it first appears (in the oldest snapshot),
+		 * so this will be the original, untranslated BP.  However,
+		 * we may still fail to mark some in-use segments, because
+		 * the clone could have rewritten the DVA to have an indirect
+		 * vdev (if it has multiple levels of indirection, and an
+		 * intermediate indirection has a split block).  Or it could
+		 * have been rewritten with a concrete vdev, which was
+		 * later removed.  In either case, we will not claim, and thus
+		 * not mark, this mapping.
+		 *
+		 * The solution is to mark DVAs in all unique indirect blocks
+		 * (and dnodes), regardless of their birth times.
+		 */
+		uint64_t inuse = 0;
+		for (uint64_t i = 0; i < vd->vdev_im_count; i++) {
+			if (DVA_MAPPING_GET_MARK(
+			    &vd->vdev_indirect_mapping[i])) {
+				inuse++;
+			}
+		}
+
+		char mem[32];
+		zdb_nicenum(vd->vdev_im_count *
+		    sizeof (vdev_indirect_mapping_entry_phys_t),
+		    mem);
+
+		(void) printf("\tindirect vdev id %llu has %llu segments "
+		    "(%s in memory), %u%% referenced\n",
+		    (longlong_t)vd->vdev_id,
+		    (longlong_t)vd->vdev_im_count, mem,
+		    (int)((inuse * 100 + vd->vdev_im_count - 1) /
+		    vd->vdev_im_count));
 	}
 
 	if (dump_opt['b'] >= 2) {
@@ -3059,6 +3234,8 @@ dump_zpool(spa_t *spa)
 {
 	dsl_pool_t *dp = spa_get_dsl(spa);
 	int rc = 0;
+
+	spa->spa_mark_indirect_mappings = B_TRUE;
 
 	if (dump_opt['S']) {
 		dump_simulated_ddt(spa);
@@ -3404,7 +3581,8 @@ zdb_read_block(char *thing, spa_t *spa)
 		    ZIO_TYPE_READ, ZIO_PRIORITY_SYNC_READ,
 		    ZIO_FLAG_DONT_CACHE | ZIO_FLAG_DONT_QUEUE |
 		    ZIO_FLAG_DONT_PROPAGATE | ZIO_FLAG_DONT_RETRY |
-		    ZIO_FLAG_CANFAIL | ZIO_FLAG_RAW, NULL, NULL));
+		    ZIO_FLAG_CANFAIL | ZIO_FLAG_RAW | ZIO_FLAG_OPTIONAL,
+		    NULL, NULL));
 	}
 
 	error = zio_wait(zio);
@@ -3478,6 +3656,33 @@ out:
 	umem_free(pbuf, SPA_MAXBLOCKSIZE);
 	umem_free(lbuf, SPA_MAXBLOCKSIZE);
 	free(dup);
+}
+
+static void
+zdb_embedded_block(char *thing)
+{
+	blkptr_t bp = { 0 };
+	unsigned long long *words = (void *)&bp;
+	char buf[SPA_MAXBLOCKSIZE];
+	int err;
+
+	err = sscanf(thing, "%llx:%llx:%llx:%llx:%llx:%llx:%llx:%llx:"
+	    "%llx:%llx:%llx:%llx:%llx:%llx:%llx:%llx",
+	    words + 0, words + 1, words + 2, words + 3,
+	    words + 4, words + 5, words + 6, words + 7,
+	    words + 8, words + 9, words + 10, words + 11,
+	    words + 12, words + 13, words + 14, words + 15);
+	if (err != 16) {
+		(void) printf("invalid input format\n");
+		exit(1);
+	}
+	ASSERT3U(BPE_GET_LSIZE(&bp), <=, SPA_MAXBLOCKSIZE);
+	err = decode_embedded_bp(&bp, buf, BPE_GET_LSIZE(&bp));
+	if (err != 0) {
+		(void) printf("decode failed: %u\n", err);
+		exit(1);
+	}
+	zdb_dump_block_raw(buf, BPE_GET_LSIZE(&bp), 0);
 }
 
 static boolean_t
@@ -3586,7 +3791,7 @@ main(int argc, char **argv)
 	dprintf_setup(&argc, argv);
 
 	while ((c = getopt(argc, argv,
-	    "bcdhilmMI:suCDRSAFLXx:evp:t:U:P")) != -1) {
+	    "bcdhilmMI:suCDRSAFLXx:evp:t:U:PE")) != -1) {
 		switch (c) {
 		case 'b':
 		case 'c':
@@ -3599,6 +3804,7 @@ main(int argc, char **argv)
 		case 'u':
 		case 'C':
 		case 'D':
+		case 'E':
 		case 'M':
 		case 'R':
 		case 'S':
@@ -3686,7 +3892,7 @@ main(int argc, char **argv)
 		verbose = MAX(verbose, 1);
 
 	for (c = 0; c < 256; c++) {
-		if (dump_all && !strchr("elAFLRSXP", c))
+		if (dump_all && !strchr("elAFLRSXPE", c))
 			dump_opt[c] = 1;
 		if (dump_opt[c])
 			dump_opt[c] += verbose;
@@ -3700,6 +3906,14 @@ main(int argc, char **argv)
 
 	if (argc < 2 && dump_opt['R'])
 		usage();
+
+	if (dump_opt['E']) {
+		if (argc != 1)
+			usage();
+		zdb_embedded_block(argv[0]);
+		return (0);
+	}
+
 	if (argc < 1) {
 		if (!dump_opt['e'] && dump_opt['C']) {
 			dump_cachefile(spa_config_path);

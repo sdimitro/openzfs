@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -143,6 +143,7 @@
 #include <sys/vdev_impl.h>
 #include <sys/uberblock_impl.h>
 #include <sys/metaslab.h>
+#include <sys/metaslab_impl.h>
 #include <sys/zio.h>
 #include <sys/dsl_scan.h>
 #include <sys/fs/zfs.h>
@@ -278,9 +279,10 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_ASIZE,
 		    vd->vdev_asize);
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_IS_LOG, vd->vdev_islog);
-		if (vd->vdev_removing)
+		if (vd->vdev_removing) {
 			fnvlist_add_uint64(nv, ZPOOL_CONFIG_REMOVING,
 			    vd->vdev_removing);
+		}
 	}
 
 	if (vd->vdev_dtl_sm != NULL) {
@@ -288,22 +290,77 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		    space_map_object(vd->vdev_dtl_sm));
 	}
 
+	if (vd->vdev_im_object != 0) {
+		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
+		    vd->vdev_im_object);
+	}
+
+	if (vd->vdev_prev_indirect_vdev != -1) {
+		fnvlist_add_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
+		    vd->vdev_prev_indirect_vdev);
+	}
+
 	if (vd->vdev_crtxg)
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_CREATE_TXG, vd->vdev_crtxg);
 
 	if (getstats) {
 		vdev_stat_t vs;
-		pool_scan_stat_t ps;
 
 		vdev_get_stats(vd, &vs);
 		fnvlist_add_uint64_array(nv, ZPOOL_CONFIG_VDEV_STATS,
 		    (uint64_t *)&vs, sizeof (vs) / sizeof (uint64_t));
 
 		/* provide either current or previous scan information */
+		pool_scan_stat_t ps;
 		if (spa_scan_get_stats(spa, &ps) == 0) {
 			fnvlist_add_uint64_array(nv,
 			    ZPOOL_CONFIG_SCAN_STATS, (uint64_t *)&ps,
 			    sizeof (pool_scan_stat_t) / sizeof (uint64_t));
+		}
+
+		pool_removal_stat_t prs;
+		if (spa_removal_get_stats(spa, &prs) == 0) {
+			fnvlist_add_uint64_array(nv,
+			    ZPOOL_CONFIG_REMOVAL_STATS, (uint64_t *)&prs,
+			    sizeof (prs) / sizeof (uint64_t));
+		}
+
+		if (vd->vdev_im_count > 0) {
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_SIZE,
+			    vd->vdev_im_count *
+			    sizeof (vdev_indirect_mapping_entry_phys_t));
+		} else if (vd->vdev_mg != NULL &&
+		    vd->vdev_mg->mg_fragmentation != ZFS_FRAG_INVALID) {
+			/*
+			 * Compute approximately how much memory would be used
+			 * for the indirect mapping if this device were to
+			 * be removed.
+			 *
+			 * Note: If the frag metric is invalid, then not
+			 * enough metaslabs have been converted to have
+			 * histograms.
+			 */
+			uint64_t seg_count = 0;
+
+			/*
+			 * There are the same number of allocated segments
+			 * as free segments, so we will have at least one
+			 * entry per free segment.
+			 */
+			for (int i = 0; i < RANGE_TREE_HISTOGRAM_SIZE; i++) {
+				seg_count += vd->vdev_mg->mg_histogram[i];
+			}
+
+			/*
+			 * The maximum length of a mapping is SPA_MAXBLOCKSIZE,
+			 * so we need at least one entry per SPA_MAXBLOCKSIZE
+			 * of allocated data.
+			 */
+			seg_count += vd->vdev_stat.vs_alloc / SPA_MAXBLOCKSIZE;
+
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_SIZE,
+			    seg_count *
+			    sizeof (vdev_indirect_mapping_entry_phys_t));
 		}
 	}
 
@@ -401,8 +458,9 @@ vdev_top_config_generate(spa_t *spa, nvlist_t *config)
 	for (c = 0, idx = 0; c < rvd->vdev_children; c++) {
 		vdev_t *tvd = rvd->vdev_child[c];
 
-		if (tvd->vdev_ishole)
+		if (tvd->vdev_ishole) {
 			array[idx++] = c;
+		}
 	}
 
 	if (idx) {
@@ -1034,8 +1092,11 @@ vdev_uberblock_sync_list(vdev_t **svd, int svdcount, uberblock_t *ub, int flags)
 	 */
 	zio = zio_root(spa, NULL, NULL, flags);
 
-	for (int v = 0; v < svdcount; v++)
-		zio_flush(zio, svd[v]);
+	for (int v = 0; v < svdcount; v++) {
+		if (vdev_writeable(svd[v])) {
+			zio_flush(zio, svd[v]);
+		}
+	}
 
 	(void) zio_wait(zio);
 

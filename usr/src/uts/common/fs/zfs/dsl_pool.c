@@ -242,8 +242,8 @@ dsl_pool_open(dsl_pool_t *dp)
 	}
 
 	/*
-	 * Note: errors ignored, because the leak dir will not exist if we
-	 * have not encountered a leak yet.
+	 * Note: errors ignored, because the these special dirs, used for
+	 * space accounting, are only created on demand.
 	 */
 	(void) dsl_pool_open_special_dir(dp, LEAK_DIR_NAME,
 	    &dp->dp_leak_dir);
@@ -289,21 +289,21 @@ dsl_pool_close(dsl_pool_t *dp)
 	 * includes pool-opening context), it actually only got a "ref"
 	 * and not a hold, so just drop that here.
 	 */
-	if (dp->dp_origin_snap)
+	if (dp->dp_origin_snap != NULL)
 		dsl_dataset_rele(dp->dp_origin_snap, dp);
-	if (dp->dp_mos_dir)
+	if (dp->dp_mos_dir != NULL)
 		dsl_dir_rele(dp->dp_mos_dir, dp);
-	if (dp->dp_free_dir)
+	if (dp->dp_free_dir != NULL)
 		dsl_dir_rele(dp->dp_free_dir, dp);
-	if (dp->dp_leak_dir)
+	if (dp->dp_leak_dir != NULL)
 		dsl_dir_rele(dp->dp_leak_dir, dp);
-	if (dp->dp_root_dir)
+	if (dp->dp_root_dir != NULL)
 		dsl_dir_rele(dp->dp_root_dir, dp);
 
 	bpobj_close(&dp->dp_free_bpobj);
 
 	/* undo the dmu_objset_open_impl(mos) from dsl_pool_open() */
-	if (dp->dp_meta_objset)
+	if (dp->dp_meta_objset != NULL)
 		dmu_objset_evict(dp->dp_meta_objset);
 
 	txg_list_destroy(&dp->dp_dirty_datasets);
@@ -324,7 +324,7 @@ dsl_pool_close(dsl_pool_t *dp)
 	rrw_destroy(&dp->dp_config_rwlock);
 	mutex_destroy(&dp->dp_lock);
 	taskq_destroy(dp->dp_vnrele_taskq);
-	if (dp->dp_blkstats)
+	if (dp->dp_blkstats != NULL)
 		kmem_free(dp->dp_blkstats, sizeof (zfs_all_blkstats_t));
 	kmem_free(dp, sizeof (dsl_pool_t));
 }

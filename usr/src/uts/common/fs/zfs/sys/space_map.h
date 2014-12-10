@@ -150,6 +150,7 @@ void space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
 void space_map_truncate(space_map_t *sm, dmu_tx_t *tx);
 uint64_t space_map_alloc(objset_t *os, dmu_tx_t *tx);
 void space_map_free(space_map_t *sm, dmu_tx_t *tx);
+void space_map_free_obj(objset_t *os, uint64_t smobj, dmu_tx_t *tx);
 
 int space_map_open(space_map_t **smp, objset_t *os, uint64_t object,
     uint64_t start, uint64_t size, uint8_t shift, kmutex_t *lp);

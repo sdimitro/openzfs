@@ -29,6 +29,7 @@
 
 #include <sys/spa.h>
 #include <sys/vdev.h>
+#include <sys/vdev_removal.h>
 #include <sys/metaslab.h>
 #include <sys/dmu.h>
 #include <sys/dsl_pool.h>
@@ -58,6 +59,38 @@ typedef struct spa_history_phys {
 	uint64_t sh_eof;		/* logical EOF */
 	uint64_t sh_records_lost;	/* num of records overwritten */
 } spa_history_phys_t;
+
+/*
+ * All members must be uint64_t, for byteswap purposes.
+ */
+typedef struct spa_removing_phys {
+	uint64_t sr_state; /* dsl_scan_state_t */
+
+	/*
+	 * The vdev ID that we most recently attempted to remove,
+	 * or -1 if no removal has been attempted.
+	 */
+	uint64_t sr_removing_vdev;
+
+	/*
+	 * The vdev ID that we most recently successfully removed,
+	 * or -1 if no devices have been removed.
+	 */
+	uint64_t sr_prev_indirect_vdev;
+
+	uint64_t sr_start_time;
+	uint64_t sr_end_time;
+
+	/*
+	 * Note that we can not use the space map's or indirect mapping's
+	 * accounting as a substitute for these values, because we need to
+	 * count frees of not-yet-copied data as though it did the copy.
+	 * Otherwise, we could get into a situation where copied > to_copy,
+	 * or we complete before copied == to_copy.
+	 */
+	uint64_t sr_to_copy; /* bytes that need to be copied */
+	uint64_t sr_copied; /* bytes that have been copied or freed */
+} spa_removing_phys_t;
 
 struct spa_aux_vdev {
 	uint64_t	sav_object;		/* MOS object for device list */
@@ -180,6 +213,17 @@ struct spa {
 	int		spa_async_suspended;	/* async tasks suspended */
 	kcondvar_t	spa_async_cv;		/* wait for thread_exit() */
 	uint16_t	spa_async_tasks;	/* async task mask */
+
+	spa_removing_phys_t spa_removing_phys;
+	spa_vdev_removal_t *spa_vdev_removal;
+
+	/*
+	 * Set the Mark bit on each indirect mapping entry that is
+	 * referenced.  Used by zdb to determine which mappings are still
+	 * in use.
+	 */
+	boolean_t	spa_mark_indirect_mappings;
+
 	char		*spa_root;		/* alternate root directory */
 	uint64_t	spa_ena;		/* spa-wide ereport ENA */
 	int		spa_last_open_failed;	/* error if last open failed */
@@ -209,6 +253,7 @@ struct spa {
 	/* per-CPU array of root of async I/O: */
 	zio_t		**spa_async_zio_root;
 	zio_t		*spa_suspend_zio_root;	/* root of all suspended I/O */
+	zio_t		*spa_txg_zio[TXG_SIZE]; /* spa_sync() waits for this */
 	kmutex_t	spa_suspend_lock;	/* protects suspend_zio_root */
 	kcondvar_t	spa_suspend_cv;		/* notification of resume */
 	uint8_t		spa_suspended;		/* pool is suspended */
@@ -272,6 +317,8 @@ extern const char *spa_config_path;
 
 extern void spa_taskq_dispatch_ent(spa_t *spa, zio_type_t t, zio_taskq_type_t q,
     task_func_t *func, void *arg, uint_t flags, taskq_ent_t *ent);
+extern void spa_load_spares(spa_t *spa);
+extern void spa_load_l2cache(spa_t *spa);
 
 #ifdef	__cplusplus
 }

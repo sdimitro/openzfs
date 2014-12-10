@@ -27,6 +27,7 @@
 #define	_SYS_VDEV_IMPL_H
 
 #include <sys/avl.h>
+#include <sys/bpobj.h>
 #include <sys/dmu.h>
 #include <sys/metaslab.h>
 #include <sys/nvpair.h>
@@ -34,6 +35,7 @@
 #include <sys/vdev.h>
 #include <sys/dkio.h>
 #include <sys/uberblock_impl.h>
+#include <sys/vdev_removal.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -69,6 +71,11 @@ typedef void	vdev_state_change_func_t(vdev_t *vd, int, int);
 typedef void	vdev_hold_func_t(vdev_t *vd);
 typedef void	vdev_rele_func_t(vdev_t *vd);
 
+typedef void	vdev_remap_cb_t(uint64_t inner_offset, vdev_t *vd,
+    uint64_t offset, uint64_t size, void *arg);
+typedef void	vdev_remap_func_t(vdev_t *vd, uint64_t offset, uint64_t size,
+    vdev_remap_cb_t callback, void *arg);
+
 typedef struct vdev_ops {
 	vdev_open_func_t		*vdev_op_open;
 	vdev_close_func_t		*vdev_op_close;
@@ -78,6 +85,7 @@ typedef struct vdev_ops {
 	vdev_state_change_func_t	*vdev_op_state_change;
 	vdev_hold_func_t		*vdev_op_hold;
 	vdev_rele_func_t		*vdev_op_rele;
+	vdev_remap_func_t		*vdev_op_remap;
 	char				vdev_op_type[16];
 	boolean_t			vdev_op_leaf;
 } vdev_ops_t;
@@ -174,6 +182,27 @@ struct vdev {
 	uint64_t	vdev_removing;	/* device is being removed?	*/
 	boolean_t	vdev_ishole;	/* is a hole in the namespace	*/
 	kmutex_t	vdev_queue_lock; /* protects vdev_queue_depth	*/
+
+	/*
+	 * If the vdev is being removed or is indirect, the
+	 * vdev_indirect_mapping is an ordered array of all mapping
+	 * entries, sorted by src dva.  Note that vdev_indirect_mapping can be
+	 * partially valid during a removal so that we can handle frees
+	 * to a removing device.
+	 */
+	vdev_indirect_mapping_entry_phys_t *vdev_indirect_mapping;
+
+	/* Number of entries in vdev_indirect_mapping. */
+	uint64_t	vdev_im_count;
+
+	/* Object (in MOS) which contains the indirect mapping. */
+	uint64_t	vdev_im_object;
+
+	/*
+	 * For indirect vdevs, this is the vdev ID which was removed
+	 * previous to this vdev, or UINT64_MAX if there is no previous.
+	 */
+	uint64_t	vdev_prev_indirect_vdev;
 
 	/*
 	 * The queue depth parameters determine how many async writes are
@@ -338,6 +367,7 @@ extern vdev_ops_t vdev_file_ops;
 extern vdev_ops_t vdev_missing_ops;
 extern vdev_ops_t vdev_hole_ops;
 extern vdev_ops_t vdev_spare_ops;
+extern vdev_ops_t vdev_indirect_ops;
 
 /*
  * Common size functions
@@ -351,6 +381,13 @@ extern void vdev_set_min_asize(vdev_t *vd);
  */
 /* zdb uses this tunable, so it must be declared here to make lint happy. */
 extern int zfs_vdev_cache_size;
+
+/*
+ * Functions from vdev_indirect.c
+ */
+extern void vdev_read_mapping(spa_t *spa, uint64_t mapobj,
+    vdev_indirect_mapping_entry_phys_t **mapp, uint64_t *countp);
+extern void vdev_initialize_mapping(vdev_t *vd);
 
 /*
  * The vdev_buf_t is used to translate between zio_t and buf_t, and back again.

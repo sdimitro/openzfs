@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014, Nexenta Systems, Inc. All rights reserved.
@@ -232,4 +232,9 @@ zpool_feature_init(void)
 	    "com.delphix:mooch_byteswap", "mooch_byteswap",
 	    "Clones can store byteswapped user data using 1% the space.",
 	    B_FALSE, B_FALSE, B_FALSE, mooch_byteswap_deps);
+
+	zfeature_register(SPA_FEATURE_DEVICE_REMOVAL,
+	    "com.delphix:device_removal", "device_removal",
+	    "Top-level vdevs can be removed, reducing logical pool size.",
+	    B_FALSE, B_TRUE, B_FALSE, NULL);
 }

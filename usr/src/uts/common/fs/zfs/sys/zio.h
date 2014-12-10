@@ -194,6 +194,7 @@ enum zio_flag {
 	ZIO_FLAG_NOPWRITE	= 1 << 26,
 	ZIO_FLAG_REEXECUTED	= 1 << 27,
 	ZIO_FLAG_DELEGATED	= 1 << 28,
+	ZIO_FLAG_DISPATCH	= 1 << 29,
 };
 
 #define	ZIO_FLAG_MUSTSUCCEED		0
@@ -208,7 +209,7 @@ enum zio_flag {
 
 #define	ZIO_VDEV_CHILD_FLAGS(zio)				\
 	(((zio)->io_flags & ZIO_FLAG_VDEV_INHERIT) |		\
-	ZIO_FLAG_CANFAIL)
+	ZIO_FLAG_DONT_PROPAGATE | ZIO_FLAG_CANFAIL)
 
 enum zio_child {
 	ZIO_CHILD_VDEV = 0,

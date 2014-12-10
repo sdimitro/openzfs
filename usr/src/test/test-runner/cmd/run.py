@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 #
 
 import ConfigParser
@@ -199,7 +199,8 @@ class Cmd(object):
 
         try:
             self.result.starttime = time()
-            proc = Popen(privcmd, stdout=PIPE, stderr=PIPE)
+            proc = Popen(privcmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
+            proc.stdin.close()
             t = Timer(int(self.timeout), self.kill_cmd, [proc])
             t.start()
             self.result.stdout, self.result.stderr = self.collect_output(proc)

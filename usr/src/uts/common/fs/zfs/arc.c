@@ -4008,7 +4008,7 @@ top:
 			b_compress = HDR_GET_COMPRESS(hdr);
 			b_asize = hdr->b_l2hdr.b_asize;
 			/*
-			 * Lock out device removal.
+			 * Lock out L2ARC device removal.
 			 */
 			if (vdev_is_dead(vd) ||
 			    !spa_config_tryenter(spa, SCL_L2ARC, vd, RW_READER))

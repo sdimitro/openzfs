@@ -481,27 +481,29 @@ space_map_alloc(objset_t *os, dmu_tx_t *tx)
 }
 
 void
-space_map_free(space_map_t *sm, dmu_tx_t *tx)
+space_map_free_obj(objset_t *os, uint64_t smobj, dmu_tx_t *tx)
 {
-	spa_t *spa;
-
-	if (sm == NULL)
-		return;
-
-	spa = dmu_objset_spa(sm->sm_os);
+	spa_t *spa = dmu_objset_spa(os);
 	if (spa_feature_is_enabled(spa, SPA_FEATURE_SPACEMAP_HISTOGRAM)) {
 		dmu_object_info_t doi;
 
-		dmu_object_info_from_db(sm->sm_dbuf, &doi);
+		VERIFY0(dmu_object_info(os, smobj, &doi));
 		if (doi.doi_bonus_size != SPACE_MAP_SIZE_V0) {
-			VERIFY(spa_feature_is_active(spa,
-			    SPA_FEATURE_SPACEMAP_HISTOGRAM));
 			spa_feature_decr(spa,
 			    SPA_FEATURE_SPACEMAP_HISTOGRAM, tx);
 		}
 	}
 
-	VERIFY3U(dmu_object_free(sm->sm_os, space_map_object(sm), tx), ==, 0);
+	VERIFY0(dmu_object_free(os, smobj, tx));
+}
+
+void
+space_map_free(space_map_t *sm, dmu_tx_t *tx)
+{
+	if (sm == NULL)
+		return;
+
+	space_map_free_obj(sm->sm_os, space_map_object(sm), tx);
 	sm->sm_object = 0;
 }
 

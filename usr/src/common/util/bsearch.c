@@ -27,18 +27,16 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
 
 /*
  * Binary search algorithm, generalized from Knuth (6.2.1) Algorithm B.
  */
 
-#if !defined(_BOOT) && !defined(_KMDB)
-#include "lint.h"
-#endif /* !_BOOT && !_KMDB */
-#include <stddef.h>
-#include <stdlib.h>
 #include <sys/types.h>
+#include <sys/param.h>
 
 void *
 bsearch(const void *ky,		/* Key to be located */

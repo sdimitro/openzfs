@@ -1475,8 +1475,6 @@ dsl_scan_sync(dsl_pool_t *dp, dmu_tx_t *tx)
 			scn->scn_async_stalled =
 			    (scn->scn_visited_this_txg == 0);
 		}
-
-
 	}
 	if (scn->scn_visited_this_txg) {
 		zfs_dbgmsg("freed %llu blocks in %llums from "
@@ -1522,6 +1520,7 @@ dsl_scan_sync(dsl_pool_t *dp, dmu_tx_t *tx)
 		    -dp->dp_free_dir->dd_phys->dd_compressed_bytes,
 		    -dp->dp_free_dir->dd_phys->dd_uncompressed_bytes, tx);
 	}
+
 	if (!scn->scn_async_destroying) {
 		/* finished; verify that space accounting went to zero */
 		ASSERT0(dp->dp_free_dir->dd_phys->dd_used_bytes);

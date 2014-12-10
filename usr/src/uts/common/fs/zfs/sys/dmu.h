@@ -321,6 +321,7 @@ typedef void dmu_buf_evict_func_t(struct dmu_buf *db, void *user_ptr);
 #define	DMU_POOL_FREE_BPOBJ		"free_bpobj"
 #define	DMU_POOL_BPTREE_OBJ		"bptree_obj"
 #define	DMU_POOL_EMPTY_BPOBJ		"empty_bpobj"
+#define	DMU_POOL_REMOVING		"com.delphix:removing"
 
 /*
  * Allocate an object from this objset.  The range of object numbers
@@ -424,8 +425,8 @@ void dmu_write_policy(objset_t *os, struct dnode *dn, int level, int wp,
  * The bonus data is accessed more or less like a regular buffer.
  * You must dmu_bonus_hold() to get the buffer, which will give you a
  * dmu_buf_t with db_offset==-1ULL, and db_size = the size of the bonus
- * data.  As with any normal buffer, you must call dmu_buf_read() to
- * read db_data, dmu_buf_will_dirty() before modifying it, and the
+ * data.  As with any normal buffer, you must call dmu_buf_will_dirty()
+ * before modifying it, and the
  * object must be held in an assigned transaction before calling
  * dmu_buf_will_dirty.  You may use dmu_buf_set_user() on the bonus
  * buffer as well.  You must release your hold with dmu_buf_rele().

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  */
 
@@ -158,7 +158,6 @@ boolean_t dsl_dir_is_zapified(dsl_dir_t *dd);
 /* internal reserved dir name */
 #define	MOS_DIR_NAME "$MOS"
 #define	ORIGIN_DIR_NAME "$ORIGIN"
-#define	XLATION_DIR_NAME "$XLATION"
 #define	FREE_DIR_NAME "$FREE"
 #define	LEAK_DIR_NAME "$LEAK"
 

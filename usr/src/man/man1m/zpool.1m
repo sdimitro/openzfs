@@ -1,7 +1,7 @@
 '\" te
 .\" Copyright (c) 2007, Sun Microsystems, Inc. All Rights Reserved.
 .\" Copyright 2011, Nexenta Systems, Inc. All Rights Reserved.
-.\" Copyright (c) 2013 by Delphix. All rights reserved.
+.\" Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 .\" The contents of this file are subject to the terms of the Common Development
 .\" and Distribution License (the "License"). You may not use this file except
 .\" in compliance with the License. You can obtain a copy of the license at
@@ -119,6 +119,11 @@ zpool \- configures ZFS storage pools
 .LP
 .nf
 \fBzpool remove\fR \fIpool\fR \fIdevice\fR ...
+.fi
+
+.LP
+.nf
+\fBzpool remove\fR -s \fIpool\fR
 .fi
 
 .LP
@@ -1746,12 +1751,32 @@ Reopen all the vdevs associated with the pool.
 .ad
 .sp .6
 .RS 4n
-Removes the specified device from the pool. This command currently only
-supports removing hot spares, cache, and log devices. A mirrored log device can
+Removes the specified device from the pool. This command
+supports removing hot spares, cache, and log devices; and removing top-level
+vdevs from non-redundant pools.
+.sp
+Removing a top-level vdev reduces the total amount of space in the storage
+pool.  The specified device must be evacuated by copying all allocated
+space from it to the other devices in the pool.  In this case, the
+\fBzpool remove\fR command initiates the removal and continues while the
+evacuation continues in the background.  The removal progress can be
+monitored with \fBzpool status\fR.  This feature must be
+enabled to be used (see \fBzpool-features\fR(5)).
+.sp
+A mirrored log device can
 be removed by specifying the top-level mirror for the log. Non-log devices that
 are part of a mirrored configuration can be removed using the \fBzpool
-detach\fR command. Non-redundant and \fBraidz\fR devices cannot be removed from
-a pool.
+detach\fR command.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBzpool remove\fR -s \fIpool\fR
+.ad
+.sp .6
+.RS 4n
+Stops and cancels an in-progress removal of a top-level vdev.
 .RE
 
 .sp

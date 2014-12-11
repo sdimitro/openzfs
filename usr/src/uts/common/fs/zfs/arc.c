@@ -4252,9 +4252,7 @@ arc_clear_callback(arc_buf_t *buf)
 void
 arc_release(arc_buf_t *buf, void *tag)
 {
-	arc_buf_hdr_t *hdr;
-	arc_state_t *state;
-	kmutex_t *hash_lock = NULL;
+	arc_buf_hdr_t *hdr = buf->b_hdr;
 
 	/*
 	 * It would be nice to assert that if it's DMU metadata (level >
@@ -4263,21 +4261,46 @@ arc_release(arc_buf_t *buf, void *tag)
 	 */
 
 	mutex_enter(&buf->b_evict_lock);
-	hdr = buf->b_hdr;
-	state = hdr->b_l1hdr.b_state;
+
+	/*
+	 * We don't grab the hash lock prior to this check, because if
+	 * the buffer's header is in the arc_anon state, it won't be
+	 * linked into the hash table.
+	 */
+	if (hdr->b_l1hdr.b_state == arc_anon) {
+		mutex_exit(&buf->b_evict_lock);
+		ASSERT(!HDR_IO_IN_PROGRESS(hdr));
+		ASSERT(!HDR_IN_HASH_TABLE(hdr));
+		ASSERT(!HDR_HAS_L2HDR(hdr));
+		ASSERT(BUF_EMPTY(hdr));
+
+		ASSERT3U(hdr->b_l1hdr.b_datacnt, ==, 1);
+		ASSERT3S(refcount_count(&hdr->b_l1hdr.b_refcnt), ==, 1);
+		ASSERT(!multilist_link_active(&hdr->b_l1hdr.b_arc_node));
+
+		ASSERT3P(buf->b_efunc, ==, NULL);
+		ASSERT3P(buf->b_private, ==, NULL);
+
+		hdr->b_l1hdr.b_arc_access = 0;
+		arc_buf_thaw(buf);
+
+		return;
+	}
+
+	kmutex_t *hash_lock = HDR_LOCK(hdr);
+	mutex_enter(hash_lock);
+
+	/*
+	 * This assignment is only valid as long as the hash_lock is
+	 * held, we must be careful not to reference state or the
+	 * b_state field after dropping the lock.
+	 */
+	arc_state_t *state = hdr->b_l1hdr.b_state;
+	ASSERT3P(hash_lock, ==, HDR_LOCK(hdr));
+	ASSERT3P(state, !=, arc_anon);
 
 	/* this buffer is not on any list */
 	ASSERT(refcount_count(&hdr->b_l1hdr.b_refcnt) > 0);
-
-	if (state == arc_anon) {
-		/* this buffer is already released */
-		ASSERT(buf->b_efunc == NULL);
-	} else {
-		hash_lock = HDR_LOCK(hdr);
-		mutex_enter(hash_lock);
-		hdr = buf->b_hdr;
-		ASSERT3P(hash_lock, ==, HDR_LOCK(hdr));
-	}
 
 	if (HDR_HAS_L2HDR(hdr)) {
 		ARCSTAT_INCR(arcstat_l2_asize, -hdr->b_l2hdr.b_asize);
@@ -4360,14 +4383,12 @@ arc_release(arc_buf_t *buf, void *tag)
 	} else {
 		mutex_exit(&buf->b_evict_lock);
 		ASSERT(refcount_count(&hdr->b_l1hdr.b_refcnt) == 1);
-		/* protected by hash lock, or hdr is on arc_anon */
+		/* protected by hash lock */
 		ASSERT(!multilist_link_active(&hdr->b_l1hdr.b_arc_node));
 		ASSERT(!HDR_IO_IN_PROGRESS(hdr));
-		if (hdr->b_l1hdr.b_state != arc_anon)
-			arc_change_state(arc_anon, hdr, hash_lock);
+		arc_change_state(arc_anon, hdr, hash_lock);
 		hdr->b_l1hdr.b_arc_access = 0;
-		if (hash_lock != NULL)
-			mutex_exit(hash_lock);
+		mutex_exit(hash_lock);
 
 		buf_discard_identity(hdr);
 		arc_buf_thaw(buf);

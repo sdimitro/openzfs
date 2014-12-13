@@ -201,11 +201,35 @@ offset or reads the blocks as described for non-seekable files.
 .sp
 .ne 2
 .na
-\fB\fBstride=\fR\fIn\fR\fR
+\fB\fBostride=\fR\fIn\fR\fR
 .ad
 .sp .6
 .RS 4n
 Writes every \fIn\fRth block (using the specified output block size) when
+writing output.  Skips \fIn\fR - 1 blocks after writing each record.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBistride=\fR\fIn\fR\fR
+.ad
+.sp .6
+.RS 4n
+Reads every \fIn\fRth block (using the specified input block size) when
+reading input.  Skips \fIn\fR - 1 blocks after reading each record.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBstride=\fR\fIn\fR\fR
+.ad
+.sp .6
+.RS 4n
+Reads every \fIn\fRth block (using the specified input block size) when
+reading input.  Skips \fIn\fR - 1 blocks after reading each record.  Also
+writes every \fIn\fRth block (using the specified output block size) when
 writing output.  Skips \fIn\fR - 1 blocks after writing each record.
 .RE
 

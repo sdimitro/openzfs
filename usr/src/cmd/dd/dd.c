@@ -104,10 +104,10 @@
 #define	USAGE\
 	"usage: dd [if=file] [of=file] [ibs=n|nk|nb|nxm] [obs=n|nk|nb|nxm]\n"\
 	"	   [bs=n|nk|nb|nxm] [cbs=n|nk|nb|nxm] [files=n] [skip=n]\n"\
-	"	   [iseek=n] [oseek=n] [seek=n] [stride=n] [count=n]\n"\
-	"	   [conv=[ascii] [,ebcdic][,ibm][,asciib][,ebcdicb][,ibmb]\n"\
-	"	   [,block|unblock][,lcase|ucase][,swab]\n"\
-	"	   [,noerror][,notrunc][,sync]]\n"\
+	"	   [iseek=n] [oseek=n] [seek=n] [stride=n] [istride=n]\n"\
+	"	   [ostride=n] [count=n] [conv=[ascii] [,ebcdic][,ibm]\n"\
+	"	   [,asciib][,ebcdicb][,ibmb][,block|unblock][,lcase|ucase]\n"\
+	"	   [,swab][,noerror][,notrunc][,sync]]\n"\
 	"	   [oflag=[dsync][sync]]\n"
 
 /* Global references */
@@ -149,6 +149,8 @@ static off_t	oseekn;	/* number of output records to seek past */
 static unsigned long long	count;	/* number of input records to copy */
 			/* (0 = all) */
 static off_t	ostriden;	/* number of output blocks to skip between */
+				/* records */
+static off_t	istriden;	/* number of input blocks to skip between */
 				/* records */
 
 static int	trantype; /* BSD or SVr4 compatible EBCDIC */
@@ -572,9 +574,19 @@ main(int argc, char **argv)
 			oseekn = number(BIG);
 			continue;
 		}
-		if (match("stride="))
+		if (match("ostride="))
 		{
 			ostriden = ((off_t)number(BIG)) - 1;
+			continue;
+		}
+		if (match("istride="))
+		{
+			istriden = ((off_t)number(BIG)) - 1;
+			continue;
+		}
+		if (match("stride="))
+		{
+			istriden = ostriden = ((off_t)number(BIG)) - 1;
 			continue;
 		}
 		if (match("count="))
@@ -728,6 +740,11 @@ main(int argc, char **argv)
 		exit(2);
 	}
 	if (ostriden == (off_t)-1) {
+		(void) fprintf(stderr, "dd: %s\n",
+			gettext("stride must be greater than zero"));
+		exit(2);
+	}
+	if (istriden == (off_t)-1) {
 		(void) fprintf(stderr, "dd: %s\n",
 			gettext("stride must be greater than zero"));
 		exit(2);
@@ -1047,6 +1064,12 @@ main(int argc, char **argv)
 			/* Read the next input block */
 
 			ibc = read(ibf, (char *)ibuf, ibs);
+
+			if (istriden > 0 && lseek(ibf, istriden * ((off_t)ibs),
+			    SEEK_CUR) == -1) {
+				perror("lseek");
+				exit(2);
+			}
 
 			/* Process input errors */
 
@@ -1817,7 +1840,7 @@ long long big;
 /* Flush the output buffer, move any excess bytes down to the beginning	*/
 /*									*/
 /* Arg:		none							*/
-/* Global args:	obuf, obc, obs, nofr, nopr				*/
+/* Global args:	obuf, obc, obs, nofr, nopr, ostriden			*/
 /*									*/
 /* Return:	Pointer to the first free byte in the output buffer.	*/
 /*		Also reset `obc' to account for moved bytes.		*/

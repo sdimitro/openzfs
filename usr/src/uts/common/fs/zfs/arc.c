@@ -477,6 +477,7 @@ typedef struct arc_stats {
 	kstat_named_t arcstat_l2_evict_reading;
 	kstat_named_t arcstat_l2_evict_l1cached;
 	kstat_named_t arcstat_l2_free_on_write;
+	kstat_named_t arcstat_l2_cdata_free_on_write;
 	kstat_named_t arcstat_l2_abort_lowmem;
 	kstat_named_t arcstat_l2_cksum_bad;
 	kstat_named_t arcstat_l2_io_error;
@@ -564,6 +565,7 @@ static arc_stats_t arc_stats = {
 	{ "l2_evict_reading",		KSTAT_DATA_UINT64 },
 	{ "l2_evict_l1cached",		KSTAT_DATA_UINT64 },
 	{ "l2_free_on_write",		KSTAT_DATA_UINT64 },
+	{ "l2_cdata_free_on_write",	KSTAT_DATA_UINT64 },
 	{ "l2_abort_lowmem",		KSTAT_DATA_UINT64 },
 	{ "l2_cksum_bad",		KSTAT_DATA_UINT64 },
 	{ "l2_io_error",		KSTAT_DATA_UINT64 },
@@ -1275,6 +1277,9 @@ arc_hdr_realloc(arc_buf_hdr_t *hdr, kmem_cache_t *old, kmem_cache_t *new)
 		 * l2c_only even though it's about to change.
 		 */
 		nhdr->b_l1hdr.b_state = arc_l2c_only;
+
+		/* Verify previous threads set to NULL before freeing */
+		ASSERT3P(nhdr->b_l1hdr.b_tmp_cdata, ==, NULL);
 	} else {
 		ASSERT(hdr->b_l1hdr.b_buf == NULL);
 		ASSERT0(hdr->b_l1hdr.b_datacnt);
@@ -1885,6 +1890,21 @@ arc_buf_add_ref(arc_buf_t *buf, void* tag)
 	    data, metadata, hits);
 }
 
+static void
+arc_buf_free_on_write(void *data, size_t size,
+    void (*free_func)(void *, size_t))
+{
+	l2arc_data_free_t *df;
+
+	df = kmem_alloc(sizeof (*df), KM_SLEEP);
+	df->l2df_data = data;
+	df->l2df_size = size;
+	df->l2df_func = free_func;
+	mutex_enter(&l2arc_free_on_write_mtx);
+	list_insert_head(l2arc_free_on_write, df);
+	mutex_exit(&l2arc_free_on_write_mtx);
+}
+
 /*
  * Free the arc data buffer.  If it is an l2arc write in progress,
  * the buffer is placed on l2arc_free_on_write to be freed later.
@@ -1895,18 +1915,66 @@ arc_buf_data_free(arc_buf_t *buf, void (*free_func)(void *, size_t))
 	arc_buf_hdr_t *hdr = buf->b_hdr;
 
 	if (HDR_L2_WRITING(hdr)) {
-		l2arc_data_free_t *df;
-		df = kmem_alloc(sizeof (l2arc_data_free_t), KM_SLEEP);
-		df->l2df_data = buf->b_data;
-		df->l2df_size = hdr->b_size;
-		df->l2df_func = free_func;
-		mutex_enter(&l2arc_free_on_write_mtx);
-		list_insert_head(l2arc_free_on_write, df);
-		mutex_exit(&l2arc_free_on_write_mtx);
+		arc_buf_free_on_write(buf->b_data, hdr->b_size, free_func);
 		ARCSTAT_BUMP(arcstat_l2_free_on_write);
 	} else {
 		free_func(buf->b_data, hdr->b_size);
 	}
+}
+
+static void
+arc_buf_l2_cdata_free(arc_buf_hdr_t *hdr)
+{
+	ASSERT(HDR_HAS_L2HDR(hdr));
+	ASSERT(MUTEX_HELD(&hdr->b_l2hdr.b_dev->l2ad_mtx));
+
+	/*
+	 * The b_tmp_cdata field is linked off of the b_l1hdr, so if
+	 * that doesn't exist, the header is in the arc_l2c_only state,
+	 * and there isn't anything to free (it's already been freed).
+	 */
+	if (!HDR_HAS_L1HDR(hdr))
+		return;
+
+	/*
+	 * The header isn't being written to the l2arc device, thus it
+	 * shouldn't have a b_tmp_cdata to free.
+	 */
+	if (!HDR_L2_WRITING(hdr)) {
+		ASSERT3P(hdr->b_l1hdr.b_tmp_cdata, ==, NULL);
+		return;
+	}
+
+	/*
+	 * The header does not have compression enabled. This can be due
+	 * to the buffer not being compressible, or because we're
+	 * freeing the buffer before the second phase of
+	 * l2arc_write_buffer() has started (which does the compression
+	 * step). In either case, b_tmp_cdata does not point to a
+	 * separately compressed buffer, so there's nothing to free (it
+	 * points to the same buffer as the arc_buf_t's b_data field).
+	 */
+	if (HDR_GET_COMPRESS(hdr) == ZIO_COMPRESS_OFF) {
+		hdr->b_l1hdr.b_tmp_cdata = NULL;
+		return;
+	}
+
+	/*
+	 * There's nothing to free since the buffer was all zero's and
+	 * compressed to a zero length buffer.
+	 */
+	if (HDR_GET_COMPRESS(hdr) == ZIO_COMPRESS_EMPTY) {
+		ASSERT3P(hdr->b_l1hdr.b_tmp_cdata, ==, NULL);
+		return;
+	}
+
+	ASSERT(L2ARC_IS_VALID_COMPRESS(HDR_GET_COMPRESS(hdr)));
+
+	arc_buf_free_on_write(hdr->b_l1hdr.b_tmp_cdata,
+	    hdr->b_size, zio_data_buf_free);
+
+	ARCSTAT_BUMP(arcstat_l2_cdata_free_on_write);
+	hdr->b_l1hdr.b_tmp_cdata = NULL;
 }
 
 /*
@@ -2004,6 +2072,12 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 		}
 
 		list_remove(&l2hdr->b_dev->l2ad_buflist, hdr);
+
+		/*
+		 * We don't want to leak the b_tmp_cdata buffer that was
+		 * allocated in l2arc_write_buffers()
+		 */
+		arc_buf_l2_cdata_free(hdr);
 
 		ARCSTAT_INCR(arcstat_l2_size, -hdr->b_size);
 		ARCSTAT_INCR(arcstat_l2_asize, -l2hdr->b_asize);
@@ -3963,7 +4037,7 @@ top:
 			ASSERT(GHOST_STATE(hdr->b_l1hdr.b_state));
 			ASSERT(!HDR_IO_IN_PROGRESS(hdr));
 			ASSERT(refcount_is_zero(&hdr->b_l1hdr.b_refcnt));
-			ASSERT(hdr->b_l1hdr.b_buf == NULL);
+			ASSERT3P(hdr->b_l1hdr.b_buf, ==, NULL);
 
 			/*
 			 * If there is a callback, we pass a reference to it.
@@ -4262,6 +4336,8 @@ arc_release(arc_buf_t *buf, void *tag)
 
 	mutex_enter(&buf->b_evict_lock);
 
+	ASSERT(HDR_HAS_L1HDR(hdr));
+
 	/*
 	 * We don't grab the hash lock prior to this check, because if
 	 * the buffer's header is in the arc_anon state, it won't be
@@ -4308,6 +4384,13 @@ arc_release(arc_buf_t *buf, void *tag)
 
 		mutex_enter(&hdr->b_l2hdr.b_dev->l2ad_mtx);
 		list_remove(&hdr->b_l2hdr.b_dev->l2ad_buflist, hdr);
+
+		/*
+		 * We don't want to leak the b_tmp_cdata buffer that was
+		 * allocated in l2arc_write_buffers()
+		 */
+		arc_buf_l2_cdata_free(hdr);
+
 		mutex_exit(&hdr->b_l2hdr.b_dev->l2ad_mtx);
 
 		hdr->b_flags &= ~ARC_FLAG_HAS_L2HDR;
@@ -5635,6 +5718,7 @@ top:
 
 			/* Ensure this header has finished being written */
 			ASSERT(!HDR_L2_WRITING(hdr));
+			ASSERT3P(hdr->b_l1hdr.b_tmp_cdata, ==, NULL);
 		}
 		mutex_exit(hash_lock);
 	}
@@ -6052,10 +6136,26 @@ l2arc_decompress_zio(zio_t *zio, arc_buf_hdr_t *hdr, enum zio_compress c)
 static void
 l2arc_release_cdata_buf(arc_buf_hdr_t *hdr)
 {
-	ASSERT(HDR_HAS_L1HDR(hdr));
+	enum zio_compress comp = HDR_GET_COMPRESS(hdr);
 
-	if ((HDR_GET_COMPRESS(hdr) != ZIO_COMPRESS_OFF) &&
-	    (HDR_GET_COMPRESS(hdr) != ZIO_COMPRESS_EMPTY)) {
+	ASSERT(HDR_HAS_L1HDR(hdr));
+	ASSERT(comp == ZIO_COMPRESS_OFF || L2ARC_IS_VALID_COMPRESS(comp));
+
+	if (comp == ZIO_COMPRESS_OFF) {
+		/*
+		 * In this case, b_tmp_cdata points to the same buffer
+		 * as the arc_buf_t's b_data field. We don't want to
+		 * free it, since the arc_buf_t will handle that.
+		 */
+		hdr->b_l1hdr.b_tmp_cdata = NULL;
+	} else if (comp == ZIO_COMPRESS_EMPTY) {
+		/*
+		 * In this case, b_tmp_cdata was compressed to an empty
+		 * buffer, thus there's nothing to free and b_tmp_cdata
+		 * should have been set to NULL in l2arc_write_buffers().
+		 */
+		ASSERT3P(hdr->b_l1hdr.b_tmp_cdata, ==, NULL);
+	} else {
 		/*
 		 * If the data was compressed, then we've allocated a
 		 * temporary buffer for it, so now we need to release it.
@@ -6063,9 +6163,9 @@ l2arc_release_cdata_buf(arc_buf_hdr_t *hdr)
 		ASSERT(hdr->b_l1hdr.b_tmp_cdata != NULL);
 		zio_data_buf_free(hdr->b_l1hdr.b_tmp_cdata,
 		    hdr->b_size);
+		hdr->b_l1hdr.b_tmp_cdata = NULL;
 	}
 
-	hdr->b_l1hdr.b_tmp_cdata = NULL;
 }
 
 /*

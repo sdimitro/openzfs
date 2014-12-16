@@ -25,6 +25,7 @@
  */
 /*
  * Copyright (c) 2013, Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2014 by Delphix. All rights reserved.
  */
 
 /*
@@ -1559,7 +1560,7 @@ pt_status_dcmd(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		int state;
 		GElf_Sym sym;
 		uintptr_t panicstr;
-		char panicbuf[128];
+		char panicbuf[1024];
 		const siginfo_t *sip = &(psp->pr_lwp.pr_info);
 
 		char execname[MAXPATHLEN], buf[BUFSIZ];

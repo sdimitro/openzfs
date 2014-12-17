@@ -3887,6 +3887,9 @@ metaslab_check_free_impl(vdev_t *vd, uint64_t offset, uint64_t size)
 	metaslab_t *msp;
 	spa_t *spa = vd->vdev_spa;
 
+	if ((zfs_flags & ZFS_DEBUG_ZIO_FREE) == 0)
+		return;
+
 	if (vd->vdev_ops->vdev_op_remap != NULL) {
 		vd->vdev_ops->vdev_op_remap(vd, offset, size,
 		    metaslab_check_free_impl_cb, NULL);

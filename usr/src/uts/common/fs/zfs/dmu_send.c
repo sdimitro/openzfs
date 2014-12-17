@@ -3126,6 +3126,7 @@ receive_process_record(struct receive_writer_arg *rwa,
 		struct drr_object *drro = &rrd->header.drr_u.drr_object;
 		err = receive_object(rwa, drro, rrd->payload);
 		kmem_free(rrd->payload, rrd->payload_size);
+		rrd->payload = NULL;
 		return (err);
 	}
 	case DRR_FREEOBJECTS:
@@ -3141,6 +3142,8 @@ receive_process_record(struct receive_writer_arg *rwa,
 		/* if receive_write() is successful, it consumes the arc_buf */
 		if (err != 0)
 			dmu_return_arcbuf(rrd->write_buf);
+		rrd->write_buf = NULL;
+		rrd->payload = NULL;
 		return (err);
 	}
 	case DRR_WRITE_BYREF:
@@ -3155,6 +3158,7 @@ receive_process_record(struct receive_writer_arg *rwa,
 		    &rrd->header.drr_u.drr_write_embedded;
 		err = receive_write_embedded(rwa, drrwe, rrd->payload);
 		kmem_free(rrd->payload, rrd->payload_size);
+		rrd->payload = NULL;
 		return (err);
 	}
 	case DRR_FREE:
@@ -3167,6 +3171,7 @@ receive_process_record(struct receive_writer_arg *rwa,
 		struct drr_spill *drrs = &rrd->header.drr_u.drr_spill;
 		err = receive_spill(rwa, drrs, rrd->payload);
 		kmem_free(rrd->payload, rrd->payload_size);
+		rrd->payload = NULL;
 		return (err);
 	}
 	default:
@@ -3192,6 +3197,13 @@ receive_writer_thread(void *arg)
 		 */
 		if (rwa->err == 0) {
 			rwa->err = receive_process_record(rwa, rrd);
+		} else if (rrd->write_buf != NULL) {
+			dmu_return_arcbuf(rrd->write_buf);
+			rrd->write_buf = NULL;
+			rrd->payload = NULL;
+		} else if (rrd->payload != NULL) {
+			kmem_free(rrd->payload, rrd->payload_size);
+			rrd->payload = NULL;
 		}
 		kmem_free(rrd, sizeof (*rrd));
 	}

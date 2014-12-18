@@ -3853,6 +3853,12 @@ main(int argc, char **argv)
 			break;
 		case 'U':
 			spa_config_path = optarg;
+			if (spa_config_path[0] != '/') {
+				(void) fprintf(stderr,
+				    "cachefile must be an absolute path "
+				    "(i.e. start with a slash)\n");
+				usage();
+			}
 			break;
 		case 'v':
 			verbose++;

@@ -1713,6 +1713,7 @@ spa_config_valid(spa_t *spa, nvlist_t *config)
 		 * in the MOS.  This prevents it from getting out of sync
 		 * with the rest of the info in the MOS.
 		 */
+		tvd->vdev_removing = mtvd->vdev_removing;
 		tvd->vdev_im_object = mtvd->vdev_im_object;
 		tvd->vdev_prev_indirect_vdev = mtvd->vdev_prev_indirect_vdev;
 	}

@@ -436,7 +436,7 @@ spa_config_enter(spa_t *spa, int locks, void *tag, krw_t rw)
 		(void) refcount_add(&scl->scl_count, tag);
 		mutex_exit(&scl->scl_lock);
 	}
-	ASSERT(wlocks_held <= locks);
+	ASSERT3U(wlocks_held, <=, locks);
 }
 
 void

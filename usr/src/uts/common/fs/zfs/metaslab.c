@@ -599,6 +599,8 @@ metaslab_group_alloc_update(metaslab_group_t *mg)
 	boolean_t was_initialized;
 
 	ASSERT(vd == vd->vdev_top);
+	ASSERT3U(spa_config_held(mc->mc_spa, SCL_ALLOC, RW_READER), ==,
+	    SCL_ALLOC);
 
 	mutex_enter(&mg->mg_lock);
 	was_allocatable = mg->mg_allocatable;
@@ -703,7 +705,7 @@ metaslab_group_activate(metaslab_group_t *mg)
 	metaslab_class_t *mc = mg->mg_class;
 	metaslab_group_t *mgprev, *mgnext;
 
-	ASSERT(spa_config_held(mc->mc_spa, SCL_ALLOC, RW_WRITER));
+	ASSERT3U(spa_config_held(mc->mc_spa, SCL_ALLOC, RW_WRITER), !=, 0);
 
 	ASSERT(mc->mc_rotor != mg);
 	ASSERT(mg->mg_prev == NULL);
@@ -729,13 +731,22 @@ metaslab_group_activate(metaslab_group_t *mg)
 	mc->mc_rotor = mg;
 }
 
+/*
+ * Passivate a metaslab group and remove it from the allocation rotor.
+ * Callers must hold both the SCL_ALLOC and SCL_ZIO lock prior to passivating
+ * a metaslab group. This function will momentarily drop spa_config_locks
+ * that are lower than the SCL_ALLOC lock (see comment below).
+ */
 void
 metaslab_group_passivate(metaslab_group_t *mg)
 {
 	metaslab_class_t *mc = mg->mg_class;
+	spa_t *spa = mc->mc_spa;
 	metaslab_group_t *mgprev, *mgnext;
+	int locks = spa_config_held(spa, SCL_ALL, RW_WRITER);
 
-	ASSERT(spa_config_held(mc->mc_spa, SCL_ALLOC, RW_WRITER));
+	ASSERT3U(spa_config_held(spa, SCL_ALLOC | SCL_ZIO, RW_WRITER), ==,
+	    (SCL_ALLOC | SCL_ZIO));
 
 	if (--mg->mg_activation_count != 0) {
 		ASSERT(mc->mc_rotor != mg);
@@ -745,7 +756,23 @@ metaslab_group_passivate(metaslab_group_t *mg)
 		return;
 	}
 
+	/*
+	 * The spa_config_lock is an array of rwlocks, ordered as
+	 * follows (from highest to lowest):
+	 *	SCL_CONFIG > SCL_STATE > SCL_L2ARC > SCL_ALLOC >
+	 *	SCL_ZIO > SCL_FREE > SCL_VDEV
+	 * (For more information about the spa_config_lock see spa_misc.c)
+	 * The higher the lock, the broader its coverage. When we passivate
+	 * a metaslab group, we must hold both the SCL_ALLOC and the SCL_ZIO
+	 * config locks. However, the metaslab group's taskq might be trying
+	 * to preload metaslabs so we must drop the SCL_ZIO lock and any
+	 * lower locks to allow the I/O to complete. At a minimum,
+	 * we continue to hold the SCL_ALLOC lock, which prevents any future
+	 * allocations from taking place and any changes to the vdev tree.
+	 */
+	spa_config_exit(spa, locks & ~(SCL_ZIO - 1), spa);
 	taskq_wait(mg->mg_taskq);
+	spa_config_enter(spa, locks & ~(SCL_ZIO - 1), spa, RW_WRITER);
 	metaslab_group_alloc_update(mg);
 
 	mgprev = mg->mg_prev;
@@ -2107,19 +2134,7 @@ metaslab_group_preload(metaslab_group_t *mg)
 	}
 
 	mutex_enter(&mg->mg_lock);
-	if (mg->mg_activation_count <= 0) {
-		/*
-		 * Don't preload metaslabs from passivated metaslab.
-		 *
-		 * We could get to this state since we dirty metaslabs as
-		 * we remove a device, thus potentially making the metaslab
-		 * group eligible for preloading.
-		 */
-		zfs_dbgmsg("skipping preload of passivated (%lld) metaslab %p",
-		    mg->mg_activation_count, mg);
-		mutex_exit(&mg->mg_lock);
-		return;
-	}
+
 	/*
 	 * Load the next potential metaslabs
 	 */
@@ -2666,15 +2681,24 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 void
 metaslab_sync_reassess(metaslab_group_t *mg)
 {
+	spa_t *spa = mg->mg_class->mc_spa;
+
+	spa_config_enter(spa, SCL_ALLOC, FTAG, RW_READER);
 	metaslab_group_alloc_update(mg);
 	mg->mg_fragmentation = metaslab_group_fragmentation(mg);
 
-	metaslab_group_sort_seg_array(mg);
-
 	/*
-	 * Preload the next potential metaslabs
+	 * Preload the next potential metaslabs but only on active
+	 * metaslab groups. We can get into a state where the metaslab
+	 * is no longer active since we dirty metaslabs as we remove a
+	 * a device, thus potentially making the metaslab group eligible
+	 * for preloading.
 	 */
-	metaslab_group_preload(mg);
+	if (mg->mg_activation_count > 0) {
+		metaslab_group_sort_seg_array(mg);
+		metaslab_group_preload(mg);
+	}
+	spa_config_exit(spa, SCL_ALLOC, FTAG);
 }
 
 static uint64_t
@@ -3452,7 +3476,7 @@ metaslab_free_concrete(vdev_t *vd, uint64_t offset, uint64_t asize,
 
 	ASSERT3U(txg, ==, spa->spa_syncing_txg);
 	ASSERT(vdev_is_concrete(vd));
-	ASSERT(spa_config_held(spa, SCL_ALL, RW_READER) != 0);
+	ASSERT3U(spa_config_held(spa, SCL_ALL, RW_READER), !=, 0);
 	ASSERT3U(offset >> vd->vdev_ms_shift, <, vd->vdev_ms_count);
 
 	msp = vd->vdev_ms[offset >> vd->vdev_ms_shift];
@@ -3487,7 +3511,7 @@ metaslab_free_impl(vdev_t *vd, uint64_t offset, uint64_t size,
 {
 	spa_t *spa = vd->vdev_spa;
 
-	ASSERT(spa_config_held(spa, SCL_ALL, RW_READER) != 0);
+	ASSERT3U(spa_config_held(spa, SCL_ALL, RW_READER), !=, 0);
 
 	if (txg > spa_freeze_txg(spa))
 		return;
@@ -3598,7 +3622,7 @@ metaslab_unalloc_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 	uint64_t size = DVA_GET_ASIZE(dva);
 
 	ASSERT(DVA_IS_VALID(dva));
-	ASSERT(spa_config_held(spa, SCL_ALL, RW_READER) != 0);
+	ASSERT3U(spa_config_held(spa, SCL_ALL, RW_READER), !=, 0);
 
 	if (txg > spa_freeze_txg(spa))
 		return;
@@ -3648,7 +3672,7 @@ metaslab_free_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 	vdev_t *vd = vdev_lookup_top(spa, vdev);
 
 	ASSERT(DVA_IS_VALID(dva));
-	ASSERT(spa_config_held(spa, SCL_ALL, RW_READER) != 0);
+	ASSERT3U(spa_config_held(spa, SCL_ALL, RW_READER), !=, 0);
 
 	if (DVA_GET_GANG(dva)) {
 		size = vdev_psize_to_asize(vd, SPA_GANGBLOCKSIZE);

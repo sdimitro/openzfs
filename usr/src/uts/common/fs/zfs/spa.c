@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013, 2014, Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -998,9 +998,6 @@ spa_thread(void *arg)
 	spa->spa_did = curthread->t_did;
 
 	spa_create_zio_taskqs(spa);
-
-	for (size_t i = 0; i < TXG_SIZE; i++)
-		spa->spa_txg_zio[i] = zio_root(spa, NULL, NULL, 0);
 
 	mutex_enter(&spa->spa_proc_lock);
 	ASSERT(spa->spa_proc_state == SPA_PROC_CREATED);

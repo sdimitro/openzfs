@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -1352,7 +1352,6 @@ spa_vdev_remove_log(vdev_t *vd, uint64_t *txg)
 	if (vd->vdev_islog) {
 		if (vd->vdev_stat.vs_alloc != 0)
 			error = spa_reset_logs(spa);
-		ASSERT0(vd->vdev_stat.vs_alloc);
 	}
 
 	*txg = spa_vdev_config_enter(spa);
@@ -1361,6 +1360,7 @@ spa_vdev_remove_log(vdev_t *vd, uint64_t *txg)
 		metaslab_group_activate(mg);
 		return (error);
 	}
+	ASSERT0(vd->vdev_stat.vs_alloc);
 
 	/*
 	 * The evacuation succeeded.  Remove any remaining MOS metadata

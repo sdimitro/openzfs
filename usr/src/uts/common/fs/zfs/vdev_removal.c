@@ -763,6 +763,14 @@ spa_vdev_copy_segment(vdev_t *vd, uint64_t start, uint64_t size, uint64_t txg,
 	if (error != 0)
 		return (error);
 
+	/*
+	 * We can't have any padding of the allocated size, otherwise we will
+	 * misunderstand what's allocated, and the size of the mapping.
+	 * The caller ensures this will be true by passing in a size that is
+	 * aligned to the worst (highest) ashift in the pool.
+	 */
+	ASSERT3U(DVA_GET_ASIZE(&dst), ==, size);
+
 	mutex_enter(&vca->vca_lock);
 	vca->vca_outstanding_bytes += size;
 	mutex_exit(&vca->vca_lock);
@@ -900,13 +908,13 @@ vdev_remove_complete(vdev_t *vd)
  * fails, the pool is probably too fragmented to handle such a
  * large size, so decrease max_alloc so that the caller will not try
  * this size again this txg.
- *
  */
 static void
 spa_vdev_copy_impl(spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
     uint64_t *max_alloc, dmu_tx_t *tx)
 {
 	uint64_t txg = dmu_tx_get_txg(tx);
+	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
 
 	mutex_enter(&svr->svr_lock);
 
@@ -946,13 +954,24 @@ spa_vdev_copy_impl(spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
 
 		if (error == ENOSPC) {
 			/*
-			 * Cut our segment in half, and don't
-			 * try this segment size again this txg.
+			 * Cut our segment in half, and don't try this
+			 * segment size again this txg.  Note that the
+			 * allocation size must be aligned to the highest
+			 * ashift in the pool, so that the allocation will
+			 * not be padded out to a multiple of the ashift,
+			 * which could cause us to think that this mapping
+			 * is larger than we intended.
 			 */
-			thismax = P2ROUNDUP(mylen / 2, SPA_MINBLOCKSIZE);
+			ASSERT3U(spa->spa_max_ashift, >=, SPA_MINBLOCKSHIFT);
+			ASSERT3U(spa->spa_max_ashift, ==, spa->spa_min_ashift);
+			thismax = P2ROUNDUP(mylen / 2,
+			    1 << spa->spa_max_ashift);
 			ASSERT3U(thismax, <, mylen);
-			ASSERT3U(mylen, >, SPA_MINBLOCKSIZE);
-			*max_alloc = mylen - SPA_MINBLOCKSIZE;
+			/*
+			 * The minimum-size allocation can not fail.
+			 */
+			ASSERT3U(mylen, >, 1 << spa->spa_max_ashift);
+			*max_alloc = mylen - (1 << spa->spa_max_ashift);
 		} else {
 			ASSERT0(error);
 			length -= mylen;
@@ -1452,23 +1471,26 @@ spa_vdev_remove_top_check(vdev_t *vd)
 		return (SET_ERROR(EIO));
 
 	/*
+	 * All vdevs in normal class must have the same ashift.
+	 */
+	if (spa->spa_max_ashift != spa->spa_min_ashift) {
+		return (SET_ERROR(EINVAL));
+	}
+
+	/*
 	 * All vdevs in normal class must be nonredundant, and
 	 * have the same ashift.
 	 */
 	vdev_t *rvd = spa->spa_root_vdev;
-	int ashift = 0;
 	int num_indirect = 0;
 	for (uint64_t id = 0; id < rvd->vdev_children; id++) {
 		vdev_t *cvd = rvd->vdev_child[id];
+		ASSERT3U(cvd->vdev_ashift, ==, spa->spa_max_ashift);
 		if (cvd->vdev_ops == &vdev_indirect_ops)
 			num_indirect++;
 		if (!vdev_is_concrete(cvd))
 			continue;
 		if (cvd->vdev_children != 0)
-			return (SET_ERROR(EINVAL));
-		if (ashift == 0)
-			ashift = cvd->vdev_ashift;
-		if (cvd->vdev_ashift != ashift)
 			return (SET_ERROR(EINVAL));
 	}
 

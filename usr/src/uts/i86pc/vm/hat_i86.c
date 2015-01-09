@@ -27,7 +27,7 @@
  */
 /*
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -2340,19 +2340,26 @@ typedef struct range_info {
 	level_t		rng_level;
 } range_info_t;
 
+/*
+ * Invalidate the TLB, and perform the callback to the upper level VM system,
+ * for the specified ranges of contiguous pages.
+ */
 static void
-handle_ranges(hat_callback_t *cb, uint_t cnt, range_info_t *range)
+handle_ranges(hat_t *hat, hat_callback_t *cb, uint_t cnt, range_info_t *range)
 {
-	/*
-	 * do callbacks to upper level VM system
-	 */
-	while (cb != NULL && cnt > 0) {
+	while (cnt > 0) {
+		size_t len;
+
 		--cnt;
-		cb->hcb_start_addr = (caddr_t)range[cnt].rng_va;
-		cb->hcb_end_addr = cb->hcb_start_addr;
-		cb->hcb_end_addr +=
-		    range[cnt].rng_cnt << LEVEL_SIZE(range[cnt].rng_level);
-		cb->hcb_function(cb);
+		len = range[cnt].rng_cnt << LEVEL_SHIFT(range[cnt].rng_level);
+		hat_tlb_inval_range(hat, (uintptr_t)range[cnt].rng_va, len);
+
+		if (cb != NULL) {
+			cb->hcb_start_addr = (caddr_t)range[cnt].rng_va;
+			cb->hcb_end_addr = cb->hcb_start_addr;
+			cb->hcb_end_addr += len;
+			cb->hcb_function(cb);
+		}
 	}
 }
 
@@ -2422,7 +2429,7 @@ hat_unload_callback(
 		if (vaddr != contig_va ||
 		    (r_cnt > 0 && r[r_cnt - 1].rng_level != ht->ht_level)) {
 			if (r_cnt == MAX_UNLOAD_CNT) {
-				handle_ranges(cb, r_cnt, r);
+				handle_ranges(hat, cb, r_cnt, r);
 				r_cnt = 0;
 			}
 			r[r_cnt].rng_va = vaddr;
@@ -2435,10 +2442,10 @@ hat_unload_callback(
 		 * Unload one mapping (for a single page) from the page tables.
 		 * Note that we do not remove the mapping from the TLB yet,
 		 * as indicated by the tlb=FALSE argument to hat_pte_unmap().
-		 * We clear the TLB entries with one call to
-		 * hat_tlb_inval_range(), after we exit this loop.  This is
-		 * safe because the page can not be reused until after
-		 * we return.
+		 * handle_ranges() will clear the TLB entries with one call to
+		 * hat_tlb_inval_range() per contiguous range.  This is
+		 * safe because the page can not be reused until the
+		 * callback is made (or we return).
 		 */
 		entry = htable_va2entry(vaddr, ht);
 		hat_pte_unmap(ht, entry, flags, old_pte, NULL, B_FALSE);
@@ -2450,13 +2457,11 @@ hat_unload_callback(
 	if (ht)
 		htable_release(ht);
 
-	hat_tlb_inval_range(hat, (uintptr_t)addr, len);
-
 	/*
 	 * handle last range for callbacks
 	 */
 	if (r_cnt > 0)
-		handle_ranges(cb, r_cnt, r);
+		handle_ranges(hat, cb, r_cnt, r);
 	XPV_ALLOW_MIGRATE();
 }
 

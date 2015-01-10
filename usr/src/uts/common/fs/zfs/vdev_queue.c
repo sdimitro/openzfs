@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -141,7 +141,7 @@ uint32_t zfs_vdev_sync_read_max_active = 35;
 uint32_t zfs_vdev_sync_write_min_active = 35;
 uint32_t zfs_vdev_sync_write_max_active = 35;
 uint32_t zfs_vdev_async_read_min_active = 1;
-uint32_t zfs_vdev_async_read_max_active = 3;
+uint32_t zfs_vdev_async_read_max_active = 10;
 uint32_t zfs_vdev_async_write_min_active = 1;
 uint32_t zfs_vdev_async_write_max_active = 10;
 uint32_t zfs_vdev_scrub_min_active = 1;

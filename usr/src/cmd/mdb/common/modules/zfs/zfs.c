@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -1754,11 +1754,19 @@ metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		}
 
 		if (vdev.vdev_path != NULL) {
-			if (mdb_readstr(desc, sizeof (desc),
+			char path[MAXNAMELEN];
+
+			if (mdb_readstr(path, sizeof (path),
 			    vdev.vdev_path) == -1) {
 				mdb_warn("failed to read vdev_path at %p\n",
 				    vdev.vdev_path);
 				return (DCMD_ERR);
+			}
+			char *slash;
+			if ((slash = strrchr(path, '/')) != NULL) {
+				strcpy(desc, slash + 1);
+			} else {
+				strcpy(desc, path);
 			}
 		} else if (vdev.vdev_ops != NULL) {
 			mdb_vdev_ops_t ops;

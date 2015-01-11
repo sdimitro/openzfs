@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  */
 
@@ -2773,13 +2773,15 @@ metaslab_trace_add(zio_alloc_list_t *zal, metaslab_group_t *mg,
 	 * performed.
 	 */
 	if (zal->zal_size == metaslab_trace_max_entries) {
+		metaslab_alloc_trace_t *mat_next;
 #ifdef DEBUG
 		panic("too many entries in allocation list");
 #endif
 		atomic_inc_64(&metaslab_trace_over_limit.value.ui64);
 		zal->zal_size--;
-		list_remove(&zal->zal_list, list_next(&zal->zal_list,
-		    list_head(&zal->zal_list)));
+		mat_next = list_next(&zal->zal_list, list_head(&zal->zal_list));
+		list_remove(&zal->zal_list, mat_next);
+		kmem_cache_free(metaslab_alloc_trace_cache, mat_next);
 	}
 
 	metaslab_alloc_trace_t *mat =

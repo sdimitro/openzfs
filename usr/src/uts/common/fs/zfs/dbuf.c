@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -551,6 +551,7 @@ mooch_read_done(zio_t *zio)
 {
 	mooch_read_arg_t *mra = zio->io_private;
 
+	VERIFY3P(mra->mra_origin_db->db.db_data, !=, NULL);
 	ASSERT3U(mra->mra_clone_db->db.db_size, ==,
 	    mra->mra_origin_db->db.db_size);
 

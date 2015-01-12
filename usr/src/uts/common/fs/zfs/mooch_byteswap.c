@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -390,6 +390,8 @@ mooch_byteswap_reconstruct(dmu_buf_t *old, void *outbuf, const blkptr_t *bp)
 	int xor_offset = -1;
 
 	ASSERT(BP_IS_EMBEDDED(bp));
+	VERIFY3P(old->db_data, !=, NULL);
+	VERIFY3P(outbuf, !=, NULL);
 
 	nrec = BPE_GET_LSIZE(bp);
 	records = kmem_alloc(nrec, KM_SLEEP);

@@ -2195,12 +2195,13 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 	 * indefinitely.
 	 */
 	if (level == 0 && dn->dn_origin_obj_refd != 0) {
-		zbookmark_phys_t zb;
-
-		SET_BOOKMARK(&zb, dmu_objset_id(dn->dn_objset),
-		    dn->dn_object, level, blkid);
-		if (dbuf_bookmark_findbp(dn->dn_objset, &zb,
-		    &bp, NULL, NULL) == 0 && BP_IS_EMBEDDED(&bp) &&
+		blkptr_t *fbp;
+		dmu_buf_impl_t *pp;
+		int res = dbuf_findbp(dn, level, blkid, B_FALSE, &pp, &fbp);
+		bp = *fbp;
+		if (pp != NULL)
+			dbuf_rele(pp, NULL);
+		if (res == 0 && BP_IS_EMBEDDED(&bp) &&
 		    BPE_GET_ETYPE(&bp) == BP_EMBEDDED_TYPE_MOOCH_BYTESWAP) {
 			objset_t *origin_os;
 			if (dmu_objset_mooch_origin(dn->dn_objset,

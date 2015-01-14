@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 RackTop Systems.
  */
@@ -3290,6 +3290,11 @@ dsl_dataset_activate_mooch_byteswap_check(void *arg, dmu_tx_t *tx)
 
 	if (ds->ds_mooch_byteswap)
 		return (EALREADY);
+
+	if (!dsl_dir_is_clone(ds->ds_dir)) {
+		return (EINVAL);
+	}
+
 	return (0);
 }
 

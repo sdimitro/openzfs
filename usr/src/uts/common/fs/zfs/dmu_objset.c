@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -272,6 +272,10 @@ dmu_objset_byteswap(void *buf, size_t size)
 	}
 }
 
+/*
+ * Instantiates the objset_t in-memory structure corresponding to the
+ * objset_phys_t that's pointed to by the specified blkptr_t.
+ */
 int
 dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
     objset_t **osp)
@@ -280,6 +284,17 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 	int i, err;
 
 	ASSERT(ds == NULL || MUTEX_HELD(&ds->ds_opening_lock));
+
+	/*
+	 * The $ORIGIN dataset (if it exists) doesn't have an associated
+	 * objset, so there's no reason to open it. The $ORIGIN dataset
+	 * will not exist on pools older than SPA_VERSION_ORIGIN.
+	 */
+	if (ds != NULL && spa_get_dsl(spa) != NULL &&
+	    spa_get_dsl(spa)->dp_origin_snap != NULL) {
+		ASSERT3P(ds->ds_dir, !=,
+		    spa_get_dsl(spa)->dp_origin_snap->ds_dir);
+	}
 
 	os = kmem_zalloc(sizeof (objset_t), KM_SLEEP);
 	os->os_dsl_dataset = ds;

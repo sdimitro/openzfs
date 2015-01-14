@@ -1006,22 +1006,26 @@ dsl_scan_visitds(dsl_scan_t *scn, uint64_t dsobj, dmu_tx_t *tx)
 {
 	dsl_pool_t *dp = scn->scn_dp;
 	dsl_dataset_t *ds;
-	objset_t *os;
 
 	VERIFY3U(0, ==, dsl_dataset_hold_obj(dp, dsobj, FTAG, &ds));
 
-	if (dmu_objset_from_ds(ds, &os))
-		goto out;
-
 	/*
-	 * Only the ZIL in the head (non-snapshot) is valid.  Even though
+	 * Only the ZIL in the head (non-snapshot) is valid. Even though
 	 * snapshots can have ZIL block pointers (which may be the same
-	 * BP as in the head), they must be ignored.  So we traverse the
-	 * ZIL here, rather than in scan_recurse(), because the regular
-	 * snapshot block-sharing rules don't apply to it.
+	 * BP as in the head), they must be ignored. In addition, $ORIGIN
+	 * doesn't have a objset (i.e. its ds_bp is a hole) so we don't
+	 * need to look for a ZIL in it either. So we traverse the ZIL here,
+	 * rather than in scan_recurse(), because the regular snapshot
+	 * block-sharing rules don't apply to it.
 	 */
-	if (DSL_SCAN_IS_SCRUB_RESILVER(scn) && !dsl_dataset_is_snapshot(ds))
+	if (DSL_SCAN_IS_SCRUB_RESILVER(scn) && !dsl_dataset_is_snapshot(ds) &&
+	    ds->ds_dir != dp->dp_origin_snap->ds_dir) {
+		objset_t *os;
+		if (dmu_objset_from_ds(ds, &os) != 0) {
+			goto out;
+		}
 		dsl_scan_zil(dp, &os->os_zil_header);
+	}
 
 	/*
 	 * Iterate over the bps in this ds.

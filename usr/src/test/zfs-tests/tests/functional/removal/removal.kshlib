@@ -14,7 +14,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
 #
 
 export REMOVEDISK=${DISKS%% *}
@@ -121,7 +121,7 @@ function test_removal_with_operation # callback [count]
 	# removal, but we don't have the ability to be confident of that
 	# (via limiting bandwidth, etc.) yet. Instead, we try again.
 	#
-	if (( $_test_removal_with_operation_count -le 1 )); then
+	if (( $_test_removal_with_operation_count <= 1 )); then
 		(( count <= 5 )) || log_fail "Attempted test too many times."
 
 		log_note "Callback only called" \

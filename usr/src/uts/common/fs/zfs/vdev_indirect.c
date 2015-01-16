@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -105,12 +105,37 @@ vdev_read_mapping(spa_t *spa, uint64_t mapobj,
 }
 
 void
+vdev_read_births(spa_t *spa, uint64_t obj,
+    vdev_indirect_birth_entry_phys_t **vibepp, uint64_t *countp)
+{
+	dmu_buf_t *bonus_buf;
+
+	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset, obj, FTAG, &bonus_buf));
+	vdev_indirect_birth_phys_t *vibp = bonus_buf->db_data;
+	*countp = vibp->vib_count;
+	dmu_buf_rele(bonus_buf, FTAG);
+
+	size_t map_size = sizeof (vdev_indirect_birth_entry_phys_t) * *countp;
+	*vibepp = kmem_alloc(map_size, KM_SLEEP);
+
+	VERIFY0(dmu_read(spa->spa_meta_objset, obj,
+	    0, map_size, *vibepp, DMU_READ_PREFETCH));
+}
+
+void
 vdev_initialize_mapping(vdev_t *vd)
 {
 	ASSERT3P(vd->vdev_indirect_mapping, ==, NULL);
 	ASSERT(vd->vdev_im_object != 0);
 	vdev_read_mapping(vd->vdev_spa, vd->vdev_im_object,
 	    &vd->vdev_indirect_mapping, &vd->vdev_im_count);
+
+	if (vd->vdev_ops == &vdev_indirect_ops) {
+		ASSERT3P(vd->vdev_indirect_births, ==, NULL);
+		ASSERT(vd->vdev_ib_object != 0);
+		vdev_read_births(vd->vdev_spa, vd->vdev_ib_object,
+		    &vd->vdev_indirect_births, &vd->vdev_ib_count);
+	}
 }
 
 static void
@@ -164,6 +189,46 @@ vdev_indirect_remap(vdev_t *vd, uint64_t offset, uint64_t asize,
 		split_offset += inner_size;
 		mapping++;
 	}
+}
+
+/*
+ * Return the txg in which the given range was copied (i.e. its physical
+ * birth txg).  The specified offset+asize must be contiguously mapped
+ * (i.e. not a split block).
+ *
+ * The entries are sorted by increasing phys_birth, and also by increasing
+ * offset.  We find the specified offset by binary search.  Note that we
+ * can not use bsearch() because looking at each entry independently is
+ * insufficient to find the correct entry.  Each entry implicitly relies
+ * on the previous entry: an entry indicates that the offsets from the
+ * end of the previous entry to the end of this entry were written in the
+ * specified txg.
+ */
+uint64_t
+vdev_indirect_physbirth(vdev_t *vd, uint64_t offset, uint64_t asize)
+{
+	vdev_indirect_birth_entry_phys_t *base = vd->vdev_indirect_births;
+	vdev_indirect_birth_entry_phys_t *last = base + vd->vdev_ib_count - 1;
+
+	ASSERT(vd->vdev_ib_count != 0);
+
+	ASSERT3U(offset, <, last->vibe_offset);
+
+	while (last >= base) {
+		vdev_indirect_birth_entry_phys_t *p =
+		    base + ((last - base) / 2);
+		if (offset >= p->vibe_offset) {
+			base = p + 1;
+		} else if (p == vd->vdev_indirect_births ||
+		    offset >= (p - 1)->vibe_offset) {
+			ASSERT3U(offset + asize, <=, p->vibe_offset);
+			return (p->vibe_phys_birth_txg);
+		} else {
+			last = p - 1;
+		}
+	}
+	ASSERT(!"offset not found");
+	return (-1);
 }
 
 static void

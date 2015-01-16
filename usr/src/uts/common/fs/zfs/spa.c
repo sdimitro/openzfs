@@ -1712,6 +1712,7 @@ spa_config_valid(spa_t *spa, nvlist_t *config)
 		 */
 		tvd->vdev_removing = mtvd->vdev_removing;
 		tvd->vdev_im_object = mtvd->vdev_im_object;
+		tvd->vdev_ib_object = mtvd->vdev_ib_object;
 		tvd->vdev_prev_indirect_vdev = mtvd->vdev_prev_indirect_vdev;
 	}
 	vdev_free(mrvd);

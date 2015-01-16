@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_VDEV_REMOVAL_H
@@ -43,6 +43,15 @@ typedef struct vdev_indirect_mapping_entry_phys {
 	dva_t	dm_dst;
 } vdev_indirect_mapping_entry_phys_t;
 
+/*
+ * Each entry indicates that everything up to but not including vib_offset
+ * was copied in vib_phys_birth_txg.  Entries are sorted by vib_offset.
+ */
+typedef struct vdev_indirect_birth_entry_phys {
+	uint64_t vibe_offset;
+	uint64_t vibe_phys_birth_txg;
+} vdev_indirect_birth_entry_phys_t;
+
 #define	DVA_MAPPING_GET_SRC_OFFSET(dm)	\
 	BF64_GET_SB((dm)->dm_src, 0, 63, SPA_MINBLOCKSHIFT, 0)
 #define	DVA_MAPPING_SET_SRC_OFFSET(dm, x)	\
@@ -60,6 +69,10 @@ typedef struct vdev_indirect_mapping_phys {
 	uint64_t	vim_bytes_mapped;
 	uint64_t	vim_count; /* count of v_i_m_entry_phys_t's */
 } vdev_indirect_mapping_phys_t;
+
+typedef struct vdev_indirect_birth_phys {
+	uint64_t	vib_count; /* count of v_i_b_entry_phys_t's */
+} vdev_indirect_birth_phys_t;
 
 typedef struct spa_vdev_removal {
 	vdev_t		*svr_vdev;

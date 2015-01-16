@@ -3540,14 +3540,30 @@ void
 remap_blkptr_cb(uint64_t inner_offset, vdev_t *vd, uint64_t offset,
     uint64_t size, void *arg)
 {
-	dva_t *dva = arg;
+	blkptr_t *bp = arg;
 
 	/* We can not remap split blocks. */
-	if (size != DVA_GET_ASIZE(dva))
+	if (size != DVA_GET_ASIZE(&bp->blk_dva[0]))
 		return;
 	ASSERT0(inner_offset);
-	DVA_SET_VDEV(dva, vd->vdev_id);
-	DVA_SET_OFFSET(dva, offset);
+
+	/*
+	 * The phys birth time is that of dva[0].  This ensures that we know
+	 * when each dva was written, so that resilver can determine which
+	 * blocks need to be scrubbed (i.e. those written during the time
+	 * the vdev was offline).  It also ensures that the key used in
+	 * the ARC hash table is unique (i.e. dva[0] + phys_birth).  If
+	 * we didn't change the phys_birth, a lookup in the ARC for a
+	 * remapped BP could find the data that was previously stored at
+	 * this vdev + offset.
+	 */
+	vdev_t *oldvd = vdev_lookup_top(vd->vdev_spa,
+	    DVA_GET_VDEV(&bp->blk_dva[0]));
+	bp->blk_phys_birth = vdev_indirect_physbirth(oldvd,
+	    DVA_GET_OFFSET(&bp->blk_dva[0]), DVA_GET_ASIZE(&bp->blk_dva[0]));
+
+	DVA_SET_VDEV(&bp->blk_dva[0], vd->vdev_id);
+	DVA_SET_OFFSET(&bp->blk_dva[0], offset);
 }
 
 /*
@@ -3582,30 +3598,36 @@ spa_remap_blkptr(spa_t *spa, blkptr_t *bp)
 	if (BP_IS_GANG(bp))
 		return (rv);
 
-	for (int d = 0; d < BP_GET_NDVAS(bp); d++) {
-		dva_t *dva = &bp->blk_dva[d];
+	/*
+	 * Embedded BP's have no DVA to remap.
+	 */
+	if (BP_GET_NDVAS(bp) < 1)
+		return (rv);
 
-		/*
-		 * Note: the indirect DVA may be remapped to a different
-		 * indirect vdev.  Therefore we loop until we either find
-		 * a concrete vdev or the vdev does not change (because
-		 * this is a split block).
-		 */
-		for (;;) {
-			vdev_t *vd = vdev_lookup_top(spa, DVA_GET_VDEV(dva));
-			if (vd->vdev_ops->vdev_op_remap == NULL)
-				break;
-			vd->vdev_ops->vdev_op_remap(vd, DVA_GET_OFFSET(dva),
-			    DVA_GET_ASIZE(dva), remap_blkptr_cb, dva);
-			if (DVA_GET_VDEV(dva) == vd->vdev_id) {
-				/*
-				 * This dva could not be remapped because it
-				 * is a split block.
-				 */
-				break;
-			} else {
-				rv = B_TRUE;
-			}
+	/*
+	 * Note: the indirect DVA may be remapped to a different
+	 * indirect vdev.  Therefore we loop until we either find
+	 * a concrete vdev or the vdev does not change (because
+	 * this is a split block).
+	 *
+	 * Note: we only remap dva[0].  If we remapped other dvas, we
+	 * would no longer know what their phys birth txg is.
+	 */
+	dva_t *dva = &bp->blk_dva[0];
+	for (;;) {
+		vdev_t *vd = vdev_lookup_top(spa, DVA_GET_VDEV(dva));
+		if (vd->vdev_ops->vdev_op_remap == NULL)
+			break;
+		vd->vdev_ops->vdev_op_remap(vd, DVA_GET_OFFSET(dva),
+		    DVA_GET_ASIZE(dva), remap_blkptr_cb, bp);
+		if (DVA_GET_VDEV(dva) == vd->vdev_id) {
+			/*
+			 * This dva could not be remapped because it
+			 * is a split block.
+			 */
+			break;
+		} else {
+			rv = B_TRUE;
 		}
 	}
 	return (rv);

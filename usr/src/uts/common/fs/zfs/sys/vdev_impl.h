@@ -198,6 +198,10 @@ struct vdev {
 	/* Object (in MOS) which contains the indirect mapping. */
 	uint64_t	vdev_im_object;
 
+	vdev_indirect_birth_entry_phys_t *vdev_indirect_births;
+	uint64_t vdev_ib_count;
+	uint64_t vdev_ib_object;
+
 	/*
 	 * For indirect vdevs, this is the vdev ID which was removed
 	 * previous to this vdev, or UINT64_MAX if there is no previous.
@@ -387,7 +391,11 @@ extern int zfs_vdev_cache_size;
  */
 extern void vdev_read_mapping(spa_t *spa, uint64_t mapobj,
     vdev_indirect_mapping_entry_phys_t **mapp, uint64_t *countp);
+extern void vdev_read_births(spa_t *spa, uint64_t obj,
+    vdev_indirect_birth_entry_phys_t **vibepp, uint64_t *countp);
 extern void vdev_initialize_mapping(vdev_t *vd);
+extern uint64_t vdev_indirect_physbirth(vdev_t *vd,
+    uint64_t offset, uint64_t asize);
 
 /*
  * The vdev_buf_t is used to translate between zio_t and buf_t, and back again.

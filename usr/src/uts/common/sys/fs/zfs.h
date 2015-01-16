@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -507,6 +507,7 @@ typedef struct zpool_rewind_policy {
 #define	ZPOOL_CONFIG_ID			"id"
 #define	ZPOOL_CONFIG_GUID		"guid"
 #define	ZPOOL_CONFIG_INDIRECT_OBJECT	"com.delphix:indirect_object"
+#define	ZPOOL_CONFIG_INDIRECT_BIRTHS	"com.delphix:indirect_births"
 #define	ZPOOL_CONFIG_PREV_INDIRECT_VDEV	"com.delphix:prev_indirect_vdev"
 #define	ZPOOL_CONFIG_PATH		"path"
 #define	ZPOOL_CONFIG_DEVID		"devid"

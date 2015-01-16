@@ -218,6 +218,10 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 	    DMU_OTN_UINT64_METADATA, SPA_MAXBLOCKSIZE,
 	    DMU_OTN_UINT64_METADATA, sizeof (vdev_indirect_mapping_phys_t),
 	    tx);
+	vd->vdev_ib_object = dmu_object_alloc(spa->spa_meta_objset,
+	    DMU_OTN_UINT64_METADATA, SPA_MAXBLOCKSIZE,
+	    DMU_OTN_UINT64_METADATA, sizeof (vdev_indirect_birth_phys_t),
+	    tx);
 	spa->spa_removing_phys.sr_removing_vdev = vd->vdev_id;
 	spa->spa_removing_phys.sr_start_time = gethrestime_sec();
 	spa->spa_removing_phys.sr_end_time = 0;
@@ -643,6 +647,29 @@ free_mapped_segment_cb(void *arg, uint64_t offset, uint64_t size)
 	    metaslab_free_impl_cb, &vd->vdev_spa->spa_syncing_txg);
 }
 
+static void
+write_indirect_birth_entry(vdev_t *vd, uint64_t max_offset, dmu_tx_t *tx)
+{
+	spa_t *spa = vd->vdev_spa;
+	uint64_t txg = dmu_tx_get_txg(tx);
+	dmu_buf_t *bonus;
+
+	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset, vd->vdev_ib_object,
+	    FTAG, &bonus));
+	dmu_buf_will_dirty(bonus, tx);
+
+	vdev_indirect_birth_phys_t *vib = bonus->db_data;
+	vdev_indirect_birth_entry_phys_t vibe;
+	vibe.vibe_offset = max_offset;
+	vibe.vibe_phys_birth_txg = txg;
+
+	dmu_write(spa->spa_meta_objset, vd->vdev_ib_object,
+	    sizeof (vibe) * vib->vib_count, sizeof (vibe), &vibe, tx);
+	vib->vib_count++;
+
+	dmu_buf_rele(bonus, FTAG);
+}
+
 /*
  * On behalf of the removal thread, syncs an incremental bit more of
  * the indirect mapping to disk and updates the in-memory mapping.
@@ -700,6 +727,11 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 	    free_mapped_segment_cb, vd);
 	svr->svr_max_offset_to_sync[txg & TXG_MASK] = 0;
 	mutex_exit(&svr->svr_lock);
+
+	/*
+	 * Sync out new births entry.
+	 */
+	write_indirect_birth_entry(vd, vimp->vim_max_offset, tx);
 
 	spa_sync_removing_state(spa, tx);
 
@@ -846,6 +878,10 @@ vdev_remove_complete(vdev_t *vd)
 	 */
 	txg_wait_synced(spa->spa_dsl_pool, 0);
 
+	vdev_indirect_birth_entry_phys_t *vibep;
+	uint64_t ib_count;
+	vdev_read_births(spa, vd->vdev_ib_object, &vibep, &ib_count);
+
 	txg = spa_vdev_enter(spa);
 	zfs_dbgmsg("finishing device removal for vdev %lu in %llu",
 	    vd->vdev_id, txg);
@@ -870,6 +906,13 @@ vdev_remove_complete(vdev_t *vd)
 	vd->vdev_im_object = 0;
 	vd->vdev_im_count = 0;
 	vd->vdev_indirect_mapping = NULL;
+
+	ivd->vdev_ib_object = vd->vdev_ib_object;
+	ivd->vdev_indirect_births = vibep;
+	ivd->vdev_ib_count = ib_count;
+	vd->vdev_ib_object = NULL;
+	ASSERT0(vd->vdev_ib_count);
+	ASSERT3P(vd->vdev_indirect_births, ==, NULL);
 
 	svr->svr_vdev = ivd;
 
@@ -1268,6 +1311,12 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 	vd->vdev_im_object = 0;
 	vd->vdev_im_count = 0;
 	vd->vdev_indirect_mapping = NULL;
+
+	VERIFY0(dmu_object_free(dmu_tx_pool(tx)->dp_meta_objset,
+	    vd->vdev_ib_object, tx));
+	vd->vdev_ib_object = 0;
+	ASSERT0(vd->vdev_ib_count);
+	ASSERT3P(vd->vdev_indirect_births, ==, NULL);
 
 	/*
 	 * We may have processed some frees from the removing vdev in this

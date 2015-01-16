@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -293,6 +293,11 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 	if (vd->vdev_im_object != 0) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
 		    vd->vdev_im_object);
+	}
+
+	if (vd->vdev_ib_object != 0) {
+		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
+		    vd->vdev_ib_object);
 	}
 
 	if (vd->vdev_prev_indirect_vdev != -1) {

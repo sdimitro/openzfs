@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -192,7 +192,10 @@ typedef struct zio_cksum {
  * E		blkptr_t contains embedded data (see below)
  * lvl		level of indirection
  * type		DMU object type
- * phys birth	txg of block allocation; zero if same as logical birth txg
+ * phys birth	txg when dva[0] was written; zero if same as logical birth txg
+ *              note that typically all the dva's would be written in this
+ *              txg, but they could be different if they were moved by
+ *              device removal.
  * log. birth	transaction group in which the block was logically born
  * fill count	number of non-zero blocks under this bp
  * checksum[4]	256-bit checksum of the data this bp describes

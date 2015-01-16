@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -849,6 +849,30 @@ print_vdev_indirect(vdev_t *vd)
 {
 	if (vd->vdev_im_object == 0)
 		return;
+
+	vdev_indirect_birth_entry_phys_t *vibe;
+	uint64_t ib_count;
+	if (vd->vdev_indirect_births != NULL) {
+		vibe = vd->vdev_indirect_births;
+		ib_count = vd->vdev_ib_count;
+	} else {
+		ASSERT3P(vd->vdev_ops, !=, &vdev_indirect_ops);
+		vdev_read_births(vd->vdev_spa, vd->vdev_ib_object,
+		    &vibe, &ib_count);
+	}
+	(void) printf("indirect births obj %llu:\n",
+	    (longlong_t)vd->vdev_ib_object);
+	(void) printf("    vib_count = %llu\n",
+	    (longlong_t)ib_count);
+	for (uint64_t i = 0; i < vd->vdev_ib_count; i++) {
+		vdev_indirect_birth_entry_phys_t *cur_vibe = &vibe[i];
+		(void) printf("\toffset %llx -> txg %llu\n",
+		    (longlong_t)cur_vibe->vibe_offset,
+		    (longlong_t)cur_vibe->vibe_phys_birth_txg);
+	}
+	if (vibe != vd->vdev_indirect_births)
+		kmem_free(vibe, ib_count * sizeof (*vibe));
+	(void) printf("\n");
 
 	dmu_buf_t *bonus;
 	VERIFY0(dmu_bonus_hold(vd->vdev_spa->spa_meta_objset,

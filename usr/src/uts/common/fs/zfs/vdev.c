@@ -325,6 +325,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	vd->vdev_ops = ops;
 	vd->vdev_state = VDEV_STATE_CLOSED;
 	vd->vdev_ishole = (ops == &vdev_hole_ops);
+	vd->vdev_prev_indirect_vdev = -1;
 
 	mutex_init(&vd->vdev_dtl_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -469,8 +470,8 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
 	    &vd->vdev_im_object);
-
-	vd->vdev_prev_indirect_vdev = -1;
+	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
+	    &vd->vdev_ib_object);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
 	    &vd->vdev_prev_indirect_vdev);
 
@@ -596,8 +597,12 @@ vdev_free(vdev_t *vd)
 
 	if (vd->vdev_indirect_mapping != NULL) {
 		kmem_free(vd->vdev_indirect_mapping,
-		    vd->vdev_im_count *
-		    sizeof (vdev_indirect_mapping_entry_phys_t));
+		    vd->vdev_im_count * sizeof (*vd->vdev_indirect_mapping));
+	}
+
+	if (vd->vdev_indirect_births != NULL) {
+		kmem_free(vd->vdev_indirect_births,
+		    vd->vdev_ib_count * sizeof (*vd->vdev_indirect_births));
 	}
 
 	/*

@@ -1690,7 +1690,7 @@ static int
 metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	mdb_metaslab_alloc_trace_t mat;
-	mdb_metaslab_group_t mg;
+	mdb_metaslab_group_t mg = { 0 };
 	char alloc_type[100], result_type[100];
 
 	if (mdb_ctf_vread(&mat, "metaslab_alloc_trace_t",
@@ -1782,6 +1782,8 @@ metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 			(void) strcpy(desc, "<unknown>");
 		}
 		mdb_printf("%18s\n", desc);
+	} else {
+		mdb_printf("%18s\n", "<NULL>");
 	}
 
 	return (DCMD_OK);

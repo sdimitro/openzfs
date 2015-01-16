@@ -35,17 +35,8 @@
 #include <sys/zfeature.h>
 #include <util/qsort.h>
 
-/*
- * Allow allocations to switch to gang blocks quickly. We do this to
- * avoid having to load lots of space maps in a given txg. There are,
- * however, some cases where we want to avoid "fast" ganging and instead
- * we want to do an exhaustive search of all metaslabs on this device.
- * Currently we don't allow any gang, slog, or dump device related allocations
- * to "fast" gang.
- */
-#define	CAN_FASTGANG(flags) \
-	(!((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER | \
-	METASLAB_GANG_AVOID)))
+#define	GANG_ALLOCATION(flags) \
+	((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER))
 
 uint64_t metaslab_aliquot = 512ULL << 10;
 uint64_t metaslab_gang_bang = SPA_MAXBLOCKSIZE + 1;	/* force gang blocks */
@@ -265,6 +256,7 @@ metaslab_class_create(spa_t *spa, metaslab_ops_t *ops)
 	mc->mc_rotor = NULL;
 	mc->mc_ops = ops;
 	mutex_init(&mc->mc_lock, NULL, MUTEX_DEFAULT, NULL);
+	refcount_create_tracked(&mc->mc_alloc_slots);
 
 	return (mc);
 }
@@ -278,6 +270,7 @@ metaslab_class_destroy(metaslab_class_t *mc)
 	ASSERT(mc->mc_space == 0);
 	ASSERT(mc->mc_dspace == 0);
 
+	refcount_destroy(&mc->mc_alloc_slots);
 	mutex_destroy(&mc->mc_lock);
 	kmem_free(mc, sizeof (metaslab_class_t));
 }
@@ -609,6 +602,8 @@ metaslab_group_alloc_update(metaslab_group_t *mg)
 	mg->mg_free_capacity = ((vs->vs_space - vs->vs_alloc) * 100) /
 	    (vs->vs_space + 1);
 
+	mutex_enter(&mc->mc_lock);
+
 	/*
 	 * If the metaslab group was just added then it won't
 	 * have any space until we finish syncing out this txg.
@@ -617,13 +612,15 @@ metaslab_group_alloc_update(metaslab_group_t *mg)
 	 * metaslab groups (e.g. vdevs that are in the middle of being removed)
 	 * to be initialized, because they can't be used for allocation.
 	 */
-	mg->mg_initialized = (vs->vs_space != 0 && mg->mg_activation_count > 0);
+	mg->mg_initialized = metaslab_group_initialized(mg);
 	if (!was_initialized && mg->mg_initialized) {
 		mc->mc_groups++;
 	} else if (was_initialized && !mg->mg_initialized) {
 		ASSERT3U(mc->mc_groups, >, 0);
 		mc->mc_groups--;
 	}
+	if (mg->mg_initialized)
+		mg->mg_no_free_space = B_FALSE;
 
 	/*
 	 * A metaslab group is considered allocatable if it has plenty
@@ -655,6 +652,7 @@ metaslab_group_alloc_update(metaslab_group_t *mg)
 		mc->mc_alloc_groups--;
 	else if (!was_allocatable && mg->mg_allocatable)
 		mc->mc_alloc_groups++;
+	mutex_exit(&mc->mc_lock);
 
 	mutex_exit(&mg->mg_lock);
 }
@@ -672,7 +670,9 @@ metaslab_group_create(metaslab_class_t *mc, vdev_t *vd)
 	mg->mg_class = mc;
 	mg->mg_activation_count = 0;
 	mg->mg_initialized = B_FALSE;
+	mg->mg_no_free_space = B_TRUE;
 	refcount_create(&mg->mg_loaded_metaslabs);
+	refcount_create_tracked(&mg->mg_alloc_queue_depth);
 
 	mg->mg_taskq = taskq_create("metaslab_group_taskq", metaslab_load_pct,
 	    minclsyspri, 10, INT_MAX, TASKQ_THREADS_CPU_PCT);
@@ -696,6 +696,7 @@ metaslab_group_destroy(metaslab_group_t *mg)
 	avl_destroy(&mg->mg_metaslab_tree);
 	mutex_destroy(&mg->mg_lock);
 	refcount_destroy(&mg->mg_loaded_metaslabs);
+	refcount_destroy(&mg->mg_alloc_queue_depth);
 	kmem_free(mg, sizeof (metaslab_group_t));
 }
 
@@ -788,6 +789,15 @@ metaslab_group_passivate(metaslab_group_t *mg)
 
 	mg->mg_prev = NULL;
 	mg->mg_next = NULL;
+}
+
+boolean_t
+metaslab_group_initialized(metaslab_group_t *mg)
+{
+	vdev_t *vd = mg->mg_vd;
+	vdev_stat_t *vs = &vd->vdev_stat;
+
+	return (vs->vs_space != 0 && mg->mg_activation_count > 0);
 }
 
 uint64_t
@@ -961,13 +971,16 @@ metaslab_group_fragmentation(metaslab_group_t *mg)
  * group should avoid allocations if its free capacity is less than the
  * zfs_mg_noalloc_threshold or its fragmentation metric is greater than
  * zfs_mg_fragmentation_threshold and there is at least one metaslab group
- * that can still handle allocations.
+ * that can still handle allocations. If the allocation throttle is enabled
+ * then we skip allocations to devices that have reached their maximum
+ * allocation queue depth unless the selected metaslab group is the only
+ * eligible group remaining.
  */
 static boolean_t
-metaslab_group_allocatable(metaslab_group_t *mg, uint64_t psize)
+metaslab_group_allocatable(metaslab_group_t *mg, metaslab_group_t *rotor,
+    uint64_t psize)
 {
-	vdev_t *vd = mg->mg_vd;
-	spa_t *spa = vd->vdev_spa;
+	spa_t *spa = mg->mg_vd->vdev_spa;
 	metaslab_class_t *mc = mg->mg_class;
 
 	/*
@@ -979,45 +992,76 @@ metaslab_group_allocatable(metaslab_group_t *mg, uint64_t psize)
 	if (mc != spa_normal_class(spa) || mc->mc_groups <= 1)
 		return (B_TRUE);
 
-	if (zio_dva_throttle_enabled) {
-		/*
-		 * The call to metaslab_alloc_throttle() will determine
-		 * if all metaslab groups have been throttled. When we
-		 * reach this condition we no longer allow devices
-		 * to skip allocations based on queue depth. Since vdevs
-		 * update their throttled status only after updating their
-		 * queue depth value we must hold the mutex across the call
-		 * to metaslab_alloc_throttle(). If the mutex were not held
-		 * then we may inadvertently detect that a vdev has reached
-		 * its maximum queue depth before it has updated the metaslab
-		 * group's throttled status and skip it. This would lead
-		 * to premature ganging and would adversely impact performance.
-		 */
-		mutex_enter(&vd->vdev_queue_lock);
-		uint64_t qdepth = vd->vdev_async_write_queue_depth;
-		uint64_t qmax = vd->vdev_max_async_write_queue_depth;
-		boolean_t throttled = metaslab_alloc_throttle(mc);
-		mutex_exit(&vd->vdev_queue_lock);
-
-		/*
-		 * Skip over this vdev if it has already reached its
-		 * queue depth and there are other vdevs that have
-		 * not.
-		 */
-		if (qdepth >= qmax && !throttled)
-			return (B_FALSE);
-	}
-
 	/*
 	 * If the metaslab group's mg_allocatable flag is set (see comments
-	 * in metaslab_group_alloc_update() for more information) then
-	 * allow allocations to this device. However, if all metaslab
-	 * groups are no longer considered allocatable (mc_alloc_groups == 0)
-	 * or we're trying to allocate the smallest gang block size then
-	 * we must allow allocations on this metaslab group.
+	 * in metaslab_group_alloc_update() for more information) and
+	 * the allocation throttle is disabled then allow allocations to this
+	 * device. However, if the allocation throttle is enabled then
+	 * check if we have reached our allocation limit (mg_alloc_queue_depth)
+	 * to determine if we should allow allocations to this metaslab group.
+	 * If all metaslab groups are no longer considered allocatable
+	 * (mc_alloc_groups == 0) or we're trying to allocate the smallest
+	 * gang block size then we allow allocations on this metaslab group
+	 * regardless of the mg_allocatable or throttle settings.
 	 */
-	return (mg->mg_allocatable || mc->mc_alloc_groups == 0 ||
-	    psize == SPA_GANGBLOCKSIZE);
+	if (mg->mg_allocatable) {
+		metaslab_group_t *mgp;
+		int64_t qdepth;
+		uint64_t qmax = mg->mg_max_alloc_queue_depth;
+
+		if (!mc->mc_alloc_throttle_enabled)
+			return (B_TRUE);
+
+		/*
+		 * If this metaslab group does not have any free space, then
+		 * there is no point in looking further.
+		 */
+		if (mg->mg_no_free_space)
+			return (B_FALSE);
+
+		qdepth = refcount_count(&mg->mg_alloc_queue_depth);
+
+		/*
+		 * If this metaslab group is below its qmax or it's
+		 * the only allocatable metasable group, then attempt
+		 * to allocate from it.
+		 */
+		if (qdepth < qmax || mc->mc_alloc_groups == 1)
+			return (B_TRUE);
+		ASSERT3U(mc->mc_alloc_groups, >, 1);
+
+		/*
+		 * Since this metaslab group is at or over its qmax, we
+		 * need to determine if there are metaslab groups after this
+		 * one that might be able to handle this allocation. This is
+		 * racy since we can't hold the locks for all metaslab
+		 * groups at the same time when we make this check.
+		 */
+		for (mgp = mg->mg_next; mgp != rotor; mgp = mgp->mg_next) {
+			qmax = mgp->mg_max_alloc_queue_depth;
+
+			qdepth = refcount_count(&mgp->mg_alloc_queue_depth);
+
+			/*
+			 * If there is another metaslab group that
+			 * might be able to handle the allocation, then
+			 * we return false so that we skip this group.
+			 */
+			if (qdepth < qmax && !mgp->mg_no_free_space)
+				return (B_FALSE);
+		}
+
+		/*
+		 * We didn't find another group to handle the allocation
+		 * so we can't skip this metaslab group even though
+		 * we are at or over our qmax.
+		 */
+		return (B_TRUE);
+
+	} else if (mc->mc_alloc_groups == 0 || psize == SPA_MINBLOCKSIZE) {
+		return (B_TRUE);
+	}
+	return (B_FALSE);
 }
 
 /*
@@ -2833,6 +2877,50 @@ metaslab_trace_fini(zio_alloc_list_t *zal)
  * ==========================================================================
  */
 
+static void
+metaslab_group_alloc_increment(spa_t *spa, uint64_t vdev, void *tag, int flags)
+{
+	if (!(flags & METASLAB_ASYNC_ALLOC) ||
+	    flags & METASLAB_DONT_THROTTLE)
+		return;
+
+	metaslab_group_t *mg = vdev_lookup_top(spa, vdev)->vdev_mg;
+	if (!mg->mg_class->mc_alloc_throttle_enabled)
+		return;
+
+	(void) refcount_add(&mg->mg_alloc_queue_depth, tag);
+}
+
+void
+metaslab_group_alloc_decrement(spa_t *spa, uint64_t vdev, void *tag, int flags)
+{
+	if (!(flags & METASLAB_ASYNC_ALLOC) ||
+	    flags & METASLAB_DONT_THROTTLE)
+		return;
+
+	metaslab_group_t *mg = vdev_lookup_top(spa, vdev)->vdev_mg;
+	if (!mg->mg_class->mc_alloc_throttle_enabled)
+		return;
+
+	(void) refcount_remove(&mg->mg_alloc_queue_depth, tag);
+}
+
+void
+metaslab_group_alloc_verify(spa_t *spa, const blkptr_t *bp, void *tag)
+{
+#ifdef ZFS_DEBUG
+	const dva_t *dva = bp->blk_dva;
+	int ndvas = BP_GET_NDVAS(bp);
+
+	for (int d = 0; d < ndvas; d++) {
+		uint64_t vdev = DVA_GET_VDEV(&dva[d]);
+		metaslab_group_t *mg = vdev_lookup_top(spa, vdev)->vdev_mg;
+		VERIFY(refcount_not_held(&mg->mg_alloc_queue_depth, tag));
+	}
+#endif
+}
+
+
 static uint64_t
 metaslab_block_alloc(metaslab_t *msp, uint64_t size,
     metaslab_alloc_strategy_t strategy, uint64_t txg)
@@ -3014,6 +3102,10 @@ metaslab_group_alloc_holefill(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			return (offset);
 		}
 	}
+	mutex_enter(&mg->mg_lock);
+	mg->mg_failed_bestfit++;
+	mutex_exit(&mg->mg_lock);
+
 	return (-1ULL);
 }
 
@@ -3220,7 +3312,7 @@ metaslab_group_alloc(metaslab_group_t *mg, zio_alloc_list_t *zal,
 	metaslab_alloc_strategy_t alloc_type;
 	ASSERT(mg->mg_initialized);
 
-	if ((flags & METASLAB_HINT_CAN_HOLEFILL) &&
+	if ((flags & METASLAB_ASYNC_ALLOC) &&
 	    metaslab_group_should_holefill(mg)) {
 		alloc_type = METASLAB_ALLOC_BEST_FIT;
 		offset = metaslab_group_alloc_holefill(mg, zal, asize,
@@ -3230,10 +3322,29 @@ metaslab_group_alloc(metaslab_group_t *mg, zio_alloc_list_t *zal,
 		offset = metaslab_group_alloc_normal(mg, zal, asize, txg,
 		    min_distance, dva, d);
 	}
+
+	mutex_enter(&mg->mg_lock);
 	if (offset == -1ULL) {
+		mg->mg_failed_allocations++;
 		metaslab_trace_add(zal, mg, NULL, asize, d,
 		    alloc_type, TRACE_GROUP_FAILURE);
+		if (asize == SPA_GANGBLOCKSIZE) {
+			/*
+			 * This metaslab group was unable to allocate
+			 * the minimum gang block size so it must be out of
+			 * space. We must notify the allocation throttle
+			 * to start skipping allocation attempts to this
+			 * metaslab group until more space becomes available.
+			 * Note: this failure cannot be caused by the
+			 * allocation throttle since the allocation throttle
+			 * is only responsible for skipping devices and
+			 * not failing block allocations.
+			 */
+			mg->mg_no_free_space = B_TRUE;
+		}
 	}
+	mg->mg_allocations++;
+	mutex_exit(&mg->mg_lock);
 	return (offset);
 }
 
@@ -3328,7 +3439,6 @@ top:
 		boolean_t allocatable;
 
 		ASSERT(mg->mg_activation_count == 1);
-
 		vd = mg->mg_vd;
 
 		/*
@@ -3349,8 +3459,9 @@ top:
 		 * inadvertently return ENOSPC and suspend the pool
 		 * even though space is still available.
 		 */
-		if (allocatable && CAN_FASTGANG(flags)) {
-			allocatable = metaslab_group_allocatable(mg, psize);
+		if (allocatable && !GANG_ALLOCATION(flags) && !try_hard) {
+			allocatable = metaslab_group_allocatable(mg, rotor,
+			    psize);
 		}
 
 		if (!allocatable) {
@@ -3395,13 +3506,6 @@ top:
 
 		uint64_t offset = metaslab_group_alloc(mg, zal, asize, txg,
 		    distance, dva, d, flags);
-
-		mutex_enter(&mg->mg_lock);
-		mg->mg_allocations++;
-		if (offset == -1ULL) {
-			mg->mg_failed_allocations++;
-		}
-		mutex_exit(&mg->mg_lock);
 
 		if (offset != -1ULL) {
 			/*
@@ -3766,6 +3870,54 @@ metaslab_claim_concrete(vdev_t *vd, uint64_t offset, uint64_t size,
 	return (0);
 }
 
+/*
+ * Reserve some allocation slots. The reservation system must be called
+ * before we call into the allocator. If there aren't any available slots
+ * then the I/O will be throttled until an I/O completes and its slots are
+ * freed up. The function returns true if it was successful in placing
+ * the reservation.
+ */
+boolean_t
+metaslab_class_throttle_reserve(metaslab_class_t *mc, int slots, zio_t *zio,
+    int flags)
+{
+	uint64_t available_slots = 0;
+	boolean_t slot_reserved = B_FALSE;
+
+	ASSERT(mc->mc_alloc_throttle_enabled);
+	mutex_enter(&mc->mc_lock);
+
+	uint64_t reserved_slots = refcount_count(&mc->mc_alloc_slots);
+	if (reserved_slots < mc->mc_alloc_max_slots)
+		available_slots = mc->mc_alloc_max_slots - reserved_slots;
+
+	if (slots <= available_slots || GANG_ALLOCATION(flags)) {
+		/*
+		 * We reserve the slots individually so that we can unreserve
+		 * them individually when an I/O completes.
+		 */
+		for (int d = 0; d < slots; d++) {
+			reserved_slots = refcount_add(&mc->mc_alloc_slots, zio);
+		}
+		zio->io_flags |= ZIO_FLAG_IO_ALLOCATING;
+		slot_reserved = B_TRUE;
+	}
+
+	mutex_exit(&mc->mc_lock);
+	return (slot_reserved);
+}
+
+void
+metaslab_class_throttle_unreserve(metaslab_class_t *mc, int slots, zio_t *zio)
+{
+	ASSERT(mc->mc_alloc_throttle_enabled);
+	mutex_enter(&mc->mc_lock);
+	for (int d = 0; d < slots; d++) {
+		(void) refcount_remove(&mc->mc_alloc_slots, zio);
+	}
+	mutex_exit(&mc->mc_lock);
+}
+
 int
 metaslab_claim_impl(vdev_t *vd, uint64_t offset, uint64_t size, uint64_t txg)
 {
@@ -3812,21 +3964,10 @@ metaslab_claim_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 	return (metaslab_claim_impl(vd, offset, size, txg));
 }
 
-boolean_t
-metaslab_alloc_throttle(metaslab_class_t *mc)
-{
-	boolean_t throttle;
-
-	mutex_enter(&mc->mc_lock);
-	throttle = (mc->mc_groups_throttled == mc->mc_groups);
-	mutex_exit(&mc->mc_lock);
-	return (throttle);
-}
-
 int
 metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
     int ndvas, uint64_t txg, blkptr_t *hintbp, int flags,
-    zio_alloc_list_t *zal)
+    zio_alloc_list_t *zal, zio_t *zio)
 {
 	dva_t *dva = bp->blk_dva;
 	dva_t *hintdva = hintbp->blk_dva;
@@ -3853,11 +3994,21 @@ metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
 		if (error != 0) {
 			for (d--; d >= 0; d--) {
 				metaslab_unalloc_dva(spa, &dva[d], txg);
+				metaslab_group_alloc_decrement(spa,
+				    DVA_GET_VDEV(&dva[d]), zio, flags);
 				bzero(&dva[d], sizeof (dva_t));
 			}
 			spa_config_exit(spa, SCL_ALLOC, FTAG);
 			return (error);
+		} else {
+			/*
+			 * Update the metaslab group's queue depth
+			 * based on the newly allocated dva.
+			 */
+			metaslab_group_alloc_increment(spa,
+			    DVA_GET_VDEV(&dva[d]), zio, flags);
 		}
+
 	}
 	ASSERT(error == 0);
 	ASSERT(BP_GET_NDVAS(bp) == ndvas);

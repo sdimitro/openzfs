@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #ifndef _ZIO_IMPL_H
@@ -202,6 +202,7 @@ enum zio_stage {
 #define	ZIO_DDT_CHILD_WRITE_PIPELINE		\
 	(ZIO_INTERLOCK_STAGES |			\
 	ZIO_VDEV_IO_STAGES |			\
+	ZIO_STAGE_DVA_THROTTLE |		\
 	ZIO_STAGE_DVA_ALLOCATE)
 
 #define	ZIO_DDT_WRITE_PIPELINE			\

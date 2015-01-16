@@ -6096,10 +6096,31 @@ spa_sync(spa_t *spa, uint64_t txg)
 	 * The max queue depth will not change in the middle of syncing
 	 * out this txg.
 	 */
+	uint64_t queue_depth_total = 0;
 	for (int c = 0; c < rvd->vdev_children; c++) {
 		vdev_t *tvd = rvd->vdev_child[c];
-		tvd->vdev_max_async_write_queue_depth = max_queue_depth;
+		metaslab_group_t *mg = tvd->vdev_mg;
+
+		if (mg == NULL || mg->mg_class != spa_normal_class(spa) ||
+		    !metaslab_group_initialized(mg))
+			continue;
+
+		/*
+		 * It is safe to do a lock-free check here because only async
+		 * allocations look at mg_max_alloc_queue_depth, and async
+		 * allocations all happen from spa_sync().
+		 */
+		ASSERT0(refcount_count(&mg->mg_alloc_queue_depth));
+		mg->mg_max_alloc_queue_depth = max_queue_depth;
+		queue_depth_total += mg->mg_max_alloc_queue_depth;
 	}
+	metaslab_class_t *mc = spa_normal_class(spa);
+	ASSERT0(refcount_count(&mc->mc_alloc_slots));
+	mc->mc_alloc_max_slots = queue_depth_total;
+	mc->mc_alloc_throttle_enabled = zio_dva_throttle_enabled;
+
+	ASSERT3U(mc->mc_alloc_max_slots, <=,
+	    max_queue_depth * rvd->vdev_children);
 
 	/*
 	 * Iterate to convergence.

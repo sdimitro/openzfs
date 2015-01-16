@@ -790,8 +790,7 @@ spa_vdev_copy_segment(vdev_t *vd, uint64_t start, uint64_t size, uint64_t txg,
 	ASSERT3U(size, <=, SPA_MAXBLOCKSIZE);
 
 	int error = metaslab_alloc_dva(spa, mg->mg_class, size,
-	    &dst, 0, NULL, txg,
-	    METASLAB_GANG_AVOID, zal);
+	    &dst, 0, NULL, txg, 0, zal);
 	if (error != 0)
 		return (error);
 

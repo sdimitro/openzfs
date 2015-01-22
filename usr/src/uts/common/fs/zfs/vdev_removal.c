@@ -1533,7 +1533,8 @@ spa_vdev_remove_top_check(vdev_t *vd)
 	int num_indirect = 0;
 	for (uint64_t id = 0; id < rvd->vdev_children; id++) {
 		vdev_t *cvd = rvd->vdev_child[id];
-		ASSERT3U(cvd->vdev_ashift, ==, spa->spa_max_ashift);
+		if (cvd->vdev_ashift != 0 && !cvd->vdev_islog)
+			ASSERT3U(cvd->vdev_ashift, ==, spa->spa_max_ashift);
 		if (cvd->vdev_ops == &vdev_indirect_ops)
 			num_indirect++;
 		if (!vdev_is_concrete(cvd))

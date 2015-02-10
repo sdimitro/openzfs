@@ -1141,9 +1141,9 @@ vdev_open_children(vdev_t *vd)
 
 /*
  * Compute the raidz-deflation ratio.  Note, we hard-code in 128k (1 << 17)
- * because it is the current "typical" blocksize. Even if SPA_MAXBLOCKSIZE
- * changes, this algorithm must never change, or we will inconsistently
- * account for existing bp's.
+ * because it is the "typical" blocksize. Even though SPA_MAXBLOCKSIZE
+ * changed, this algorithm can not change, otherwise we will
+ * inconsistently account for existing bp's.
  */
 static void
 vdev_set_deflate_ratio(vdev_t *vd)

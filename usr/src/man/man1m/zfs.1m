@@ -176,12 +176,12 @@ zfs \- configures ZFS file systems
 
 .LP
 .nf
-\fBzfs\fR \fBsend\fR [\fB-DnPpRve\fR] [\fB-\fR[\fBiI\fR] \fIsnapshot\fR] \fIsnapshot\fR
+\fBzfs\fR \fBsend\fR [\fB-DnPpRveL\fR] [\fB-\fR[\fBiI\fR] \fIsnapshot\fR] \fIsnapshot\fR
 .fi
 
 .LP
 .nf
-\fBzfs\fR \fBsend\fR [\fB-e\fR] [\fB[\fB-b\fR] -i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
+\fBzfs\fR \fBsend\fR [\fB-eL\fR] [\fB[\fB-b\fR] -i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
 .fi
 
 .LP
@@ -1284,7 +1284,9 @@ significant performance gains. Use of this property for general purpose file
 systems is strongly discouraged, and may adversely affect performance.
 .sp
 The size specified must be a power of two greater than or equal to 512 and less
-than or equal to 128 Kbytes.
+than or equal to 128 Kbytes.  If the \fBlarge_blocks\fR feature is enabled
+on the pool, the size may be up to 1 Mbyte.  See \fBzpool-features\fR(5)
+for details on ZFS feature flags.
 .sp
 Changing the file system's \fBrecordsize\fR affects only files created
 afterward; existing files are unaffected.
@@ -2963,7 +2965,7 @@ See \fBzpool-features\fR(5) for details on ZFS feature flags and the
 .sp
 .ne 2
 .na
-\fBzfs send\fR [\fB-DnPpRve\fR] [\fB-\fR[\fBiI\fR] \fIsnapshot\fR] \fIsnapshot\fR
+\fBzfs send\fR [\fB-DnPpRveL\fR] [\fB-\fR[\fBiI\fR] \fIsnapshot\fR] \fIsnapshot\fR
 .ad
 .sp .6
 .RS 4n
@@ -3039,6 +3041,21 @@ will be much better if the filesystem uses a dedup-capable checksum (eg.
 .sp
 .ne 2
 .na
+\fB\fB-L\fR\fR
+.ad
+.sp .6
+.RS 4n
+Generate a stream which may contain blocks larger than 128KB.  This flag
+has no effect if the \fBlarge_blocks\fR pool feature is disabled, or if
+the \fRrecordsize\fR property of this filesystem has never been set above
+128KB.  The receiving system must have the \fBlarge_blocks\fR pool feature
+enabled as well.  See \fBzpool-features\fR(5) for details on ZFS feature
+flags and the \fBlarge_blocks\fR feature.
+.RE
+
+.sp
+.ne 2
+.na
 \fB\fB-e\fR\fR
 .ad
 .sp .6
@@ -3104,7 +3121,7 @@ on future versions of \fBZFS\fR.
 .sp
 .ne 2
 .na
-\fBzfs\fR \fBsend\fR [\fB-e\fR] [\fB[\fB-b\fR] -i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
+\fBzfs\fR \fBsend\fR [\fB-eL\fR] [\fB[\fB-b\fR] -i \fIsnapshot\fR|\fIbookmark\fR]\fR \fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR
 .ad
 .sp .6
 .RS 4n
@@ -3149,6 +3166,21 @@ is the same as the incremental source snapshot.  This can be overridden
 by setting the "origin" property to a snapshot that is the same as the
 incremental source snapshot; this will allow the rebase stream to be
 received as a clone of that snapshot.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fB-L\fR\fR
+.ad
+.sp .6
+.RS 4n
+Generate a stream which may contain blocks larger than 128KB.  This flag
+has no effect if the \fBlarge_blocks\fR pool feature is disabled, or if
+the \fRrecordsize\fR property of this filesystem has never been set above
+128KB.  The receiving system must have the \fBlarge_blocks\fR pool feature
+enabled as well.  See \fBzpool-features\fR(5) for details on ZFS feature
+flags and the \fBlarge_blocks\fR feature.
 .RE
 
 .sp

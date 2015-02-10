@@ -137,8 +137,6 @@ extern "C" {
 #define	ZFS_SA_ATTRS		"SA_ATTRS"
 #define	ZFS_MOOCH_BYTESWAP_MAP	"MOOCH_BYTESWAP_MAP"
 
-#define	ZFS_MAX_BLOCKSIZE	(SPA_MAXBLOCKSIZE)
-
 /*
  * Path component length
  *

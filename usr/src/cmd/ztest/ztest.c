@@ -979,9 +979,15 @@ ztest_random_spa_version(uint64_t initial_version)
 static int
 ztest_random_blocksize(void)
 {
-	// Choose a block size >= the ashift.
-	uint64_t block_shift =
-	    ztest_random(SPA_MAXBLOCKSHIFT - ztest_spa->spa_max_ashift + 1);
+	uint64_t block_shift;
+	/*
+	 * Choose a block size >= the ashift.
+	 * If the SPA supports new MAXBLOCKSIZE, test up to 1MB blocks.
+	 */
+	int maxbs = SPA_OLD_MAXBLOCKSHIFT;
+	if (spa_maxblocksize(ztest_spa) == SPA_MAXBLOCKSIZE)
+		maxbs = 20;
+	block_shift = ztest_random(maxbs - ztest_spa->spa_max_ashift + 1);
 	return (1 << (SPA_MINBLOCKSHIFT + block_shift));
 }
 
@@ -3600,7 +3606,11 @@ ztest_mooch_byteswap(ztest_ds_t *zd, uint64_t id)
 	bs = doi.doi_data_block_size;
 
 	for (int blkid = 0; blkid < 1000; blkid++) {
-		uint64_t buf[SPA_MAXBLOCKSIZE / sizeof (uint64_t)];
+		/*
+		 * Note: we use at most 32K of this, since that's the
+		 * largest 'bs' that we use.
+		 */
+		uint64_t buf[SPA_OLD_MAXBLOCKSIZE / sizeof (uint64_t)];
 
 		ASSERT3U(sizeof (buf), >=, bs);
 		/*
@@ -3710,7 +3720,7 @@ ztest_mooch_byteswap(ztest_ds_t *zd, uint64_t id)
 	 * Write byteswapped data.
 	 */
 	for (int blkid = 0; blkid < 1000; blkid++) {
-		char buf[SPA_MAXBLOCKSIZE];
+		char buf[SPA_OLD_MAXBLOCKSIZE];
 
 		/* read origin object */
 		VERIFY0(dmu_read(snap_os, od.od_object,
@@ -5074,7 +5084,7 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 	char path0[MAXPATHLEN];
 	char pathrand[MAXPATHLEN];
 	size_t fsize;
-	int bshift = SPA_MAXBLOCKSHIFT + 2;	/* don't scrog all labels */
+	int bshift = SPA_OLD_MAXBLOCKSHIFT + 2;	/* don't scrog all labels */
 	int iters = 1000;
 	int maxfaults;
 	int mirror_save;

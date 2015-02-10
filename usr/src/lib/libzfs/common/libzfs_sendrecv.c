@@ -229,7 +229,7 @@ cksummer(void *arg)
 {
 	int buf_initial_size = SPA_MAXBLOCKSIZE;
 	dedup_arg_t *dda = arg;
-	char *buf = malloc(buf_initial_size);
+	char *buf = zfs_alloc(dda->dedup_hdl, buf_initial_size);
 	dmu_replay_record_t thedrr;
 	dmu_replay_record_t *drr = &thedrr;
 	FILE *ofp;
@@ -283,8 +283,8 @@ cksummer(void *arg)
 				sz = drr->drr_payloadlen;
 
 				if (sz > buf_initial_size) {
-					free(buf);
-					buf = malloc(sz);
+					buf = zfs_realloc(dda->dedup_hdl, buf,
+					    buf_initial_size, sz);
 				}
 				(void) ssread(buf, sz, ofp);
 				if (ferror(stdin))
@@ -813,6 +813,7 @@ typedef struct send_dump_data {
 	uint64_t prevsnap_obj;
 	boolean_t seenfrom, seento, replicate, doall, fromorigin;
 	boolean_t verbose, dryrun, parsable, progress, embed_data, std_out;
+	boolean_t large_block;
 	int outfd;
 	boolean_t err;
 	nvlist_t *fss;
@@ -1179,6 +1180,8 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 		}
 
 		enum lzc_send_flags flags = 0;
+		if (sdd->large_block)
+			flags |= LZC_SEND_FLAG_LARGE_BLOCK;
 		if (sdd->embed_data)
 			flags |= LZC_SEND_FLAG_EMBED_DATA;
 
@@ -1746,6 +1749,7 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 	sdd.parsable = flags->parsable;
 	sdd.progress = flags->progress;
 	sdd.dryrun = flags->dryrun;
+	sdd.large_block = flags->largeblock;
 	sdd.embed_data = flags->embed_data;
 	sdd.filter_cb = filter_func;
 	sdd.filter_cb_arg = cb_arg;
@@ -2765,7 +2769,7 @@ static int
 recv_skip(libzfs_handle_t *hdl, int fd, boolean_t byteswap)
 {
 	dmu_replay_record_t *drr;
-	void *buf = malloc(SPA_MAXBLOCKSIZE);
+	void *buf = zfs_alloc(hdl, SPA_MAXBLOCKSIZE);
 	char errbuf[1024];
 
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,

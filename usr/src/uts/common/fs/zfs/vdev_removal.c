@@ -215,11 +215,11 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 	ASSERT0(vd->vdev_im_object);
 	ASSERT3P(vd->vdev_indirect_mapping, ==, NULL);
 	vd->vdev_im_object = dmu_object_alloc(spa->spa_meta_objset,
-	    DMU_OTN_UINT64_METADATA, SPA_MAXBLOCKSIZE,
+	    DMU_OTN_UINT64_METADATA, SPA_OLD_MAXBLOCKSIZE,
 	    DMU_OTN_UINT64_METADATA, sizeof (vdev_indirect_mapping_phys_t),
 	    tx);
 	vd->vdev_ib_object = dmu_object_alloc(spa->spa_meta_objset,
-	    DMU_OTN_UINT64_METADATA, SPA_MAXBLOCKSIZE,
+	    DMU_OTN_UINT64_METADATA, SPA_OLD_MAXBLOCKSIZE,
 	    DMU_OTN_UINT64_METADATA, sizeof (vdev_indirect_birth_phys_t),
 	    tx);
 	spa->spa_removing_phys.sr_removing_vdev = vd->vdev_id;
@@ -605,15 +605,15 @@ write_indirect_mapping_entries(vdev_t *vd,
 	uint64_t txg = dmu_tx_get_txg(tx);
 	list_t *list = &svr->svr_new_segments[txg & TXG_MASK];
 	vdev_indirect_mapping_entry_phys_t *mapbuf =
-	    zio_buf_alloc(SPA_MAXBLOCKSIZE);
+	    zio_buf_alloc(SPA_OLD_MAXBLOCKSIZE);
 
 	while (!list_is_empty(list)) {
 		uint64_t i;
 		/*
 		 * Write entries from svr_new_segments[] to the
-		 * vdev_im_object in batches of size SPA_MAXBLOCKSIZE.
+		 * vdev_im_object in batches of size SPA_OLD_MAXBLOCKSIZE.
 		 */
-		for (i = 0; i < SPA_MAXBLOCKSIZE / sizeof (*mapbuf); i++) {
+		for (i = 0; i < SPA_OLD_MAXBLOCKSIZE / sizeof (*mapbuf); i++) {
 			vdev_indirect_mapping_entry_t *entry =
 			    list_remove_head(list);
 			if (entry == NULL)
@@ -636,7 +636,7 @@ write_indirect_mapping_entries(vdev_t *vd,
 		vimp->vim_count += i;
 	}
 
-	zio_buf_free(mapbuf, SPA_MAXBLOCKSIZE);
+	zio_buf_free(mapbuf, SPA_OLD_MAXBLOCKSIZE);
 }
 
 static void

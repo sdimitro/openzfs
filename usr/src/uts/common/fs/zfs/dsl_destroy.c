@@ -269,6 +269,11 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 		spa_feature_decr(dp->dp_spa, SPA_FEATURE_MOOCH_BYTESWAP, tx);
 	}
 
+	if (ds->ds_large_blocks) {
+		ASSERT0(zap_contains(mos, obj, DS_FIELD_LARGE_BLOCKS));
+		spa_feature_decr(dp->dp_spa, SPA_FEATURE_LARGE_BLOCKS, tx);
+	}
+
 	if (ds->ds_phys->ds_prev_snap_obj != 0) {
 		ASSERT3P(ds->ds_prev, ==, NULL);
 		VERIFY0(dsl_dataset_hold_obj(dp,
@@ -727,6 +732,8 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 
 	if (ds->ds_mooch_byteswap)
 		spa_feature_decr(dp->dp_spa, SPA_FEATURE_MOOCH_BYTESWAP, tx);
+	if (ds->ds_large_blocks)
+		spa_feature_decr(dp->dp_spa, SPA_FEATURE_LARGE_BLOCKS, tx);
 
 	dsl_scan_ds_destroyed(ds, tx);
 

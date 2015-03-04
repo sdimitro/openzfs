@@ -2680,9 +2680,11 @@ zio_dva_throttle(zio_t *zio)
 		 * We are passing control to a new zio so make sure that
 		 * it is processed by a different thread. We do this to
 		 * avoid stack overflows that can occur when parents are
-		 * throttled and children are making progress.
+		 * throttled and children are making progress. We allow
+		 * it to go to the head of the taskq since it's already
+		 * been waiting.
 		 */
-		zio_taskq_dispatch(nio, ZIO_TASKQ_ISSUE, B_FALSE);
+		zio_taskq_dispatch(nio, ZIO_TASKQ_ISSUE, B_TRUE);
 	}
 	return (ZIO_PIPELINE_STOP);
 }
@@ -2700,7 +2702,7 @@ zio_allocate_dispatch(spa_t *spa)
 
 	ASSERT3U(zio->io_stage, ==, ZIO_STAGE_DVA_THROTTLE);
 	ASSERT0(zio->io_error);
-	zio_taskq_dispatch(zio, ZIO_TASKQ_ISSUE, B_FALSE);
+	zio_taskq_dispatch(zio, ZIO_TASKQ_ISSUE, B_TRUE);
 }
 
 static int

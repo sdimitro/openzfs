@@ -46,6 +46,13 @@ function wait_for_removal # pool [callback args]
 	return 0
 }
 
+function percent_indirect_referenced # pool
+{
+	typeset pool=$1
+	$ZDB $pool | $GREP 'indirect vdev' | \
+	    $SED -E 's/.* ([0-9]+)% referenced/\1/g'
+}
+
 function random_write # file write_size
 {
 	typeset file=$1

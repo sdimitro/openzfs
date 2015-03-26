@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_DNODE_H
@@ -301,6 +301,7 @@ void dnode_fini(void);
 int dnode_next_offset(dnode_t *dn, int flags, uint64_t *off,
     int minlvl, uint64_t blkfill, uint64_t txg);
 void dnode_evict_dbufs(dnode_t *dn);
+boolean_t dnode_needs_remap(const dnode_t *dn);
 
 #ifdef ZFS_DEBUG
 

@@ -2019,3 +2019,46 @@ spa_maxblocksize(spa_t *spa)
 	else
 		return (SPA_OLD_MAXBLOCKSIZE);
 }
+
+/*
+ * Returns the txg that the last device removal completed. No indirect mappings
+ * have been added since this txg.
+ */
+uint64_t
+spa_get_last_removal_txg(spa_t *spa)
+{
+	uint64_t vdevid;
+	uint64_t ret = -1ULL;
+
+	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
+	/*
+	 * sr_prev_indirect_vdev is only modified while holding all the
+	 * config locks, so it is sufficient to hold SCL_VDEV as reader when
+	 * examining it.
+	 */
+	vdevid = spa->spa_removing_phys.sr_prev_indirect_vdev;
+
+	while (vdevid != -1ULL) {
+		vdev_t *vd = vdev_lookup_top(spa, vdevid);
+		vdev_indirect_birth_entry_phys_t *last;
+
+		ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
+
+		/*
+		 * If the removal did not remap any data, we don't care.
+		 */
+		if (vd->vdev_ib_count != 0) {
+			last = &vd->vdev_indirect_births[vd->vdev_ib_count - 1];
+			ret = last->vibe_phys_birth_txg;
+			break;
+		}
+
+		vdevid = vd->vdev_prev_indirect_vdev;
+	}
+	spa_config_exit(spa, SCL_VDEV, FTAG);
+
+	IMPLY(ret != -1ULL,
+	    spa_feature_is_active(spa, SPA_FEATURE_DEVICE_REMOVAL));
+
+	return (ret);
+}

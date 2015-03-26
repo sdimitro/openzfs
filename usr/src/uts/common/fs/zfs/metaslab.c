@@ -203,7 +203,7 @@ boolean_t metaslab_bias_enabled = B_TRUE;
 /*
  * Enable/disable remapping of indirect DVAs to their concrete vdevs.
  */
-boolean_t zfs_remap_blkptr_enable = B_FALSE;
+boolean_t zfs_remap_blkptr_enable = B_TRUE;
 
 /*
  * Enable/disable segment-based metaslab selection.

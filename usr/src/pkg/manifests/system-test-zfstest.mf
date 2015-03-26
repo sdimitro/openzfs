@@ -140,6 +140,8 @@ dir path=opt/zfs-tests/tests/functional/zvol/zvol_ENOSPC
 dir path=opt/zfs-tests/tests/functional/zvol/zvol_cli
 dir path=opt/zfs-tests/tests/functional/zvol/zvol_misc
 dir path=opt/zfs-tests/tests/functional/zvol/zvol_swap
+dir path=opt/zfs-tests/tests/stress
+dir path=opt/zfs-tests/tests/stress/races
 file path=opt/zfs-tests/README mode=0444
 file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
 file path=opt/zfs-tests/bin/devname2devid mode=0555
@@ -166,6 +168,7 @@ file path=opt/zfs-tests/include/properties.shlib mode=0555
 file path=opt/zfs-tests/runfiles/delphix.run mode=0444
 file path=opt/zfs-tests/runfiles/omnios.run mode=0444
 file path=opt/zfs-tests/runfiles/openindiana.run mode=0444
+file path=opt/zfs-tests/runfiles/stress.run mode=0444
 file path=opt/zfs-tests/tests/functional/acl/acl.cfg mode=0555
 file path=opt/zfs-tests/tests/functional/acl/acl_common.kshlib mode=0555
 file path=opt/zfs-tests/tests/functional/acl/cifs/cifs.kshlib mode=0555
@@ -1917,6 +1920,7 @@ file path=opt/zfs-tests/tests/functional/removal/removal_all_vdev mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_check_space mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_multiple_indirection \
     mode=0555
+file path=opt/zfs-tests/tests/functional/removal/removal_remap mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_reservation mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_sanity mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_with_add mode=0555
@@ -1926,6 +1930,7 @@ file path=opt/zfs-tests/tests/functional/removal/removal_with_dedup mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_with_export mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_with_ganging \
     mode=0555
+file path=opt/zfs-tests/tests/functional/removal/removal_with_remap mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_with_remove mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_with_scrub mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_with_send mode=0555
@@ -2214,6 +2219,7 @@ file path=opt/zfs-tests/tests/functional/zvol/zvol_swap/zvol_swap_005_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/zvol/zvol_swap/zvol_swap_006_pos \
     mode=0555
+file path=opt/zfs-tests/tests/stress/races/remove_file_while_remap mode=0555
 license cr_Sun license=cr_Sun
 license lic_CDDL license=lic_CDDL
 depend fmri=system/file-system/zfs/tests type=require

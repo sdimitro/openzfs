@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #ifndef	_LIBZFS_CORE_H
@@ -38,6 +38,7 @@ extern "C" {
 int libzfs_core_init(void);
 void libzfs_core_fini(void);
 
+int lzc_remap(const char *fsname);
 int lzc_snapshot(nvlist_t *, nvlist_t *, nvlist_t **);
 int lzc_create(const char *, dmu_objset_type_t, nvlist_t *);
 int lzc_clone(const char *, const char *, nvlist_t *);

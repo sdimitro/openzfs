@@ -10,13 +10,13 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 # Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 include $(SRC)/Makefile.master
 
-SRCS = delphix.run openindiana.run omnios.run
+SRCS = delphix.run openindiana.run omnios.run stress.run
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
 RUNFILES = $(ROOTOPTPKG)/runfiles

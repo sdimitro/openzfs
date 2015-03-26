@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright 2012 Milan Jurik. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland.  All rights reserved.
@@ -103,6 +103,7 @@ static int zfs_do_release(int argc, char **argv);
 static int zfs_do_diff(int argc, char **argv);
 static int zfs_do_mooch(int argc, char **argv);
 static int zfs_do_bookmark(int argc, char **argv);
+static int zfs_do_remap(int argc, char **argv);
 
 /*
  * Enable a reasonable set of defaults for libumem debugging on DEBUG builds.
@@ -150,6 +151,7 @@ typedef enum {
 	HELP_RELEASE,
 	HELP_DIFF,
 	HELP_MOOCH,
+	HELP_REMAP,
 	HELP_BOOKMARK,
 } zfs_help_t;
 
@@ -205,6 +207,7 @@ static zfs_command_t command_table[] = {
 	{ "release",	zfs_do_release,		HELP_RELEASE		},
 	{ "diff",	zfs_do_diff,		HELP_DIFF		},
 	{ "mooch",	zfs_do_mooch,		HELP_MOOCH		},
+	{ "remap",	zfs_do_remap,		HELP_REMAP		},
 };
 
 #define	NCOMMAND	(sizeof (command_table) / sizeof (command_table[0]))
@@ -325,6 +328,8 @@ get_usage(zfs_help_t idx)
 		return (gettext("\tmooch -f <clone_file>=<origin_file> ... "
 		    "<clone_directory>\n"
 		    "\tmooch -d <clone_directory>\n"));
+	case HELP_REMAP:
+		return (gettext("\tremap <filesystem | volume>\n"));
 	case HELP_BOOKMARK:
 		return (gettext("\tbookmark <snapshot> <bookmark>\n"));
 	}
@@ -4042,6 +4047,7 @@ zfs_do_receive(int argc, char **argv)
 #define	ZFS_DELEG_PERM_RELEASE		"release"
 #define	ZFS_DELEG_PERM_DIFF		"diff"
 #define	ZFS_DELEG_PERM_BOOKMARK		"bookmark"
+#define	ZFS_DELEG_PERM_REMAP		"remap"
 
 #define	ZFS_NUM_DELEG_NOTES ZFS_DELEG_NOTE_NONE
 
@@ -4062,6 +4068,7 @@ static zfs_deleg_perm_tab_t zfs_deleg_perm_tbl[] = {
 	{ ZFS_DELEG_PERM_SHARE, ZFS_DELEG_NOTE_SHARE },
 	{ ZFS_DELEG_PERM_SNAPSHOT, ZFS_DELEG_NOTE_SNAPSHOT },
 	{ ZFS_DELEG_PERM_BOOKMARK, ZFS_DELEG_NOTE_BOOKMARK },
+	{ ZFS_DELEG_PERM_REMAP, ZFS_DELEG_NOTE_REMAP },
 
 	{ ZFS_DELEG_PERM_GROUPQUOTA, ZFS_DELEG_NOTE_GROUPQUOTA },
 	{ ZFS_DELEG_PERM_GROUPUSED, ZFS_DELEG_NOTE_GROUPUSED },
@@ -6742,7 +6749,7 @@ zfs_do_diff(int argc, char **argv)
 
 	if (argc < 1) {
 		(void) fprintf(stderr,
-		gettext("must provide at least one snapshot name\n"));
+		    gettext("must provide at least one snapshot name\n"));
 		usage(B_FALSE);
 	}
 
@@ -6781,6 +6788,22 @@ zfs_do_diff(int argc, char **argv)
 	zfs_close(zhp);
 
 	return (err != 0);
+}
+
+static int
+zfs_do_remap(int argc, char **argv)
+{
+	const char *fsname;
+	int err = 0;
+	if (argc != 2) {
+		(void) fprintf(stderr, gettext("wrong number of arguments\n"));
+		usage(B_FALSE);
+	}
+
+	fsname = argv[1];
+	err = zfs_remap_indirects(g_zfs, fsname);
+
+	return (err);
 }
 
 /*
@@ -6866,7 +6889,7 @@ zfs_do_mooch(int argc, char **argv)
 	/* check number of arguments */
 	if (argc != 1) {
 		(void) fprintf(stderr,
-		gettext("wrong number of arguments\n"));
+		    gettext("wrong number of arguments\n"));
 		usage(B_FALSE);
 	}
 

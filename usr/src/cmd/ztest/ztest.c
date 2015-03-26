@@ -337,6 +337,7 @@ ztest_func_t ztest_reguid;
 ztest_func_t ztest_spa_upgrade;
 ztest_func_t ztest_mooch_byteswap;
 ztest_func_t ztest_device_removal;
+ztest_func_t ztest_remap_blocks;
 
 uint64_t zopt_always = 0ULL * NANOSEC;		/* all the time */
 uint64_t zopt_incessant = 1ULL * NANOSEC / 10;	/* every 1/10 second */
@@ -380,6 +381,7 @@ ztest_info_t ztest_info[] = {
 	    &ztest_opts.zo_vdevtime				},
 	{ ztest_mooch_byteswap,			1,	&zopt_sometimes	},
 	{ ztest_device_removal,			1,	&zopt_sometimes	},
+	{ ztest_remap_blocks,			1,	&zopt_sometimes }
 };
 
 #define	ZTEST_FUNCS	(sizeof (ztest_info) / sizeof (ztest_info_t))
@@ -4902,6 +4904,17 @@ ztest_dsl_prop_get_set(ztest_ds_t *zd, uint64_t id)
 	for (int p = 0; p < sizeof (proplist) / sizeof (proplist[0]); p++)
 		(void) ztest_dsl_prop_set_uint64(zd->zd_name, proplist[p],
 		    ztest_random_dsl_prop(proplist[p]), (int)ztest_random(2));
+
+	(void) rw_unlock(&ztest_name_lock);
+}
+
+/* ARGSUSED */
+void
+ztest_remap_blocks(ztest_ds_t *zd, uint64_t id)
+{
+	(void) rw_rdlock(&ztest_name_lock);
+
+	VERIFY0(dmu_objset_remap_indirects(zd->zd_name));
 
 	(void) rw_unlock(&ztest_name_lock);
 }

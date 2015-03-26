@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
@@ -783,6 +783,7 @@ extern int zfs_mooch_byteswap(int, nvlist_t *);
 extern int zfs_get_inode(const char *, uint64_t *);
 
 extern int zfs_get_hole_count(const char *, uint64_t *, uint64_t *);
+extern int zfs_remap_indirects(libzfs_handle_t *hdl, const char *);
 
 #ifdef	__cplusplus
 }

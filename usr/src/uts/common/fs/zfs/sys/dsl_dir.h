@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  */
 
@@ -46,6 +46,7 @@ struct dsl_dataset;
 
 #define	DD_FIELD_FILESYSTEM_COUNT	"com.joyent:filesystem_count"
 #define	DD_FIELD_SNAPSHOT_COUNT		"com.joyent:snapshot_count"
+#define	DD_FIELD_LAST_REMAP_TXG		"com.delphix:last_remap_txg"
 
 typedef enum dd_used {
 	DD_USED_HEAD,
@@ -142,6 +143,7 @@ int dsl_dir_activate_fs_ss_limit(const char *);
 int dsl_fs_ss_limit_check(dsl_dir_t *, uint64_t, zfs_prop_t, dsl_dir_t *,
     cred_t *);
 void dsl_fs_ss_count_adjust(dsl_dir_t *, int64_t, const char *, dmu_tx_t *);
+int dsl_dir_update_last_remap_txg(dsl_dir_t *, uint64_t);
 int dsl_dir_rename(const char *oldname, const char *newname);
 int dsl_dir_transfer_possible(dsl_dir_t *sdd, dsl_dir_t *tdd,
     uint64_t fs_cnt, uint64_t ss_cnt, uint64_t space, cred_t *);

@@ -442,11 +442,12 @@ tests = ['refreserv_001_pos', 'refreserv_002_pos', 'refreserv_003_pos',
 [/opt/zfs-tests/tests/functional/removal]
 pre =
 tests = ['removal_sanity', 'removal_all_vdev', 'removal_check_space',
-    'removal_multiple_indirection', 'removal_reservation', 'removal_with_add',
-    'removal_with_create_fs', 'removal_with_dedup', 'removal_with_export',
-    'removal_with_ganging', 'removal_with_remove', 'removal_with_scrub',
-    'removal_with_send', 'removal_with_send_recv', 'removal_with_snapshot',
-    'removal_with_write', 'removal_with_zdb', 'remove_mirror', 'remove_raidz']
+    'removal_multiple_indirection', 'removal_remap', 'removal_reservation',
+    'removal_with_add', 'removal_with_create_fs', 'removal_with_dedup',
+    'removal_with_export', 'removal_with_ganging', 'removal_with_remap',
+    'removal_with_remove', 'removal_with_scrub', 'removal_with_send',
+    'removal_with_send_recv', 'removal_with_snapshot', 'removal_with_write',
+    'removal_with_zdb', 'remove_mirror', 'remove_raidz']
 
 [/opt/zfs-tests/tests/functional/rename_dirs]
 tests = ['rename_dirs_001_pos']

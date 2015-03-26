@@ -810,6 +810,7 @@ extern boolean_t spa_has_pending_synctask(spa_t *spa);
 extern void zfs_blkptr_verify(spa_t *spa, const blkptr_t *bp);
 extern boolean_t spa_remap_blkptr(spa_t *spa, blkptr_t *bp);
 extern int spa_maxblocksize(spa_t *spa);
+extern uint64_t spa_get_last_removal_txg(spa_t *spa);
 
 extern int spa_mode(spa_t *spa);
 extern uint64_t strtonum(const char *str, char **nptr);

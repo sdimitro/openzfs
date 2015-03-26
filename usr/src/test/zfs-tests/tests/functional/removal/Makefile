@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
 #
 
 include $(SRC)/Makefile.master
@@ -22,6 +22,7 @@ PROGS = cleanup \
         removal_all_vdev \
         removal_check_space \
         removal_multiple_indirection \
+        removal_remap \
         removal_reservation \
         removal_sanity \
         removal_with_add \
@@ -29,6 +30,7 @@ PROGS = cleanup \
         removal_with_dedup \
         removal_with_export \
         removal_with_ganging \
+        removal_with_remap \
         removal_with_remove \
         removal_with_scrub \
         removal_with_send \

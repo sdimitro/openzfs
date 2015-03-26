@@ -20,7 +20,7 @@
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2011 Nexenta Systems, Inc. All rights reserved.
-# Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2011, 2015 by Delphix. All rights reserved.
 #
 # MAPFILE HEADER START
 #
@@ -136,6 +136,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_receive;
 	zfs_refresh_properties;
 	zfs_release;
+	zfs_remap_indirects;
 	zfs_rename;
 	zfs_rollback;
 	zfs_save_arguments;

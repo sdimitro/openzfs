@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright 2013 DEY Storage Systems, Inc.
@@ -285,6 +285,7 @@ void dmu_objset_byteswap(void *buf, size_t size);
 int dsl_dataset_rename_snapshot(const char *fsname,
     const char *oldsnapname, const char *newsnapname, boolean_t recursive);
 int dsl_dataset_activate_mooch_byteswap(objset_t *os);
+int dmu_objset_remap_indirects(const char *fsname);
 
 typedef struct dmu_buf {
 	uint64_t db_object;		/* object that this buffer is part of */
@@ -406,6 +407,8 @@ void dmu_object_set_compress(objset_t *os, uint64_t object, uint8_t compress,
     dmu_tx_t *tx);
 
 void dmu_object_refresh_mooch_obj(objset_t *os, uint64_t object);
+
+int dmu_object_remap_indirects(objset_t *os, uint64_t object, uint64_t txg);
 
 void
 dmu_write_embedded(objset_t *os, uint64_t object, uint64_t offset,
@@ -562,9 +565,11 @@ boolean_t dmu_buf_freeable(dmu_buf_t *);
 #define	DMU_OBJECT_END	(-1ULL)
 
 dmu_tx_t *dmu_tx_create(objset_t *os);
-void dmu_tx_hold_write(dmu_tx_t *tx, uint64_t object, uint64_t off, int len);
+void dmu_tx_hold_write(dmu_tx_t *tx, uint64_t object, uint64_t off,
+    uint64_t len);
 void dmu_tx_hold_free(dmu_tx_t *tx, uint64_t object, uint64_t off,
     uint64_t len);
+void dmu_tx_hold_remap_l1indirect(dmu_tx_t *tx, uint64_t object, uint64_t off);
 void dmu_tx_hold_netfree(dmu_tx_t *tx);
 void dmu_tx_hold_zap(dmu_tx_t *tx, uint64_t object, int add, const char *name);
 void dmu_tx_hold_bonus(dmu_tx_t *tx, uint64_t object);

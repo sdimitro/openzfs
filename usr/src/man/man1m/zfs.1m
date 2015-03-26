@@ -22,7 +22,7 @@
 .\"
 .\" Copyright (c) 2009 Sun Microsystems, Inc. All Rights Reserved.
 .\" Copyright 2011 Joshua M. Clulow <josh@sysmgr.org>
-.\" Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+.\" Copyright (c) 2011, 2015 by Delphix. All rights reserved.
 .\" Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
 .\" Copyright (c) 2014, Joyent, Inc. All rights reserved.
 .\" Copyright (c) 2014 by Adam Stevko. All rights reserved.
@@ -103,6 +103,11 @@ zfs \- configures ZFS file systems
 .nf
 \fBzfs\fR \fBlist\fR [\fB-r\fR|\fB-d\fR \fIdepth\fR][\fB-Hp\fR][\fB-o\fR \fIproperty\fR[,\fIproperty\fR]...] [\fB-t\fR \fItype\fR[,\fItype\fR]...]
      [\fB-s\fR \fIproperty\fR]... [\fB-S\fR \fIproperty\fR]... [\fIfilesystem\fR|\fIvolume\fR|\fIsnapshot\fR]...
+.fi
+
+.LP
+.nf
+\fBzfs\fR \fBremap\fR \fIfilesystem\fR|\fIvolume\fR
 .fi
 
 .LP
@@ -2562,6 +2567,20 @@ properties can be inherited.
 Recursively inherit the given property for all children.
 .RE
 
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBzfs remap\fR \fIfilesystem\FR|\fIvolume\fR\fR
+.ad
+.sp .6
+.RS 4n
+Remap the indirect blocks in the given fileystem or volume so that they no
+longer reference blocks on previously removed vdevs and we can eventually
+shrink the size of the indirect mapping objects for the previously removed
+vdevs. Note that remapping all blocks might not be possible and that
+references from snapshots will still exist and cannot be remapped.
 .RE
 
 .sp

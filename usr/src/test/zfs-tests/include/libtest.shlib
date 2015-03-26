@@ -25,7 +25,7 @@
 #
 
 #
-# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 #
 
 . ${STF_TOOLS}/contrib/include/logapi.shlib
@@ -2645,4 +2645,12 @@ function vdevs_in_pool
 	$RM -f $tmpfile
 
 	return 0;
+}
+
+#
+# Prints the current time in seconds since UNIX Epoch.
+#
+function current_epoch
+{
+	printf '%(%s)T'
 }

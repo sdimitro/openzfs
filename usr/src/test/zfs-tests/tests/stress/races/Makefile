@@ -10,11 +10,30 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
+include $(SRC)/Makefile.master
 
-SUBDIRS = races
+ROOTOPTPKG = $(ROOT)/opt/zfs-tests
+TESTDIR = $(ROOTOPTPKG)/tests/stress/races
 
-include $(SRC)/test/Makefile.com
+PROGS =	remove_file_while_remap
+
+CMDS = $(PROGS:%=$(TESTDIR)/%)
+$(CMDS) := FILEMODE = 0555
+
+all lint clean clobber:
+
+install: $(CMDS)
+
+$(CMDS): $(TESTDIR)
+
+$(TESTDIR):
+	$(INS.dir)
+
+$(TESTDIR)/%: %.ksh
+	$(INS.rename)
+
+$(TESTDIR)/%: %
+	$(INS.file)

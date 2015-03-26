@@ -10,11 +10,14 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
+[DEFAULT]
+quiet = False
+user = root
+timeout = 1800
+outputdir = /var/tmp/test_results
 
-SUBDIRS = races
-
-include $(SRC)/test/Makefile.com
+[/opt/zfs-tests/tests/stress/races]
+tests = ['remove_file_while_remap']

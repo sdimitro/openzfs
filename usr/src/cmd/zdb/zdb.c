@@ -2277,8 +2277,7 @@ dump_label(const char *dev)
 	(void) close(fd);
 }
 
-static uint64_t num_mooch_byteswap;
-static uint64_t num_large_blocks;
+static uint64_t dataset_feature_count[SPA_FEATURES];
 
 /*ARGSUSED*/
 static int
@@ -2292,10 +2291,15 @@ dump_one_dir(const char *dsname, void *arg)
 		(void) printf("Could not open %s, error %d\n", dsname, error);
 		return (0);
 	}
-	if (dmu_objset_ds(os)->ds_mooch_byteswap)
-		num_mooch_byteswap++;
-	if (dmu_objset_ds(os)->ds_large_blocks)
-		num_large_blocks++;
+
+	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
+		if (!dmu_objset_ds(os)->ds_feature_inuse[f])
+			continue;
+		ASSERT(spa_feature_table[f].fi_flags &
+		    ZFEATURE_FLAG_PER_DATASET);
+		dataset_feature_count[f]++;
+	}
+
 	dump_dir(os);
 	dmu_objset_disown(os, FTAG);
 	fuid_table_destroy();
@@ -3297,7 +3301,6 @@ dump_zpool(spa_t *spa)
 		dump_metaslab_groups(spa);
 
 	if (dump_opt['d'] || dump_opt['i']) {
-		uint64_t refcount;
 		dump_dir(dp->dp_meta_objset);
 		if (dump_opt['d'] >= 3) {
 			dump_full_bpobj(&spa->spa_deferred_bpobj,
@@ -3319,23 +3322,29 @@ dump_zpool(spa_t *spa)
 		(void) dmu_objset_find(spa_name(spa), dump_one_dir,
 		    NULL, DS_FIND_SNAPSHOTS | DS_FIND_CHILDREN);
 
-		(void) feature_get_refcount(spa,
-		    &spa_feature_table[SPA_FEATURE_MOOCH_BYTESWAP], &refcount);
-		ASSERT3U(num_mooch_byteswap, ==, refcount);
-		(void) printf("Verified mooch_byteswap feature count "
-		    "is correct (%llu)\n", (u_longlong_t)refcount);
+		for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
+			uint64_t refcount;
 
-		(void) feature_get_refcount(spa,
-		    &spa_feature_table[SPA_FEATURE_LARGE_BLOCKS], &refcount);
-		if (num_large_blocks != refcount) {
-			(void) printf("large_blocks feature refcount mismatch: "
-			    "expected %lld != actual %lld\n",
-			    (longlong_t)num_large_blocks,
-			    (longlong_t)refcount);
-			rc = 2;
-		} else {
-			(void) printf("Verified large_blocks feature refcount "
-			    "is correct (%llu)\n", (longlong_t)refcount);
+			if (!(spa_feature_table[f].fi_flags &
+			    ZFEATURE_FLAG_PER_DATASET)) {
+				ASSERT0(dataset_feature_count[f]);
+				continue;
+			}
+			(void) feature_get_refcount(spa,
+			    &spa_feature_table[f], &refcount);
+			if (dataset_feature_count[f] != refcount) {
+				(void) printf("%s feature refcount mismatch: "
+				    "%lld datasets != %lld refcount\n",
+				    spa_feature_table[f].fi_uname,
+				    (longlong_t)dataset_feature_count[f],
+				    (longlong_t)refcount);
+				rc = 2;
+			} else {
+				(void) printf("Verified %s feature refcount "
+				    "of %llu is correct\n",
+				    spa_feature_table[f].fi_uname,
+				    (longlong_t)refcount);
+			}
 		}
 	}
 	if (rc == 0 && (dump_opt['b'] || dump_opt['c']))

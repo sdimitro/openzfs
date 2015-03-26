@@ -1059,7 +1059,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 	}
 #endif
 
-	if (large_block_ok && to_ds->ds_large_blocks)
+	if (large_block_ok && to_ds->ds_feature_inuse[SPA_FEATURE_LARGE_BLOCKS])
 		featureflags |= DMU_BACKUP_FEATURE_LARGE_BLOCKS;
 	if (embedok &&
 	    spa_feature_is_active(dp->dp_spa, SPA_FEATURE_EMBEDDED_DATA)) {
@@ -1073,7 +1073,8 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, dsl_dataset_t *to_ds,
 	 * we can not send mooch records, because the receiver won't have
 	 * the origin to mooch from.
 	 */
-	if (embedok && to_ds->ds_mooch_byteswap && ancestor_zb != NULL) {
+	if (embedok && to_ds->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP] &&
+	    ancestor_zb != NULL) {
 		featureflags |= DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP;
 	}
 
@@ -2084,16 +2085,8 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
 
 	if ((DMU_GET_FEATUREFLAGS(drrb->drr_versioninfo) &
 	    DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP) &&
-	    !newds->ds_mooch_byteswap) {
-		dsl_dataset_activate_mooch_byteswap_sync_impl(dsobj, tx);
-		newds->ds_mooch_byteswap = B_TRUE;
-	}
-
-	if ((DMU_GET_FEATUREFLAGS(drrb->drr_versioninfo) &
-	    DMU_BACKUP_FEATURE_LARGE_BLOCKS) &&
-	    !newds->ds_large_blocks) {
-		dsl_dataset_activate_large_blocks_sync_impl(dsobj, tx);
-		newds->ds_large_blocks = B_TRUE;
+	    !newds->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]) {
+		dsl_dataset_activate_mooch_byteswap_sync(newds, tx);
 	}
 
 	dmu_buf_will_dirty(newds->ds_dbuf, tx);

@@ -585,7 +585,8 @@ dbuf_read_mooch(dmu_buf_impl_t *db, uint64_t refd_obj, uint32_t flags,
 	ASSERT(!dbuf_is_metadata(db));
 	ASSERT(spa_feature_is_active(dmu_objset_spa(db->db_objset),
 	    SPA_FEATURE_MOOCH_BYTESWAP));
-	ASSERT(db->db_objset->os_dsl_dataset->ds_mooch_byteswap);
+	ASSERT(db->db_objset->os_dsl_dataset->
+	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 
 	db->db_state = DB_READ;
 	mutex_exit(&db->db_mtx);
@@ -1593,7 +1594,8 @@ dmu_buf_fill_done(dmu_buf_t *dbuf, dmu_tx_t *tx)
 
 		ASSERT(spa_feature_is_active(dmu_objset_spa(db->db_objset),
 		    SPA_FEATURE_MOOCH_BYTESWAP));
-		ASSERT(db->db_objset->os_dsl_dataset->ds_mooch_byteswap);
+		ASSERT(db->db_objset->os_dsl_dataset->
+		    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 
 		error = dmu_objset_mooch_origin(db->db_objset, &origin_objset);
 		if (error == 0) {
@@ -1643,7 +1645,8 @@ dmu_buf_write_embedded(dmu_buf_t *dbuf, void *data,
 	} else if (etype == BP_EMBEDDED_TYPE_MOOCH_BYTESWAP) {
 		ASSERT(spa_feature_is_active(dmu_objset_spa(db->db_objset),
 		    SPA_FEATURE_MOOCH_BYTESWAP));
-		ASSERT(db->db_objset->os_dsl_dataset->ds_mooch_byteswap);
+		ASSERT(db->db_objset->os_dsl_dataset->
+		    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 	}
 
 	DB_DNODE_ENTER(db);

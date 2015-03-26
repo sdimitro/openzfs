@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  */
@@ -37,6 +37,7 @@
 #include <sys/zfs_context.h>
 #include <sys/dsl_deadlist.h>
 #include <sys/refcount.h>
+#include <zfeature_common.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -162,8 +163,6 @@ typedef struct dsl_dataset {
 	/* only used in syncing context, only valid for non-snapshots: */
 	struct dsl_dataset *ds_prev;
 	uint64_t ds_bookmarks;  /* DMU_OTN_ZAP_METADATA */
-	boolean_t ds_large_blocks;
-	boolean_t ds_need_large_blocks;
 
 	/* has internal locking: */
 	dsl_deadlist_t ds_deadlist;
@@ -198,7 +197,6 @@ typedef struct dsl_dataset {
 
 	uint64_t ds_reserved;	/* cached refreservation */
 	uint64_t ds_quota;	/* cached refquota */
-	boolean_t ds_mooch_byteswap; /* does field exist in zap obj? */
 
 	kmutex_t ds_sendstream_lock;
 	list_t ds_sendstreams;
@@ -210,6 +208,18 @@ typedef struct dsl_dataset {
 	uint64_t ds_resume_object[TXG_SIZE];
 	uint64_t ds_resume_offset[TXG_SIZE];
 	uint64_t ds_resume_bytes[TXG_SIZE];
+
+	/*
+	 * For ZFEATURE_FLAG_PER_DATASET features, set if this dataset
+	 * uses this feature.
+	 */
+	uint8_t ds_feature_inuse[SPA_FEATURES];
+
+	/*
+	 * Set if we need to activate the feature on this dataset this txg
+	 * (used only in syncing context).
+	 */
+	uint8_t ds_feature_activation_needed[SPA_FEATURES];
 
 	/* Protected by ds_lock; keep at end of struct for better locality */
 	char ds_snapname[MAXNAMELEN];
@@ -283,8 +293,6 @@ int dsl_dataset_space_wouldfree(dsl_dataset_t *firstsnap, dsl_dataset_t *last,
     uint64_t *usedp, uint64_t *compp, uint64_t *uncompp);
 boolean_t dsl_dataset_is_dirty(dsl_dataset_t *ds);
 boolean_t dsl_dataset_is_clone(dsl_dataset_t *ds, dsl_dataset_t *origin_snap);
-int dsl_dataset_activate_large_blocks(const char *dsname);
-void dsl_dataset_activate_large_blocks_sync_impl(uint64_t dsobj, dmu_tx_t *tx);
 
 int dsl_dsobj_to_dsname(char *pname, uint64_t obj, char *buf);
 
@@ -327,8 +335,7 @@ boolean_t dsl_dataset_has_resume_receive_state(dsl_dataset_t *ds);
 int dsl_dataset_rollback(const char *fsname, void *owner, nvlist_t *result);
 
 int dsl_dataset_activate_mooch_byteswap(objset_t *os);
-void dsl_dataset_activate_mooch_byteswap_sync_impl(uint64_t dsobj,
-    dmu_tx_t *tx);
+void dsl_dataset_activate_mooch_byteswap_sync(void *arg, dmu_tx_t *tx);
 
 #ifdef ZFS_DEBUG
 #define	dprintf_ds(ds, fmt, ...) do { \

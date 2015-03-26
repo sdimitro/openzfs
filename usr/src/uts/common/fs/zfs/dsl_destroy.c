@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2013 by Joyent, Inc. All rights reserved.
  */
@@ -264,14 +264,13 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 
 	obj = ds->ds_object;
 
-	if (ds->ds_mooch_byteswap) {
-		ASSERT0(zap_contains(mos, obj, DS_FIELD_MOOCH_BYTESWAP));
-		spa_feature_decr(dp->dp_spa, SPA_FEATURE_MOOCH_BYTESWAP, tx);
-	}
-
-	if (ds->ds_large_blocks) {
-		ASSERT0(zap_contains(mos, obj, DS_FIELD_LARGE_BLOCKS));
-		spa_feature_decr(dp->dp_spa, SPA_FEATURE_LARGE_BLOCKS, tx);
+	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
+		if (!ds->ds_feature_inuse[f])
+			continue;
+		VERIFY(spa_feature_table[f].fi_flags &
+		    ZFEATURE_FLAG_PER_DATASET);
+		ASSERT0(zap_contains(mos, obj, spa_feature_table[f].fi_guid));
+		spa_feature_decr(dp->dp_spa, f, tx);
 	}
 
 	if (ds->ds_phys->ds_prev_snap_obj != 0) {
@@ -730,14 +729,18 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 		ASSERT0(ds->ds_reserved);
 	}
 
-	if (ds->ds_mooch_byteswap)
-		spa_feature_decr(dp->dp_spa, SPA_FEATURE_MOOCH_BYTESWAP, tx);
-	if (ds->ds_large_blocks)
-		spa_feature_decr(dp->dp_spa, SPA_FEATURE_LARGE_BLOCKS, tx);
+	obj = ds->ds_object;
+
+	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
+		if (!ds->ds_feature_inuse[f])
+			continue;
+		VERIFY(spa_feature_table[f].fi_flags &
+		    ZFEATURE_FLAG_PER_DATASET);
+		ASSERT0(zap_contains(mos, obj, spa_feature_table[f].fi_guid));
+		spa_feature_decr(dp->dp_spa, f, tx);
+	}
 
 	dsl_scan_ds_destroyed(ds, tx);
-
-	obj = ds->ds_object;
 
 	if (ds->ds_phys->ds_prev_snap_obj != 0) {
 		/* This is a clone */

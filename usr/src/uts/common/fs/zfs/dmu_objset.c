@@ -522,7 +522,8 @@ dmu_objset_mooch_origin_impl(objset_t *clone)
 	int err;
 
 	ASSERT(dsl_pool_config_held(dmu_objset_pool(clone)));
-	ASSERT(clone->os_dsl_dataset->ds_mooch_byteswap);
+	ASSERT(clone->os_dsl_dataset->
+	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 
 	if (clone->os_origin_mooch_objset != NULL)
 		return (0);
@@ -537,7 +538,7 @@ dmu_objset_mooch_origin_impl(objset_t *clone)
 		dsl_dataset_rele(origin_ds, FTAG);
 		return (err);
 	}
-	if (origin_ds->ds_mooch_byteswap) {
+	if (origin_ds->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]) {
 		err = dmu_objset_mooch_origin_impl(origin);
 		origin_mooch_objset = origin->os_origin_mooch_objset;
 	} else {
@@ -572,7 +573,8 @@ dmu_objset_mooch_origin(objset_t *clone, objset_t **originp)
 {
 	int err = 0;
 
-	ASSERT(clone->os_dsl_dataset->ds_mooch_byteswap);
+	ASSERT(clone->os_dsl_dataset->
+	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 
 	/*
 	 * os_origin_mooch_objset is never cleared, so if it's already set,

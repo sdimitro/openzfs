@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -408,7 +408,8 @@ void
 dmu_object_refresh_mooch_obj(objset_t *os, uint64_t object)
 {
 	dnode_t *dn;
-	ASSERT(os->os_dsl_dataset->ds_mooch_byteswap);
+	ASSERT(os->os_dsl_dataset->
+	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 	VERIFY0(dnode_hold(os, object, FTAG, &dn));
 	ASSERT0(dn->dn_origin_obj_refd);
 	VERIFY0(dmu_objset_mooch_obj_refd(os, object, &dn->dn_origin_obj_refd));
@@ -453,7 +454,7 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_id_flags = 0;
 
 	if (os->os_dsl_dataset != NULL &&
-	    os->os_dsl_dataset->ds_mooch_byteswap) {
+	    os->os_dsl_dataset->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]) {
 		int error = dmu_objset_mooch_obj_refd(os,
 		    object, &dn->dn_origin_obj_refd);
 		ASSERT(error == 0 || error == ENOENT);

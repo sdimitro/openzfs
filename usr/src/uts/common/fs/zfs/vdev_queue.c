@@ -175,12 +175,12 @@ int zfs_vdev_write_gap_limit = 4 << 10;
  * allocations a specific top-level vdev should handle. Once the queue depth
  * reaches zfs_vdev_queue_depth_pct * zfs_vdev_async_write_max_active / 100
  * then allocator will stop allocating blocks on that top-level device.
- * The default kernel setting is 10000% which will yield 1000 allocations per
+ * The default kernel setting is 1000% which will yield 100 allocations per
  * device. For userland testing, the default setting is 300% which equates
  * to 30 allocations per device.
  */
 #ifdef _KERNEL
-int zfs_vdev_queue_depth_pct = 10000;
+int zfs_vdev_queue_depth_pct = 1000;
 #else
 int zfs_vdev_queue_depth_pct = 300;
 #endif

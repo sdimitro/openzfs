@@ -51,7 +51,7 @@ const char *zio_type_name[ZIO_TYPES] = {
 	"zio_ioctl"
 };
 
-boolean_t zio_dva_throttle_enabled = B_FALSE;
+boolean_t zio_dva_throttle_enabled = B_TRUE;
 
 /*
  * ==========================================================================

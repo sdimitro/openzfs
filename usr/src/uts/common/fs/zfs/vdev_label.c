@@ -290,19 +290,19 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		    space_map_object(vd->vdev_dtl_sm));
 	}
 
-	if (vd->vdev_indirect_state.vis_mapping_object != 0) {
+	if (vd->vdev_im_object != 0) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
-		    vd->vdev_indirect_state.vis_mapping_object);
+		    vd->vdev_im_object);
 	}
 
-	if (vd->vdev_indirect_state.vis_births_object != 0) {
+	if (vd->vdev_ib_object != 0) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
-		    vd->vdev_indirect_state.vis_births_object);
+		    vd->vdev_ib_object);
 	}
 
-	if (vd->vdev_indirect_state.vis_prev_indirect_vdev != -1) {
+	if (vd->vdev_prev_indirect_vdev != -1) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
-		    vd->vdev_indirect_state.vis_prev_indirect_vdev);
+		    vd->vdev_prev_indirect_vdev);
 	}
 
 	if (vd->vdev_crtxg)
@@ -330,9 +330,9 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 			    sizeof (prs) / sizeof (uint64_t));
 		}
 
-		if (vd->vdev_indirect_state.vis_mapping_count > 0) {
+		if (vd->vdev_im_count > 0) {
 			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_SIZE,
-			    vd->vdev_indirect_state.vis_mapping_count *
+			    vd->vdev_im_count *
 			    sizeof (vdev_indirect_mapping_entry_phys_t));
 		} else if (vd->vdev_mg != NULL &&
 		    vd->vdev_mg->mg_fragmentation != ZFS_FRAG_INVALID) {

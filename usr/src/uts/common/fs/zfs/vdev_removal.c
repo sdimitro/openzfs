@@ -202,7 +202,6 @@ static void
 vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 {
 	vdev_t *vd = arg;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 	spa_t *spa = vd->vdev_spa;
 	objset_t *mos = spa->spa_dsl_pool->dp_meta_objset;
 	spa_vdev_removal_t *svr = spa_vdev_removal_create(vd);
@@ -212,16 +211,14 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 
 	spa_feature_incr(spa, SPA_FEATURE_DEVICE_REMOVAL, tx);
 
-	ASSERT0(vis->vis_mapping_count);
-	ASSERT0(vis->vis_mapping_object);
-	ASSERT3P(vis->vis_mapping, ==, NULL);
-	vis->vis_mapping_object = dmu_object_alloc(
-	    spa->spa_meta_objset,
+	ASSERT0(vd->vdev_im_count);
+	ASSERT0(vd->vdev_im_object);
+	ASSERT3P(vd->vdev_indirect_mapping, ==, NULL);
+	vd->vdev_im_object = dmu_object_alloc(spa->spa_meta_objset,
 	    DMU_OTN_UINT64_METADATA, SPA_OLD_MAXBLOCKSIZE,
 	    DMU_OTN_UINT64_METADATA, sizeof (vdev_indirect_mapping_phys_t),
 	    tx);
-	vis->vis_births_object = dmu_object_alloc(
-	    spa->spa_meta_objset,
+	vd->vdev_ib_object = dmu_object_alloc(spa->spa_meta_objset,
 	    DMU_OTN_UINT64_METADATA, SPA_OLD_MAXBLOCKSIZE,
 	    DMU_OTN_UINT64_METADATA, sizeof (vdev_indirect_birth_phys_t),
 	    tx);
@@ -300,7 +297,7 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 	zfs_dbgmsg("starting removal thread for vdev %lu (%p) in %lu "
 	    "im_obj=%lu", vd->vdev_id, vd,
 	    dmu_tx_get_txg(tx),
-	    vis->vis_mapping_object);
+	    vd->vdev_im_object);
 
 	/*
 	 * Setting spa_vdev_removal causes subsequent frees to call
@@ -363,8 +360,7 @@ spa_remove_init(spa_t *spa)
 
 		dmu_buf_t *bonus_buf;
 		VERIFY0(dmu_bonus_hold(spa->spa_meta_objset,
-		    svr->svr_vdev->vdev_indirect_state.vis_mapping_object,
-		    FTAG, &bonus_buf));
+		    svr->svr_vdev->vdev_im_object, FTAG, &bonus_buf));
 		vdev_indirect_mapping_phys_t *vimp = bonus_buf->db_data;
 		svr->svr_max_synced_offset = vimp->vim_max_offset;
 		dmu_buf_rele(bonus_buf, FTAG);
@@ -381,8 +377,7 @@ spa_remove_init(spa_t *spa)
 		vdev_t *vd = vdev_lookup_top(spa, indirect_vdev_id);
 		ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
 		vdev_initialize_mapping(vd);
-		indirect_vdev_id =
-		    vd->vdev_indirect_state.vis_prev_indirect_vdev;
+		indirect_vdev_id = vd->vdev_prev_indirect_vdev;
 	}
 	spa_config_exit(spa, SCL_STATE, FTAG);
 	return (0);
@@ -403,7 +398,7 @@ spa_restart_removal(spa_t *spa)
 	ASSERT3P(svr->svr_thread, ==, NULL);
 
 	zfs_dbgmsg("restarting removal of %llu at count=%llu",
-	    vd->vdev_id, vd->vdev_indirect_state.vis_mapping_count);
+	    vd->vdev_id, vd->vdev_im_count);
 	svr->svr_thread = thread_create(NULL, 0, spa_vdev_remove_thread, vd,
 	    0, &p0, TS_RUN, minclsyspri);
 }
@@ -421,7 +416,7 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 	uint64_t max_offset_yet = 0;
 
-	ASSERT(vd->vdev_indirect_state.vis_mapping_object != 0);
+	ASSERT(vd->vdev_im_object != 0);
 	ASSERT3P(vd, ==, svr->svr_vdev);
 	ASSERT3U(spa_syncing_txg(spa), ==, txg);
 
@@ -585,7 +580,7 @@ spa_finish_removal(spa_t *spa, dsl_scan_state_t state, dmu_tx_t *tx)
 	ASSERT(state == DSS_FINISHED || state == DSS_CANCELED);
 
 	if (state == DSS_FINISHED) {
-		svr->svr_vdev->vdev_indirect_state.vis_prev_indirect_vdev =
+		svr->svr_vdev->vdev_prev_indirect_vdev =
 		    spa->spa_removing_phys.sr_prev_indirect_vdev;
 		spa->spa_removing_phys.sr_prev_indirect_vdev =
 		    svr->svr_vdev->vdev_id;
@@ -636,8 +631,7 @@ write_indirect_mapping_entries(vdev_t *vd,
 			kmem_free(entry, sizeof (*entry));
 		}
 		int entry_size = sizeof (vdev_indirect_mapping_entry_phys_t);
-		dmu_write(spa->spa_meta_objset,
-		    vd->vdev_indirect_state.vis_mapping_object,
+		dmu_write(spa->spa_meta_objset, vd->vdev_im_object,
 		    entry_size * vimp->vim_count, entry_size * i, mapbuf, tx);
 		vimp->vim_count += i;
 	}
@@ -660,8 +654,7 @@ write_indirect_birth_entry(vdev_t *vd, uint64_t max_offset, dmu_tx_t *tx)
 	uint64_t txg = dmu_tx_get_txg(tx);
 	dmu_buf_t *bonus;
 
-	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset,
-	    vd->vdev_indirect_state.vis_births_object,
+	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset, vd->vdev_ib_object,
 	    FTAG, &bonus));
 	dmu_buf_will_dirty(bonus, tx);
 
@@ -670,8 +663,7 @@ write_indirect_birth_entry(vdev_t *vd, uint64_t max_offset, dmu_tx_t *tx)
 	vibe.vibe_offset = max_offset;
 	vibe.vibe_phys_birth_txg = txg;
 
-	dmu_write(spa->spa_meta_objset,
-	    vd->vdev_indirect_state.vis_births_object,
+	dmu_write(spa->spa_meta_objset, vd->vdev_ib_object,
 	    sizeof (vibe) * vib->vib_count, sizeof (vibe), &vibe, tx);
 	vib->vib_count++;
 
@@ -689,15 +681,14 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 	spa_vdev_removal_t *svr = arg;
 	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
 	vdev_t *vd = svr->svr_vdev;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 	uint64_t txg = dmu_tx_get_txg(tx);
 	dmu_buf_t *bonus_buf;
 
-	ASSERT(vd->vdev_indirect_state.vis_mapping_object != 0);
+	ASSERT(vd->vdev_im_object != 0);
 	ASSERT3U(txg, ==, spa_syncing_txg(spa));
 
-	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset, vis->vis_mapping_object,
-	    FTAG, &bonus_buf));
+	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset,
+	    vd->vdev_im_object, FTAG, &bonus_buf));
 	dmu_buf_will_dirty(bonus_buf, tx);
 	vdev_indirect_mapping_phys_t *vimp = bonus_buf->db_data;
 
@@ -705,7 +696,7 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 	 * Sync out new mapping entries.
 	 */
 	uint64_t old_count = vimp->vim_count;
-	ASSERT3U(old_count, ==, vd->vdev_indirect_state.vis_mapping_count);
+	ASSERT3U(old_count, ==, vd->vdev_im_count);
 	write_indirect_mapping_entries(vd, vimp, tx);
 
 	/*
@@ -714,12 +705,14 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 	 */
 	vdev_indirect_mapping_entry_phys_t *dmp;
 	uint64_t count;
-	vdev_read_mapping(vd->vdev_spa, vis->vis_mapping_object, &dmp, &count);
+	vdev_read_mapping(vd->vdev_spa, vd->vdev_im_object,
+	    &dmp, &count);
 	ASSERT3U(count, ==, vimp->vim_count);
 	mutex_enter(&svr->svr_lock);
-	vdev_indirect_mapping_entry_phys_t *old_map = vis->vis_mapping;
-	vis->vis_mapping_count = count;
-	vis->vis_mapping = dmp;
+	vdev_indirect_mapping_entry_phys_t *old_map =
+	    vd->vdev_indirect_mapping;
+	vd->vdev_im_count = count;
+	vd->vdev_indirect_mapping = dmp;
 	ASSERT3U(svr->svr_max_synced_offset, <=, vimp->vim_max_offset);
 	svr->svr_max_synced_offset = vimp->vim_max_offset;
 	mutex_exit(&svr->svr_lock);
@@ -877,8 +870,6 @@ vdev_remove_complete(vdev_t *vd)
 	vdev_t *ivd;
 	dmu_tx_t *tx;
 	uint64_t txg;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
-	vdev_indirect_state_t *ivis;
 
 	/*
 	 * Wait for any deferred frees to be synced before we call
@@ -888,8 +879,7 @@ vdev_remove_complete(vdev_t *vd)
 
 	vdev_indirect_birth_entry_phys_t *vibep;
 	uint64_t ib_count;
-	vdev_read_births(spa, vd->vdev_indirect_state.vis_births_object,
-	    &vibep, &ib_count);
+	vdev_read_births(spa, vd->vdev_ib_object, &vibep, &ib_count);
 
 	txg = spa_vdev_enter(spa);
 	zfs_dbgmsg("finishing device removal for vdev %lu in %llu",
@@ -907,22 +897,21 @@ vdev_remove_complete(vdev_t *vd)
 	ASSERT0(vd->vdev_stat.vs_dspace);
 
 	ivd = vdev_add_parent(vd, &vdev_indirect_ops);
-	ivis = &ivd->vdev_indirect_state;
 	vdev_remove_child(ivd, vd);
 	vdev_compact_children(ivd);
-	ivis->vis_mapping_object = vis->vis_mapping_object;
-	ivis->vis_mapping_count = vis->vis_mapping_count;
-	ivis->vis_mapping = vis->vis_mapping;
-	vis->vis_mapping_object = 0;
-	vis->vis_mapping_count = 0;
-	vis->vis_mapping = NULL;
+	ivd->vdev_im_object = vd->vdev_im_object;
+	ivd->vdev_im_count = vd->vdev_im_count;
+	ivd->vdev_indirect_mapping = vd->vdev_indirect_mapping;
+	vd->vdev_im_object = 0;
+	vd->vdev_im_count = 0;
+	vd->vdev_indirect_mapping = NULL;
 
-	ivis->vis_births_object = vis->vis_births_object;
-	ivis->vis_births = vis->vis_births;
-	ivis->vis_births_count = vis->vis_births_count;
-	vis->vis_births_object = 0;
-	ASSERT0(vis->vis_births_count);
-	ASSERT3P(vis->vis_births, ==, NULL);
+	ivd->vdev_ib_object = vd->vdev_ib_object;
+	ivd->vdev_indirect_births = vibep;
+	ivd->vdev_ib_count = ib_count;
+	vd->vdev_ib_object = NULL;
+	ASSERT0(vd->vdev_ib_count);
+	ASSERT3P(vd->vdev_indirect_births, ==, NULL);
 
 	svr->svr_vdev = ivd;
 
@@ -1063,7 +1052,7 @@ spa_vdev_remove_thread(void *arg)
 	ASSERT3P(vd->vdev_ops, !=, &vdev_indirect_ops);
 	ASSERT(vdev_is_concrete(vd));
 	ASSERT(vd->vdev_removing);
-	ASSERT(vd->vdev_indirect_state.vis_mapping_object != 0);
+	ASSERT(vd->vdev_im_object != 0);
 	ASSERT3P(svr->svr_vdev, ==, vd);
 
 	mutex_init(&vca.vca_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -1074,7 +1063,7 @@ spa_vdev_remove_thread(void *arg)
 
 	dmu_buf_t *bonus_buf;
 	VERIFY0(dmu_bonus_hold(spa->spa_meta_objset,
-	    vd->vdev_indirect_state.vis_mapping_object, FTAG, &bonus_buf));
+	    vd->vdev_im_object, FTAG, &bonus_buf));
 	vdev_indirect_mapping_phys_t *vimp = bonus_buf->db_data;
 
 	/*
@@ -1249,7 +1238,6 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 	vdev_t *vd = svr->svr_vdev;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 
 	ASSERT3P(svr->svr_thread, ==, NULL);
 
@@ -1316,18 +1304,18 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 	}
 
 	VERIFY0(dmu_object_free(dmu_tx_pool(tx)->dp_meta_objset,
-	    vis->vis_mapping_object, tx));
-	kmem_free(vis->vis_mapping,
-	    vis->vis_mapping_count * sizeof (*vis->vis_mapping));
-	vis->vis_mapping_object = 0;
-	vis->vis_mapping_count = 0;
-	vis->vis_mapping = NULL;
+	    vd->vdev_im_object, tx));
+	kmem_free(vd->vdev_indirect_mapping,
+	    vd->vdev_im_count * sizeof (*vd->vdev_indirect_mapping));
+	vd->vdev_im_object = 0;
+	vd->vdev_im_count = 0;
+	vd->vdev_indirect_mapping = NULL;
 
 	VERIFY0(dmu_object_free(dmu_tx_pool(tx)->dp_meta_objset,
-	    vis->vis_births_object, tx));
-	vis->vis_births_object = 0;
-	ASSERT0(vis->vis_births_count);
-	ASSERT3P(vis->vis_births, ==, NULL);
+	    vd->vdev_ib_object, tx));
+	vd->vdev_ib_object = 0;
+	ASSERT0(vd->vdev_ib_count);
+	ASSERT3P(vd->vdev_indirect_births, ==, NULL);
 
 	/*
 	 * We may have processed some frees from the removing vdev in this
@@ -1745,11 +1733,10 @@ spa_removal_get_stats(spa_t *spa, pool_removal_stat_t *prs)
 	    spa->spa_removing_phys.sr_prev_indirect_vdev;
 	while (indirect_vdev_id != -1) {
 		vdev_t *vd = spa->spa_root_vdev->vdev_child[indirect_vdev_id];
-		vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 		ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
-		prs->prs_mapping_memory += vis->vis_mapping_count *
+		prs->prs_mapping_memory += vd->vdev_im_count *
 		    sizeof (vdev_indirect_mapping_entry_phys_t);
-		indirect_vdev_id = vis->vis_prev_indirect_vdev;
+		indirect_vdev_id = vd->vdev_prev_indirect_vdev;
 	}
 
 	return (0);

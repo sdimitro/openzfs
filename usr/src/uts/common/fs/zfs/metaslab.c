@@ -3766,7 +3766,7 @@ metaslab_unalloc_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 
 	ASSERT(!vd->vdev_removing);
 	ASSERT(vdev_is_concrete(vd));
-	ASSERT0(vd->vdev_indirect_state.vis_mapping_object);
+	ASSERT0(vd->vdev_im_object);
 
 	if (DVA_GET_GANG(dva))
 		size = vdev_psize_to_asize(vd, SPA_GANGBLOCKSIZE);

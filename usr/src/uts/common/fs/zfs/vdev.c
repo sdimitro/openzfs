@@ -325,7 +325,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	vd->vdev_ops = ops;
 	vd->vdev_state = VDEV_STATE_CLOSED;
 	vd->vdev_ishole = (ops == &vdev_hole_ops);
-	vd->vdev_indirect_state.vis_prev_indirect_vdev = -1;
+	vd->vdev_prev_indirect_vdev = -1;
 
 	mutex_init(&vd->vdev_dtl_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -469,11 +469,11 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 		vd->vdev_wholedisk = -1ULL;
 
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
-	    &vd->vdev_indirect_state.vis_mapping_object);
+	    &vd->vdev_im_object);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
-	    &vd->vdev_indirect_state.vis_births_object);
+	    &vd->vdev_ib_object);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
-	    &vd->vdev_indirect_state.vis_prev_indirect_vdev);
+	    &vd->vdev_prev_indirect_vdev);
 
 	/*
 	 * Look for the 'not present' flag.  This will only be set if the device
@@ -585,7 +585,6 @@ void
 vdev_free(vdev_t *vd)
 {
 	spa_t *spa = vd->vdev_spa;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 
 	/*
 	 * vdev_free() implies closing the vdev first.  This is simpler than
@@ -596,14 +595,14 @@ vdev_free(vdev_t *vd)
 	ASSERT(!list_link_active(&vd->vdev_config_dirty_node));
 	ASSERT(!list_link_active(&vd->vdev_state_dirty_node));
 
-	if (vis->vis_mapping != NULL) {
-		kmem_free(vis->vis_mapping,
-		    vis->vis_mapping_count * sizeof (*vis->vis_mapping));
+	if (vd->vdev_indirect_mapping != NULL) {
+		kmem_free(vd->vdev_indirect_mapping,
+		    vd->vdev_im_count * sizeof (*vd->vdev_indirect_mapping));
 	}
 
-	if (vis->vis_births != NULL) {
-		kmem_free(vis->vis_births,
-		    vis->vis_births_count * sizeof (*vis->vis_births));
+	if (vd->vdev_indirect_births != NULL) {
+		kmem_free(vd->vdev_indirect_births,
+		    vd->vdev_ib_count * sizeof (*vd->vdev_indirect_births));
 	}
 
 	/*
@@ -2277,14 +2276,13 @@ vdev_sync(vdev_t *vd, uint64_t txg)
 	vdev_t *lvd;
 	metaslab_t *msp;
 	dmu_tx_t *tx;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 
 	ASSERT(vdev_is_concrete(vd));
 
 	if (vd->vdev_ms_array == 0 && vd->vdev_ms_shift != 0 &&
 	    !vd->vdev_removing) {
 		ASSERT(vd == vd->vdev_top);
-		ASSERT0(vis->vis_mapping_object);
+		ASSERT0(vd->vdev_im_object);
 		tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
 		vd->vdev_ms_array = dmu_object_alloc(spa->spa_meta_objset,
 		    DMU_OT_OBJECT_ARRAY, 0, DMU_OT_NONE, 0, tx);

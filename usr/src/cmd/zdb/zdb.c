@@ -847,42 +847,44 @@ dump_metaslab_groups(spa_t *spa)
 static void
 print_vdev_indirect(vdev_t *vd)
 {
-	if (vd->vdev_im_object == 0)
+	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
+	if (vis->vis_mapping_object == 0) {
 		return;
+	}
 
 	vdev_indirect_birth_entry_phys_t *vibe;
 	uint64_t ib_count;
-	if (vd->vdev_indirect_births != NULL) {
-		vibe = vd->vdev_indirect_births;
-		ib_count = vd->vdev_ib_count;
+	if (vis->vis_births != NULL) {
+		vibe = vis->vis_births;
+		ib_count = vis->vis_births_count;
 	} else {
 		ASSERT3P(vd->vdev_ops, !=, &vdev_indirect_ops);
-		vdev_read_births(vd->vdev_spa, vd->vdev_ib_object,
+		vdev_read_births(vd->vdev_spa, vis->vis_births_object,
 		    &vibe, &ib_count);
 	}
 	(void) printf("indirect births obj %llu:\n",
-	    (longlong_t)vd->vdev_ib_object);
+	    (longlong_t)vis->vis_births_object);
 	(void) printf("    vib_count = %llu\n",
 	    (longlong_t)ib_count);
-	for (uint64_t i = 0; i < vd->vdev_ib_count; i++) {
+	for (uint64_t i = 0; i < vis->vis_births_count; i++) {
 		vdev_indirect_birth_entry_phys_t *cur_vibe = &vibe[i];
 		(void) printf("\toffset %llx -> txg %llu\n",
 		    (longlong_t)cur_vibe->vibe_offset,
 		    (longlong_t)cur_vibe->vibe_phys_birth_txg);
 	}
-	if (vibe != vd->vdev_indirect_births)
+	if (vibe != vis->vis_births)
 		kmem_free(vibe, ib_count * sizeof (*vibe));
 	(void) printf("\n");
 
 	dmu_buf_t *bonus;
 	VERIFY0(dmu_bonus_hold(vd->vdev_spa->spa_meta_objset,
-	    vd->vdev_im_object, FTAG, &bonus));
+	    vis->vis_mapping_object, FTAG, &bonus));
 	vdev_indirect_mapping_phys_t *vimp = bonus->db_data;
 
-	ASSERT3U(vimp->vim_count, ==, vd->vdev_im_count);
+	ASSERT3U(vimp->vim_count, ==, vis->vis_mapping_count);
 
 	(void) printf("indirect mapping obj %llu:\n",
-	    (longlong_t)vd->vdev_im_object);
+	    (longlong_t)vis->vis_mapping_object);
 	(void) printf("    vim_max_offset = 0x%llx\n",
 	    (longlong_t)vimp->vim_max_offset);
 	(void) printf("    vim_bytes_mapped = 0x%llx\n",
@@ -896,9 +898,9 @@ print_vdev_indirect(vdev_t *vd)
 	if (dump_opt['d'] <= 5 && dump_opt['m'] <= 3)
 		return;
 
-	for (uint64_t i = 0; i < vd->vdev_im_count; i++) {
+	for (uint64_t i = 0; i < vis->vis_mapping_count; i++) {
 		vdev_indirect_mapping_entry_phys_t *dmp =
-		    &vd->vdev_indirect_mapping[i];
+		    &vis->vis_mapping[i];
 		(void) printf("\t%c <%llx:%llx:%llx> -> <%llx:%llx:%llx>\n",
 		    DVA_MAPPING_GET_MARK(dmp) ? 'M' : ' ',
 		    (longlong_t)vd->vdev_id,
@@ -3036,7 +3038,8 @@ dump_block_stats(spa_t *spa)
 
 	for (uint64_t v = 0; v < spa->spa_root_vdev->vdev_children; v++) {
 		vdev_t *vd = spa->spa_root_vdev->vdev_child[v];
-		if (vd->vdev_indirect_mapping == NULL)
+		vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
+		if (vis->vis_mapping == NULL)
 			continue;
 
 		/*
@@ -3057,24 +3060,24 @@ dump_block_stats(spa_t *spa)
 		 * (and dnodes), regardless of their birth times.
 		 */
 		uint64_t inuse = 0;
-		for (uint64_t i = 0; i < vd->vdev_im_count; i++) {
+		for (uint64_t i = 0; i < vis->vis_mapping_count; i++) {
 			if (DVA_MAPPING_GET_MARK(
-			    &vd->vdev_indirect_mapping[i])) {
+			    &vis->vis_mapping[i])) {
 				inuse++;
 			}
 		}
 
 		char mem[32];
-		zdb_nicenum(vd->vdev_im_count *
+		zdb_nicenum(vis->vis_mapping_count *
 		    sizeof (vdev_indirect_mapping_entry_phys_t),
 		    mem);
 
 		(void) printf("\tindirect vdev id %llu has %llu segments "
 		    "(%s in memory), %u%% referenced\n",
 		    (longlong_t)vd->vdev_id,
-		    (longlong_t)vd->vdev_im_count, mem,
-		    (int)((inuse * 100 + vd->vdev_im_count - 1) /
-		    vd->vdev_im_count));
+		    (longlong_t)vis->vis_mapping_count, mem,
+		    (int)((inuse * 100 + vis->vis_mapping_count - 1) /
+		    vis->vis_mapping_count));
 	}
 
 	if (dump_opt['b'] >= 2) {

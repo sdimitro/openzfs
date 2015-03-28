@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -63,6 +63,7 @@
 #include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <libgen.h>
 #include <libintl.h>
 #include <stdio.h>
@@ -178,9 +179,16 @@ dir_is_empty(const char *dirname)
 {
 	DIR *dirp;
 	struct dirent64 *dp;
+	int dirfd;
 
-	if ((dirp = opendir(dirname)) == NULL)
+	if ((dirfd = openat(AT_FDCWD, dirname,
+	    O_RDONLY | O_NDELAY | O_LARGEFILE | O_CLOEXEC, 0)) < 0) {
 		return (B_TRUE);
+	}
+
+	if ((dirp = fdopendir(dirfd)) == NULL) {
+		return (B_TRUE);
+	}
 
 	while ((dp = readdir64(dirp)) != NULL) {
 

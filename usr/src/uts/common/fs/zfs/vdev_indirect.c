@@ -125,16 +125,17 @@ vdev_read_births(spa_t *spa, uint64_t obj,
 void
 vdev_initialize_mapping(vdev_t *vd)
 {
-	ASSERT3P(vd->vdev_indirect_mapping, ==, NULL);
-	ASSERT(vd->vdev_im_object != 0);
-	vdev_read_mapping(vd->vdev_spa, vd->vdev_im_object,
-	    &vd->vdev_indirect_mapping, &vd->vdev_im_count);
+	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
+	ASSERT3P(vis->vis_mapping, ==, NULL);
+	ASSERT(vis->vis_mapping_object != 0);
+	vdev_read_mapping(vd->vdev_spa, vis->vis_mapping_object,
+	    &vis->vis_mapping, &vis->vis_mapping_count);
 
 	if (vd->vdev_ops == &vdev_indirect_ops) {
-		ASSERT3P(vd->vdev_indirect_births, ==, NULL);
-		ASSERT(vd->vdev_ib_object != 0);
-		vdev_read_births(vd->vdev_spa, vd->vdev_ib_object,
-		    &vd->vdev_indirect_births, &vd->vdev_ib_count);
+		ASSERT3P(vis->vis_births, ==, NULL);
+		ASSERT(vis->vis_births_object != 0);
+		vdev_read_births(vd->vdev_spa, vis->vis_births_object,
+		    &vis->vis_births, &vis->vis_births_count);
 	}
 }
 
@@ -147,12 +148,12 @@ vdev_indirect_remap(vdev_t *vd, uint64_t offset, uint64_t asize,
 
 	ASSERT(spa_config_held(spa, SCL_ALL, RW_READER) != 0);
 
-	ASSERT(vd->vdev_indirect_mapping != NULL);
-	ASSERT3U(vd->vdev_im_count, !=, 0);
+	ASSERT(vd->vdev_indirect_state.vis_mapping != NULL);
+	ASSERT3U(vd->vdev_indirect_state.vis_mapping_count, !=, 0);
 
 	vdev_indirect_mapping_entry_phys_t *mapping =
-	    bsearch(&offset, vd->vdev_indirect_mapping,
-	    vd->vdev_im_count,
+	    bsearch(&offset, vd->vdev_indirect_state.vis_mapping,
+	    vd->vdev_indirect_state.vis_mapping_count,
 	    sizeof (vdev_indirect_mapping_entry_phys_t),
 	    dva_mapping_overlap_compare);
 
@@ -207,10 +208,12 @@ vdev_indirect_remap(vdev_t *vd, uint64_t offset, uint64_t asize,
 uint64_t
 vdev_indirect_physbirth(vdev_t *vd, uint64_t offset, uint64_t asize)
 {
-	vdev_indirect_birth_entry_phys_t *base = vd->vdev_indirect_births;
-	vdev_indirect_birth_entry_phys_t *last = base + vd->vdev_ib_count - 1;
+	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
+	vdev_indirect_birth_entry_phys_t *base = vis->vis_births;
+	vdev_indirect_birth_entry_phys_t *last = base + vis->vis_births_count
+	    - 1;
 
-	ASSERT(vd->vdev_ib_count != 0);
+	ASSERT(vis->vis_births_count != 0);
 
 	ASSERT3U(offset, <, last->vibe_offset);
 
@@ -219,7 +222,7 @@ vdev_indirect_physbirth(vdev_t *vd, uint64_t offset, uint64_t asize)
 		    base + ((last - base) / 2);
 		if (offset >= p->vibe_offset) {
 			base = p + 1;
-		} else if (p == vd->vdev_indirect_births ||
+		} else if (p == vis->vis_births ||
 		    offset >= (p - 1)->vibe_offset) {
 			ASSERT3U(offset + asize, <=, p->vibe_offset);
 			return (p->vibe_phys_birth_txg);

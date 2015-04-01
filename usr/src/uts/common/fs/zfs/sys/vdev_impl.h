@@ -129,6 +129,31 @@ struct vdev_queue {
 	kmutex_t	vq_lock;
 };
 
+typedef struct vdev_indirect_state {
+	/*
+	 * If the vdev is being removed or is indirect, the
+	 * vdev_indirect_mapping is an ordered array of all mapping
+	 * entries, sorted by src dva.  Note that vdev_indirect_mapping can be
+	 * partially valid during a removal so that we can handle frees
+	 * to a removing device.
+	 */
+	vdev_indirect_mapping_entry_phys_t *vis_mapping;
+	/* Number of entries in vdev_indirect_mapping. */
+	uint64_t	vis_mapping_count;
+	/* Object (in MOS) which contains the indirect mapping. */
+	uint64_t	vis_mapping_object;
+
+	vdev_indirect_birth_entry_phys_t *vis_births;
+	uint64_t vis_births_count;
+	uint64_t vis_births_object;
+
+	/*
+	 * For indirect vdevs, this is the vdev ID which was removed
+	 * previous to this vdev, or UINT64_MAX if there is no previous.
+	 */
+	uint64_t	vis_prev_indirect_vdev;
+} vdev_indirect_state_t;
+
 /*
  * Virtual device descriptor
  */
@@ -183,30 +208,7 @@ struct vdev {
 	boolean_t	vdev_ishole;	/* is a hole in the namespace	*/
 	kmutex_t	vdev_queue_lock; /* protects vdev_queue_depth	*/
 
-	/*
-	 * If the vdev is being removed or is indirect, the
-	 * vdev_indirect_mapping is an ordered array of all mapping
-	 * entries, sorted by src dva.  Note that vdev_indirect_mapping can be
-	 * partially valid during a removal so that we can handle frees
-	 * to a removing device.
-	 */
-	vdev_indirect_mapping_entry_phys_t *vdev_indirect_mapping;
-
-	/* Number of entries in vdev_indirect_mapping. */
-	uint64_t	vdev_im_count;
-
-	/* Object (in MOS) which contains the indirect mapping. */
-	uint64_t	vdev_im_object;
-
-	vdev_indirect_birth_entry_phys_t *vdev_indirect_births;
-	uint64_t vdev_ib_count;
-	uint64_t vdev_ib_object;
-
-	/*
-	 * For indirect vdevs, this is the vdev ID which was removed
-	 * previous to this vdev, or UINT64_MAX if there is no previous.
-	 */
-	uint64_t	vdev_prev_indirect_vdev;
+	vdev_indirect_state_t vdev_indirect_state;
 
 	/*
 	 * The queue depth parameters determine how many async writes are

@@ -4077,7 +4077,8 @@ metaslab_claim(spa_t *spa, const blkptr_t *bp, uint64_t txg)
 /* ARGSUSED */
 static void
 metaslab_check_free_impl_cb(uint64_t inner, vdev_t *vd, uint64_t offset,
-    uint64_t size, void *arg) {
+    uint64_t size, void *arg)
+{
 	metaslab_check_free_impl(vd, offset, size);
 }
 

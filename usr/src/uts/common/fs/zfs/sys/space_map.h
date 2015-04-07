@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_SPACE_MAP_H
@@ -133,7 +133,11 @@ typedef enum {
 	SM_FREE
 } maptype_t;
 
+typedef int (*sm_cb_t)(maptype_t type, uint64_t offset, uint64_t size,
+    void *arg);
+
 int space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype);
+int space_map_iterate(space_map_t *sm, sm_cb_t callback, void *arg);
 
 void space_map_histogram_clear(space_map_t *sm);
 void space_map_histogram_add(space_map_t *sm, range_tree_t *rt,

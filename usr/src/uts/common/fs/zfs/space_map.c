@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -46,30 +46,22 @@
 int space_map_blksz = (1 << 12);
 
 /*
- * Load the space map disk into the specified range tree. Segments of maptype
- * are added to the range tree, other segment types are removed.
+ * Iterate through the space map, invoking the callback on each (non-debug)
+ * space map entry.
  *
- * Note: space_map_load() will drop sm_lock across dmu_read() calls.
+ * Note: space_map_iterate() will drop sm_lock across dmu_read() calls.
  * The caller must be OK with this.
  */
 int
-space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
+space_map_iterate(space_map_t *sm, sm_cb_t callback, void *arg)
 {
 	uint64_t *entry, *entry_map, *entry_map_end;
-	uint64_t bufsize, size, offset, end, space;
+	uint64_t bufsize, size, offset, end;
 	int error = 0;
 
 	ASSERT(MUTEX_HELD(sm->sm_lock));
 
 	end = space_map_length(sm);
-	space = space_map_allocated(sm);
-
-	VERIFY0(range_tree_space(rt));
-
-	if (maptype == SM_FREE) {
-		range_tree_add(rt, sm->sm_start, sm->sm_size);
-		space = sm->sm_size - space;
-	}
 
 	bufsize = MAX(sm->sm_blksz, SPA_MINBLOCKSIZE);
 	entry_map = zio_buf_alloc(bufsize);
@@ -81,7 +73,7 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 	}
 	mutex_enter(sm->sm_lock);
 
-	for (offset = 0; offset < end; offset += bufsize) {
+	for (offset = 0; offset < end && error == 0; offset += bufsize) {
 		size = MIN(end - offset, bufsize);
 		VERIFY(P2PHASE(size, sizeof (uint64_t)) == 0);
 		VERIFY(size != 0);
@@ -98,11 +90,12 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 			break;
 
 		entry_map_end = entry_map + (size / sizeof (uint64_t));
-		for (entry = entry_map; entry < entry_map_end; entry++) {
+		for (entry = entry_map; entry < entry_map_end && error == 0;
+		    entry++) {
 			uint64_t e = *entry;
 			uint64_t offset, size;
 
-			if (SM_DEBUG_DECODE(e))		/* Skip debug entries */
+			if (SM_DEBUG_DECODE(e))	/* Skip debug entries */
 				continue;
 
 			offset = (SM_OFFSET_DECODE(e) << sm->sm_shift) +
@@ -113,23 +106,72 @@ space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
 			VERIFY0(P2PHASE(size, 1ULL << sm->sm_shift));
 			VERIFY3U(offset, >=, sm->sm_start);
 			VERIFY3U(offset + size, <=, sm->sm_start + sm->sm_size);
-			if (SM_TYPE_DECODE(e) == maptype) {
-				VERIFY3U(range_tree_space(rt) + size, <=,
-				    sm->sm_size);
-				range_tree_add(rt, offset, size);
-			} else {
-				range_tree_remove(rt, offset, size);
-			}
+			error = callback(SM_TYPE_DECODE(e), offset, size, arg);
 		}
 	}
 
-	if (error == 0)
-		VERIFY3U(range_tree_space(rt), ==, space);
-	else
-		range_tree_vacate(rt, NULL, NULL);
-
 	zio_buf_free(entry_map, bufsize);
 	return (error);
+}
+
+typedef struct space_map_load_arg {
+	space_map_t	*smla_sm;
+	range_tree_t	*smla_rt;
+	maptype_t	smla_type;
+} space_map_load_arg_t;
+
+static int
+space_map_load_callback(maptype_t type, uint64_t offset, uint64_t size,
+    void *arg)
+{
+	space_map_load_arg_t *smla = arg;
+	if (type == smla->smla_type) {
+		VERIFY3U(range_tree_space(smla->smla_rt) + size, <=,
+		    smla->smla_sm->sm_size);
+		range_tree_add(smla->smla_rt, offset, size);
+	} else {
+		range_tree_remove(smla->smla_rt, offset, size);
+	}
+
+	return (0);
+}
+
+/*
+ * Load the space map disk into the specified range tree. Segments of maptype
+ * are added to the range tree, other segment types are removed.
+ *
+ * Note: space_map_load() will drop sm_lock across dmu_read() calls.
+ * The caller must be OK with this.
+ */
+int
+space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype)
+{
+	uint64_t space;
+	int err;
+	space_map_load_arg_t smla;
+
+	ASSERT(MUTEX_HELD(sm->sm_lock));
+
+	VERIFY0(range_tree_space(rt));
+	space = space_map_allocated(sm);
+
+	if (maptype == SM_FREE) {
+		range_tree_add(rt, sm->sm_start, sm->sm_size);
+		space = sm->sm_size - space;
+	}
+
+	smla.smla_rt = rt;
+	smla.smla_sm = sm;
+	smla.smla_type = maptype;
+	err = space_map_iterate(sm, space_map_load_callback, &smla);
+
+	if (err == 0) {
+		VERIFY3U(range_tree_space(rt), ==, space);
+	} else {
+		range_tree_vacate(rt, NULL, NULL);
+	}
+
+	return (err);
 }
 
 void

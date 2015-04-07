@@ -1708,10 +1708,6 @@ spa_config_valid(spa_t *spa, nvlist_t *config)
 			vdev_add_child(rvd, mtvd);
 			vdev_add_child(mrvd, tvd);
 
-			spa_config_exit(spa, SCL_ALL, FTAG);
-			vdev_load(mtvd);
-			spa_config_enter(spa, SCL_ALL, FTAG, RW_WRITER);
-
 			vdev_reopen(rvd);
 		} else if (mtvd->vdev_islog) {
 			/*

@@ -22,7 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2013 Joyent, Inc.  All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 /* vnode ops for the /dev/zvol directory */
@@ -43,8 +43,7 @@
 
 struct vnodeops	*devzvol_vnodeops;
 static uint64_t devzvol_gen = 0;
-static uint64_t devzvol_zclist;
-static size_t devzvol_zclist_size;
+static nvlist_t *devzvol_nvl;
 static ldi_ident_t devzvol_li;
 static ldi_handle_t devzvol_lh;
 static kmutex_t devzvol_mtx;
@@ -68,7 +67,7 @@ int (*szn2m)(char *, minor_t *);
  */
 boolean_t devzvol_snaps_allowed = B_FALSE;
 
-int
+static int
 sdev_zvol_create_minor(char *dsname)
 {
 	if (szcm == NULL)
@@ -76,7 +75,7 @@ sdev_zvol_create_minor(char *dsname)
 	return ((*szcm)(dsname));
 }
 
-int
+static int
 sdev_zvol_name2minor(char *dsname, minor_t *minor)
 {
 	if (szn2m == NULL)
@@ -84,51 +83,50 @@ sdev_zvol_name2minor(char *dsname, minor_t *minor)
 	return ((*szn2m)(dsname, minor));
 }
 
-int
-devzvol_open_zfs()
+static int
+devzvol_open_zfs(void)
 {
-	int rc;
+	int rc = 0;
 	dev_t dv;
+
+	mutex_enter(&devzvol_mtx);
+
+	if (devzvol_isopen) {
+		mutex_exit(&devzvol_mtx);
+		return (0);
+	}
 
 	devzvol_li = ldi_ident_from_anon();
 	if (ldi_open_by_name("/dev/zfs", FREAD | FWRITE, kcred,
-	    &devzvol_lh, devzvol_li))
-		return (-1);
+	    &devzvol_lh, devzvol_li) != 0)
+		goto error;
 	if (zfs_mod == NULL && ((zfs_mod = ddi_modopen("fs/zfs",
-	    KRTLD_MODE_FIRST, &rc)) == NULL)) {
-		return (rc);
-	}
+	    KRTLD_MODE_FIRST, &rc)) == NULL))
+		goto error;
 	ASSERT(szcm == NULL && szn2m == NULL);
 	if ((szcm = (int (*)(char *))
 	    ddi_modsym(zfs_mod, "zvol_create_minor", &rc)) == NULL) {
 		cmn_err(CE_WARN, "couldn't resolve zvol_create_minor");
-		return (rc);
+		goto error;
 	}
 	if ((szn2m = (int(*)(char *, minor_t *))
 	    ddi_modsym(zfs_mod, "zvol_name2minor", &rc)) == NULL) {
 		cmn_err(CE_WARN, "couldn't resolve zvol_name2minor");
-		return (rc);
+		goto error;
 	}
 	if (ldi_get_dev(devzvol_lh, &dv))
-		return (-1);
+		goto error;
 	devzvol_major = getmajor(dv);
+	devzvol_isopen = B_TRUE;
+	mutex_exit(&devzvol_mtx);
 	return (0);
+error:
+	mutex_exit(&devzvol_mtx);
+	return (-1);
+
 }
 
-void
-devzvol_close_zfs()
-{
-	szcm = NULL;
-	szn2m = NULL;
-	(void) ldi_close(devzvol_lh, FREAD|FWRITE, kcred);
-	ldi_ident_release(devzvol_li);
-	if (zfs_mod != NULL) {
-		(void) ddi_modclose(zfs_mod);
-		zfs_mod = NULL;
-	}
-}
-
-int
+static int
 devzvol_handle_ioctl(int cmd, zfs_cmd_t *zc, size_t *alloc_size)
 {
 	uint64_t cookie;
@@ -136,17 +134,10 @@ devzvol_handle_ioctl(int cmd, zfs_cmd_t *zc, size_t *alloc_size)
 	int unused;
 	int rc;
 
-	if (cmd != ZFS_IOC_POOL_CONFIGS)
-		mutex_enter(&devzvol_mtx);
-	if (!devzvol_isopen) {
-		if ((rc = devzvol_open_zfs()) == 0) {
-			devzvol_isopen = B_TRUE;
-		} else {
-			if (cmd != ZFS_IOC_POOL_CONFIGS)
-				mutex_exit(&devzvol_mtx);
-			return (ENXIO);
-		}
-	}
+	rc = devzvol_open_zfs();
+	if (rc != 0)
+		return (ENXIO);
+
 	cookie = zc->zc_cookie;
 again:
 	zc->zc_nvlist_dst = (uint64_t)(intptr_t)kmem_alloc(size,
@@ -167,13 +158,11 @@ again:
 		kmem_free((void *)(uintptr_t)zc->zc_nvlist_dst, size);
 	else
 		*alloc_size = size;
-	if (cmd != ZFS_IOC_POOL_CONFIGS)
-		mutex_exit(&devzvol_mtx);
 	return (rc);
 }
 
 /* figures out if the objset exists and returns its type */
-int
+static int
 devzvol_objset_check(char *dsname, dmu_objset_type_t *type)
 {
 	boolean_t	ispool, is_snapshot;
@@ -209,7 +198,7 @@ devzvol_objset_check(char *dsname, dmu_objset_type_t *type)
  * returns what the zfs dataset name should be, given the /dev/zvol
  * path and an optional name; otherwise NULL
  */
-char *
+static char *
 devzvol_make_dsname(const char *path, const char *name)
 {
 	char *dsname;
@@ -325,60 +314,60 @@ devzvol_validate(struct sdev_node *dv)
 /*
  * creates directories as needed in response to a readdir
  */
-void
+static void
 devzvol_create_pool_dirs(struct vnode *dvp)
 {
 	zfs_cmd_t	*zc;
-	nvlist_t *nv = NULL;
-	nvpair_t *elem = NULL;
 	size_t size;
-	int pools = 0;
 	int rc;
+	uint64_t gen;
 
 	sdcmn_err13(("devzvol_create_pool_dirs"));
 	zc = kmem_zalloc(sizeof (zfs_cmd_t), KM_SLEEP);
 	mutex_enter(&devzvol_mtx);
-	zc->zc_cookie = devzvol_gen;
+	gen = zc->zc_cookie = devzvol_gen;
+	mutex_exit(&devzvol_mtx);
 
 	rc = devzvol_handle_ioctl(ZFS_IOC_POOL_CONFIGS, zc, &size);
-	switch (rc) {
-		case 0:
-			/* new generation */
+	if (rc == 0) {
+		/* new generation */
+		mutex_enter(&devzvol_mtx);
+		/*
+		 * We might race with another thread that's already updated
+		 * devzvol_gen.  In that case, their update is sufficient.
+		 */
+		if (devzvol_gen == gen) {
 			ASSERT(devzvol_gen != zc->zc_cookie);
+			nvlist_free(devzvol_nvl);
 			devzvol_gen = zc->zc_cookie;
-			if (devzvol_zclist)
-				kmem_free((void *)(uintptr_t)devzvol_zclist,
-				    devzvol_zclist_size);
-			devzvol_zclist = zc->zc_nvlist_dst;
-			devzvol_zclist_size = size;
-			break;
-		case EEXIST:
-			/*
-			 * no change in the configuration; still need
-			 * to do lookups in case we did a lookup in
-			 * zvol/rdsk but not zvol/dsk (or vice versa)
-			 */
-			kmem_free((void *)(uintptr_t)zc->zc_nvlist_dst,
-			    size);
-			break;
-		default:
-			kmem_free((void *)(uintptr_t)zc->zc_nvlist_dst,
-			    size);
-			goto out;
+			devzvol_nvl = fnvlist_unpack((void *)(uintptr_t)
+			    zc->zc_nvlist_dst, size);
+		}
+		mutex_exit(&devzvol_mtx);
 	}
-	rc = nvlist_unpack((char *)(uintptr_t)devzvol_zclist,
-	    devzvol_zclist_size, &nv, 0);
-	if (rc) {
-		ASSERT(rc == 0);
-		kmem_free((void *)(uintptr_t)devzvol_zclist,
-		    devzvol_zclist_size);
-		devzvol_gen = 0;
-		devzvol_zclist = NULL;
-		devzvol_zclist_size = 0;
-		goto out;
-	}
+	kmem_free((void *)(uintptr_t)zc->zc_nvlist_dst, size);
+	kmem_free(zc, sizeof (zfs_cmd_t));
+
+	/*
+	 * EEXIST means that the config has not changed since the specified
+	 * generation.  We still need to do the lookups.
+	 */
+	if (rc != 0 && rc != EEXIST)
+		return;
+
+	/*
+	 * We don't want to hold the devzvol_mtx while calling ZVOL_LOOKUP,
+	 * because it can cause a lock ordering problem w.r.t. the
+	 * spa_namespace_lock.  However, another thread may free the
+	 * devzvol_nvl when the lock is dropped.  Therefore, make a private
+	 * copy of the nvlist to work from.
+	 */
+	mutex_enter(&devzvol_mtx);
+	nvlist_t *nv = fnvlist_dup(devzvol_nvl);
 	mutex_exit(&devzvol_mtx);
-	while ((elem = nvlist_next_nvpair(nv, elem)) != NULL) {
+
+	for (nvpair_t *elem = nvlist_next_nvpair(nv, NULL);
+	    elem != NULL; elem = nvlist_next_nvpair(nv, elem)) {
 		struct vnode *vp;
 		ASSERT(dvp->v_count > 0);
 		rc = VOP_LOOKUP(dvp, nvpair_name(elem), &vp, NULL, 0,
@@ -387,18 +376,8 @@ devzvol_create_pool_dirs(struct vnode *dvp)
 		ASSERT(rc == 0 || rc == ENOENT);
 		if (rc == 0)
 			VN_RELE(vp);
-		pools++;
 	}
-	nvlist_free(nv);
-	mutex_enter(&devzvol_mtx);
-	if (devzvol_isopen && pools == 0) {
-		/* clean up so zfs can be unloaded */
-		devzvol_close_zfs();
-		devzvol_isopen = B_FALSE;
-	}
-out:
-	mutex_exit(&devzvol_mtx);
-	kmem_free(zc, sizeof (zfs_cmd_t));
+	fnvlist_free(nv);
 }
 
 /*ARGSUSED3*/
@@ -723,9 +702,9 @@ devzvol_create(struct vnode *dvp, char *nm, struct vattr *vap, vcexcl_t excl,
 	return (error);
 }
 
-void sdev_iter_snapshots(struct vnode *dvp, char *name);
+static void sdev_iter_snapshots(struct vnode *dvp, char *name);
 
-void
+static void
 sdev_iter_datasets(struct vnode *dvp, int arg, char *name)
 {
 	zfs_cmd_t	*zc;
@@ -766,7 +745,7 @@ skip:
 	kmem_free(zc, sizeof (zfs_cmd_t));
 }
 
-void
+static void
 sdev_iter_snapshots(struct vnode *dvp, char *name)
 {
 	sdev_iter_datasets(dvp, ZFS_IOC_SNAPSHOT_LIST_NEXT, name);

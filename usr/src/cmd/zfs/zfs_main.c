@@ -30,7 +30,9 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <sys/debug.h>
 #include <errno.h>
+#include <getopt.h>
 #include <libgen.h>
 #include <libintl.h>
 #include <libuutil.h>
@@ -270,6 +272,8 @@ get_usage(zfs_help_t idx)
 		    "<snapshot>\n"
 		    "\tsend [-Le] [-i snapshot|bookmark] "
 		    "<filesystem|volume|snapshot>\n"
+		    "\tsend --redact snapshot[,...] [-PLe] "
+		    "[-i bookmark] <snapshot> <bookmark_name>\n"
 		    "\tsend [-nvPe] -t <receive_resume_token>\n"));
 	case HELP_SET:
 		return (gettext("\tset <property=value> ... "
@@ -3659,6 +3663,44 @@ usage:
 }
 
 /*
+ * Note: This function modifies snaps by replacing every comma with a null
+ * terminator to break it into substrings.
+ */
+static nvlist_t *
+parsesnaps(char *snaps)
+{
+	char *cur;
+	nvlist_t *list = NULL;
+
+	ASSERT3P(snaps, !=, NULL);
+
+	if (nvlist_alloc(&list, NV_UNIQUE_NAME, 0) != 0)
+		nomem();
+
+	if (snaps[0] == '\0')
+		return (list);
+
+	while ((cur = strsep(&snaps, ",")) != NULL) {
+		if (strlen(cur) == 0) {
+			(void) fprintf(stderr,
+			    gettext("Error: Empty snapshot name.\n"));
+			nvlist_free(list);
+			return (NULL);
+		} else if (strchr(cur, '@') == NULL) {
+			(void) fprintf(stderr, gettext("Error: Must redact "
+			    "with respect to a snapshot of a clone.\n"));
+			nvlist_free(list);
+			return (NULL);
+		}
+		(void) nvlist_add_boolean(list, cur);
+	}
+
+	return (list);
+}
+
+#define	REDACT_OPT	1024
+
+/*
  * Send a backup stream to stdout.
  */
 static int
@@ -3668,14 +3710,32 @@ zfs_do_send(int argc, char **argv)
 	char *toname = NULL;
 	char *resume_token = NULL;
 	char *cp;
+	char *redactbook = NULL;
 	zfs_handle_t *zhp;
 	sendflags_t flags = { 0 };
 	int c, err;
 	nvlist_t *dbgnv = NULL;
+	nvlist_t *redactnv = NULL;
 	boolean_t extraverbose = B_FALSE;
 
+	struct option long_options[] = {
+		{"rebase",	no_argument,		NULL, 'b'},
+		{"replicate",	no_argument,		NULL, 'R'},
+		{"redact",	required_argument,	NULL, REDACT_OPT},
+		{"props",	no_argument,		NULL, 'p'},
+		{"parsable",	no_argument,		NULL, 'P'},
+		{"dedup",	no_argument,		NULL, 'D'},
+		{"verbose",	no_argument,		NULL, 'v'},
+		{"dryrun",	no_argument,		NULL, 'n'},
+		{"large-block",	no_argument,		NULL, 'l'},
+		{"embed",	no_argument,		NULL, 'e'},
+		{"resume",	required_argument,	NULL, 't'},
+		{0, 0, 0, 0}
+	};
+
 	/* check options */
-	while ((c = getopt(argc, argv, ":i:I:RbDpvnPLet:")) != -1) {
+	while ((c = getopt_long(argc, argv, ":i:I:RbDpvnPLet:", long_options,
+	    NULL)) != -1) {
 		switch (c) {
 		case 'i':
 			if (fromname)
@@ -3693,6 +3753,11 @@ zfs_do_send(int argc, char **argv)
 			break;
 		case 'R':
 			flags.replicate = B_TRUE;
+			break;
+		case REDACT_OPT:
+			redactnv = parsesnaps(optarg);
+			if (redactnv == NULL)
+				usage(B_FALSE);
 			break;
 		case 'p':
 			flags.props = B_TRUE;
@@ -3739,7 +3804,7 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		if (fromname != NULL || flags.replicate || flags.props ||
-		    flags.dedup) {
+		    flags.dedup || redactnv != NULL) {
 			(void) fprintf(stderr,
 			    gettext("invalid flags combined with -t\n"));
 			usage(B_FALSE);
@@ -3749,6 +3814,17 @@ zfs_do_send(int argc, char **argv)
 			    "arguments are permitted with -t\n"));
 			usage(B_FALSE);
 		}
+	} else if (redactnv != NULL) {
+		if (argc < 2) {
+			(void) fprintf(stderr,
+			    gettext("missing bookmark argument\n"));
+			usage(B_FALSE);
+		}
+		if (argc > 2) {
+			(void) fprintf(stderr, gettext("too many arguments\n"));
+			usage(B_FALSE);
+		}
+		redactbook = argv[1];
 	} else {
 		if (argc < 1) {
 			(void) fprintf(stderr,
@@ -3782,10 +3858,11 @@ zfs_do_send(int argc, char **argv)
 
 	/*
 	 * Special case sending to a filesystem, from a bookmark, or doing a
-	 * rebase send.
+	 * rebase or redacted send.
 	 */
 	if (strchr(argv[0], '@') == NULL ||
-	    (fromname && strchr(fromname, '#') != NULL) || flags.rebase) {
+	    (fromname && strchr(fromname, '#') != NULL) || flags.rebase ||
+	    redactnv != NULL) {
 		char frombuf[ZFS_MAXNAMELEN];
 		enum lzc_send_flags lzc_flags = 0;
 
@@ -3794,14 +3871,29 @@ zfs_do_send(int argc, char **argv)
 		    flags.progress) {
 			(void) fprintf(stderr,
 			    gettext("Error: Unsupported flag with filesystem, "
-			    "bookmark or rebase.\n"));
+			    "bookmark, redaction, or rebase.\n"));
 			return (1);
 		}
 
 		if (flags.rebase && strchr(fromname, '#')) {
-			(void) fprintf(stderr, gettext("Error:"
-			    "Cannot do a rebase on top of a bookmark."));
+			(void) fprintf(stderr, gettext("Error: Cannot "
+			    "do a rebase on top of a bookmark.\n"));
 			return (1);
+		}
+
+		if (redactnv != NULL) {
+			if (fromname != NULL && !strchr(fromname, '#')) {
+				(void) fprintf(stderr, gettext("Error: Cannot "
+				    "do an incremental redacted send from "
+				    "anything except a redaction "
+				    "bookmark.\n"));
+				return (1);
+			}
+			if (strchr(argv[0], '@') == NULL) {
+				(void) fprintf(stderr, gettext("Error: Cannot "
+				    "do a redacted send to a filesystem.\n"));
+				return (1);
+			}
 		}
 
 		zhp = zfs_open(g_zfs, argv[0], ZFS_TYPE_DATASET);
@@ -3826,7 +3918,8 @@ zfs_do_send(int argc, char **argv)
 			(void) strlcat(frombuf, fromname, sizeof (frombuf));
 			fromname = frombuf;
 		}
-		err = zfs_send_one(zhp, fromname, STDOUT_FILENO, lzc_flags);
+		err = zfs_send_one(zhp, fromname, STDOUT_FILENO, lzc_flags,
+		    redactnv, redactbook);
 		zfs_close(zhp);
 		return (err != 0);
 	}

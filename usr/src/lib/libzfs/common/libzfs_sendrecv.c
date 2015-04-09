@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  */
@@ -1886,7 +1886,7 @@ err_out:
 
 int
 zfs_send_one(zfs_handle_t *zhp, const char *from, int fd,
-    enum lzc_send_flags flags)
+    enum lzc_send_flags flags, nvlist_t *redactnv, const char *redactbook)
 {
 	int err;
 	libzfs_handle_t *hdl = zhp->zfs_hdl;
@@ -1895,7 +1895,8 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd,
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
 	    "warning: cannot send '%s'"), zhp->zfs_name);
 
-	err = lzc_send(zhp->zfs_name, from, fd, flags);
+	err = lzc_send_redacted(zhp->zfs_name, from, fd, flags, redactnv,
+	    redactbook);
 	if (err != 0) {
 		switch (errno) {
 		case EXDEV:

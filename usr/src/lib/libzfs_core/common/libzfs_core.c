@@ -478,15 +478,36 @@ int
 lzc_send(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags)
 {
-	return (lzc_send_resume(snapname, from, fd, flags, 0, 0));
+	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0, NULL,
+	    NULL));
+}
+
+int
+lzc_send_redacted(const char *snapname, const char *from, int fd,
+    enum lzc_send_flags flags, nvlist_t *redactnv, const char *redactbook)
+{
+	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0,
+	    redactnv, redactbook));
 }
 
 int
 lzc_send_resume(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff)
 {
+	return (lzc_send_resume_redacted(snapname, from, fd, flags, resumeobj,
+	    resumeoff, NULL, NULL));
+}
+
+int
+lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
+    enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
+    nvlist_t *redactnv, const char *redactbook)
+{
 	nvlist_t *args;
 	int err;
+	EQUIV(redactnv, redactbook);
+	ASSERT(!((resumeobj == 0 && resumeoff == 0) &&
+	    (redactnv == NULL && redactbook == NULL)));
 
 	args = fnvlist_alloc();
 	fnvlist_add_int32(args, "fd", fd);
@@ -500,6 +521,26 @@ lzc_send_resume(const char *snapname, const char *from, int fd,
 		fnvlist_add_uint64(args, "resume_object", resumeobj);
 		fnvlist_add_uint64(args, "resume_offset", resumeoff);
 	}
+
+	if (redactnv != NULL) {
+		nvlist_t *nvl = fnvlist_alloc();
+		char bookbuf[MAXNAMELEN];
+		char *cp;
+
+		(void) strncpy(bookbuf, snapname, sizeof (bookbuf));
+		cp = strchr(bookbuf, '@');
+		if (cp == NULL)
+			return (EINVAL);
+		(void) snprintf(cp, sizeof (bookbuf) - (cp - bookbuf), "#%s",
+		    redactbook);
+		fnvlist_add_string(nvl, bookbuf, snapname);
+		err = lzc_bookmark(nvl, NULL);
+		fnvlist_free(nvl);
+		if (err != 0) {
+			return (err);
+		}
+	}
+
 	err = lzc_ioctl(ZFS_IOC_SEND_NEW, snapname, args, NULL);
 	nvlist_free(args);
 	return (err);

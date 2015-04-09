@@ -61,6 +61,10 @@ enum lzc_send_flags {
 int lzc_send(const char *, const char *, int, enum lzc_send_flags);
 int lzc_send_resume(const char *, const char *, int,
     enum lzc_send_flags, uint64_t, uint64_t);
+int lzc_send_redacted(const char *, const char *, int, enum lzc_send_flags,
+    nvlist_t *, const char *);
+int lzc_send_resume_redacted(const char *, const char *, int,
+    enum lzc_send_flags, uint64_t, uint64_t, nvlist_t *, const char *);
 int lzc_receive(const char *, nvlist_t *, const char *, boolean_t, int);
 int lzc_receive_resumable(const char *, nvlist_t *, const char *,
     boolean_t, int);

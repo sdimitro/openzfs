@@ -25,7 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
 # Copyright 2007, 2010 Richard Lowe
+# Copyright (c) 2015 by Delphix. All rights reserved.
+#
 
 #
 # Check delta comments:
@@ -38,7 +41,7 @@ import re, sys
 from onbld.Checks.DbLookups import BugDB
 
 
-bugre = re.compile(r'^(\d{2,7}) (.*)$')
+bugre = re.compile(r'^((?:DLPX-|TOOL-|QA-)?\d{2,7}) (.*)$')
 
 
 def isBug(comment):

@@ -40,9 +40,6 @@
  * Portions contributed by Juergen Keil, <jk@tools.de>.
  */
 
-/*
- * Copyright (c) 2012 by Delphix. All rights reserved.
- */
 
 /*
  * Common code for halt(1M), poweroff(1M), and reboot(1M).  We use
@@ -998,7 +995,6 @@ parse_fastboot_args(char *bootargs_buf, size_t buf_size,
 	int off = 0;		/* offset into the new boot argument */
 	int is_zfs = 0;
 	int rc = 0;
-	int res;
 
 	bzero(mountpoint, sizeof (mountpoint));
 
@@ -1214,34 +1210,21 @@ parse_fastboot_args(char *bootargs_buf, size_t buf_size,
 	}
 
 	if (is_zfs && (buflen != 0 || bename != NULL))	{
-		res = snprintf(&bootargs_buf[off], buf_size - off,
-		    "%s ", bootfs_arg);
-		if (res >= buf_size - off)
-			goto toolong;
-		off += res;
+		/* do not copy existing zfs boot args */
+		if (strstr(&bootargs_saved[rootlen], "-B") == NULL ||
+		    strstr(&bootargs_saved[rootlen], "zfs-bootfs=") == NULL ||
+		    (strstr(&bootargs_saved[rootlen], "bootpath=") == NULL &&
+		    strstr(&bootargs_saved[rootlen], "diskdevid=") == NULL))
+			/* LINTED E_SEC_SPRINTF_UNBOUNDED_COPY */
+			off += sprintf(bootargs_buf + off, "%s ", bootfs_arg);
 	}
 
 	/*
-	 * Copy the rest of the arguments after checking to make sure they
-	 * will fit.
+	 * Copy the rest of the arguments
 	 */
-	if (buflen - rootlen >= buf_size - off)
-		goto toolong;
-	(void) strcpy(&bootargs_buf[off], &bootargs_saved[rootlen]);
+	bcopy(&bootargs_saved[rootlen], &bootargs_buf[off], buflen - rootlen);
 
 	return (rc);
-
-toolong:
-	/*
-	 * The boot args originally came from bootargs_buf so we know they
-	 * will fit back in.
-	 */
-	(void) strcpy(bootargs_buf, bootargs_saved);
-	(void) fprintf(stderr, gettext("%s: Boot arguments too long for fast "
-	    "reboot.\n"), cmdname);
-	(void) fprintf(stderr, gettext("%s: Falling back to regular reboot.\n"),
-	    cmdname);
-	return (-1);
 }
 
 #define	MAXARGS		5

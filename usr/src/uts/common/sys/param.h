@@ -18,7 +18,9 @@
  *
  * CDDL HEADER END
  */
+
 /*
+ * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
@@ -132,7 +134,6 @@ extern "C" {
 
 /*
  * NGROUPS_MAX_DEFAULT: *MUST* match NGROUPS_MAX value in limits.h.
- * Remember that the NFS protocol must rev. before this can be increased
  */
 #define	NGROUPS_MAX_DEFAULT	16
 

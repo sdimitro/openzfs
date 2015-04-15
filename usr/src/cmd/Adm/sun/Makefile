@@ -48,7 +48,7 @@ $(ROOTETCFTPD)/ftpusers	:=	FILEMODE =	0640
 .KEEP_STATE:
 
 $(ROOTETCFTPUSERSLINK):	$(ROOTETCFTPDFILES)
-	$(SYMLINK) ftpd/ftpusers $@
+	$(RM) $@; $(SYMLINK) ftpd/ftpusers $@
 
 all: $(ETCFILES) $(KVMFILES) $(SMBFILES) $(FTPDFILES)
 

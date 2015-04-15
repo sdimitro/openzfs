@@ -671,9 +671,13 @@ zfs_blkptr_verify(spa_t *spa, const blkptr_t *bp)
 	 */
 	for (int i = 0; i < BP_GET_NDVAS(bp); i++) {
 		uint64_t vdevid = DVA_GET_VDEV(&bp->blk_dva[i]);
+		if (vdevid >= spa->spa_root_vdev->vdev_children) {
+			zfs_panic_recover("blkptr at %p DVA %u has invalid "
+			    "VDEV %llu",
+			    bp, i, (longlong_t)vdevid);
+		}
 		vdev_t *vd = spa->spa_root_vdev->vdev_child[vdevid];
-		if (vdevid >= spa->spa_root_vdev->vdev_children ||
-		    vd == NULL) {
+		if (vd == NULL) {
 			zfs_panic_recover("blkptr at %p DVA %u has invalid "
 			    "VDEV %llu",
 			    bp, i, (longlong_t)vdevid);

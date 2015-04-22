@@ -2082,20 +2082,21 @@ dbuf_bookmark_findbp(objset_t *os, const zbookmark_phys_t *zb,
 	return (err);
 }
 
-struct dbuf_prefetch_arg {
-	spa_t *spa; /* The spa to issue the prefetch in. */
-	zbookmark_phys_t zb; /* The location of the target block to prefetch. */
-	int epbs; /* Entries (blkptr_t's) Per Block Shift. */
-	int curlevel; /* The current level that we're reading */
-	zio_priority_t prio; /* The priority I/Os should be issued at. */
-	arc_flags_t aflags; /* Flags to pass to the final prefetch. */
-};
+typedef struct dbuf_prefetch_arg {
+	spa_t *dpa_spa;	/* The spa to issue the prefetch in. */
+	zbookmark_phys_t dpa_zb; /* The target block to prefetch. */
+	int dpa_epbs; /* Entries (blkptr_t's) Per Block Shift. */
+	int dpa_curlevel; /* The current level that we're reading */
+	zio_priority_t dpa_prio; /* The priority I/Os should be issued at. */
+	zio_t *dpa_zio; /* The parent zio_t for all prefetches. */
+	arc_flags_t dpa_aflags; /* Flags to pass to the final prefetch. */
+} dbuf_prefetch_arg_t;
 
 /*
  * Actually issue the prefetch read for the block given.
  */
 static void
-dbuf_issue_final_prefetch(struct dbuf_prefetch_arg *dpa, blkptr_t *bp)
+dbuf_issue_final_prefetch(dbuf_prefetch_arg_t *dpa, blkptr_t *bp)
 {
 	/*
 	 * MOOCH_BYTESWAP blocks are handled as a special case in dbuf_prefetch.
@@ -2106,12 +2107,15 @@ dbuf_issue_final_prefetch(struct dbuf_prefetch_arg *dpa, blkptr_t *bp)
 	if (BP_IS_HOLE(bp) || BP_IS_EMBEDDED(bp))
 		return;
 
-	arc_flags_t aflags = dpa->aflags | ARC_FLAG_NOWAIT | ARC_FLAG_PREFETCH;
+	arc_flags_t aflags =
+	    dpa->dpa_aflags | ARC_FLAG_NOWAIT | ARC_FLAG_PREFETCH;
 
-	ASSERT3U(dpa->curlevel, ==, BP_GET_LEVEL(bp));
-	ASSERT3U(dpa->curlevel, ==, dpa->zb.zb_level);
-	(void) arc_read(NULL, dpa->spa, bp, NULL, NULL, dpa->prio,
-	    ZIO_FLAG_CANFAIL | ZIO_FLAG_SPECULATIVE, &aflags, &dpa->zb);
+	ASSERT3U(dpa->dpa_curlevel, ==, BP_GET_LEVEL(bp));
+	ASSERT3U(dpa->dpa_curlevel, ==, dpa->dpa_zb.zb_level);
+	ASSERT(dpa->dpa_zio != NULL);
+	(void) arc_read(dpa->dpa_zio, dpa->dpa_spa, bp, NULL, NULL,
+	    dpa->dpa_prio, ZIO_FLAG_CANFAIL | ZIO_FLAG_SPECULATIVE,
+	    &aflags, &dpa->dpa_zb);
 }
 
 /*
@@ -2122,39 +2126,39 @@ dbuf_issue_final_prefetch(struct dbuf_prefetch_arg *dpa, blkptr_t *bp)
 static void
 dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
 {
-	struct dbuf_prefetch_arg *dpa = private;
+	dbuf_prefetch_arg_t *dpa = private;
 
-	ASSERT3S(dpa->zb.zb_level, <, dpa->curlevel);
-	ASSERT3S(dpa->curlevel, >, 0);
+	ASSERT3S(dpa->dpa_zb.zb_level, <, dpa->dpa_curlevel);
+	ASSERT3S(dpa->dpa_curlevel, >, 0);
 	if (zio != NULL) {
-		ASSERT3S(BP_GET_LEVEL(zio->io_bp), ==, dpa->curlevel);
+		ASSERT3S(BP_GET_LEVEL(zio->io_bp), ==, dpa->dpa_curlevel);
 		ASSERT3U(BP_GET_LSIZE(zio->io_bp), ==, zio->io_size);
-		ASSERT3P(zio->io_spa, ==, dpa->spa);
+		ASSERT3P(zio->io_spa, ==, dpa->dpa_spa);
 	}
 
-	dpa->curlevel--;
+	dpa->dpa_curlevel--;
 
-	uint64_t nextblkid = dpa->zb.zb_blkid >>
-	    (dpa->epbs * (dpa->curlevel - dpa->zb.zb_level));
-	blkptr_t *bp =
-	    ((blkptr_t *)abuf->b_data) + P2PHASE(nextblkid, 1ULL << dpa->epbs);
+	uint64_t nextblkid = dpa->dpa_zb.zb_blkid >>
+	    (dpa->dpa_epbs * (dpa->dpa_curlevel - dpa->dpa_zb.zb_level));
+	blkptr_t *bp = ((blkptr_t *)abuf->b_data) +
+	    P2PHASE(nextblkid, 1ULL << dpa->dpa_epbs);
 	if (BP_IS_HOLE(bp) || (zio != NULL && zio->io_error != 0)) {
 		kmem_free(dpa, sizeof (*dpa));
-	} else if (dpa->curlevel == dpa->zb.zb_level) {
-		ASSERT3U(nextblkid, ==, dpa->zb.zb_blkid);
+	} else if (dpa->dpa_curlevel == dpa->dpa_zb.zb_level) {
+		ASSERT3U(nextblkid, ==, dpa->dpa_zb.zb_blkid);
 		dbuf_issue_final_prefetch(dpa, bp);
 		kmem_free(dpa, sizeof (*dpa));
 	} else {
 		arc_flags_t iter_aflags = ARC_FLAG_NOWAIT;
 		zbookmark_phys_t zb;
 
-		ASSERT3U(dpa->curlevel, ==, BP_GET_LEVEL(bp));
+		ASSERT3U(dpa->dpa_curlevel, ==, BP_GET_LEVEL(bp));
 
-		SET_BOOKMARK(&zb, dpa->zb.zb_objset,
-		    dpa->zb.zb_object, dpa->curlevel, nextblkid);
+		SET_BOOKMARK(&zb, dpa->dpa_zb.zb_objset,
+		    dpa->dpa_zb.zb_object, dpa->dpa_curlevel, nextblkid);
 
-		(void) arc_read(NULL, dpa->spa,
-		    bp, dbuf_prefetch_indirect_done, dpa, dpa->prio,
+		(void) arc_read(dpa->dpa_zio, dpa->dpa_spa,
+		    bp, dbuf_prefetch_indirect_done, dpa, dpa->dpa_prio,
 		    ZIO_FLAG_CANFAIL | ZIO_FLAG_SPECULATIVE,
 		    &iter_aflags, &zb);
 	}
@@ -2266,15 +2270,19 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 
 	ASSERT3U(curlevel, ==, BP_GET_LEVEL(&bp));
 
-	struct dbuf_prefetch_arg *dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
+	zio_t *pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
+	    ZIO_FLAG_CANFAIL);
+
+	dbuf_prefetch_arg_t *dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	dsl_dataset_t *ds = dn->dn_objset->os_dsl_dataset;
-	SET_BOOKMARK(&dpa->zb, ds != NULL ? ds->ds_object : DMU_META_OBJSET,
+	SET_BOOKMARK(&dpa->dpa_zb, ds != NULL ? ds->ds_object : DMU_META_OBJSET,
 	    dn->dn_object, level, blkid);
-	dpa->curlevel = curlevel;
-	dpa->prio = prio;
-	dpa->aflags = aflags;
-	dpa->spa = dn->dn_objset->os_spa;
-	dpa->epbs = epbs;
+	dpa->dpa_curlevel = curlevel;
+	dpa->dpa_prio = prio;
+	dpa->dpa_aflags = aflags;
+	dpa->dpa_spa = dn->dn_objset->os_spa;
+	dpa->dpa_epbs = epbs;
+	dpa->dpa_zio = pio;
 
 	/*
 	 * If we have the indirect just above us, no need to do the asynchronous
@@ -2293,11 +2301,16 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 
 		SET_BOOKMARK(&zb, ds != NULL ? ds->ds_object : DMU_META_OBJSET,
 		    dn->dn_object, curlevel, curblkid);
-		(void) arc_read(NULL, dpa->spa,
+		(void) arc_read(dpa->dpa_zio, dpa->dpa_spa,
 		    &bp, dbuf_prefetch_indirect_done, dpa, prio,
 		    ZIO_FLAG_CANFAIL | ZIO_FLAG_SPECULATIVE,
 		    &iter_aflags, &zb);
 	}
+	/*
+	 * We use pio here instead of dpa_zio since it's possible that
+	 * dpa may have already been freed.
+	 */
+	zio_nowait(pio);
 }
 
 /*

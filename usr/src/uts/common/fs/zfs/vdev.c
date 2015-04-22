@@ -2721,11 +2721,11 @@ vdev_get_stats(vdev_t *vd, vdev_stat_t *vs)
 	if (vd->vdev_ops->vdev_op_leaf)
 		vs->vs_rsize += VDEV_LABEL_START_SIZE + VDEV_LABEL_END_SIZE;
 	/*
-	 * Report expandable space on top-level and leaves only. The expandable
-	 * space is reported in terms of metaslab sized units since that
-	 * determines how much space the pool can expand.
+	 * Report expandable space on top-level, non-auxillary devices only.
+	 * The expandable space is reported in terms of metaslab sized units
+	 * since that determines how much space the pool can expand.
 	 */
-	if (tvd != NULL) {
+	if (vd->vdev_aux == NULL && tvd != NULL) {
 		vs->vs_esize = P2ALIGN(vd->vdev_max_asize - vd->vdev_asize,
 		    1ULL << tvd->vdev_ms_shift);
 	}

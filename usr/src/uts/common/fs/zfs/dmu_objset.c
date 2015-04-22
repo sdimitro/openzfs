@@ -1718,12 +1718,12 @@ dmu_snapshot_realname(objset_t *os, char *name, char *real, int maxlen,
 	dsl_dataset_t *ds = os->os_dsl_dataset;
 	uint64_t ignored;
 
-	if (ds->ds_phys->ds_snapnames_zapobj == 0)
+	if (dsl_dataset_phys(ds)->ds_snapnames_zapobj == 0)
 		return (SET_ERROR(ENOENT));
 
 	return (zap_lookup_norm(ds->ds_dir->dd_pool->dp_meta_objset,
-	    ds->ds_phys->ds_snapnames_zapobj, name, 8, 1, &ignored, MT_FIRST,
-	    real, maxlen, conflict));
+	    dsl_dataset_phys(ds)->ds_snapnames_zapobj, name, 8, 1, &ignored,
+	    MT_FIRST, real, maxlen, conflict));
 }
 
 int
@@ -1736,12 +1736,12 @@ dmu_snapshot_list_next(objset_t *os, int namelen, char *name,
 
 	ASSERT(dsl_pool_config_held(dmu_objset_pool(os)));
 
-	if (ds->ds_phys->ds_snapnames_zapobj == 0)
+	if (dsl_dataset_phys(ds)->ds_snapnames_zapobj == 0)
 		return (SET_ERROR(ENOENT));
 
 	zap_cursor_init_serialized(&cursor,
 	    ds->ds_dir->dd_pool->dp_meta_objset,
-	    ds->ds_phys->ds_snapnames_zapobj, *offp);
+	    dsl_dataset_phys(ds)->ds_snapnames_zapobj, *offp);
 
 	if (zap_cursor_retrieve(&cursor, &attr) != 0) {
 		zap_cursor_fini(&cursor);
@@ -1775,12 +1775,12 @@ dmu_dir_list_next(objset_t *os, int namelen, char *name,
 
 	/* there is no next dir on a snapshot! */
 	if (os->os_dsl_dataset->ds_object !=
-	    dd->dd_phys->dd_head_dataset_obj)
+	    dsl_dir_phys(dd)->dd_head_dataset_obj)
 		return (SET_ERROR(ENOENT));
 
 	zap_cursor_init_serialized(&cursor,
 	    dd->dd_pool->dp_meta_objset,
-	    dd->dd_phys->dd_child_dir_zapobj, *offp);
+	    dsl_dir_phys(dd)->dd_child_dir_zapobj, *offp);
 
 	if (zap_cursor_retrieve(&cursor, &attr) != 0) {
 		zap_cursor_fini(&cursor);
@@ -1828,7 +1828,7 @@ dmu_objset_find_dp(dsl_pool_t *dp, uint64_t ddobj,
 		return (0);
 	}
 
-	thisobj = dd->dd_phys->dd_head_dataset_obj;
+	thisobj = dsl_dir_phys(dd)->dd_head_dataset_obj;
 	attr = kmem_alloc(sizeof (zap_attribute_t), KM_SLEEP);
 
 	/*
@@ -1836,7 +1836,7 @@ dmu_objset_find_dp(dsl_pool_t *dp, uint64_t ddobj,
 	 */
 	if (flags & DS_FIND_CHILDREN) {
 		for (zap_cursor_init(&zc, dp->dp_meta_objset,
-		    dd->dd_phys->dd_child_dir_zapobj);
+		    dsl_dir_phys(dd)->dd_child_dir_zapobj);
 		    zap_cursor_retrieve(&zc, attr) == 0;
 		    (void) zap_cursor_advance(&zc)) {
 			ASSERT3U(attr->za_integer_length, ==,
@@ -1865,7 +1865,9 @@ dmu_objset_find_dp(dsl_pool_t *dp, uint64_t ddobj,
 		err = dsl_dataset_hold_obj(dp, thisobj, FTAG, &ds);
 
 		if (err == 0) {
-			uint64_t snapobj = ds->ds_phys->ds_snapnames_zapobj;
+			uint64_t snapobj;
+
+			snapobj = dsl_dataset_phys(ds)->ds_snapnames_zapobj;
 			dsl_dataset_rele(ds, FTAG);
 
 			for (zap_cursor_init(&zc, dp->dp_meta_objset, snapobj);
@@ -1940,7 +1942,7 @@ dmu_objset_find_impl(spa_t *spa, const char *name,
 		return (0);
 	}
 
-	thisobj = dd->dd_phys->dd_head_dataset_obj;
+	thisobj = dsl_dir_phys(dd)->dd_head_dataset_obj;
 	attr = kmem_alloc(sizeof (zap_attribute_t), KM_SLEEP);
 
 	/*
@@ -1948,7 +1950,7 @@ dmu_objset_find_impl(spa_t *spa, const char *name,
 	 */
 	if (flags & DS_FIND_CHILDREN) {
 		for (zap_cursor_init(&zc, dp->dp_meta_objset,
-		    dd->dd_phys->dd_child_dir_zapobj);
+		    dsl_dir_phys(dd)->dd_child_dir_zapobj);
 		    zap_cursor_retrieve(&zc, attr) == 0;
 		    (void) zap_cursor_advance(&zc)) {
 			ASSERT3U(attr->za_integer_length, ==,
@@ -1981,7 +1983,9 @@ dmu_objset_find_impl(spa_t *spa, const char *name,
 		err = dsl_dataset_hold_obj(dp, thisobj, FTAG, &ds);
 
 		if (err == 0) {
-			uint64_t snapobj = ds->ds_phys->ds_snapnames_zapobj;
+			uint64_t snapobj;
+
+			snapobj = dsl_dataset_phys(ds)->ds_snapnames_zapobj;
 			dsl_dataset_rele(ds, FTAG);
 
 			for (zap_cursor_init(&zc, dp->dp_meta_objset, snapobj);

@@ -529,7 +529,7 @@ dmu_objset_mooch_origin_impl(objset_t *clone)
 		return (0);
 
 	err = dsl_dataset_hold_obj(dmu_objset_pool(clone),
-	    clone->os_dsl_dataset->ds_dir->dd_phys->dd_origin_obj,
+	    dsl_dir_phys(clone->os_dsl_dataset->ds_dir)->dd_origin_obj,
 	    FTAG, &origin_ds);
 	if (err != 0)
 		return (err);

@@ -103,6 +103,7 @@ extern "C" {
 #define	ZONE_ATTR_HOSTID	15
 #define	ZONE_ATTR_FS_ALLOWED	16
 #define	ZONE_ATTR_NETWORK	17
+#define	ZONE_ATTR_INITNORESTART	20
 
 /* Start of the brand-specific attribute namespace */
 #define	ZONE_ATTR_BRAND_ATTRS	32768
@@ -599,6 +600,14 @@ typedef struct zone {
 	 * DTrace-private per-zone state
 	 */
 	int		zone_dtrace_getf;	/* # of unprivileged getf()s */
+
+	/*
+	 * Synchronization primitives used to synchronize between mounts and
+	 * zone creation/destruction.
+	 */
+	int		zone_mounts_in_progress;
+	kcondvar_t	zone_mount_cv;
+	kmutex_t	zone_mount_lock;
 } zone_t;
 
 /*
@@ -818,8 +827,8 @@ extern int zone_dataset_visible(const char *, int *);
 extern int zone_kadmin(int, int, const char *, cred_t *);
 extern void zone_shutdown_global(void);
 
-extern void mount_in_progress(void);
-extern void mount_completed(void);
+extern void mount_in_progress(zone_t *);
+extern void mount_completed(zone_t *);
 
 extern int zone_walk(int (*)(zone_t *, void *), void *);
 

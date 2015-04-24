@@ -153,6 +153,7 @@ static off_t	ostriden;	/* number of output blocks to skip between */
 static off_t	istriden;	/* number of input blocks to skip between */
 				/* records */
 
+static boolean_t ecount;	/* explicit count given */
 static int	trantype; /* BSD or SVr4 compatible EBCDIC */
 
 static char		*string;	/* command arg pointer */
@@ -592,6 +593,7 @@ main(int argc, char **argv)
 		if (match("count="))
 		{
 			count = number(BIG);
+			ecount = B_TRUE;
 			continue;
 		}
 		if (match("files="))
@@ -1040,8 +1042,7 @@ main(int argc, char **argv)
 			nstats = 0;
 		}
 
-		if ((count == 0) || (nifr+nipr < count))
-		{
+		if ((count == 0 && ecount == B_FALSE) || (nifr+nipr < count)) {
 		/* If proceed on error is enabled, zero the input buffer */
 
 			if (cflag&NERR)

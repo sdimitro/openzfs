@@ -270,7 +270,7 @@ zio_data_buf_free(void *buf, size_t size)
  * Push and pop I/O transform buffers
  * ==========================================================================
  */
-static void
+void
 zio_push_transform(zio_t *zio, void *data, uint64_t size, uint64_t bufsize,
     zio_transform_func_t *transform)
 {
@@ -288,7 +288,7 @@ zio_push_transform(zio_t *zio, void *data, uint64_t size, uint64_t bufsize,
 	zio->io_size = size;
 }
 
-static void
+void
 zio_pop_transforms(zio_t *zio)
 {
 	zio_transform_t *zt;

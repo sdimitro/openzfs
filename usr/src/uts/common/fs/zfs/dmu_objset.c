@@ -316,8 +316,6 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 
 		if (DMU_OS_IS_L2CACHEABLE(os))
 			aflags |= ARC_FLAG_L2CACHE;
-		if (DMU_OS_IS_L2COMPRESSIBLE(os))
-			aflags |= ARC_FLAG_L2COMPRESS;
 
 		dprintf_bp(os->os_rootbp, "reading %s", "");
 		err = arc_read(NULL, spa, os->os_rootbp,
@@ -334,7 +332,7 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 		/* Increase the blocksize if we are permitted. */
 		if (spa_version(spa) >= SPA_VERSION_USERSPACE &&
 		    arc_buf_size(os->os_phys_buf) < sizeof (objset_phys_t)) {
-			arc_buf_t *buf = arc_buf_alloc(spa,
+			arc_buf_t *buf = arc_alloc_buf(spa,
 			    sizeof (objset_phys_t), &os->os_phys_buf,
 			    ARC_BUFC_METADATA);
 			bzero(buf->b_data, sizeof (objset_phys_t));
@@ -350,7 +348,7 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 	} else {
 		int size = spa_version(spa) >= SPA_VERSION_USERSPACE ?
 		    sizeof (objset_phys_t) : OBJSET_OLD_PHYS_SIZE;
-		os->os_phys_buf = arc_buf_alloc(spa, size,
+		os->os_phys_buf = arc_alloc_buf(spa, size,
 		    &os->os_phys_buf, ARC_BUFC_METADATA);
 		os->os_phys = os->os_phys_buf->b_data;
 		bzero(os->os_phys, size);
@@ -1286,9 +1284,8 @@ dmu_objset_sync(objset_t *os, zio_t *pio, dmu_tx_t *tx)
 
 	zio = arc_write(pio, os->os_spa, tx->tx_txg,
 	    os->os_rootbp, os->os_phys_buf, DMU_OS_IS_L2CACHEABLE(os),
-	    DMU_OS_IS_L2COMPRESSIBLE(os), &zp, dmu_objset_write_ready,
-	    NULL, dmu_objset_write_done, os, ZIO_PRIORITY_ASYNC_WRITE,
-	    ZIO_FLAG_MUSTSUCCEED, &zb);
+	    &zp, dmu_objset_write_ready, NULL, dmu_objset_write_done,
+	    os, ZIO_PRIORITY_ASYNC_WRITE, ZIO_FLAG_MUSTSUCCEED, &zb);
 
 	/*
 	 * Sync special dnodes - the parent IO for the sync is the root block

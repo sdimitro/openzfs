@@ -24,6 +24,7 @@ post = cleanup
 outputdir = /var/tmp/test_results
 
 [/opt/zfs-tests/tests/perf/regression]
-tests = ['sequential_writes', 'sequential_reads', 'random_reads',
-    'random_writes', 'random_readwrite']
+tests = ['sequential_writes', 'sequential_reads', 'sequential_reads_cached',
+    'sequential_reads_cached_clone, 'random_reads', 'random_writes',
+    'random_readwrite']
 post =

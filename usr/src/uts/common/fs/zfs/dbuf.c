@@ -541,7 +541,7 @@ mooch_read_done(zio_t *zio)
 	ASSERT3U(mra->mra_clone_db->db.db_size, ==,
 	    mra->mra_origin_db->db.db_size);
 
-	arc_buf_t *abuf = arc_buf_alloc(zio->io_spa,
+	arc_buf_t *abuf = arc_alloc_buf(zio->io_spa,
 	    mra->mra_clone_db->db.db_size, mra->mra_clone_db,
 	    DBUF_GET_BUFC_TYPE(mra->mra_clone_db));
 
@@ -662,7 +662,7 @@ dbuf_read_impl(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 
 		DB_DNODE_EXIT(db);
-		dbuf_set_data(db, arc_buf_alloc(db->db_objset->os_spa,
+		dbuf_set_data(db, arc_alloc_buf(db->db_objset->os_spa,
 		    db->db.db_size, db, type));
 		bzero(db->db.db_data, db->db.db_size);
 		db->db_state = DB_CACHED;
@@ -685,8 +685,6 @@ dbuf_read_impl(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 
 	if (DBUF_IS_L2CACHEABLE(db))
 		aflags |= ARC_FLAG_L2CACHE;
-	if (DBUF_IS_L2COMPRESSIBLE(db))
-		aflags |= ARC_FLAG_L2COMPRESS;
 
 	SET_BOOKMARK(&zb, db->db_objset->os_dsl_dataset ?
 	    db->db_objset->os_dsl_dataset->ds_object : DMU_META_OBJSET,
@@ -803,7 +801,7 @@ dbuf_noread(dmu_buf_impl_t *db)
 
 		ASSERT(db->db_buf == NULL);
 		ASSERT(db->db.db_data == NULL);
-		dbuf_set_data(db, arc_buf_alloc(spa, db->db.db_size, db, type));
+		dbuf_set_data(db, arc_alloc_buf(spa, db->db.db_size, db, type));
 		db->db_state = DB_FILL;
 	} else if (db->db_state == DB_NOFILL) {
 		dbuf_set_data(db, NULL);
@@ -859,7 +857,7 @@ dbuf_fix_old_data(dmu_buf_impl_t *db, uint64_t txg)
 		arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 		spa_t *spa = db->db_objset->os_spa;
 
-		dr->dt.dl.dr_data = arc_buf_alloc(spa, size, db, type);
+		dr->dt.dl.dr_data = arc_alloc_buf(spa, size, db, type);
 		bcopy(db->db.db_data, dr->dt.dl.dr_data->b_data, size);
 	} else {
 		dbuf_set_data(db, NULL);
@@ -1087,7 +1085,7 @@ dbuf_new_size(dmu_buf_impl_t *db, int size, dmu_tx_t *tx)
 	dmu_buf_will_dirty(&db->db, tx);
 
 	/* create the data buffer for the new block */
-	buf = arc_buf_alloc(dn->dn_objset->os_spa, size, db, type);
+	buf = arc_alloc_buf(dn->dn_objset->os_spa, size, db, type);
 
 	/* copy old block data to the new block */
 	obuf = db->db_buf;
@@ -2156,7 +2154,11 @@ dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
 	ASSERT3S(dpa->dpa_curlevel, >, 0);
 	if (zio != NULL) {
 		ASSERT3S(BP_GET_LEVEL(zio->io_bp), ==, dpa->dpa_curlevel);
-		ASSERT3U(BP_GET_LSIZE(zio->io_bp), ==, zio->io_size);
+		if (zio->io_flags & ZIO_FLAG_RAW) {
+			ASSERT3U(BP_GET_PSIZE(zio->io_bp), ==, zio->io_size);
+		} else {
+			ASSERT3U(BP_GET_LSIZE(zio->io_bp), ==, zio->io_size);
+		}
 		ASSERT3P(zio->io_spa, ==, dpa->dpa_spa);
 	}
 
@@ -2414,7 +2416,7 @@ top:
 			arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 
 			dbuf_set_data(db,
-			    arc_buf_alloc(dn->dn_objset->os_spa,
+			    arc_alloc_buf(dn->dn_objset->os_spa,
 			    db->db.db_size, db, type));
 			bcopy(dr->dt.dl.dr_data->b_data, db->db.db_data,
 			    db->db.db_size);
@@ -2518,6 +2520,31 @@ dmu_buf_rele(dmu_buf_t *db, void *tag)
 }
 
 /*
+ * By default, dbuf_rele_and_unlock() will evict the dbuf if the hold count
+ * has dropped to zero. This allows the arc to recover any uncompressed
+ * data that was being used by the dbuf. This may be too impactful for
+ * some workloads since it would require new dbufs to obtain their data
+ * by decompressing the data from the arc_buf_hdr_t. To minimize the
+ * impact we provide two tunables to allow fine-grained control
+ * of the eviction process:
+ *
+ *	zfs_keep_uncompressed_level:
+ *	This keeps all dbufs uncompressed that are at or above this level.
+ *	By default, this is set to DN_MAX_LEVELS + 1 forcing all dbufs
+ *	to be evicted. Note that 'zfs_keep_uncompressed_metadata' takes
+ *	precedence over this value. Thus if 'zfs_keep_uncompressed_metadata'
+ *	is set, then metadata is kept uncompressed regardless of the
+ *	level.
+ *
+ *	zfs_keep_uncompressed_metadata:
+ *	If set, keep uncompressed metadata (indirect blocks, directories,
+ *	the MOS, etc) in memory for the long term -- even when its hold
+ *	count goes to 0.
+ */
+int zfs_keep_uncompressed_level = DN_MAX_LEVELS + 1;
+boolean_t zfs_keep_uncompressed_metadata = B_FALSE;
+
+/*
  * dbuf_rele() for an already-locked dbuf.  This is necessary to allow
  * db_dirtycnt and db_holds to be updated atomically.
  */
@@ -2585,19 +2612,18 @@ dbuf_rele_and_unlock(dmu_buf_impl_t *db, void *tag)
 			VERIFY(!arc_buf_remove_ref(db->db_buf, db));
 
 			/*
-			 * A dbuf will be eligible for eviction if either the
-			 * 'primarycache' property is set or a duplicate
-			 * copy of this buffer is already cached in the arc.
+			 * A dbuf is always eligible for eviction leaving
+			 * only the compressed arc_buf_hdr_t block in the
+			 * cache. If the 'zfs_evict_data' flag is set then
+			 * we only evict data blocks and metadata blocks will
+			 * remain cached and uncompressed. If the
+			 * the 'primarycache' property is set then
+			 * the dbuf and the arc hdr associated with it
+			 * are both evicted.
 			 *
 			 * In the case of the 'primarycache' a buffer
 			 * is considered for eviction if it matches the
 			 * criteria set in the property.
-			 *
-			 * To decide if our buffer is considered a
-			 * duplicate, we must call into the arc to determine
-			 * if multiple buffers are referencing the same
-			 * block on-disk. If so, then we simply evict
-			 * ourselves.
 			 */
 			if (!DBUF_IS_CACHEABLE(db)) {
 				if (db->db_blkptr != NULL &&
@@ -2613,8 +2639,12 @@ dbuf_rele_and_unlock(dmu_buf_impl_t *db, void *tag)
 				}
 			} else if (arc_buf_eviction_needed(db->db_buf)) {
 				dbuf_clear(db);
-			} else {
+			} else if ((zfs_keep_uncompressed_metadata &&
+			    dbuf_is_metadata(db)) ||
+			    db->db_level >= zfs_keep_uncompressed_level) {
 				mutex_exit(&db->db_mtx);
+			} else {
+				dbuf_clear(db);
 			}
 		}
 	} else {
@@ -2897,7 +2927,7 @@ dbuf_sync_leaf(dbuf_dirty_record_t *dr, dmu_tx_t *tx)
 		 */
 		int blksz = arc_buf_size(*datap);
 		arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
-		*datap = arc_buf_alloc(os->os_spa, blksz, db, type);
+		*datap = arc_alloc_buf(os->os_spa, blksz, db, type);
 		bcopy(db->db.db_data, (*datap)->b_data, blksz);
 	}
 	db->db_data_pending = dr;
@@ -3412,8 +3442,8 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		ASSERT(arc_released(data));
 		dr->dr_zio = arc_write(zio, os->os_spa, txg,
 		    &dr->dr_bp_copy, data, DBUF_IS_L2CACHEABLE(db),
-		    DBUF_IS_L2COMPRESSIBLE(db), &zp, dbuf_write_ready,
-		    dbuf_write_physdone, dbuf_write_done, db,
-		    ZIO_PRIORITY_ASYNC_WRITE, ZIO_FLAG_MUSTSUCCEED, &zb);
+		    &zp, dbuf_write_ready, dbuf_write_physdone,
+		    dbuf_write_done, db, ZIO_PRIORITY_ASYNC_WRITE,
+		    ZIO_FLAG_MUSTSUCCEED, &zb);
 	}
 }

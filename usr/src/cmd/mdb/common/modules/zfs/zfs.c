@@ -989,6 +989,7 @@ arc_print(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		"mfu_ghost_evictable_metadata", "evict_l2_cached",
 		"evict_l2_eligible", "evict_l2_ineligible", "l2_read_bytes",
 		"l2_write_bytes", "l2_size", "l2_asize", "l2_hdr_size",
+		"compressed_size", "uncompressed_size", "overhead_size",
 		NULL
 	};
 
@@ -3481,7 +3482,9 @@ typedef struct mdb_arc_buf_hdr_t {
 	uint16_t b_psize;
 	uint16_t b_lsize;
 	struct {
+		uint32_t	b_bufcnt;
 		uintptr_t	b_state;
+		uintptr_t	b_pdata;
 	} b_l1hdr;
 } mdb_arc_buf_hdr_t;
 
@@ -3490,6 +3493,7 @@ enum arc_cflags {
 	ARC_CFLAG_ANON			= 1 << 1,
 	ARC_CFLAG_MRU			= 1 << 2,
 	ARC_CFLAG_MFU			= 1 << 3,
+	ARC_CFLAG_BUFS			= 1 << 4,
 };
 
 typedef struct arc_compression_stats_data {
@@ -3501,12 +3505,16 @@ typedef struct arc_compression_stats_data {
 	GElf_Sym l2c_sym;	/* ARC_l2c_only symbol */
 	uint64_t *anon_c_hist;	/* histogram of compressed sizes in anon */
 	uint64_t *anon_u_hist;	/* histogram of uncompressed sizes in anon */
+	uint64_t *anon_bufs;	/* histogram of buffer counts in anon state */
 	uint64_t *mru_c_hist;	/* histogram of compressed sizes in mru */
 	uint64_t *mru_u_hist;	/* histogram of uncompressed sizes in mru */
+	uint64_t *mru_bufs;	/* histogram of buffer counts in mru */
 	uint64_t *mfu_c_hist;	/* histogram of compressed sizes in mfu */
 	uint64_t *mfu_u_hist;	/* histogram of uncompressed sizes in mfu */
+	uint64_t *mfu_bufs;	/* histogram of buffer counts in mfu */
 	uint64_t *all_c_hist;	/* histogram of compressed anon + mru + mfu */
 	uint64_t *all_u_hist;	/* histogram of uncompressed anon + mru + mfu */
+	uint64_t *all_bufs;	/* histogram of buffer counts in all states  */
 	int arc_cflags;		/* arc compression flags, specified by user */
 	int hist_nbuckets;	/* number of buckets in each histogram */
 } arc_compression_stats_data_t;
@@ -3545,8 +3553,7 @@ arc_compression_stats_cb(uintptr_t addr, const void *unknown, void *arg)
 {
 	arc_compression_stats_data_t *data = arg;
 	mdb_arc_buf_hdr_t hdr;
-	uint64_t cbucket;
-	uint64_t ubucket;
+	int cbucket, ubucket, bufcnt;
 
 	if (mdb_ctf_vread(&hdr, "arc_buf_hdr_t", "mdb_arc_buf_hdr_t",
 	    addr, 0) == -1) {
@@ -3617,6 +3624,10 @@ arc_compression_stats_cb(uintptr_t addr, const void *unknown, void *arg)
 		ubucket = highbit64(hdr.b_lsize);
 	}
 
+	bufcnt = hdr.b_l1hdr.b_bufcnt;
+	if (bufcnt >= data->hist_nbuckets)
+		bufcnt = data->hist_nbuckets - 1;
+
 	/* Ensure we stay within the bounds of the histogram array */
 	ASSERT3U(cbucket, <, data->hist_nbuckets);
 	ASSERT3U(ubucket, <, data->hist_nbuckets);
@@ -3624,16 +3635,20 @@ arc_compression_stats_cb(uintptr_t addr, const void *unknown, void *arg)
 	if (hdr.b_l1hdr.b_state == data->anon_sym.st_value) {
 		data->anon_c_hist[cbucket]++;
 		data->anon_u_hist[ubucket]++;
+		data->anon_bufs[bufcnt]++;
 	} else if (hdr.b_l1hdr.b_state == data->mru_sym.st_value) {
 		data->mru_c_hist[cbucket]++;
 		data->mru_u_hist[ubucket]++;
+		data->mru_bufs[bufcnt]++;
 	} else if (hdr.b_l1hdr.b_state == data->mfu_sym.st_value) {
 		data->mfu_c_hist[cbucket]++;
 		data->mfu_u_hist[ubucket]++;
+		data->mfu_bufs[bufcnt]++;
 	}
 
 	data->all_c_hist[cbucket]++;
 	data->all_u_hist[ubucket]++;
+	data->all_bufs[bufcnt]++;
 
 	return (WALK_NEXT);
 }
@@ -3652,6 +3667,7 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 	if (mdb_getopts(argc, argv,
 	    'v', MDB_OPT_SETBITS, ARC_CFLAG_VERBOSE, &data.arc_cflags,
 	    'a', MDB_OPT_SETBITS, ARC_CFLAG_ANON, &data.arc_cflags,
+	    'b', MDB_OPT_SETBITS, ARC_CFLAG_BUFS, &data.arc_cflags,
 	    'r', MDB_OPT_SETBITS, ARC_CFLAG_MRU, &data.arc_cflags,
 	    'f', MDB_OPT_SETBITS, ARC_CFLAG_MFU, &data.arc_cflags) != argc)
 		return (DCMD_USAGE);
@@ -3684,15 +3700,19 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 
 	data.anon_c_hist = mdb_zalloc(hist_size, UM_SLEEP);
 	data.anon_u_hist = mdb_zalloc(hist_size, UM_SLEEP);
+	data.anon_bufs = mdb_zalloc(hist_size, UM_SLEEP);
 
 	data.mru_c_hist = mdb_zalloc(hist_size, UM_SLEEP);
 	data.mru_u_hist = mdb_zalloc(hist_size, UM_SLEEP);
+	data.mru_bufs = mdb_zalloc(hist_size, UM_SLEEP);
 
 	data.mfu_c_hist = mdb_zalloc(hist_size, UM_SLEEP);
 	data.mfu_u_hist = mdb_zalloc(hist_size, UM_SLEEP);
+	data.mfu_bufs = mdb_zalloc(hist_size, UM_SLEEP);
 
 	data.all_c_hist = mdb_zalloc(hist_size, UM_SLEEP);
 	data.all_u_hist = mdb_zalloc(hist_size, UM_SLEEP);
+	data.all_bufs = mdb_zalloc(hist_size, UM_SLEEP);
 
 	if (mdb_walk("arc_buf_hdr_t_full", arc_compression_stats_cb,
 	    &data) != 0) {
@@ -3721,6 +3741,12 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 	}
 
 	if (data.arc_cflags & ARC_CFLAG_ANON) {
+		if (data.arc_cflags & ARC_CFLAG_BUFS) {
+			mdb_printf("Histogram of the number of anon buffers "
+			    "that are associated with an arc hdr.\n");
+			dump_histogram(data.anon_bufs, data.hist_nbuckets, 0);
+			mdb_printf("\n");
+		}
 		mdb_printf("Histogram of compressed anon buffers.\n"
 		    "Each bucket represents buffers of size: %s.\n", range);
 		dump_histogram(data.anon_c_hist, data.hist_nbuckets, 0);
@@ -3733,6 +3759,12 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 	}
 
 	if (data.arc_cflags & ARC_CFLAG_MRU) {
+		if (data.arc_cflags & ARC_CFLAG_BUFS) {
+			mdb_printf("Histogram of the number of mru buffers "
+			    "that are associated with an arc hdr.\n");
+			dump_histogram(data.mru_bufs, data.hist_nbuckets, 0);
+			mdb_printf("\n");
+		}
 		mdb_printf("Histogram of compressed mru buffers.\n"
 		    "Each bucket represents buffers of size: %s.\n", range);
 		dump_histogram(data.mru_c_hist, data.hist_nbuckets, 0);
@@ -3745,6 +3777,13 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 	}
 
 	if (data.arc_cflags & ARC_CFLAG_MFU) {
+		if (data.arc_cflags & ARC_CFLAG_BUFS) {
+			mdb_printf("Histogram of the number of mfu buffers "
+			    "that are associated with an arc hdr.\n");
+			dump_histogram(data.mfu_bufs, data.hist_nbuckets, 0);
+			mdb_printf("\n");
+		}
+
 		mdb_printf("Histogram of compressed mfu buffers.\n"
 		    "Each bucket represents buffers of size: %s.\n", range);
 		dump_histogram(data.mfu_c_hist, data.hist_nbuckets, 0);
@@ -3753,6 +3792,13 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 		mdb_printf("Histogram of uncompressed mfu buffers.\n"
 		    "Each bucket represents buffers of size: %s.\n", range);
 		dump_histogram(data.mfu_u_hist, data.hist_nbuckets, 0);
+		mdb_printf("\n");
+	}
+
+	if (data.arc_cflags & ARC_CFLAG_BUFS) {
+		mdb_printf("Histogram of all buffers that "
+		    "are associated with an arc hdr.\n");
+		dump_histogram(data.all_bufs, data.hist_nbuckets, 0);
 		mdb_printf("\n");
 	}
 
@@ -3768,15 +3814,19 @@ arc_compression_stats(uintptr_t addr, uint_t flags, int argc,
 out:
 	mdb_free(data.anon_c_hist, hist_size);
 	mdb_free(data.anon_u_hist, hist_size);
+	mdb_free(data.anon_bufs, hist_size);
 
 	mdb_free(data.mru_c_hist, hist_size);
 	mdb_free(data.mru_u_hist, hist_size);
+	mdb_free(data.mru_bufs, hist_size);
 
 	mdb_free(data.mfu_c_hist, hist_size);
 	mdb_free(data.mfu_u_hist, hist_size);
+	mdb_free(data.mfu_bufs, hist_size);
 
 	mdb_free(data.all_c_hist, hist_size);
 	mdb_free(data.all_u_hist, hist_size);
+	mdb_free(data.all_bufs, hist_size);
 
 	return (rc);
 }
@@ -3856,11 +3906,12 @@ static const mdb_dcmd_t dcmds[] = {
 	    "print metaslab weight", metaslab_weight},
 	{ "metaslab_trace", ":",
 	    "print metaslab allocation trace records", metaslab_trace},
-	{ "arc_compression_stats", ":[-varf]\n"
+	{ "arc_compression_stats", ":[-vabrf]\n"
 	    "\t-v verbose, display a linearly scaled histogram\n"
 	    "\t-a display ARC_anon state statistics individually\n"
 	    "\t-r display ARC_mru state statistics individually\n"
-	    "\t-f display ARC_mfu state statistics individually\n",
+	    "\t-f display ARC_mfu state statistics individually\n"
+	    "\t-b display histogram of buffer counts\n",
 	    "print a histogram of compressed arc buffer sizes",
 	    arc_compression_stats},
 	{ NULL }

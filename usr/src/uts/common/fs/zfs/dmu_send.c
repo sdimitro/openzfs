@@ -877,7 +877,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 			    zb->zb_blkid * blksz, FTAG, &origin_db, 0);
 			ASSERT3U(blksz, ==, origin_db->db_size);
 			if (err == 0) {
-				abuf = arc_buf_alloc(spa, origin_db->db_size,
+				abuf = arc_alloc_buf(spa, origin_db->db_size,
 				    &abuf, ARC_BUFC_DATA);
 				mooch_byteswap_reconstruct(origin_db,
 				    abuf->b_data, bp);
@@ -892,7 +892,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		if (err != 0) {
 			if (zfs_send_corrupt_data) {
 				/* Send a block filled with 0x"zfs badd bloc" */
-				abuf = arc_buf_alloc(spa, blksz, &abuf,
+				abuf = arc_alloc_buf(spa, blksz, &abuf,
 				    ARC_BUFC_DATA);
 				uint64_t *ptr;
 				for (ptr = abuf->b_data;

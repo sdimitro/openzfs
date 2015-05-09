@@ -22,6 +22,8 @@ PROGS = random_reads \
 	random_readwrite \
 	random_writes \
 	sequential_reads \
+	sequential_reads_cached \
+	sequential_reads_cached_clone \
 	sequential_writes \
 	setup
 

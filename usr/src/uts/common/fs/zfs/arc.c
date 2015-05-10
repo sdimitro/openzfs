@@ -1398,7 +1398,7 @@ arc_cksum_verify(arc_buf_t *buf)
 		mutex_exit(&hdr->b_l1hdr.b_freeze_lock);
 		return;
 	}
-	fletcher_2_native(buf->b_data, HDR_GET_LSIZE(hdr), &zc);
+	fletcher_2_native(buf->b_data, HDR_GET_LSIZE(hdr), NULL, &zc);
 	if (!ZIO_CHECKSUM_EQUAL(*hdr->b_l1hdr.b_freeze_cksum, zc))
 		panic("buffer modified while frozen!");
 	mutex_exit(&hdr->b_l1hdr.b_freeze_lock);
@@ -1456,7 +1456,7 @@ arc_cksum_compute(arc_buf_t *buf)
 	hdr->b_l1hdr.b_freeze_cksum = kmem_alloc(sizeof (zio_cksum_t),
 	    KM_SLEEP);
 	fletcher_2_native(buf->b_data, HDR_GET_LSIZE(hdr),
-	    hdr->b_l1hdr.b_freeze_cksum);
+	    NULL, hdr->b_l1hdr.b_freeze_cksum);
 	mutex_exit(&hdr->b_l1hdr.b_freeze_lock);
 	arc_buf_watch(buf);
 }

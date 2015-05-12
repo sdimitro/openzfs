@@ -132,6 +132,16 @@ multilist_insert(multilist_t *ml, void *obj)
 	ASSERT3U(sublist_idx, <, ml->ml_num_sublists);
 
 	mls = &ml->ml_sublists[sublist_idx];
+
+	/*
+	 * Note: Callers may already hold the sublist lock by calling
+	 * multilist_sublist_lock().  Here we rely on MUTEX_HELD()
+	 * returning TRUE if and only if the current thread holds the
+	 * lock.  While it's a little ugly to make the lock recursive in
+	 * this way, it works and allows the calling code to be much
+	 * simpler -- otherwise it would have to pass around a flag
+	 * indicating that it already has the lock.
+	 */
 	need_lock = !MUTEX_HELD(&mls->mls_lock);
 
 	if (need_lock)
@@ -167,6 +177,7 @@ multilist_remove(multilist_t *ml, void *obj)
 	ASSERT3U(sublist_idx, <, ml->ml_num_sublists);
 
 	mls = &ml->ml_sublists[sublist_idx];
+	/* See comment in multilist_insert(). */
 	need_lock = !MUTEX_HELD(&mls->mls_lock);
 
 	if (need_lock)
@@ -201,6 +212,7 @@ multilist_is_empty(multilist_t *ml)
 {
 	for (int i = 0; i < ml->ml_num_sublists; i++) {
 		multilist_sublist_t *mls = &ml->ml_sublists[i];
+		/* See comment in multilist_insert(). */
 		boolean_t need_lock = !MUTEX_HELD(&mls->mls_lock);
 
 		if (need_lock)

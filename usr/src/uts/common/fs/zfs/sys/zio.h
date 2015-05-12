@@ -425,6 +425,7 @@ struct zio {
 	hrtime_t	io_queued_timestamp;
 	hrtime_t	io_target_timestamp;
 	avl_node_t	io_queue_node;
+	avl_node_t	io_offset_node;
 	avl_node_t	io_alloc_node;
 	zio_alloc_list_t	io_alloc_list;
 

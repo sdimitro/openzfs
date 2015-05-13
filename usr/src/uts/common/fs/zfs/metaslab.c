@@ -34,6 +34,7 @@
 #include <sys/spa_impl.h>
 #include <sys/zfeature.h>
 #include <util/qsort.h>
+#include <sys/vdev_indirect_mapping.h>
 
 #define	GANG_ALLOCATION(flags) \
 	((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER))
@@ -3664,7 +3665,8 @@ remap_blkptr_cb(uint64_t inner_offset, vdev_t *vd, uint64_t offset,
 	 */
 	vdev_t *oldvd = vdev_lookup_top(vd->vdev_spa,
 	    DVA_GET_VDEV(&bp->blk_dva[0]));
-	bp->blk_phys_birth = vdev_indirect_physbirth(oldvd,
+	vdev_indirect_births_t *vib = oldvd->vdev_indirect_births;
+	bp->blk_phys_birth = vdev_indirect_births_physbirth(vib,
 	    DVA_GET_OFFSET(&bp->blk_dva[0]), DVA_GET_ASIZE(&bp->blk_dva[0]));
 
 	DVA_SET_VDEV(&bp->blk_dva[0], vd->vdev_id);
@@ -3766,7 +3768,8 @@ metaslab_unalloc_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 
 	ASSERT(!vd->vdev_removing);
 	ASSERT(vdev_is_concrete(vd));
-	ASSERT0(vd->vdev_indirect_state.vis_mapping_object);
+	ASSERT0(vd->vdev_indirect_config.vic_mapping_object);
+	ASSERT3P(vd->vdev_indirect_mapping, ==, NULL);
 
 	if (DVA_GET_GANG(dva))
 		size = vdev_psize_to_asize(vd, SPA_GANGBLOCKSIZE);

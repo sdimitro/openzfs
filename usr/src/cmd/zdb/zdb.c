@@ -847,68 +847,56 @@ dump_metaslab_groups(spa_t *spa)
 static void
 print_vdev_indirect(vdev_t *vd)
 {
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
-	if (vis->vis_mapping_object == 0) {
+	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
+	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
+	vdev_indirect_births_t *vib = vd->vdev_indirect_births;
+
+	if (vim == NULL) {
+		ASSERT3P(vib, ==, NULL);
 		return;
 	}
 
-	vdev_indirect_birth_entry_phys_t *vibe;
-	uint64_t ib_count;
-	if (vis->vis_births != NULL) {
-		vibe = vis->vis_births;
-		ib_count = vis->vis_births_count;
-	} else {
-		ASSERT3P(vd->vdev_ops, !=, &vdev_indirect_ops);
-		vdev_read_births(vd->vdev_spa, vis->vis_births_object,
-		    &vibe, &ib_count);
-	}
+	ASSERT3U(vdev_indirect_mapping_object(vim), ==,
+	    vic->vic_mapping_object);
+	ASSERT3U(vdev_indirect_births_object(vib), ==,
+	    vic->vic_births_object);
+
 	(void) printf("indirect births obj %llu:\n",
-	    (longlong_t)vis->vis_births_object);
+	    (longlong_t)vic->vic_births_object);
 	(void) printf("    vib_count = %llu\n",
-	    (longlong_t)ib_count);
-	for (uint64_t i = 0; i < ib_count; i++) {
-		vdev_indirect_birth_entry_phys_t *cur_vibe = &vibe[i];
+	    (longlong_t)vdev_indirect_births_count(vib));
+	for (uint64_t i = 0; i < vdev_indirect_births_count(vib); i++) {
+		vdev_indirect_birth_entry_phys_t *cur_vibe =
+		    &vib->vib_entries[i];
 		(void) printf("\toffset %llx -> txg %llu\n",
 		    (longlong_t)cur_vibe->vibe_offset,
 		    (longlong_t)cur_vibe->vibe_phys_birth_txg);
 	}
-	if (vibe != vis->vis_births)
-		kmem_free(vibe, ib_count * sizeof (*vibe));
 	(void) printf("\n");
 
-	dmu_buf_t *bonus;
-	VERIFY0(dmu_bonus_hold(vd->vdev_spa->spa_meta_objset,
-	    vis->vis_mapping_object, FTAG, &bonus));
-	vdev_indirect_mapping_phys_t *vimp = bonus->db_data;
-
-	ASSERT3U(vimp->vim_count, ==, vis->vis_mapping_count);
-
 	(void) printf("indirect mapping obj %llu:\n",
-	    (longlong_t)vis->vis_mapping_object);
+	    (longlong_t)vic->vic_mapping_object);
 	(void) printf("    vim_max_offset = 0x%llx\n",
-	    (longlong_t)vimp->vim_max_offset);
+	    (longlong_t)vdev_indirect_mapping_max_offset(vim));
 	(void) printf("    vim_bytes_mapped = 0x%llx\n",
-	    (longlong_t)vimp->vim_bytes_mapped);
+	    (longlong_t)vdev_indirect_mapping_bytes_mapped(vim));
 	(void) printf("    vim_count = %llu\n",
-	    (longlong_t)vimp->vim_count);
-	dmu_buf_rele(bonus, FTAG);
-	bonus = NULL;
-	vimp = NULL;
+	    (longlong_t)vdev_indirect_mapping_count(vim));
 
 	if (dump_opt['d'] <= 5 && dump_opt['m'] <= 3)
 		return;
 
-	for (uint64_t i = 0; i < vis->vis_mapping_count; i++) {
-		vdev_indirect_mapping_entry_phys_t *dmp =
-		    &vis->vis_mapping[i];
+	for (uint64_t i = 0; i < vdev_indirect_mapping_count(vim); i++) {
+		vdev_indirect_mapping_entry_phys_t *vimep =
+		    &vim->vim_entries[i];
 		(void) printf("\t%c <%llx:%llx:%llx> -> <%llx:%llx:%llx>\n",
-		    DVA_MAPPING_GET_MARK(dmp) ? 'M' : ' ',
+		    DVA_MAPPING_GET_MARK(vimep) ? 'M' : ' ',
 		    (longlong_t)vd->vdev_id,
-		    (longlong_t)DVA_MAPPING_GET_SRC_OFFSET(dmp),
-		    (longlong_t)DVA_GET_ASIZE(&dmp->dm_dst),
-		    (longlong_t)DVA_GET_VDEV(&dmp->dm_dst),
-		    (longlong_t)DVA_GET_OFFSET(&dmp->dm_dst),
-		    (longlong_t)DVA_GET_ASIZE(&dmp->dm_dst));
+		    (longlong_t)DVA_MAPPING_GET_SRC_OFFSET(vimep),
+		    (longlong_t)DVA_GET_ASIZE(&vimep->vimep_dst),
+		    (longlong_t)DVA_GET_VDEV(&vimep->vimep_dst),
+		    (longlong_t)DVA_GET_OFFSET(&vimep->vimep_dst),
+		    (longlong_t)DVA_GET_ASIZE(&vimep->vimep_dst));
 	}
 	(void) printf("\n");
 }
@@ -2711,11 +2699,12 @@ zdb_claim_removing(spa_t *spa, zdb_cb_t *zcb)
 
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 	vdev_t *vd = svr->svr_vdev;
+	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 
 	for (uint64_t msi = 0; msi < vd->vdev_ms_count; msi++) {
 		metaslab_t *msp = vd->vdev_ms[msi];
 
-		if (msp->ms_start >= svr->svr_max_synced_offset)
+		if (msp->ms_start >= vdev_indirect_mapping_max_offset(vim))
 			break;
 
 		ASSERT0(range_tree_space(svr->svr_allocd_segs));
@@ -2732,10 +2721,10 @@ zdb_claim_removing(spa_t *spa, zdb_cb_t *zcb)
 			 * Clear everything past what has been synced,
 			 * because we have not allocated mappings for it yet.
 			 */
-			uint64_t maxsync = svr->svr_max_synced_offset;
-			range_tree_clear(svr->svr_allocd_segs, maxsync,
+			range_tree_clear(svr->svr_allocd_segs,
+			    vdev_indirect_mapping_max_offset(vim),
 			    msp->ms_sm->sm_start + msp->ms_sm->sm_size -
-			    maxsync);
+			    vdev_indirect_mapping_max_offset(vim));
 
 			mutex_exit(&svr->svr_lock);
 		}
@@ -3038,9 +3027,11 @@ dump_block_stats(spa_t *spa)
 
 	for (uint64_t v = 0; v < spa->spa_root_vdev->vdev_children; v++) {
 		vdev_t *vd = spa->spa_root_vdev->vdev_child[v];
-		vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
-		if (vis->vis_mapping == NULL)
+		vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
+
+		if (vim == NULL) {
 			continue;
+		}
 
 		/*
 		 * We mark the mapping entries when we claim blocks.
@@ -3060,24 +3051,27 @@ dump_block_stats(spa_t *spa)
 		 * (and dnodes), regardless of their birth times.
 		 */
 		uint64_t inuse = 0;
-		for (uint64_t i = 0; i < vis->vis_mapping_count; i++) {
-			if (DVA_MAPPING_GET_MARK(
-			    &vis->vis_mapping[i])) {
+		for (uint64_t i = 0; i < vdev_indirect_mapping_count(vim);
+		    i++) {
+			if (DVA_MAPPING_GET_MARK(&vim->vim_entries[i])) {
 				inuse++;
 			}
 		}
 
 		char mem[32];
-		zdb_nicenum(vis->vis_mapping_count *
-		    sizeof (vdev_indirect_mapping_entry_phys_t),
-		    mem);
+		zdb_nicenum(vdev_indirect_mapping_size(vim), mem);
+
+		uint64_t pct_referenced = 100;
+		uint64_t count = vdev_indirect_mapping_count(vim);
+		if (count > 0) {
+			pct_referenced = (inuse * 100 + count - 1) / count;
+		}
 
 		(void) printf("\tindirect vdev id %llu has %llu segments "
 		    "(%s in memory), %u%% referenced\n",
 		    (longlong_t)vd->vdev_id,
-		    (longlong_t)vis->vis_mapping_count, mem,
-		    (int)((inuse * 100 + vis->vis_mapping_count - 1) /
-		    vis->vis_mapping_count));
+		    (longlong_t)vdev_indirect_mapping_count(vim), mem,
+		    (int)pct_referenced);
 	}
 
 	if (dump_opt['b'] >= 2) {

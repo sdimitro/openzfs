@@ -2093,21 +2093,19 @@ spa_get_last_removal_txg(spa_t *spa)
 
 	while (vdevid != -1ULL) {
 		vdev_t *vd = vdev_lookup_top(spa, vdevid);
-		vdev_indirect_birth_entry_phys_t *last;
-		vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
+		vdev_indirect_births_t *vib = vd->vdev_indirect_births;
 
 		ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
 
 		/*
 		 * If the removal did not remap any data, we don't care.
 		 */
-		if (vis->vis_births_count != 0) {
-			last = &vis->vis_births[vis->vis_births_count - 1];
-			ret = last->vibe_phys_birth_txg;
+		if (vdev_indirect_births_count(vib) != 0) {
+			ret = vdev_indirect_births_last_entry_txg(vib);
 			break;
 		}
 
-		vdevid = vis->vis_prev_indirect_vdev;
+		vdevid = vd->vdev_indirect_config.vic_prev_indirect_vdev;
 	}
 	spa_config_exit(spa, SCL_VDEV, FTAG);
 

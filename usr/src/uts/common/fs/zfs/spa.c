@@ -1734,12 +1734,7 @@ spa_config_valid(spa_t *spa, nvlist_t *config)
 		 * with the rest of the info in the MOS.
 		 */
 		tvd->vdev_removing = mtvd->vdev_removing;
-		tvd->vdev_indirect_state.vis_mapping_object =
-		    mtvd->vdev_indirect_state.vis_mapping_object;
-		tvd->vdev_indirect_state.vis_births_object =
-		    mtvd->vdev_indirect_state.vis_births_object;
-		tvd->vdev_indirect_state.vis_prev_indirect_vdev =
-		    mtvd->vdev_indirect_state.vis_prev_indirect_vdev;
+		tvd->vdev_indirect_config = mtvd->vdev_indirect_config;
 	}
 	vdev_free(mrvd);
 	spa_config_exit(spa, SCL_ALL, FTAG);
@@ -2155,8 +2150,6 @@ spa_load(spa_t *spa, spa_load_state_t state, spa_import_type_t type,
 
 	return (error);
 }
-
-extern void vdev_initialize_mapping(vdev_t *vd);
 
 /*
  * Load an existing storage pool, using the pool's builtin spa_config as a

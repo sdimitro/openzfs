@@ -22,7 +22,7 @@
 #
 # Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
-# Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2011, 2015 by Delphix. All rights reserved.
 # Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
 # Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
 #
@@ -1391,6 +1391,8 @@ ZFS_COMMON_OBJS +=		\
 	vdev_cache.o		\
 	vdev_file.o		\
 	vdev_indirect.o		\
+	vdev_indirect_births.o	\
+	vdev_indirect_mapping.o	\
 	vdev_label.o		\
 	vdev_mirror.o		\
 	vdev_missing.o		\

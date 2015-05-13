@@ -216,6 +216,7 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
     vdev_config_flag_t flags)
 {
 	nvlist_t *nv = NULL;
+	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 
 	nv = fnvlist_alloc();
 
@@ -290,19 +291,19 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		    space_map_object(vd->vdev_dtl_sm));
 	}
 
-	if (vd->vdev_indirect_state.vis_mapping_object != 0) {
+	if (vic->vic_mapping_object != 0) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
-		    vd->vdev_indirect_state.vis_mapping_object);
+		    vic->vic_mapping_object);
 	}
 
-	if (vd->vdev_indirect_state.vis_births_object != 0) {
+	if (vic->vic_births_object != 0) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
-		    vd->vdev_indirect_state.vis_births_object);
+		    vic->vic_births_object);
 	}
 
-	if (vd->vdev_indirect_state.vis_prev_indirect_vdev != -1) {
+	if (vic->vic_prev_indirect_vdev != UINT64_MAX) {
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
-		    vd->vdev_indirect_state.vis_prev_indirect_vdev);
+		    vic->vic_prev_indirect_vdev);
 	}
 
 	if (vd->vdev_crtxg)
@@ -330,10 +331,12 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 			    sizeof (prs) / sizeof (uint64_t));
 		}
 
-		if (vd->vdev_indirect_state.vis_mapping_count > 0) {
+		if (vd->vdev_indirect_mapping != NULL) {
+			ASSERT(vd->vdev_indirect_births != NULL);
+			vdev_indirect_mapping_t *vim =
+			    vd->vdev_indirect_mapping;
 			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_SIZE,
-			    vd->vdev_indirect_state.vis_mapping_count *
-			    sizeof (vdev_indirect_mapping_entry_phys_t));
+			    vdev_indirect_mapping_size(vim));
 		} else if (vd->vdev_mg != NULL &&
 		    vd->vdev_mg->mg_fragmentation != ZFS_FRAG_INVALID) {
 			/*

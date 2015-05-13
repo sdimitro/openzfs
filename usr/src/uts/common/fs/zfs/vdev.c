@@ -293,8 +293,10 @@ vdev_t *
 vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 {
 	vdev_t *vd;
+	vdev_indirect_config_t *vic;
 
 	vd = kmem_zalloc(sizeof (vdev_t), KM_SLEEP);
+	vic = &vd->vdev_indirect_config;
 
 	if (spa->spa_root_vdev == NULL) {
 		ASSERT(ops == &vdev_root_ops);
@@ -325,7 +327,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	vd->vdev_ops = ops;
 	vd->vdev_state = VDEV_STATE_CLOSED;
 	vd->vdev_ishole = (ops == &vdev_hole_ops);
-	vd->vdev_indirect_state.vis_prev_indirect_vdev = -1;
+	vic->vic_prev_indirect_vdev = UINT64_MAX;
 
 	mutex_init(&vd->vdev_dtl_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -359,6 +361,7 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 	char *type;
 	uint64_t guid = 0, islog, nparity;
 	vdev_t *vd;
+	vdev_indirect_config_t *vic;
 
 	ASSERT(spa_config_held(spa, SCL_ALL, RW_WRITER) == SCL_ALL);
 
@@ -446,6 +449,7 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 	ASSERT(nparity != -1ULL);
 
 	vd = vdev_alloc_common(spa, id, guid, ops);
+	vic = &vd->vdev_indirect_config;
 
 	vd->vdev_islog = islog;
 	vd->vdev_nparity = nparity;
@@ -468,12 +472,15 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 	    &vd->vdev_wholedisk) != 0)
 		vd->vdev_wholedisk = -1ULL;
 
+	ASSERT0(vic->vic_mapping_object);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
-	    &vd->vdev_indirect_state.vis_mapping_object);
+	    &vic->vic_mapping_object);
+	ASSERT0(vic->vic_births_object);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
-	    &vd->vdev_indirect_state.vis_births_object);
+	    &vic->vic_births_object);
+	ASSERT3U(vic->vic_prev_indirect_vdev, ==, UINT64_MAX);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
-	    &vd->vdev_indirect_state.vis_prev_indirect_vdev);
+	    &vic->vic_prev_indirect_vdev);
 
 	/*
 	 * Look for the 'not present' flag.  This will only be set if the device
@@ -585,7 +592,6 @@ void
 vdev_free(vdev_t *vd)
 {
 	spa_t *spa = vd->vdev_spa;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 
 	/*
 	 * vdev_free() implies closing the vdev first.  This is simpler than
@@ -595,16 +601,6 @@ vdev_free(vdev_t *vd)
 
 	ASSERT(!list_link_active(&vd->vdev_config_dirty_node));
 	ASSERT(!list_link_active(&vd->vdev_state_dirty_node));
-
-	if (vis->vis_mapping != NULL) {
-		kmem_free(vis->vis_mapping,
-		    vis->vis_mapping_count * sizeof (*vis->vis_mapping));
-	}
-
-	if (vis->vis_births != NULL) {
-		kmem_free(vis->vis_births,
-		    vis->vis_births_count * sizeof (*vis->vis_births));
-	}
 
 	/*
 	 * Free all children.
@@ -664,6 +660,13 @@ vdev_free(vdev_t *vd)
 		range_tree_destroy(vd->vdev_dtl[t]);
 	}
 	mutex_exit(&vd->vdev_dtl_lock);
+
+	EQUIV(vd->vdev_indirect_births != NULL,
+	    vd->vdev_indirect_mapping != NULL);
+	if (vd->vdev_indirect_births != NULL) {
+		vdev_indirect_mapping_close(vd->vdev_indirect_mapping);
+		vdev_indirect_births_close(vd->vdev_indirect_births);
+	}
 
 	mutex_destroy(&vd->vdev_queue_lock);
 	mutex_destroy(&vd->vdev_dtl_lock);
@@ -2277,14 +2280,13 @@ vdev_sync(vdev_t *vd, uint64_t txg)
 	vdev_t *lvd;
 	metaslab_t *msp;
 	dmu_tx_t *tx;
-	vdev_indirect_state_t *vis = &vd->vdev_indirect_state;
 
 	ASSERT(vdev_is_concrete(vd));
 
 	if (vd->vdev_ms_array == 0 && vd->vdev_ms_shift != 0 &&
 	    !vd->vdev_removing) {
 		ASSERT(vd == vd->vdev_top);
-		ASSERT0(vis->vis_mapping_object);
+		ASSERT0(vd->vdev_indirect_config.vic_mapping_object);
 		tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
 		vd->vdev_ms_array = dmu_object_alloc(spa->spa_meta_objset,
 		    DMU_OT_OBJECT_ARRAY, 0, DMU_OT_NONE, 0, tx);

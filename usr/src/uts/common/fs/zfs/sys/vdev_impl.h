@@ -35,6 +35,8 @@
 #include <sys/vdev.h>
 #include <sys/dkio.h>
 #include <sys/uberblock_impl.h>
+#include <sys/vdev_indirect_mapping.h>
+#include <sys/vdev_indirect_births.h>
 #include <sys/vdev_removal.h>
 
 #ifdef	__cplusplus
@@ -131,30 +133,44 @@ struct vdev_queue {
 	kmutex_t	vq_lock;
 };
 
-typedef struct vdev_indirect_state {
+/*
+ * On-disk indirect vdev state.
+ *
+ * An indirect vdev is described exclusively in the MOS config of a pool.
+ * The config for an indirect vdev includes several fields, which are
+ * accessed in memory by a vdev_indirect_config_t.
+ */
+typedef struct vdev_indirect_config {
 	/*
-	 * If the vdev is being removed or is indirect, the
-	 * vdev_indirect_mapping is an ordered array of all mapping
-	 * entries, sorted by src dva.  Note that vdev_indirect_mapping can be
-	 * partially valid during a removal so that we can handle frees
-	 * to a removing device.
+	 * Object (in MOS) which contains the indirect mapping. This object
+	 * contains an array of vdev_indirect_mapping_entry_phys_t ordered by
+	 * vimep_src. The bonus buffer for this object is a
+	 * vdev_indirect_mapping_phys_t. This object is allocated when a vdev
+	 * removal is initiated.
+	 *
+	 * Note that this object can be empty if none of the data on the vdev
+	 * has been copied yet.
 	 */
-	vdev_indirect_mapping_entry_phys_t *vis_mapping;
-	/* Number of entries in vdev_indirect_mapping. */
-	uint64_t	vis_mapping_count;
-	/* Object (in MOS) which contains the indirect mapping. */
-	uint64_t	vis_mapping_object;
-
-	vdev_indirect_birth_entry_phys_t *vis_births;
-	uint64_t vis_births_count;
-	uint64_t vis_births_object;
+	uint64_t	vic_mapping_object;
 
 	/*
-	 * For indirect vdevs, this is the vdev ID which was removed
-	 * previous to this vdev, or UINT64_MAX if there is no previous.
+	 * Object (in MOS) which contains the birth times for the mapping
+	 * entries. This object contains an array of
+	 * vdev_indirect_birth_entry_phys_t sorted by vibe_offset. The bonus
+	 * buffer for this object is a vdev_indirect_birth_phys_t. This object
+	 * is allocated when a vdev removal is initiated.
+	 *
+	 * Note that this object can be empty if none of the vdev has yet been
+	 * copied.
 	 */
-	uint64_t	vis_prev_indirect_vdev;
-} vdev_indirect_state_t;
+	uint64_t	vic_births_object;
+
+	/*
+	 * This is the vdev ID which was removed previous to this vdev, or
+	 * UINT64_MAX if there are no previously removed vdevs.
+	 */
+	uint64_t	vic_prev_indirect_vdev;
+} vdev_indirect_config_t;
 
 /*
  * Virtual device descriptor
@@ -210,7 +226,13 @@ struct vdev {
 	boolean_t	vdev_ishole;	/* is a hole in the namespace	*/
 	kmutex_t	vdev_queue_lock; /* protects vdev_queue_depth	*/
 
-	vdev_indirect_state_t vdev_indirect_state;
+	/*
+	 * Values stored in the indirect vdev's config on disk.
+	 */
+	vdev_indirect_config_t	vdev_indirect_config;
+
+	vdev_indirect_mapping_t *vdev_indirect_mapping;
+	vdev_indirect_births_t *vdev_indirect_births;
 
 	/*
 	 * The queue depth parameters determine how many async writes are
@@ -389,17 +411,6 @@ extern void vdev_set_min_asize(vdev_t *vd);
  */
 /* zdb uses this tunable, so it must be declared here to make lint happy. */
 extern int zfs_vdev_cache_size;
-
-/*
- * Functions from vdev_indirect.c
- */
-extern void vdev_read_mapping(spa_t *spa, uint64_t mapobj,
-    vdev_indirect_mapping_entry_phys_t **mapp, uint64_t *countp);
-extern void vdev_read_births(spa_t *spa, uint64_t obj,
-    vdev_indirect_birth_entry_phys_t **vibepp, uint64_t *countp);
-extern void vdev_initialize_mapping(vdev_t *vd);
-extern uint64_t vdev_indirect_physbirth(vdev_t *vd,
-    uint64_t offset, uint64_t asize);
 
 /*
  * The vdev_buf_t is used to translate between zio_t and buf_t, and back again.

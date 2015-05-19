@@ -2906,7 +2906,8 @@ zio_vdev_io_start(zio_t *zio)
 	ASSERT3P(zio->io_logical, !=, zio);
 	if (zio->io_type == ZIO_TYPE_WRITE && zio->io_vd->vdev_removing) {
 		ASSERT(zio->io_flags &
-		    (ZIO_FLAG_PHYSICAL | ZIO_FLAG_SELF_HEAL));
+		    (ZIO_FLAG_PHYSICAL | ZIO_FLAG_SELF_HEAL |
+		    ZIO_FLAG_INDUCE_DAMAGE));
 	}
 
 	/*

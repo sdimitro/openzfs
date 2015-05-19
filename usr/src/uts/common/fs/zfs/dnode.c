@@ -409,11 +409,16 @@ void
 dmu_object_refresh_mooch_obj(objset_t *os, uint64_t object)
 {
 	dnode_t *dn;
+	uint64_t obj;
 	ASSERT(os->os_dsl_dataset->
 	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 	VERIFY0(dnode_hold(os, object, FTAG, &dn));
-	ASSERT0(dn->dn_origin_obj_refd);
-	VERIFY0(dmu_objset_mooch_obj_refd(os, object, &dn->dn_origin_obj_refd));
+	VERIFY0(dmu_objset_mooch_obj_refd(os, object, &obj));
+	if (dn->dn_origin_obj_refd == 0) {
+		dn->dn_origin_obj_refd = obj;
+	} else {
+		ASSERT3U(dn->dn_origin_obj_refd, ==, obj);
+	}
 	dnode_rele(dn, FTAG);
 }
 

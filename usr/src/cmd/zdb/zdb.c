@@ -1125,7 +1125,6 @@ static void
 dump_history(spa_t *spa)
 {
 	nvlist_t **events = NULL;
-	char buf[SPA_MAXBLOCKSIZE];
 	uint64_t resid, len, off = 0;
 	uint_t num = 0;
 	int error;
@@ -1134,12 +1133,14 @@ dump_history(spa_t *spa)
 	char tbuf[30];
 	char internalstr[MAXPATHLEN];
 
+	char *buf = umem_alloc(SPA_MAXBLOCKSIZE, UMEM_NOFAIL);
 	do {
-		len = sizeof (buf);
+		len = SPA_MAXBLOCKSIZE;
 
 		if ((error = spa_history_get(spa, &off, &len, buf)) != 0) {
 			(void) fprintf(stderr, "Unable to read history: "
 			    "error %d\n", error);
+			umem_free(buf, SPA_MAXBLOCKSIZE);
 			return;
 		}
 
@@ -1148,6 +1149,7 @@ dump_history(spa_t *spa)
 
 		off -= resid;
 	} while (len != 0);
+	umem_free(buf, SPA_MAXBLOCKSIZE);
 
 	(void) printf("\nHistory:\n");
 	for (int i = 0; i < num; i++) {

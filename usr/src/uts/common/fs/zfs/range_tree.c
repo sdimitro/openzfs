@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -82,7 +82,6 @@ range_tree_stat_incr(range_tree_t *rt, range_seg_t *rs)
 	ASSERT3U(idx, <,
 	    sizeof (rt->rt_histogram) / sizeof (*rt->rt_histogram));
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 	rt->rt_histogram[idx]++;
 	ASSERT3U(rt->rt_histogram[idx], !=, 0);
 }
@@ -97,7 +96,6 @@ range_tree_stat_decr(range_tree_t *rt, range_seg_t *rs)
 	ASSERT3U(idx, <,
 	    sizeof (rt->rt_histogram) / sizeof (*rt->rt_histogram));
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 	ASSERT3U(rt->rt_histogram[idx], !=, 0);
 	rt->rt_histogram[idx]--;
 }
@@ -125,7 +123,7 @@ range_tree_seg_compare(const void *x1, const void *x2)
 }
 
 range_tree_t *
-range_tree_create(range_tree_ops_t *ops, void *arg, kmutex_t *lp)
+range_tree_create(range_tree_ops_t *ops, void *arg)
 {
 	range_tree_t *rt;
 
@@ -134,7 +132,6 @@ range_tree_create(range_tree_ops_t *ops, void *arg, kmutex_t *lp)
 	avl_create(&rt->rt_root, range_tree_seg_compare,
 	    sizeof (range_seg_t), offsetof(range_seg_t, rs_node));
 
-	rt->rt_lock = lp;
 	rt->rt_ops = ops;
 	rt->rt_arg = arg;
 
@@ -165,7 +162,6 @@ range_tree_add(void *arg, uint64_t start, uint64_t size)
 	uint64_t end = start + size;
 	boolean_t merge_before, merge_after;
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 	VERIFY(size != 0);
 
 	rsearch.rs_start = start;
@@ -240,7 +236,6 @@ range_tree_remove(void *arg, uint64_t start, uint64_t size)
 	uint64_t end = start + size;
 	boolean_t left_over, right_over;
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 	VERIFY3U(size, !=, 0);
 	VERIFY3U(size, <=, rt->rt_space);
 
@@ -304,7 +299,6 @@ range_tree_find_impl(range_tree_t *rt, uint64_t start, uint64_t size)
 	range_seg_t rsearch;
 	uint64_t end = start + size;
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 	VERIFY(size != 0);
 
 	rsearch.rs_start = start;
@@ -326,11 +320,9 @@ range_tree_verify(range_tree_t *rt, uint64_t off, uint64_t size)
 {
 	range_seg_t *rs;
 
-	mutex_enter(rt->rt_lock);
 	rs = range_tree_find(rt, off, size);
 	if (rs != NULL)
 		panic("freeing free block; rs=%p", (void *)rs);
-	mutex_exit(rt->rt_lock);
 }
 
 boolean_t
@@ -363,7 +355,6 @@ range_tree_swap(range_tree_t **rtsrc, range_tree_t **rtdst)
 {
 	range_tree_t *rt;
 
-	ASSERT(MUTEX_HELD((*rtsrc)->rt_lock));
 	ASSERT0(range_tree_space(*rtdst));
 	ASSERT0(avl_numnodes(&(*rtdst)->rt_root));
 
@@ -378,7 +369,6 @@ range_tree_vacate(range_tree_t *rt, range_tree_func_t *func, void *arg)
 	range_seg_t *rs;
 	void *cookie = NULL;
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 
 	if (rt->rt_ops != NULL)
 		rt->rt_ops->rtop_vacate(rt, rt->rt_arg);
@@ -398,7 +388,6 @@ range_tree_walk(range_tree_t *rt, range_tree_func_t *func, void *arg)
 {
 	range_seg_t *rs;
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 
 	for (rs = avl_first(&rt->rt_root); rs; rs = AVL_NEXT(&rt->rt_root, rs))
 		func(arg, rs->rs_start, rs->rs_end - rs->rs_start);

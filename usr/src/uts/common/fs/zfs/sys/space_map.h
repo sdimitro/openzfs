@@ -73,6 +73,9 @@ typedef struct space_map_phys {
  * The space map object defines a region of space, its size, how much is
  * allocated, and the on-disk object that stores this information.
  * Consumers of space maps may only access the members of this structure.
+ *
+ * Note: the space_map may not be accessed concurrently; consumers
+ * must provide external locking if required.
  */
 typedef struct space_map {
 	uint64_t	sm_start;	/* start of map */
@@ -85,7 +88,6 @@ typedef struct space_map {
 	uint32_t	sm_blksz;	/* block size for space map */
 	dmu_buf_t	*sm_dbuf;	/* space_map_phys_t dbuf */
 	space_map_phys_t *sm_phys;	/* on-disk space map */
-	kmutex_t	*sm_lock;	/* pointer to lock that protects map */
 } space_map_t;
 
 /*
@@ -157,7 +159,7 @@ void space_map_free(space_map_t *sm, dmu_tx_t *tx);
 void space_map_free_obj(objset_t *os, uint64_t smobj, dmu_tx_t *tx);
 
 int space_map_open(space_map_t **smp, objset_t *os, uint64_t object,
-    uint64_t start, uint64_t size, uint8_t shift, kmutex_t *lp);
+    uint64_t start, uint64_t size, uint8_t shift);
 void space_map_close(space_map_t *sm);
 
 int64_t space_map_alloc_delta(space_map_t *sm);

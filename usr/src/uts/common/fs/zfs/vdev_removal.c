@@ -159,12 +159,11 @@ spa_vdev_removal_create(vdev_t *vd)
 	spa_vdev_removal_t *svr = kmem_zalloc(sizeof (*svr), KM_SLEEP);
 	mutex_init(&svr->svr_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&svr->svr_cv, NULL, CV_DEFAULT, NULL);
-	svr->svr_allocd_segs = range_tree_create(NULL, NULL, &svr->svr_lock);
+	svr->svr_allocd_segs = range_tree_create(NULL, NULL);
 	svr->svr_vdev = vd;
 
 	for (int i = 0; i < TXG_SIZE; i++) {
-		svr->svr_frees[i] =
-		    range_tree_create(NULL, NULL, &svr->svr_lock);
+		svr->svr_frees[i] = range_tree_create(NULL, NULL);
 		list_create(&svr->svr_new_segments[i],
 		    sizeof (vdev_indirect_mapping_entry_t),
 		    offsetof(vdev_indirect_mapping_entry_t, vime_node));
@@ -1002,8 +1001,6 @@ spa_vdev_remove_thread(void *arg)
 		 */
 		if (msp->ms_sm != NULL) {
 			space_map_t *sm = NULL;
-			kmutex_t smlock;
-			mutex_init(&smlock, NULL, MUTEX_DEFAULT, NULL);
 
 			/*
 			 * We have to open a new space map here, because
@@ -1018,15 +1015,11 @@ spa_vdev_remove_thread(void *arg)
 			VERIFY0(space_map_open(&sm,
 			    spa->spa_dsl_pool->dp_meta_objset,
 			    msp->ms_sm->sm_object, msp->ms_sm->sm_start,
-			    msp->ms_sm->sm_size, msp->ms_sm->sm_shift,
-			    &smlock));
-			mutex_enter(&smlock);
+			    msp->ms_sm->sm_size, msp->ms_sm->sm_shift));
 			space_map_update(sm);
 			VERIFY0(space_map_load(sm, svr->svr_allocd_segs,
 			    SM_ALLOC));
-			mutex_exit(&smlock);
 			space_map_close(sm);
-			mutex_destroy(&smlock);
 
 			range_tree_walk(msp->ms_freeingtree,
 			    range_tree_remove, svr->svr_allocd_segs);

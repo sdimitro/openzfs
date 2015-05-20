@@ -1411,6 +1411,10 @@ arc_cksum_equal(arc_buf_hdr_t *hdr, zio_t *zio)
 	enum zio_compress compress = BP_GET_COMPRESS(zio->io_bp);
 	int error;
 
+	ASSERT(!BP_IS_EMBEDDED(zio->io_bp));
+	ASSERT(!BP_IS_GANG(zio->io_bp));
+	VERIFY3U(BP_GET_PSIZE(zio->io_bp), ==, HDR_GET_PSIZE(hdr));
+
 	/*
 	 * We rely on the blkptr's checksum to determine if the block
 	 * is valid or not. When compressed arc is enabled, the l2arc
@@ -1425,13 +1429,30 @@ arc_cksum_equal(arc_buf_hdr_t *hdr, zio_t *zio)
 	 */
 	if (!(hdr->b_flags & ARC_FLAG_COMPRESSED_ARC) &&
 	    compress != ZIO_COMPRESS_OFF) {
+		ASSERT3U(HDR_GET_COMPRESS(hdr), ==, ZIO_COMPRESS_OFF);
 		uint64_t lsize = HDR_GET_LSIZE(hdr);
-		uint64_t psize;
+		uint64_t csize;
 
 		void *cbuf = zio_buf_alloc(HDR_GET_PSIZE(hdr));
-		psize = zio_compress_data(compress, zio->io_data, cbuf, lsize);
-		ASSERT3U(psize, ==, HDR_GET_PSIZE(hdr));
-		zio_push_transform(zio, cbuf, psize, lsize, NULL);
+		csize = zio_compress_data(compress, zio->io_data, cbuf, lsize);
+		ASSERT3U(csize, <=, HDR_GET_PSIZE(hdr));
+		if (csize < HDR_GET_PSIZE(hdr)) {
+			/*
+			 * Compressed blocks are always a multiple of the
+			 * smallest ashift in the pool. Ideally, we would
+			 * like to round up the csize to the next
+			 * spa_min_ashift but that value may have changed
+			 * since the block was last written. Instead,
+			 * we rely on the fact that the hdr's psize
+			 * was set to the psize of the block when it was
+			 * last written. We set the csize to that value
+			 * and zero out any part that should not contain
+			 * data.
+			 */
+			bzero((char *)cbuf + csize, HDR_GET_PSIZE(hdr) - csize);
+			csize = HDR_GET_PSIZE(hdr);
+		}
+		zio_push_transform(zio, cbuf, csize, HDR_GET_PSIZE(hdr), NULL);
 	}
 
 	error = zio_checksum_error(zio, &info);
@@ -4679,9 +4700,8 @@ arc_freed(spa_t *spa, const blkptr_t *bp)
 	 * freed. So if we have an I/O in progress, or a reference to
 	 * this hdr, then we don't destroy the hdr.
 	 */
-	if (!HDR_IO_IN_PROGRESS(hdr) &&
-	    refcount_is_zero(&hdr->b_l1hdr.b_refcnt)) {
-		ASSERT(refcount_is_zero(&hdr->b_l1hdr.b_refcnt));
+	if (!HDR_HAS_L1HDR(hdr) || (!HDR_IO_IN_PROGRESS(hdr) &&
+	    refcount_is_zero(&hdr->b_l1hdr.b_refcnt))) {
 		arc_change_state(arc_anon, hdr, hash_lock);
 		arc_hdr_destroy(hdr);
 		mutex_exit(hash_lock);

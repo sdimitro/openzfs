@@ -4915,7 +4915,10 @@ ztest_remap_blocks(ztest_ds_t *zd, uint64_t id)
 {
 	(void) rw_rdlock(&ztest_name_lock);
 
-	VERIFY0(dmu_objset_remap_indirects(zd->zd_name));
+	int error = dmu_objset_remap_indirects(zd->zd_name);
+	if (error == ENOSPC)
+		error = 0;
+	ASSERT0(error);
 
 	(void) rw_unlock(&ztest_name_lock);
 }

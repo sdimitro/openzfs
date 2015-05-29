@@ -23,7 +23,7 @@
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2011 Joyent, Inc. All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 /* This file contains all TCP input processing functions. */
@@ -556,7 +556,7 @@ tcp_process_options(tcp_t *tcp, tcpha_t *tcpha)
 static mblk_t *
 tcp_reass(tcp_t *tcp, mblk_t *mp, uint32_t start)
 {
-	uint32_t	end;
+	uint32_t	end, bytes;
 	mblk_t		*mp1;
 	mblk_t		*mp2;
 	mblk_t		*next_mp;
@@ -575,26 +575,26 @@ tcp_reass(tcp_t *tcp, mblk_t *mp, uint32_t start)
 			freeb(mp);
 			continue;
 		}
+		bytes = end - start;
 		mp->b_cont = NULL;
 		TCP_REASS_SET_SEQ(mp, start);
 		TCP_REASS_SET_END(mp, end);
 		mp1 = tcp->tcp_reass_tail;
-		if (!mp1) {
-			tcp->tcp_reass_tail = mp;
-			tcp->tcp_reass_head = mp;
-			TCPS_BUMP_MIB(tcps, tcpInDataUnorderSegs);
-			TCPS_UPDATE_MIB(tcps, tcpInDataUnorderBytes,
-			    end - start);
-			continue;
-		}
-		/* New stuff completely beyond tail? */
-		if (SEQ_GEQ(start, TCP_REASS_END(mp1))) {
-			/* Link it on end. */
-			mp1->b_cont = mp;
+		if (mp1 == NULL || SEQ_GEQ(start, TCP_REASS_END(mp1))) {
+			if (mp1 != NULL) {
+				/*
+				 * New stuff is beyond the tail; link it on the
+				 * end.
+				 */
+				mp1->b_cont = mp;
+			} else {
+				tcp->tcp_reass_head = mp;
+			}
 			tcp->tcp_reass_tail = mp;
 			TCPS_BUMP_MIB(tcps, tcpInDataUnorderSegs);
-			TCPS_UPDATE_MIB(tcps, tcpInDataUnorderBytes,
-			    end - start);
+			TCPS_UPDATE_MIB(tcps, tcpInDataUnorderBytes, bytes);
+			tcp->tcp_cs.tcp_in_data_unorder_segs++;
+			tcp->tcp_cs.tcp_in_data_unorder_bytes += bytes;
 			continue;
 		}
 		mp1 = tcp->tcp_reass_head;
@@ -2466,7 +2466,7 @@ tcp_input_data(void *arg, mblk_t *mp, void *arg2, ip_recv_attr_t *ira)
 
 	flags = (unsigned int)tcpha->tha_flags & 0xFF;
 
-	BUMP_LOCAL(tcp->tcp_ibsegs);
+	TCPS_BUMP_MIB(tcps, tcpHCInSegs);
 	DTRACE_PROBE2(tcp__trace__recv, mblk_t *, mp, tcp_t *, tcp);
 
 	if ((flags & TH_URG) && sqp != NULL) {
@@ -2711,7 +2711,7 @@ tcp_input_data(void *arg, mblk_t *mp, void *arg2, ip_recv_attr_t *ira)
 						tcp->tcp_ack_tid = 0;
 					}
 					tcp_send_data(tcp, ack_mp);
-					BUMP_LOCAL(tcp->tcp_obsegs);
+					TCPS_BUMP_MIB(tcps, tcpHCOutSegs);
 					TCPS_BUMP_MIB(tcps, tcpOutAck);
 
 					if (!IPCL_IS_NONSTR(connp)) {
@@ -3068,6 +3068,7 @@ try_again:;
 
 		if (tcp->tcp_rwnd == 0) {
 			TCPS_BUMP_MIB(tcps, tcpInWinProbe);
+			tcp->tcp_cs.tcp_in_zwnd_probes++;
 		} else {
 			TCPS_BUMP_MIB(tcps, tcpInDataPastWinSegs);
 			TCPS_UPDATE_MIB(tcps, tcpInDataPastWinBytes, -rgap);
@@ -3318,6 +3319,9 @@ ok:;
 	} else if (seg_len > 0) {
 		TCPS_BUMP_MIB(tcps, tcpInDataInorderSegs);
 		TCPS_UPDATE_MIB(tcps, tcpInDataInorderBytes, seg_len);
+		tcp->tcp_cs.tcp_in_data_inorder_segs++;
+		tcp->tcp_cs.tcp_in_data_inorder_bytes += seg_len;
+
 		/*
 		 * If an out of order FIN was received before, and the seq
 		 * num and len of the new segment match that of the FIN,
@@ -4167,7 +4171,7 @@ process_ack:
 			}
 			mp = tcp_ack_mp(tcp);
 			if (mp != NULL) {
-				BUMP_LOCAL(tcp->tcp_obsegs);
+				TCPS_BUMP_MIB(tcps, tcpHCOutSegs);
 				TCPS_BUMP_MIB(tcps, tcpOutAck);
 				tcp_send_data(tcp, mp);
 			}
@@ -4864,7 +4868,9 @@ xmit_check:
 				tcp->tcp_csuna = tcp->tcp_snxt;
 				TCPS_BUMP_MIB(tcps, tcpRetransSegs);
 				TCPS_UPDATE_MIB(tcps, tcpRetransBytes,
-				    snd_size);
+					snd_size);
+				tcp->tcp_cs.tcp_out_retrans_segs++;
+				tcp->tcp_cs.tcp_out_retrans_bytes += snd_size;
 				tcp_send_data(tcp, mp1);
 			}
 		}
@@ -4939,7 +4945,7 @@ ack_check:
 
 		if (mp1 != NULL) {
 			tcp_send_data(tcp, mp1);
-			BUMP_LOCAL(tcp->tcp_obsegs);
+			TCPS_BUMP_MIB(tcps, tcpHCOutSegs);
 			TCPS_BUMP_MIB(tcps, tcpOutAck);
 		}
 		if (tcp->tcp_ack_tid != 0) {

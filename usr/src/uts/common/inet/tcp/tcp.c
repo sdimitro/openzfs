@@ -23,7 +23,7 @@
  * Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
  * Copyright (c) 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  * Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
  */
 /* Copyright (c) 1990 Mentat Inc. */
@@ -1239,11 +1239,6 @@ tcp_closei_local(tcp_t *tcp)
 	if (!TCP_IS_SOCKET(tcp))
 		tcp_acceptor_hash_remove(tcp);
 
-	TCPS_UPDATE_MIB(tcps, tcpHCInSegs, tcp->tcp_ibsegs);
-	tcp->tcp_ibsegs = 0;
-	TCPS_UPDATE_MIB(tcps, tcpHCOutSegs, tcp->tcp_obsegs);
-	tcp->tcp_obsegs = 0;
-
 	/*
 	 * This can be called via tcp_time_wait_processing() if TCP gets a
 	 * SYN with sequence number outside the TIME-WAIT connection's
@@ -1912,15 +1907,6 @@ tcp_reinit(tcp_t *tcp)
 	/* Cancel outstanding timers */
 	tcp_timers_stop(tcp);
 
-	/*
-	 * Reset everything in the state vector, after updating global
-	 * MIB data from instance counters.
-	 */
-	TCPS_UPDATE_MIB(tcps, tcpHCInSegs, tcp->tcp_ibsegs);
-	tcp->tcp_ibsegs = 0;
-	TCPS_UPDATE_MIB(tcps, tcpHCOutSegs, tcp->tcp_obsegs);
-	tcp->tcp_obsegs = 0;
-
 	tcp_close_mpp(&tcp->tcp_xmit_head);
 	if (tcp->tcp_snd_zcopy_aware)
 		tcp_zcopy_notify(tcp);
@@ -2092,9 +2078,6 @@ tcp_reinit_values(tcp)
 	tcp->tcp_suna = 0;			/* Displayed in mib */
 	tcp->tcp_swnd = 0;
 	DONTCARE(tcp->tcp_cwnd);	/* Init in tcp_process_options */
-
-	ASSERT(tcp->tcp_ibsegs == 0);
-	ASSERT(tcp->tcp_obsegs == 0);
 
 	if (connp->conn_ht_iphc != NULL) {
 		kmem_free(connp->conn_ht_iphc, connp->conn_ht_iphc_allocated);

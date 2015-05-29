@@ -25,7 +25,7 @@
 # Copyright (c) 2013 Gary Mills
 # Copyright (c) 2012, 2013 by Delphix. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2011, 2015 by Delphix. All rights reserved.
 #
 
 <include SUNWcs.man1.inc>
@@ -727,6 +727,7 @@ file path=usr/bin/cktime mode=0555
 file path=usr/bin/ckuid mode=0555
 file path=usr/bin/ckyorn mode=0555
 file path=usr/bin/clear mode=0555
+file path=usr/bin/connstat mode=0555
 file path=usr/bin/coreadm mode=0555
 file path=usr/bin/cp mode=0555
 file path=usr/bin/cpio mode=0555

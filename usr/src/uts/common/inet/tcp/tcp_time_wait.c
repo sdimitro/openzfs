@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012, Joyent Inc. All rights reserved.
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -511,7 +512,7 @@ tcp_time_wait_processing(tcp_t *tcp, mblk_t *mp, uint32_t seg_seq,
 	conn_t		*connp = tcp->tcp_connp;
 	tcp_stack_t	*tcps = tcp->tcp_tcps;
 
-	BUMP_LOCAL(tcp->tcp_ibsegs);
+	TCPS_BUMP_MIB(tcps, tcpHCInSegs);
 	DTRACE_PROBE2(tcp__trace__recv, mblk_t *, mp, tcp_t *, tcp);
 
 	flags = (unsigned int)tcpha->tha_flags & 0xFF;
@@ -686,6 +687,8 @@ tcp_time_wait_processing(tcp_t *tcp, mblk_t *mp, uint32_t seg_seq,
 		TCPS_BUMP_MIB(tcps, tcpInClosed);
 		TCPS_BUMP_MIB(tcps, tcpInDataInorderSegs);
 		TCPS_UPDATE_MIB(tcps, tcpInDataInorderBytes, seg_len);
+		tcp->tcp_cs.tcp_in_data_inorder_segs++;
+		tcp->tcp_cs.tcp_in_data_inorder_bytes += seg_len;
 	}
 	if (flags & TH_RST) {
 		(void) tcp_clean_death(tcp, 0);

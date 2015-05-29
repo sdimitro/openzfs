@@ -22,7 +22,7 @@
 # Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2010 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
-# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 # Copyright (c) 2013 DEY Storage Systems, Inc. All rights reserved.
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
@@ -97,6 +97,7 @@ COMMON_SUBDIRS=		\
 	cmd-inet	\
 	col		\
 	compress	\
+	connstat	\
 	consadm		\
 	coreadm		\
 	cpio		\
@@ -540,6 +541,7 @@ MSGSUBDIRS=		\
 	cmd-inet	\
 	col		\
 	compress	\
+	connstat	\
 	consadm		\
 	coreadm		\
 	cpio		\

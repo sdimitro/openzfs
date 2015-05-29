@@ -23,6 +23,9 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2015 by Delphix. All rights reserved.
+ */
 
 #ifndef _OFMT_H
 #define	_OFMT_H
@@ -181,6 +184,7 @@ extern ofmt_status_t ofmt_open(const char *, const ofmt_field_t *, uint_t,
 #define	OFMT_WRAP	0x00000002 /* wrap output if field width is exceeded */
 #define	OFMT_MULTILINE	0x00000004 /* "long" output: "name: value" lines */
 #define	OFMT_RIGHTJUST	0x00000008 /* right justified output */
+#define	OFMT_NOHEADER	0x00000010 /* do not automatically print header lines */
 
 /*
  * ofmt_close() must be called to free resources associated
@@ -189,9 +193,20 @@ extern ofmt_status_t ofmt_open(const char *, const ofmt_field_t *, uint_t,
 extern void ofmt_close(ofmt_handle_t);
 
 /*
+ * Set the field separator used in parsable output (default is ':').
+ */
+extern void ofmt_set_fs(ofmt_handle_t, char);
+
+/*
  * ofmt_print() emits one row of output
  */
 extern void ofmt_print(ofmt_handle_t, void *);
+
+/*
+ * ofmt_print_header() prints the header line. It can be used with
+ * OFMT_NOHEADER to control exactly when the header gets printed.
+ */
+extern void ofmt_print_header(ofmt_handle_t);
 
 /*
  * ofmt_update_winsize() updates the window size information for ofmt_handle_t

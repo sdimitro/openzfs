@@ -24,7 +24,7 @@
  * Copyright (c) 1990 Mentat Inc.
  * Copyright (c) 2012 Joyent, Inc. All rights reserved.
  * Copyright (c) 2014, OmniTI Computer Consulting, Inc. All rights reserved.
- * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -9527,11 +9527,17 @@ ip_snmp_get(queue_t *q, mblk_t *mpctl, int level, boolean_t legacy_req)
 		if ((mpctl = udp_snmp_get(q, mpctl, legacy_req)) == NULL) {
 			return (1);
 		}
+		if (level == MIB2_UDP) {
+			goto done;
+		}
 	}
 
 	if (level != MIB2_UDP) {
 		if ((mpctl = tcp_snmp_get(q, mpctl, legacy_req)) == NULL) {
 			return (1);
+		}
+		if (level == MIB2_TCP) {
+			goto done;
 		}
 	}
 
@@ -9609,6 +9615,7 @@ ip_snmp_get(queue_t *q, mblk_t *mpctl, int level, boolean_t legacy_req)
 	if ((mpctl = ip_snmp_get_mib2_ip_dce(q, mpctl, ipst)) == NULL) {
 		return (1);
 	}
+done:
 	freemsg(mpctl);
 	return (1);
 }

@@ -23,6 +23,10 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2015 by Delphix. All rights reserved.
+ */
+
 #include <errno.h>
 #include <sys/types.h>
 #include <stdlib.h>
@@ -66,6 +70,7 @@ typedef struct ofmt_state_s {
 	int		os_nbad;
 	char		**os_badfields;
 	int		os_maxnamelen;	/* longest name (f. multiline) */
+	char		os_fs;		/* field seperator */
 } ofmt_state_t;
 /*
  * A B_TRUE return value from the callback function will print out the contents
@@ -77,12 +82,13 @@ typedef struct ofmt_state_s {
 #define	OFMT_VAL_UNDEF		"--"
 #define	OFMT_VAL_UNKNOWN	"?"
 
+#define	OFMT_DEFAULT_FS		':'
+
 /*
  * The maximum number of rows supported by the OFMT_WRAP option.
  */
 #define	OFMT_MAX_ROWS		128
 
-static void ofmt_print_header(ofmt_state_t *);
 static void ofmt_print_field(ofmt_state_t *, ofmt_field_t *, const char *,
     boolean_t);
 
@@ -230,6 +236,7 @@ ofmt_open(const char *str, const ofmt_field_t *template, uint_t flags,
 	*ofmt = os;
 	os->os_fields = (ofmt_field_t *)&os[1];
 	os->os_flags = flags;
+	os->os_fs = OFMT_DEFAULT_FS;
 
 	of = os->os_fields;
 	of_index = 0;
@@ -287,6 +294,12 @@ nomem:
 	return (err);
 }
 
+void
+ofmt_set_fs(ofmt_handle_t ofmt, char fs)
+{
+	((ofmt_state_t *)ofmt)->os_fs = fs;
+}
+
 /*
  * free resources associated with the ofmt_handle_t
  */
@@ -323,8 +336,8 @@ ofmt_print_field(ofmt_state_t *os, ofmt_field_t *ofp, const char *value,
 	char	c;
 
 	/*
-	 * Parsable fields are separated by ':'. If such a field contains
-	 * a ':' or '\', this character is prefixed by a '\'.
+	 * Parsable fields are separated by os_fs. os_fs and '\' are escaped
+	 * (prefixed by a) '\'.
 	 */
 	if (parsable) {
 		if (os->os_nfields == 1) {
@@ -332,12 +345,12 @@ ofmt_print_field(ofmt_state_t *os, ofmt_field_t *ofp, const char *value,
 			return;
 		}
 		while ((c = *value++) != '\0') {
-			if (escsep && ((c == ':' || c == '\\')))
+			if (escsep && ((c == os->os_fs || c == '\\')))
 				(void) putchar('\\');
 			(void) putchar(c);
 		}
 		if (!os->os_lastfield)
-			(void) putchar(':');
+			(void) putchar(os->os_fs);
 	} else if (multiline) {
 		if (value[0] == '\0')
 			value = OFMT_VAL_UNDEF;
@@ -437,7 +450,8 @@ ofmt_print(ofmt_handle_t ofmt, void *arg)
 
 	if ((os->os_nrow++ % os->os_winsize.ws_row) == 0 &&
 	    !parsable && !multiline) {
-		ofmt_print_header(os);
+		if (!(os->os_flags & OFMT_NOHEADER))
+		    ofmt_print_header(os);
 		os->os_nrow++;
 	}
 
@@ -503,9 +517,10 @@ ofmt_print(ofmt_handle_t ofmt, void *arg)
 /*
  * Print the field headers
  */
-static void
-ofmt_print_header(ofmt_state_t *os)
+void
+ofmt_print_header(ofmt_handle_t ofmt)
 {
+	ofmt_state_t *os = ofmt;
 	int i;
 	ofmt_field_t *of = os->os_fields;
 	boolean_t escsep = (os->os_nfields > 1);

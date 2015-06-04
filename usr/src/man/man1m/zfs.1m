@@ -1746,8 +1746,8 @@ are never validated. All of the commands that operate on properties (\fBzfs
 list\fR, \fBzfs get\fR, \fBzfs set\fR, and so forth) can be used to manipulate
 both native properties and user properties. Use the \fBzfs inherit\fR command
 to clear a user property . If the property is not defined in any parent
-dataset, it is removed entirely. Property values are limited to 1024
-characters.
+dataset, it is removed entirely. Property values are limited to 8192
+bytes.
 .SS "ZFS Volumes as Swap or Dump Devices"
 .LP
 During an initial installation a swap device and dump device are created on

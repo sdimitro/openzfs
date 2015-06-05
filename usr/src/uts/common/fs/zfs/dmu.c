@@ -869,24 +869,33 @@ dmu_object_remap_one_indirect(objset_t *os, dnode_t *dn,
     uint64_t last_removal_txg, uint64_t offset)
 {
 	uint64_t l1blkid = dbuf_whichblock(dn, 1, offset);
-	dmu_buf_impl_t *dbuf;
 	int err = 0;
 
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
-	dbuf = dbuf_hold_level(dn, 1, l1blkid, FTAG);
+	dmu_buf_impl_t *dbuf = dbuf_hold_level(dn, 1, l1blkid, FTAG);
 	ASSERT3P(dbuf, !=, NULL);
+
+	/*
+	 * If the block hasn't been written yet, this default will ensure
+	 * we don't try to remap it.
+	 */
+	uint64_t birth = UINT64_MAX;
+	ASSERT3U(last_removal_txg, !=, UINT64_MAX);
+	if (dbuf->db_blkptr != NULL)
+		birth = dbuf->db_blkptr->blk_birth;
 	rw_exit(&dn->dn_struct_rwlock);
 
 	/*
 	 * If this L1 was already written after the last removal, then we've
 	 * already tried to remap it.
 	 */
-	if (dbuf->db_blkptr->blk_birth <= last_removal_txg &&
+	if (birth <= last_removal_txg &&
 	    dbuf_read(dbuf, NULL, DB_RF_MUST_SUCCEED) == 0 &&
 	    dbuf_can_remap(dbuf)) {
 		dmu_tx_t *tx = dmu_tx_create(os);
 		dmu_tx_hold_remap_l1indirect(tx, dn->dn_object, offset);
-		if ((err = dmu_tx_assign(tx, TXG_WAIT)) == 0) {
+		err = dmu_tx_assign(tx, TXG_WAIT);
+		if (err == 0) {
 			(void) dbuf_dirty(dbuf, tx);
 			dmu_tx_commit(tx);
 		} else {

@@ -49,6 +49,8 @@ verify_runnable "global"
 
 function cleanup
 {
+        datasetexists $TESTPOOL/$TESTVOL && \
+                log_must $ZFS destroy -f $TESTPOOL/$TESTVOL
 	datasetexists $TESTPOOL/$TESTVOL1 && \
 		log_must $ZFS destroy -f $TESTPOOL/$TESTVOL1
 }

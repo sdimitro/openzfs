@@ -31,7 +31,7 @@
 #
 # DESCRIPTION:
 # Setting invalid value to mountpoint, checksum, atime, readonly, setuid,
-# zoned or canmount on a file system, volume. It should be failed.
+# zoned, recordsize, or canmount on a file system, volume. It should be failed.
 #
 # STRATEGY:
 # 1. Create pool, then create file system & volume within it.
@@ -68,6 +68,9 @@ while (( i < ${#dataset[@]} )); do
 		done
 		(( j += 1 ))
 	done
+        # Additional recordsize
+        set_n_check_prop "recordsize" "2048K" "${dataset[i]}" false
+        set_n_check_prop "recordsize" "128B" "${dataset[i]}" false
 	(( i += 1 ))
 done
 

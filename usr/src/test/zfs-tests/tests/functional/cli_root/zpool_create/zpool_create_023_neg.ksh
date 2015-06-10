@@ -48,8 +48,8 @@ log_onexit cleanup
 
 set -A args "QuOta=none" "quota=non" "quota=abcd" "quota=0" "quota=" \
     "ResErVaTi0n=none" "reserV=none" "reservation=abcd" "reserv=" \
-    "recorDSize=64k" "recordsize=256K" "recordsize=256" \
-    "recsize=" "recsize=zero" "recordsize=0" \
+    "recorDSize=64k" "recordsize=2M" "recordsize=2048K" \
+    "recordsize=256" "recsize=" "recsize=zero" "recordsize=0" \
     "mountPoint=/tmp/tmpfile$$" "mountpoint=non0" "mountpoint=" \
     "mountpoint=LEGACY" "mounpoint=none" \
     "sharenfs=ON" "ShareNFS=off" "sharenfs=sss" \

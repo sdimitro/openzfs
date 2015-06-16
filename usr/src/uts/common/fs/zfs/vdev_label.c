@@ -306,6 +306,14 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		    vic->vic_prev_indirect_vdev);
 	}
 
+	if (vic->vic_obsolete_sm_object != 0) {
+		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBSOLETE_SM,
+		    vic->vic_obsolete_sm_object);
+	}
+
+	if (vic->vic_precise_obsolete_counts)
+		fnvlist_add_boolean(nv, ZPOOL_CONFIG_PRECISE_OBSOLETE_COUNTS);
+
 	if (vd->vdev_crtxg)
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_CREATE_TXG, vd->vdev_crtxg);
 
@@ -331,13 +339,21 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 			    sizeof (prs) / sizeof (uint64_t));
 		}
 
+		/*
+		 * Note: this can be called from open context
+		 * (spa_get_stats()), so we need the rwlock to prevent
+		 * the mapping from being changed by condensing.
+		 */
+		rw_enter(&vd->vdev_indirect_rwlock, RW_READER);
 		if (vd->vdev_indirect_mapping != NULL) {
 			ASSERT(vd->vdev_indirect_births != NULL);
 			vdev_indirect_mapping_t *vim =
 			    vd->vdev_indirect_mapping;
 			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_SIZE,
 			    vdev_indirect_mapping_size(vim));
-		} else if (vd->vdev_mg != NULL &&
+		}
+		rw_exit(&vd->vdev_indirect_rwlock);
+		if (vd->vdev_mg != NULL &&
 		    vd->vdev_mg->mg_fragmentation != ZFS_FRAG_INVALID) {
 			/*
 			 * Compute approximately how much memory would be used

@@ -22,7 +22,17 @@
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 default_setup_noexit "$DISKS"
-log_onexit default_cleanup_noexit
+
+
+function cleanup
+{
+	log_must set_min_bytes 131072
+	default_cleanup_noexit
+}
+
+log_onexit cleanup
+
+log_must set_min_bytes 1
 
 log_must $ZFS set recordsize=512 $TESTPOOL/$TESTFS
 
@@ -67,21 +77,27 @@ remaptxg_before=$($ZFS get -H -o value remaptxg $TESTPOOL/$TESTFS)
 (( $? == 0 )) || log_fail "Could not get remaptxg."
 (( remaptxg_before == 0 )) || log_fail "remaptxg nonzero before a remap"
 
-percent_referenced_before=$(percent_indirect_referenced $TESTPOOL)
+mapping_size_before=$(indirect_vdev_mapping_size $TESTPOOL)
 log_must $ZFS remap $TESTPOOL/$TESTFS
-percent_referenced_after=$(percent_indirect_referenced $TESTPOOL)
-log_note "only $percent_referenced_after% referenced after remap"
-(( percent_referenced_after < percent_referenced_before )) || \
-    log_fail "Percent referenced did not decrease: " \
-    "$percent_referenced_before before to $percent_referenced_after after."
+
+# Try to wait for a condense to finish.
+for i in {1..5}; do
+	$SLEEP 5
+	$SYNC
+done
+mapping_size_after=$(indirect_vdev_mapping_size $TESTPOOL)
+
 #
 # After the remap, there should not be very many blocks referenced. The reason
-# why our threshold is 20 instead of 10 is because our ratio of metadata to
+# why our threshold is as high as 512 is because our ratio of metadata to
 # user data is relatively high, with only 64M of user data on the file system.
 #
-(( percent_referenced_after < 20 )) || \
-    log_fail "Percent referenced after remap not low: " \
-    $percent_referenced_after
+(( mapping_size_after < mapping_size_before )) || \
+    log_fail "Mapping size did not decrease after remap: " \
+    "$mapping_size_before before to $mapping_size_after after."
+(( mapping_size_after < 512 )) || \
+    log_fail "Mapping size not small enough after remap: " \
+    "$mapping_size_before before to $mapping_size_after after."
 
 #
 # After a remap, the remaptxg should be set to a non-zero value.
@@ -102,4 +118,4 @@ log_note "remap txg after second remap is $remaptxg_again"
 (( remaptxg_again == remaptxg_after )) || \
     log_fail "remap not noop if there has been no removal"
 
-log_pass "Remapping a fs caused percent indirect blocks referenced to decrease."
+log_pass "Remapping a fs caused mapping size to decrease."

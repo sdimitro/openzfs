@@ -170,6 +170,18 @@ typedef struct vdev_indirect_config {
 	 * UINT64_MAX if there are no previously removed vdevs.
 	 */
 	uint64_t	vic_prev_indirect_vdev;
+
+	/*
+	 * This is a space map object which has a free space map entry for
+	 * every segment that was marked obsolete since the last time this
+	 * indirect vdev was condensed.
+	 */
+	uint64_t	vic_obsolete_sm_object;
+
+	/*
+	 * This is true if the obsolete indirect mapping counts are exact.
+	 */
+	boolean_t	vic_precise_obsolete_counts;
 } vdev_indirect_config_t;
 
 /*
@@ -227,12 +239,38 @@ struct vdev {
 	kmutex_t	vdev_queue_lock; /* protects vdev_queue_depth	*/
 
 	/*
-	 * Values stored in the indirect vdev's config on disk.
+	 * Values stored in the config for an indirect or removing vdev.
 	 */
 	vdev_indirect_config_t	vdev_indirect_config;
 
+	/*
+	 * The vdev_indirect_rwlock protects the vdev_indirect_mapping
+	 * pointer from changing on indirect vdevs (when it is condensed).
+	 * Note that removing (not yet indirect) vdevs have different
+	 * access patterns (the mapping is not accessed from open context,
+	 * e.g. from zio_read) and locking strategy (e.g. svr_lock).
+	 */
+	krwlock_t vdev_indirect_rwlock;
 	vdev_indirect_mapping_t *vdev_indirect_mapping;
 	vdev_indirect_births_t *vdev_indirect_births;
+
+	/*
+	 * In memory data structures used to manage the obsolete sm, for
+	 * indirect or removing vdevs.
+	 *
+	 * The vdev_obsolete_segments is the in-core record of the segments
+	 * that are no longer referenced anywhere in the pool (due to
+	 * being freed or remapped and not referenced by any snapshots).
+	 * During a sync, segments are added to vdev_obsolete_segments
+	 * via vdev_indirect_mark_obsolete(); at the end of each sync
+	 * pass, this is appended to vdev_obsolete_sm via
+	 * vdev_indirect_sync_obsolete().  The vdev_obsolete_lock
+	 * protects against concurrent modifications of vdev_obsolete_segments
+	 * from multiple zio threads.
+	 */
+	kmutex_t	vdev_obsolete_lock;
+	range_tree_t	*vdev_obsolete_segments;
+	space_map_t	*vdev_obsolete_sm;
 
 	/*
 	 * The queue depth parameters determine how many async writes are
@@ -378,7 +416,7 @@ extern void vdev_remove_parent(vdev_t *cvd);
  */
 extern void vdev_load_log_state(vdev_t *nvd, vdev_t *ovd);
 extern boolean_t vdev_log_state_valid(vdev_t *vd);
-extern void vdev_load(vdev_t *vd);
+extern int vdev_load(vdev_t *vd);
 extern int vdev_dtl_load(vdev_t *vd);
 extern void vdev_sync(vdev_t *vd, uint64_t txg);
 extern void vdev_sync_done(vdev_t *vd, uint64_t txg);
@@ -411,6 +449,13 @@ extern void vdev_set_min_asize(vdev_t *vd);
  */
 /* zdb uses this tunable, so it must be declared here to make lint happy. */
 extern int zfs_vdev_cache_size;
+
+/*
+ * Functions from vdev_indirect.c
+ */
+extern void vdev_indirect_sync_obsolete(vdev_t *vd, dmu_tx_t *tx);
+extern boolean_t vdev_indirect_should_condense(vdev_t *vd);
+extern void spa_condense_indirect_start_sync(vdev_t *vd, dmu_tx_t *tx);
 
 /*
  * The vdev_buf_t is used to translate between zio_t and buf_t, and back again.

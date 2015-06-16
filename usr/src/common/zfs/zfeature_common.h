@@ -57,6 +57,7 @@ typedef enum spa_feature {
 	SPA_FEATURE_SHA512,
 	SPA_FEATURE_SKEIN,
 	SPA_FEATURE_EDONR,
+	SPA_FEATURE_OBSOLETE_COUNTS,
 	SPA_FEATURES
 } spa_feature_t;
 

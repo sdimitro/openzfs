@@ -24,9 +24,6 @@ export NOTREMOVEDISK=${DISKS##* }
 # Waits for the pool to finish a removal. If an optional callback is given,
 # execute it every 0.5s.
 #
-# The callback should be a function that takes as input the number of
-# iterations and the given arguments.
-#
 # Example usage:
 #
 #    wait_for_removal $TESTPOOL dd if=/dev/urandom of=/$TESTPOOL/file count=1
@@ -46,11 +43,11 @@ function wait_for_removal # pool [callback args]
 	return 0
 }
 
-function percent_indirect_referenced # pool
+function indirect_vdev_mapping_size # pool
 {
 	typeset pool=$1
-	$ZDB $pool | $GREP 'indirect vdev' | \
-	    $SED -E 's/.* ([0-9]+)% referenced/\1/g'
+	$ZDB -P $pool | $GREP 'indirect vdev' | \
+	    $SED -E 's/.*\(([0-9]+) in memory\).*/\1/g'
 }
 
 function random_write # file write_size
@@ -93,9 +90,19 @@ function start_random_writer # file
 		done
 		log_note "Stopping writer for $file"
 	) &
-
 }
 
+function set_min_bytes # bytes
+{
+	typeset bytes=$1
+	$ECHO "zfs_condense_min_mapping_bytes/W 0t$bytes" | \
+	    $MDB -kw
+}
+
+#
+# The callback should be a function that takes as input the number of
+# iterations and the given arguments.
+#
 function test_removal_with_operation # callback [count]
 {
 	typeset operation=$1
@@ -119,6 +126,7 @@ function test_removal_with_operation # callback [count]
 	log_must wait_for_removal $TESTPOOL \
 	    _test_removal_with_operation_cb $operation
 	log_mustnot vdevs_in_pool $TESTPOOL $REMOVEDISK
+	log_must $ZDB -cd $TESTPOOL
 
 	kill $killpid
 	wait

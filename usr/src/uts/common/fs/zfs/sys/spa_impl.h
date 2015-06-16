@@ -94,6 +94,30 @@ typedef struct spa_removing_phys {
 	uint64_t sr_copied; /* bytes that have been copied or freed */
 } spa_removing_phys_t;
 
+/*
+ * This struct is stored as an entry in the DMU_POOL_DIRECTORY_OBJECT
+ * (with key DMU_POOL_CONDENSING_INDIRECT).  It is present if a condense
+ * of an indirect vdev's mapping object is in progress.
+ */
+typedef struct spa_condensing_indirect_phys {
+	/*
+	 * The vdev ID of the indirect vdev whose indirect mapping is
+	 * being condensed.
+	 */
+	uint64_t	scip_vdev;
+
+	/*
+	 * The vdev's old obsolete spacemap.  This spacemap's contents are
+	 * being integrated into the new mapping.
+	 */
+	uint64_t	scip_prev_obsolete_sm_object;
+
+	/*
+	 * The new mapping object that is being created.
+	 */
+	uint64_t	scip_next_mapping_object;
+} spa_condensing_indirect_phys_t;
+
 struct spa_aux_vdev {
 	uint64_t	sav_object;		/* MOS object for device list */
 	nvlist_t	*sav_config;		/* cached device config */
@@ -228,12 +252,9 @@ struct spa {
 	spa_removing_phys_t spa_removing_phys;
 	spa_vdev_removal_t *spa_vdev_removal;
 
-	/*
-	 * Set the Mark bit on each indirect mapping entry that is
-	 * referenced.  Used by zdb to determine which mappings are still
-	 * in use.
-	 */
-	boolean_t	spa_mark_indirect_mappings;
+	spa_condensing_indirect_phys_t	spa_condensing_indirect_phys;
+	spa_condensing_indirect_t	*spa_condensing_indirect;
+	kthread_t	*spa_condense_thread;	/* thread doing condense. */
 
 	char		*spa_root;		/* alternate root directory */
 	uint64_t	spa_ena;		/* spa-wide ereport ENA */

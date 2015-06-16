@@ -47,6 +47,8 @@
 #include <sys/ddt.h>
 #include <sys/vdev_impl.h>
 #include <sys/vdev_removal.h>
+#include <sys/vdev_indirect_mapping.h>
+#include <sys/vdev_indirect_births.h>
 #include <sys/metaslab.h>
 #include <sys/metaslab_impl.h>
 #include <sys/uberblock_impl.h>
@@ -1265,6 +1267,8 @@ spa_unload(spa_t *spa)
 		kmem_free(spa->spa_async_zio_root, max_ncpus * sizeof (void *));
 		spa->spa_async_zio_root = NULL;
 	}
+
+	spa_condense_fini(spa);
 
 	bpobj_close(&spa->spa_deferred_bpobj);
 
@@ -2710,7 +2714,15 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 	/*
 	 * Load the vdev state for all toplevel vdevs.
 	 */
-	vdev_load(rvd);
+	error = vdev_load(rvd);
+	if (error != 0) {
+		return (spa_vdev_err(rvd, VDEV_AUX_CORRUPT_DATA, error));
+	}
+
+	error = spa_condense_init(spa);
+	if (error != 0) {
+		return (spa_vdev_err(rvd, VDEV_AUX_CORRUPT_DATA, error));
+	}
 
 	/*
 	 * Propagate the leaf DTLs we just loaded all the way up the tree.
@@ -2759,6 +2771,17 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 	    spa->spa_load_max_txg == UINT64_MAX)) {
 		dmu_tx_t *tx;
 		int need_update = B_FALSE;
+		/*
+		 * We must check this before we start the sync thread, because
+		 * we only want to start a condense thread for condense
+		 * operations that were in progress when the pool was
+		 * imported.  Once we start syncing, spa_sync() could
+		 * initiate a condense (and start a thread for it).  In
+		 * that case it would be wrong to start a second
+		 * condense thread.
+		 */
+		boolean_t condense_in_progress =
+		    (spa->spa_condensing_indirect != NULL);
 
 		ASSERT(state != SPA_LOAD_TRYIMPORT);
 
@@ -2840,7 +2863,15 @@ spa_load_impl(spa_t *spa, uint64_t pool_guid, nvlist_t *config,
 		 */
 		dsl_pool_clean_tmp_userrefs(spa->spa_dsl_pool);
 
+		/*
+		 * Note: unlike condensing, we don't need an analogous
+		 * "removal_in_progress" dance because no other thread
+		 * can start a removal while we hold the spa_namespace_lock.
+		 */
 		spa_restart_removal(spa);
+
+		if (condense_in_progress)
+			spa_condense_indirect_restart(spa);
 	}
 
 	return (0);
@@ -5609,7 +5640,8 @@ spa_async_suspend(spa_t *spa)
 {
 	mutex_enter(&spa->spa_async_lock);
 	spa->spa_async_suspended++;
-	while (spa->spa_async_thread != NULL)
+	while (spa->spa_async_thread != NULL ||
+	    spa->spa_condense_thread != NULL)
 		cv_wait(&spa->spa_async_cv, &spa->spa_async_lock);
 	mutex_exit(&spa->spa_async_lock);
 
@@ -6064,6 +6096,40 @@ spa_sync_upgrades(spa_t *spa, dmu_tx_t *tx)
 	rrw_exit(&dp->dp_config_rwlock, FTAG);
 }
 
+static void
+vdev_indirect_state_sync_verify(vdev_t *vd)
+{
+	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
+	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
+	vdev_indirect_births_t *vib = vd->vdev_indirect_births;
+
+	if (vd->vdev_ops == &vdev_indirect_ops) {
+		ASSERT(vim != NULL);
+		ASSERT(vib != NULL);
+	}
+
+	if (vic->vic_obsolete_sm_object != 0) {
+		ASSERT(vd->vdev_obsolete_sm != NULL);
+		ASSERT(vd->vdev_removing ||
+		    vd->vdev_ops == &vdev_indirect_ops);
+		ASSERT(vdev_indirect_mapping_num_entries(vim) > 0);
+		ASSERT(vdev_indirect_mapping_bytes_mapped(vim) > 0);
+
+		ASSERT3U(vic->vic_obsolete_sm_object, ==,
+		    space_map_object(vd->vdev_obsolete_sm));
+		ASSERT3U(vdev_indirect_mapping_bytes_mapped(vim), >=,
+		    space_map_allocated(vd->vdev_obsolete_sm));
+	}
+	ASSERT(vd->vdev_obsolete_segments != NULL);
+
+	/*
+	 * Since frees / remaps to an indirect vdev can only
+	 * happen in syncing context, the obsolete segments
+	 * tree must be empty when we start syncing.
+	 */
+	ASSERT0(range_tree_space(vd->vdev_obsolete_segments));
+}
+
 /*
  * Sync the specified transaction group.  New blocks may be dirtied as
  * part of the process, so we iterate until it converges.
@@ -6184,6 +6250,16 @@ spa_sync(spa_t *spa, uint64_t txg)
 
 	ASSERT3U(mc->mc_alloc_max_slots, <=,
 	    max_queue_depth * rvd->vdev_children);
+
+	for (int c = 0; c < rvd->vdev_children; c++) {
+		vdev_t *vd = rvd->vdev_child[c];
+		vdev_indirect_state_sync_verify(vd);
+
+		if (vdev_indirect_should_condense(vd)) {
+			spa_condense_indirect_start_sync(vd, tx);
+			break;
+		}
+	}
 
 	/*
 	 * Iterate to convergence.

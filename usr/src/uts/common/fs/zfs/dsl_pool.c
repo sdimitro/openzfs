@@ -242,6 +242,22 @@ dsl_pool_open(dsl_pool_t *dp)
 		    dp->dp_meta_objset, obj));
 	}
 
+	if (spa_feature_is_active(dp->dp_spa, SPA_FEATURE_OBSOLETE_COUNTS)) {
+		err = zap_lookup(dp->dp_meta_objset, DMU_POOL_DIRECTORY_OBJECT,
+		    DMU_POOL_OBSOLETE_BPOBJ, sizeof (uint64_t), 1, &obj);
+		if (err == 0) {
+			VERIFY0(bpobj_open(&dp->dp_obsolete_bpobj,
+			    dp->dp_meta_objset, obj));
+		} else if (err == ENOENT) {
+			/*
+			 * We might not have created the remap bpobj yet.
+			 */
+			err = 0;
+		} else {
+			goto out;
+		}
+	}
+
 	/*
 	 * Note: errors ignored, because the these special dirs, used for
 	 * space accounting, are only created on demand.
@@ -302,6 +318,7 @@ dsl_pool_close(dsl_pool_t *dp)
 		dsl_dir_rele(dp->dp_root_dir, dp);
 
 	bpobj_close(&dp->dp_free_bpobj);
+	bpobj_close(&dp->dp_obsolete_bpobj);
 
 	/* undo the dmu_objset_open_impl(mos) from dsl_pool_open() */
 	if (dp->dp_meta_objset != NULL)
@@ -330,6 +347,35 @@ dsl_pool_close(dsl_pool_t *dp)
 	if (dp->dp_blkstats != NULL)
 		kmem_free(dp->dp_blkstats, sizeof (zfs_all_blkstats_t));
 	kmem_free(dp, sizeof (dsl_pool_t));
+}
+
+void
+dsl_pool_create_obsolete_bpobj(dsl_pool_t *dp, dmu_tx_t *tx)
+{
+	uint64_t obj;
+	/*
+	 * Currently, we only create the obsolete_bpobj where there are
+	 * indirect vdevs with referenced mappings.
+	 */
+	ASSERT(spa_feature_is_active(dp->dp_spa, SPA_FEATURE_DEVICE_REMOVAL));
+	/* create and open the obsolete_bpobj */
+	obj = bpobj_alloc(dp->dp_meta_objset, SPA_OLD_MAXBLOCKSIZE, tx);
+	VERIFY0(bpobj_open(&dp->dp_obsolete_bpobj, dp->dp_meta_objset, obj));
+	VERIFY0(zap_add(dp->dp_meta_objset, DMU_POOL_DIRECTORY_OBJECT,
+	    DMU_POOL_OBSOLETE_BPOBJ, sizeof (uint64_t), 1, &obj, tx));
+	spa_feature_incr(dp->dp_spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
+}
+
+void
+dsl_pool_destroy_obsolete_bpobj(dsl_pool_t *dp, dmu_tx_t *tx)
+{
+	spa_feature_decr(dp->dp_spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
+	VERIFY0(zap_remove(dp->dp_meta_objset,
+	    DMU_POOL_DIRECTORY_OBJECT,
+	    DMU_POOL_OBSOLETE_BPOBJ, tx));
+	bpobj_free(dp->dp_meta_objset,
+	    dp->dp_obsolete_bpobj.bpo_object, tx);
+	bpobj_close(&dp->dp_obsolete_bpobj);
 }
 
 dsl_pool_t *

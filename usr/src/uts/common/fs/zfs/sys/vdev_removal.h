@@ -22,6 +22,8 @@
 
 #include <sys/spa.h>
 #include <sys/bpobj.h>
+#include <sys/vdev_indirect_mapping.h>
+#include <sys/vdev_indirect_births.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -58,16 +60,35 @@ typedef struct spa_vdev_removal {
 	uint64_t	svr_bytes_done[TXG_SIZE];
 } spa_vdev_removal_t;
 
+typedef struct spa_condensing_indirect {
+	/*
+	 * New mappings to write out each txg.
+	 */
+	list_t		sci_new_mapping_entries[TXG_SIZE];
+
+	/*
+	 * To ensure that we can restart easily, we always need to set the
+	 * max_offset of the new mapping object to be the source offset of
+	 * the next mapping entry.
+	 */
+	uint64_t	sci_max_offset[TXG_SIZE];
+
+	vdev_indirect_mapping_t *sci_new_mapping;
+} spa_condensing_indirect_t;
+
 extern int spa_remove_init(spa_t *);
 extern void spa_restart_removal(spa_t *);
+extern int spa_condense_init(spa_t *);
+extern void spa_condense_fini(spa_t *);
+extern void spa_condense_indirect_restart(spa_t *);
+extern void spa_vdev_condense_suspend(spa_t *);
 extern int spa_vdev_remove(spa_t *, uint64_t, boolean_t);
 extern void free_from_removing_vdev(vdev_t *, uint64_t, uint64_t, uint64_t);
 extern int spa_removal_get_stats(spa_t *, pool_removal_stat_t *);
-void svr_sync(spa_t *spa, dmu_tx_t *tx);
+extern void svr_sync(spa_t *spa, dmu_tx_t *tx);
 extern void spa_vdev_remove_suspend(spa_t *);
 extern int spa_vdev_remove_cancel(spa_t *);
-void spa_vdev_removal_destroy(spa_vdev_removal_t *svr);
-
+extern void spa_vdev_removal_destroy(spa_vdev_removal_t *svr);
 
 #ifdef	__cplusplus
 }

@@ -21,10 +21,12 @@ TESTDIR = $(ROOTOPTPKG)/tests/functional/removal
 PROGS = cleanup \
         removal_all_vdev \
         removal_check_space \
+        removal_condense_export \
         removal_multiple_indirection \
         removal_remap \
         removal_reservation \
         removal_sanity \
+        removal_remap_deadlists \
         removal_with_add \
         removal_with_create_fs \
         removal_with_dedup \

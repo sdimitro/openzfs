@@ -329,6 +329,10 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	vd->vdev_ishole = (ops == &vdev_hole_ops);
 	vic->vic_prev_indirect_vdev = UINT64_MAX;
 
+	rw_init(&vd->vdev_indirect_rwlock, NULL, RW_DEFAULT, NULL);
+	mutex_init(&vd->vdev_obsolete_lock, NULL, MUTEX_DEFAULT, NULL);
+	vd->vdev_obsolete_segments = range_tree_create(NULL, NULL);
+
 	mutex_init(&vd->vdev_dtl_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_probe_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -480,6 +484,10 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 	ASSERT3U(vic->vic_prev_indirect_vdev, ==, UINT64_MAX);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
 	    &vic->vic_prev_indirect_vdev);
+	vic->vic_precise_obsolete_counts = nvlist_exists(nv,
+	    ZPOOL_CONFIG_PRECISE_OBSOLETE_COUNTS);
+	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBSOLETE_SM,
+	    &vic->vic_obsolete_sm_object);
 
 	/*
 	 * Look for the 'not present' flag.  This will only be set if the device
@@ -666,6 +674,16 @@ vdev_free(vdev_t *vd)
 		vdev_indirect_mapping_close(vd->vdev_indirect_mapping);
 		vdev_indirect_births_close(vd->vdev_indirect_births);
 	}
+
+	if (vd->vdev_obsolete_sm != NULL) {
+		ASSERT(vd->vdev_removing ||
+		    vd->vdev_ops == &vdev_indirect_ops);
+		space_map_close(vd->vdev_obsolete_sm);
+		vd->vdev_obsolete_sm = NULL;
+	}
+	range_tree_destroy(vd->vdev_obsolete_segments);
+	rw_destroy(&vd->vdev_indirect_rwlock);
+	mutex_destroy(&vd->vdev_obsolete_lock);
 
 	mutex_destroy(&vd->vdev_queue_lock);
 	mutex_destroy(&vd->vdev_dtl_lock);
@@ -877,7 +895,12 @@ vdev_metaslab_init(vdev_t *vd, uint64_t txg)
 	for (m = oldc; m < newc; m++) {
 		uint64_t object = 0;
 
-		if (txg == 0) {
+		/*
+		 * vdev_ms_array may be 0 if we are creating the "fake"
+		 * metaslabs for an indirect vdev for zdb's leak detection.
+		 * See zdb_leak_init().
+		 */
+		if (txg == 0 && vd->vdev_ms_array != 0) {
 			error = dmu_read(mos, vd->vdev_ms_array,
 			    m * sizeof (uint64_t), sizeof (uint64_t), &object,
 			    DMU_READ_PREFETCH);
@@ -1633,7 +1656,8 @@ void
 vdev_dirty(vdev_t *vd, int flags, void *arg, uint64_t txg)
 {
 	ASSERT(vd == vd->vdev_top);
-	ASSERT(vdev_is_concrete(vd));
+	/* indirect vdevs don't have metaslabs or dtls */
+	ASSERT(vdev_is_concrete(vd) || flags == 0);
 	ASSERT(ISP2(flags));
 	ASSERT(spa_writeable(vd->vdev_spa));
 
@@ -2113,32 +2137,63 @@ vdev_resilver_needed(vdev_t *vd, uint64_t *minp, uint64_t *maxp)
 	return (needed);
 }
 
-void
+int
 vdev_load(vdev_t *vd)
 {
+	int error = 0;
 	/*
 	 * Recursively load all children.
 	 */
-	for (int c = 0; c < vd->vdev_children; c++)
-		vdev_load(vd->vdev_child[c]);
+	for (int c = 0; c < vd->vdev_children; c++) {
+		error = vdev_load(vd->vdev_child[c]);
+		if (error != 0) {
+			return (error);
+		}
+	}
 
 	vdev_set_deflate_ratio(vd);
 
 	/*
 	 * If this is a top-level vdev, initialize its metaslabs.
 	 */
-	if (vd == vd->vdev_top && vdev_is_concrete(vd) &&
-	    (vd->vdev_ashift == 0 || vd->vdev_asize == 0 ||
-	    vdev_metaslab_init(vd, 0) != 0))
-		vdev_set_state(vd, B_FALSE, VDEV_STATE_CANT_OPEN,
-		    VDEV_AUX_CORRUPT_DATA);
+	if (vd == vd->vdev_top && vdev_is_concrete(vd)) {
+		if (vd->vdev_ashift == 0 || vd->vdev_asize == 0) {
+			vdev_set_state(vd, B_FALSE, VDEV_STATE_CANT_OPEN,
+			    VDEV_AUX_CORRUPT_DATA);
+			return (SET_ERROR(ENXIO));
+		} else if ((error = vdev_metaslab_init(vd, 0)) != 0) {
+			vdev_set_state(vd, B_FALSE, VDEV_STATE_CANT_OPEN,
+			    VDEV_AUX_CORRUPT_DATA);
+			return (error);
+		}
+	}
 
 	/*
 	 * If this is a leaf vdev, load its DTL.
 	 */
-	if (vd->vdev_ops->vdev_op_leaf && vdev_dtl_load(vd) != 0)
+	if (vd->vdev_ops->vdev_op_leaf && (error = vdev_dtl_load(vd)) != 0) {
 		vdev_set_state(vd, B_FALSE, VDEV_STATE_CANT_OPEN,
 		    VDEV_AUX_CORRUPT_DATA);
+		return (error);
+	}
+
+
+	if (vd->vdev_indirect_config.vic_obsolete_sm_object != 0) {
+		vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
+		objset_t *mos = vd->vdev_spa->spa_meta_objset;
+		ASSERT(vd->vdev_asize != 0);
+		ASSERT(vd->vdev_obsolete_sm == NULL);
+
+		if ((error = space_map_open(&vd->vdev_obsolete_sm, mos,
+		    vic->vic_obsolete_sm_object, 0, vd->vdev_asize, 0))) {
+			vdev_set_state(vd, B_FALSE, VDEV_STATE_CANT_OPEN,
+			    VDEV_AUX_CORRUPT_DATA);
+			return (error);
+		}
+		space_map_update(vd->vdev_obsolete_sm);
+	}
+
+	return (0);
 }
 
 /*
@@ -2282,6 +2337,27 @@ vdev_sync(vdev_t *vd, uint64_t txg)
 	vdev_t *lvd;
 	metaslab_t *msp;
 	dmu_tx_t *tx;
+
+	if (range_tree_space(vd->vdev_obsolete_segments) > 0) {
+		dmu_tx_t *tx;
+
+		ASSERT(vd->vdev_removing ||
+		    vd->vdev_ops == &vdev_indirect_ops);
+
+		tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
+		vdev_indirect_sync_obsolete(vd, tx);
+		dmu_tx_commit(tx);
+
+		/*
+		 * If the vdev is indirect, it can't have dirty
+		 * metaslabs or DTLs.
+		 */
+		if (vd->vdev_ops == &vdev_indirect_ops) {
+			ASSERT(txg_list_empty(&vd->vdev_ms_list, txg));
+			ASSERT(txg_list_empty(&vd->vdev_dtl_list, txg));
+			return;
+		}
+	}
 
 	ASSERT(vdev_is_concrete(vd));
 

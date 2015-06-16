@@ -45,6 +45,7 @@
 #include <sys/zfeature.h>
 #include <sys/blkptr.h>
 #include <sys/range_tree.h>
+#include <sys/vdev.h>
 
 /*
  * Number of times that zfs_free_range() took the slow path while doing
@@ -3399,12 +3400,45 @@ dbuf_write_override_done(zio_t *zio)
 	dbuf_write_done(zio, NULL, db);
 }
 
+typedef struct dbuf_remap_impl_callback_arg {
+	objset_t	*drica_os;
+	uint64_t	drica_blk_birth;
+	dmu_tx_t	*drica_tx;
+} dbuf_remap_impl_callback_arg_t;
+
 static void
-dbuf_remap_impl(dnode_t *dn, blkptr_t *bp)
+dbuf_remap_impl_callback(uint64_t vdev, uint64_t offset, uint64_t size,
+    void *arg)
+{
+	dbuf_remap_impl_callback_arg_t *drica = arg;
+	objset_t *os = drica->drica_os;
+	spa_t *spa = dmu_objset_spa(os);
+	dmu_tx_t *tx = drica->drica_tx;
+
+	ASSERT(dsl_pool_sync_context(spa_get_dsl(spa)));
+
+	if (os == spa_meta_objset(spa)) {
+		spa_vdev_indirect_mark_obsolete(spa, vdev, offset, size, tx);
+	} else {
+		dsl_dataset_block_remapped(dmu_objset_ds(os), vdev, offset,
+		    size, drica->drica_blk_birth, tx);
+	}
+}
+
+static void
+dbuf_remap_impl(dnode_t *dn, blkptr_t *bp, dmu_tx_t *tx)
 {
 	blkptr_t bp_copy = *bp;
 	spa_t *spa = dmu_objset_spa(dn->dn_objset);
-	if (spa_remap_blkptr(spa, &bp_copy)) {
+	dbuf_remap_impl_callback_arg_t drica;
+
+	ASSERT(dsl_pool_sync_context(spa_get_dsl(spa)));
+
+	drica.drica_os = dn->dn_objset;
+	drica.drica_blk_birth = bp->blk_birth;
+	drica.drica_tx = tx;
+	if (spa_remap_blkptr(spa, &bp_copy, dbuf_remap_impl_callback,
+	    &drica)) {
 		/*
 		 * The struct_rwlock prevents dbuf_read_impl() from
 		 * dereferencing the BP while we are changing it.  To
@@ -3436,7 +3470,7 @@ dbuf_can_remap(const dmu_buf_impl_t *db)
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
 	for (int i = 0; i < db->db.db_size >> SPA_BLKPTRSHIFT; i++) {
 		blkptr_t bp_copy = bp[i];
-		if (spa_remap_blkptr(spa, &bp_copy)) {
+		if (spa_remap_blkptr(spa, &bp_copy, NULL, NULL)) {
 			ret = B_TRUE;
 			break;
 		}
@@ -3461,7 +3495,7 @@ dnode_needs_remap(const dnode_t *dn)
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
 	for (int j = 0; j < dn->dn_phys->dn_nblkptr; j++) {
 		blkptr_t bp_copy = dn->dn_phys->dn_blkptr[j];
-		if (spa_remap_blkptr(spa, &bp_copy)) {
+		if (spa_remap_blkptr(spa, &bp_copy, NULL, NULL)) {
 			ret = B_TRUE;
 			break;
 		}
@@ -3475,9 +3509,10 @@ dnode_needs_remap(const dnode_t *dn)
  * Remap any existing BP's to concrete vdevs, if possible.
  */
 static void
-dbuf_remap(dnode_t *dn, dmu_buf_impl_t *db)
+dbuf_remap(dnode_t *dn, dmu_buf_impl_t *db, dmu_tx_t *tx)
 {
 	spa_t *spa = dmu_objset_spa(db->db_objset);
+	ASSERT(dsl_pool_sync_context(spa_get_dsl(spa)));
 
 	if (!spa_feature_is_active(spa, SPA_FEATURE_DEVICE_REMOVAL))
 		return;
@@ -3485,7 +3520,7 @@ dbuf_remap(dnode_t *dn, dmu_buf_impl_t *db)
 	if (db->db_level > 0) {
 		blkptr_t *bp = db->db.db_data;
 		for (int i = 0; i < db->db.db_size >> SPA_BLKPTRSHIFT; i++) {
-			dbuf_remap_impl(dn, &bp[i]);
+			dbuf_remap_impl(dn, &bp[i], tx);
 		}
 	} else if (db->db.db_object == DMU_META_DNODE_OBJECT) {
 		dnode_phys_t *dnp = db->db.db_data;
@@ -3493,7 +3528,7 @@ dbuf_remap(dnode_t *dn, dmu_buf_impl_t *db)
 		    DMU_OT_DNODE);
 		for (int i = 0; i < db->db.db_size >> DNODE_SHIFT; i++) {
 			for (int j = 0; j < dnp[i].dn_nblkptr; j++) {
-				dbuf_remap_impl(dn, &dnp[i].dn_blkptr[j]);
+				dbuf_remap_impl(dn, &dnp[i].dn_blkptr[j], tx);
 			}
 		}
 	}
@@ -3533,7 +3568,7 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 			} else {
 				dbuf_release_bp(db);
 			}
-			dbuf_remap(dn, db);
+			dbuf_remap(dn, db, tx);
 		}
 	}
 

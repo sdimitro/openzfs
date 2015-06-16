@@ -2449,10 +2449,9 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 	 * The only state that can actually be changing concurrently with
 	 * metaslab_sync() is the metaslab's ms_tree.  No other thread can
 	 * be modifying this txg's alloctree, freeingtree, freedtree, or
-	 * space_map_phys_t. Therefore, we only hold ms_lock to satisfy
-	 * space map ASSERTs. We drop it whenever we call into the DMU,
-	 * because the DMU can call down to us (e.g. via zio_free()) at
-	 * any time.
+	 * space_map_phys_t.  We drop ms_lock whenever we could call
+	 * into the DMU, because the DMU can call down to us
+	 * (e.g. via zio_free()) at any time.
 	 *
 	 * The spa_vdev_remove_thread() can be reading metaslab state
 	 * concurrently, and it is locked out by the ms_sync_lock.  Note
@@ -3642,6 +3641,7 @@ metaslab_free_impl(vdev_t *vd, uint64_t offset, uint64_t size,
 	} else if (vd->vdev_ops->vdev_op_remap != NULL) {
 		vd->vdev_ops->vdev_op_remap(vd, offset, size,
 		    metaslab_free_impl_cb, &txg);
+		vdev_indirect_mark_obsolete(vd, offset, size, txg);
 	} else {
 		metaslab_free_concrete(vd, offset, size, txg);
 	}
@@ -3684,10 +3684,14 @@ remap_blkptr_cb(uint64_t inner_offset, vdev_t *vd, uint64_t offset,
  * the indirect DVA in place.  This happens if the indirect DVA spans multiple
  * segments in the mapping (i.e. it is a "split block").
  *
+ * If the BP was remapped, calls the callback on the original dva (note the
+ * callback can be called multiple times if the original indirect DVA refers
+ * to another indirect DVA, etc).
+ *
  * Returns TRUE if the BP was remapped.
  */
 boolean_t
-spa_remap_blkptr(spa_t *spa, blkptr_t *bp)
+spa_remap_blkptr(spa_t *spa, blkptr_t *bp, spa_remap_cb_t callback, void *arg)
 {
 	boolean_t rv = B_FALSE;
 
@@ -3727,11 +3731,13 @@ spa_remap_blkptr(spa_t *spa, blkptr_t *bp)
 	 */
 	dva_t *dva = &bp->blk_dva[0];
 	for (;;) {
+		uint64_t offset = DVA_GET_OFFSET(dva);
+		uint64_t size = DVA_GET_ASIZE(dva);
 		vdev_t *vd = vdev_lookup_top(spa, DVA_GET_VDEV(dva));
 		if (vd->vdev_ops->vdev_op_remap == NULL)
 			break;
-		vd->vdev_ops->vdev_op_remap(vd, DVA_GET_OFFSET(dva),
-		    DVA_GET_ASIZE(dva), remap_blkptr_cb, bp);
+		vd->vdev_ops->vdev_op_remap(vd, offset, size,
+		    remap_blkptr_cb, bp);
 		if (DVA_GET_VDEV(dva) == vd->vdev_id) {
 			/*
 			 * This dva could not be remapped because it
@@ -3739,6 +3745,9 @@ spa_remap_blkptr(spa_t *spa, blkptr_t *bp)
 			 */
 			break;
 		} else {
+			if (callback != NULL) {
+				callback(vd->vdev_id, offset, size, arg);
+			}
 			rv = B_TRUE;
 		}
 	}
@@ -3933,7 +3942,11 @@ metaslab_claim_impl(vdev_t *vd, uint64_t offset, uint64_t size, uint64_t txg)
 	if (vd->vdev_ops->vdev_op_remap != NULL) {
 		metaslab_claim_cb_arg_t arg;
 
-		/* Only zdb(1M) can claim on indirect vdevs. */
+		/*
+		 * Only zdb(1M) can claim on indirect vdevs.  This is used
+		 * to detect leaks of mapped space (that are not accounted
+		 * for in the obsolete counts, spacemap, or bpobj).
+		 */
 		ASSERT(!spa_writeable(vd->vdev_spa));
 		arg.mcca_error = 0;
 		arg.mcca_txg = txg;
@@ -3941,6 +3954,10 @@ metaslab_claim_impl(vdev_t *vd, uint64_t offset, uint64_t size, uint64_t txg)
 		vd->vdev_ops->vdev_op_remap(vd, offset, size,
 		    metaslab_claim_impl_cb, &arg);
 
+		if (arg.mcca_error == 0) {
+			arg.mcca_error = metaslab_claim_concrete(vd,
+			    offset, size, txg);
+		}
 		return (arg.mcca_error);
 	} else {
 		return (metaslab_claim_concrete(vd, offset, size, txg));

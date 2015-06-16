@@ -95,6 +95,14 @@ typedef struct vdev_copy_seg_arg {
 int zfs_remove_max_copy_bytes = 8 * 1024 * 1024;
 
 /*
+ * The largest contiguous segment that we will attempt to allocate when
+ * removing a device.  This can be no larger than SPA_MAXBLOCKSIZE.  If
+ * there is a performance problem with attempting to allocate large blocks,
+ * consider decreasing this.
+ */
+int zfs_remove_max_segment = SPA_MAXBLOCKSIZE;
+
+/*
  * The maximum number of vdevs that can be removed, due to recursion.
  * See comment in vdev_remove() for details.
  */
@@ -213,6 +221,15 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 	ASSERT3P(vd->vdev_indirect_mapping, ==, NULL);
 
 	spa_feature_incr(spa, SPA_FEATURE_DEVICE_REMOVAL, tx);
+	if (spa_feature_is_enabled(spa, SPA_FEATURE_OBSOLETE_COUNTS)) {
+		/*
+		 * By activating the OBSOLETE_COUNTS feature, we prevent
+		 * the pool from being downgraded and ensure that the
+		 * refcounts are precise.
+		 */
+		spa_feature_incr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
+		vd->vdev_indirect_config.vic_precise_obsolete_counts = B_TRUE;
+	}
 
 	vic->vic_mapping_object = vdev_indirect_mapping_alloc(mos, tx);
 	vd->vdev_indirect_mapping =
@@ -374,11 +391,13 @@ spa_remove_init(spa_t *spa)
 	while (indirect_vdev_id != UINT64_MAX) {
 		vdev_t *vd = vdev_lookup_top(spa, indirect_vdev_id);
 		vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
+
 		ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
 		vd->vdev_indirect_mapping = vdev_indirect_mapping_open(
 		    spa->spa_meta_objset, vic->vic_mapping_object);
 		vd->vdev_indirect_births = vdev_indirect_births_open(
 		    spa->spa_meta_objset, vic->vic_births_object);
+
 		indirect_vdev_id = vic->vic_prev_indirect_vdev;
 	}
 	spa_config_exit(spa, SCL_STATE, FTAG);
@@ -401,7 +420,7 @@ spa_restart_removal(spa_t *spa)
 	ASSERT3P(svr->svr_thread, ==, NULL);
 
 	zfs_dbgmsg("restarting removal of %llu at count=%llu",
-	    vd->vdev_id, vdev_indirect_mapping_count(vim));
+	    vd->vdev_id, vdev_indirect_mapping_num_entries(vim));
 	svr->svr_thread = thread_create(NULL, 0, spa_vdev_remove_thread, vd,
 	    0, &p0, TS_RUN, minclsyspri);
 }
@@ -444,7 +463,8 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 
 	uint64_t synced_size = 0;
 	uint64_t synced_offset = 0;
-	if (offset < vdev_indirect_mapping_max_offset(vim)) {
+	uint64_t max_offset_synced = vdev_indirect_mapping_max_offset(vim);
+	if (offset < max_offset_synced) {
 		/*
 		 * The mapping for this offset is already on disk.
 		 * Free from the new location.
@@ -457,13 +477,11 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 		 * in-flight or unvisited entry.  Only process the synced
 		 * portion of it here.
 		 */
-		synced_size = MIN(size,
-		    vdev_indirect_mapping_max_offset(vim) - offset);
+		synced_size = MIN(size, max_offset_synced - offset);
 		synced_offset = offset;
 
-		ASSERT3U(max_offset_yet, <=,
-		    vdev_indirect_mapping_max_offset(vim));
-		max_offset_yet = vdev_indirect_mapping_max_offset(vim);
+		ASSERT3U(max_offset_yet, <=, max_offset_synced);
+		max_offset_yet = max_offset_synced;
 
 		DTRACE_PROBE3(remove__free__synced,
 		    spa_t *, spa,
@@ -509,6 +527,18 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 				    svr->svr_max_offset_to_sync[txgoff];
 			}
 
+			/*
+			 * We've already committed to copying this segment:
+			 * we have allocated space elsewhere in the pool for
+			 * it and have an IO outstanding to copy the data. We
+			 * cannot free the space before the copy has
+			 * completed, or else the copy IO might overwrite any
+			 * new data. To free that space, we record the
+			 * segment in the appropriate svr_frees tree and free
+			 * the mapped space later, in the txg where we have
+			 * completed the copy and synced the mapping (see
+			 * vdev_mapping_sync).
+			 */
 			range_tree_add(svr->svr_frees[txgoff],
 			    offset, inflight_size);
 			size -= inflight_size;
@@ -561,6 +591,8 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 	 * of this free.
 	 */
 	if (synced_size > 0) {
+		vdev_indirect_mark_obsolete(vd, synced_offset, synced_size,
+		    txg);
 		/*
 		 * Note: this can only be called from syncing context,
 		 * and the vdev_indirect_mapping is only changed from the
@@ -591,6 +623,12 @@ spa_finish_removal(spa_t *spa, dsl_scan_state_t state, dmu_tx_t *tx)
 		vdev_t *vd = svr->svr_vdev;
 		vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 
+		if (srp->sr_prev_indirect_vdev != UINT64_MAX) {
+			vdev_t *pvd = vdev_lookup_top(spa,
+			    srp->sr_prev_indirect_vdev);
+			ASSERT3P(pvd->vdev_ops, ==, &vdev_indirect_ops);
+		}
+
 		vic->vic_prev_indirect_vdev = srp->sr_prev_indirect_vdev;
 		srp->sr_prev_indirect_vdev = vd->vdev_id;
 	}
@@ -609,6 +647,8 @@ static void
 free_mapped_segment_cb(void *arg, uint64_t offset, uint64_t size)
 {
 	vdev_t *vd = arg;
+	vdev_indirect_mark_obsolete(vd, offset, size,
+	    vd->vdev_spa->spa_syncing_txg);
 	vdev_indirect_ops.vdev_op_remap(vd, offset, size,
 	    metaslab_free_impl_cb, &vd->vdev_spa->spa_syncing_txg);
 }
@@ -627,7 +667,6 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	uint64_t txg = dmu_tx_get_txg(tx);
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
-	uint64_t old_count = vdev_indirect_mapping_count(vim);
 
 	ASSERT(vic->vic_mapping_object != 0);
 	ASSERT3U(txg, ==, spa_syncing_txg(spa));
@@ -650,10 +689,6 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 	mutex_exit(&svr->svr_lock);
 
 	spa_sync_removing_state(spa, tx);
-
-	zfs_dbgmsg("wrote %llu new entries in txg %llu; max_offset=%llx",
-	    vdev_indirect_mapping_count(vim) - old_count, txg,
-	    vdev_indirect_mapping_max_offset(vim));
 }
 
 static void
@@ -762,6 +797,8 @@ vdev_remove_complete_sync(void *arg, dmu_tx_t *tx)
 	vdev_t *vd = svr->svr_vdev;
 	spa_t *spa = vd->vdev_spa;
 
+	ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
+
 	for (int i = 0; i < TXG_SIZE; i++) {
 		ASSERT0(svr->svr_bytes_done[i]);
 	}
@@ -774,6 +811,76 @@ vdev_remove_complete_sync(void *arg, dmu_tx_t *tx)
 	spa_finish_removal(dmu_tx_pool(tx)->dp_spa, DSS_FINISHED, tx);
 }
 
+static void
+vdev_indirect_state_transfer(vdev_t *ivd, vdev_t *vd)
+{
+	ivd->vdev_indirect_config = vd->vdev_indirect_config;
+
+	ASSERT3P(ivd->vdev_indirect_mapping, ==, NULL);
+	ASSERT(vd->vdev_indirect_mapping != NULL);
+	ivd->vdev_indirect_mapping = vd->vdev_indirect_mapping;
+	vd->vdev_indirect_mapping = NULL;
+
+	ASSERT3P(ivd->vdev_indirect_births, ==, NULL);
+	ASSERT(vd->vdev_indirect_births != NULL);
+	ivd->vdev_indirect_births = vd->vdev_indirect_births;
+	vd->vdev_indirect_births = NULL;
+
+	ASSERT0(range_tree_space(vd->vdev_obsolete_segments));
+	ASSERT0(range_tree_space(ivd->vdev_obsolete_segments));
+
+	if (vd->vdev_obsolete_sm != NULL) {
+		vdev_indirect_config_t *ivic = &ivd->vdev_indirect_config;
+		ASSERT(ivic->vic_obsolete_sm_object != 0);
+		ASSERT3U(ivic->vic_obsolete_sm_object, ==,
+		    space_map_object(vd->vdev_obsolete_sm));
+		ASSERT3U(ivd->vdev_asize, ==, vd->vdev_asize);
+
+		/*
+		 * We cannot use space_map_{open,close} because we hold all
+		 * the config locks as writer.
+		 */
+		ASSERT3P(ivd->vdev_obsolete_sm, ==, NULL);
+		ivd->vdev_obsolete_sm = vd->vdev_obsolete_sm;
+		vd->vdev_obsolete_sm = NULL;
+	}
+}
+
+static void
+vdev_remove_replace_with_indirect(vdev_t *vd, uint64_t txg)
+{
+	vdev_t *ivd;
+	dmu_tx_t *tx;
+	spa_t *spa = vd->vdev_spa;
+	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
+
+	ivd = vdev_add_parent(vd, &vdev_indirect_ops);
+	vdev_remove_child(ivd, vd);
+	vdev_compact_children(ivd);
+
+	vdev_indirect_state_transfer(ivd, vd);
+
+	svr->svr_vdev = ivd;
+
+	ASSERT(!ivd->vdev_removing);
+	ASSERT(!list_link_active(&vd->vdev_config_dirty_node));
+	ASSERT(!list_link_active(&vd->vdev_state_dirty_node));
+
+	tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
+	dsl_sync_task_nowait(spa->spa_dsl_pool, vdev_remove_complete_sync, svr,
+	    0, ZFS_SPACE_CHECK_NONE, tx);
+	dmu_tx_commit(tx);
+
+	/*
+	 * Indicate that this thread has exited.  After this, we can not use
+	 * svr.
+	 */
+	mutex_enter(&svr->svr_lock);
+	svr->svr_thread = NULL;
+	cv_broadcast(&svr->svr_cv);
+	mutex_exit(&svr->svr_lock);
+}
+
 /*
  * Complete the removal of a toplevel vdev. This is called in open
  * context by the removal thread after we have copied all vdev's data.
@@ -782,9 +889,6 @@ static void
 vdev_remove_complete(vdev_t *vd)
 {
 	spa_t *spa = vd->vdev_spa;
-	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
-	vdev_t *ivd;
-	dmu_tx_t *tx;
 	uint64_t txg;
 
 	/*
@@ -808,39 +912,11 @@ vdev_remove_complete(vdev_t *vd)
 	ASSERT0(vd->vdev_stat.vs_space);
 	ASSERT0(vd->vdev_stat.vs_dspace);
 
-	ivd = vdev_add_parent(vd, &vdev_indirect_ops);
-	vdev_remove_child(ivd, vd);
-	vdev_compact_children(ivd);
-
-	ivd->vdev_indirect_config = vd->vdev_indirect_config;
-	ivd->vdev_indirect_mapping = vd->vdev_indirect_mapping;
-	ivd->vdev_indirect_births = vd->vdev_indirect_births;
-	vd->vdev_indirect_mapping = NULL;
-	vd->vdev_indirect_births = NULL;
-
-	svr->svr_vdev = ivd;
-
-	ASSERT(!ivd->vdev_removing);
-	ASSERT(!list_link_active(&vd->vdev_config_dirty_node));
-	ASSERT(!list_link_active(&vd->vdev_state_dirty_node));
-
-	tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
-	dsl_sync_task_nowait(spa->spa_dsl_pool, vdev_remove_complete_sync, svr,
-	    0, ZFS_SPACE_CHECK_NONE, tx);
-	dmu_tx_commit(tx);
-
-	/*
-	 * Indicate that this thread has exited.  After this, we can not use
-	 * svr.
-	 */
-	mutex_enter(&svr->svr_lock);
-	svr->svr_thread = NULL;
-	cv_broadcast(&svr->svr_cv);
-	mutex_exit(&svr->svr_lock);
+	vdev_remove_replace_with_indirect(vd, txg);
 
 	/*
 	 * We now release the locks, allowing spa_sync to run and finish the
-	 * removal via spa_finish_removal in syncing context.
+	 * removal via vdev_remove_complete_sync in syncing context.
 	 */
 	(void) spa_vdev_exit(spa, NULL, txg, 0);
 
@@ -923,6 +999,13 @@ spa_vdev_copy_impl(spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
 			ASSERT0(error);
 			length -= mylen;
 			offset += mylen;
+
+			/*
+			 * We've performed an allocation, so reset the
+			 * alloc trace list.
+			 */
+			metaslab_trace_fini(&zal);
+			metaslab_trace_init(&zal);
 		}
 	}
 	metaslab_trace_fini(&zal);
@@ -951,9 +1034,10 @@ spa_vdev_remove_thread(void *arg)
 	spa_t *spa = vd->vdev_spa;
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 	vdev_copy_arg_t vca;
-	uint64_t max_alloc = SPA_MAXBLOCKSIZE;
+	uint64_t max_alloc = zfs_remove_max_segment;
 	uint64_t last_txg = 0;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
+	uint64_t start_offset = vdev_indirect_mapping_max_offset(vim);
 
 	ASSERT3P(vd->vdev_ops, !=, &vdev_indirect_ops);
 	ASSERT(vdev_is_concrete(vd));
@@ -973,7 +1057,7 @@ spa_vdev_remove_thread(void *arg)
 	 * if we are restarting the removal after opening the pool.
 	 */
 	uint64_t msi;
-	for (msi = vdev_indirect_mapping_max_offset(vim) >> vd->vdev_ms_shift;
+	for (msi = start_offset >> vd->vdev_ms_shift;
 	    msi < vd->vdev_ms_count && !svr->svr_thread_exit; msi++) {
 		metaslab_t *msp = vd->vdev_ms[msi];
 		ASSERT3U(msi, <=, vd->vdev_ms_count);
@@ -1025,13 +1109,11 @@ spa_vdev_remove_thread(void *arg)
 			    range_tree_remove, svr->svr_allocd_segs);
 
 			/*
-			 * Note: this is only strictly necessary on the
-			 * first metaslab that we visit, when we are
-			 * resuming from a paused removal (i.e. when
-			 * importing a pool with a removal in progress).
+			 * When we are resuming from a paused removal (i.e.
+			 * when importing a pool with a removal in progress),
+			 * discard any state that we have already processed.
 			 */
-			range_tree_clear(svr->svr_allocd_segs,
-			    0, vdev_indirect_mapping_max_offset(vim));
+			range_tree_clear(svr->svr_allocd_segs, 0, start_offset);
 		}
 		mutex_exit(&msp->ms_lock);
 		mutex_exit(&msp->ms_sync_lock);
@@ -1060,7 +1142,7 @@ spa_vdev_remove_thread(void *arg)
 			uint64_t txg = dmu_tx_get_txg(tx);
 
 			if (txg != last_txg)
-				max_alloc = SPA_MAXBLOCKSIZE;
+				max_alloc = zfs_remove_max_segment;
 			last_txg = txg;
 
 			spa_vdev_copy_impl(svr, &vca, &max_alloc, tx);
@@ -1137,7 +1219,22 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 	ASSERT3P(svr->svr_thread, ==, NULL);
 
 	spa_feature_decr(spa, SPA_FEATURE_DEVICE_REMOVAL, tx);
+	if (vic->vic_precise_obsolete_counts) {
+		spa_feature_decr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
+		vic->vic_precise_obsolete_counts = B_FALSE;
+	}
 
+	if (vic->vic_obsolete_sm_object != 0) {
+		ASSERT(vd->vdev_obsolete_sm != NULL);
+		ASSERT3U(vic->vic_obsolete_sm_object, ==,
+		    space_map_object(vd->vdev_obsolete_sm));
+
+		space_map_free(vd->vdev_obsolete_sm, tx);
+		vic->vic_obsolete_sm_object = 0;
+		space_map_close(vd->vdev_obsolete_sm);
+		vd->vdev_obsolete_sm = NULL;
+		spa_feature_decr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
+	}
 	for (int i = 0; i < TXG_SIZE; i++) {
 		ASSERT(list_is_empty(&svr->svr_new_segments[i]));
 		ASSERT3U(svr->svr_max_offset_to_sync[i], <=,
@@ -1197,6 +1294,12 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 		    free_mapped_segment_cb, vd);
 		mutex_exit(&svr->svr_lock);
 	}
+
+	/*
+	 * Note: this must happen after we invoke free_mapped_segment_cb,
+	 * because it adds to the obsolete_segments.
+	 */
+	range_tree_vacate(vd->vdev_obsolete_segments, NULL, NULL);
 
 	ASSERT3U(vic->vic_mapping_object, ==,
 	    vdev_indirect_mapping_object(vd->vdev_indirect_mapping));
@@ -1280,6 +1383,33 @@ svr_sync(spa_t *spa, dmu_tx_t *tx)
 	spa_sync_removing_state(spa, tx);
 }
 
+static void
+vdev_remove_make_hole_and_free(vdev_t *vd)
+{
+	uint64_t id = vd->vdev_id;
+	spa_t *spa = vd->vdev_spa;
+	vdev_t *rvd = spa->spa_root_vdev;
+	boolean_t last_vdev = (id == (rvd->vdev_children - 1));
+
+	ASSERT(MUTEX_HELD(&spa_namespace_lock));
+	ASSERT(spa_config_held(spa, SCL_ALL, RW_WRITER) == SCL_ALL);
+
+	vdev_free(vd);
+
+	if (last_vdev) {
+		vdev_compact_children(rvd);
+	} else {
+		vd = vdev_alloc_common(spa, id, 0, &vdev_hole_ops);
+		vdev_add_child(rvd, vd);
+	}
+	vdev_config_dirty(rvd);
+
+	/*
+	 * Reassess the health of our root vdev.
+	 */
+	vdev_reopen(rvd);
+}
+
 /*
  * Remove a log device.  The config lock is held for the specified TXG.
  */
@@ -1336,13 +1466,6 @@ spa_vdev_remove_log(vdev_t *vd, uint64_t *txg)
 
 	*txg = spa_vdev_config_enter(spa);
 
-	/*
-	 * Clean up the vdev namespace.
-	 */
-	vdev_t *rvd = spa->spa_root_vdev;
-	uint64_t id = vd->vdev_id;
-	boolean_t last_vdev = (id == (rvd->vdev_children - 1));
-
 	ASSERT(MUTEX_HELD(&spa_namespace_lock));
 	ASSERT(spa_config_held(spa, SCL_ALL, RW_WRITER) == SCL_ALL);
 
@@ -1353,20 +1476,10 @@ spa_vdev_remove_log(vdev_t *vd, uint64_t *txg)
 	if (list_link_active(&vd->vdev_config_dirty_node))
 		vdev_config_clean(vd);
 
-	vdev_free(vd);
-
-	if (last_vdev) {
-		vdev_compact_children(rvd);
-	} else {
-		vd = vdev_alloc_common(spa, id, 0, &vdev_hole_ops);
-		vdev_add_child(rvd, vd);
-	}
-	vdev_config_dirty(rvd);
-
 	/*
-	 * Reassess the health of our root vdev.
+	 * Clean up the vdev namespace.
 	 */
-	vdev_reopen(rvd);
+	vdev_remove_make_hole_and_free(vd);
 
 	return (0);
 }

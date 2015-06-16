@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -48,7 +48,7 @@ verify_runnable "both"
 
 function set_max_blocks
 {
-	echo "zfs_free_max_blocks/Z$1" | $MDB -kw
+	echo "zfs_async_block_max_blocks/Z$1" | $MDB -kw
 }
 
 function cleanup

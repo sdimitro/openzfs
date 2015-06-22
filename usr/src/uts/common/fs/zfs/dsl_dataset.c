@@ -494,10 +494,12 @@ dsl_dataset_hold_obj(dsl_pool_t *dp, uint64_t dsobj, void *tag,
 					continue;
 				err = zap_contains(mos, dsobj,
 				    spa_feature_table[f].fi_guid);
-				if (err == 0)
+				if (err == 0) {
 					ds->ds_feature_inuse[f] = B_TRUE;
-				else
+				} else {
 					ASSERT3U(err, ==, ENOENT);
+					err = 0;
+				}
 			}
 		}
 

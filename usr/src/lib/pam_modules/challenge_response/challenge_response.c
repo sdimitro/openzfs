@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/debug.h>
@@ -58,7 +58,7 @@
 #define	REG_INFO_MSG	"\nAn empty response was entered. Please try again "\
 			"with a valid response. If the\nDelphix Engine is not "\
 			"registered, register it at\n\n    "\
-			"https://www.register.delphix.com/\n\nusing the "\
+			"https://register.delphix.com/\n\nusing the "\
 			"registration code below:"
 #define	READ_BUF_SIZE	1024
 #define	MSG_OFFSET(line, col)	((line) * (COL_WIDTH + 1) + col)

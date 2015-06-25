@@ -303,12 +303,10 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 	obj = ds->ds_object;
 
 	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
-		if (!ds->ds_feature_inuse[f])
-			continue;
-		VERIFY(spa_feature_table[f].fi_flags &
-		    ZFEATURE_FLAG_PER_DATASET);
-		ASSERT0(zap_contains(mos, obj, spa_feature_table[f].fi_guid));
-		spa_feature_decr(dp->dp_spa, f, tx);
+		if (ds->ds_feature_inuse[f]) {
+			dsl_dataset_deactivate_feature(obj, f, tx);
+			ds->ds_feature_inuse[f] = B_FALSE;
+		}
 	}
 	if (dsl_dataset_phys(ds)->ds_prev_snap_obj != 0) {
 		ASSERT3P(ds->ds_prev, ==, NULL);
@@ -785,12 +783,10 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 	obj = ds->ds_object;
 
 	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
-		if (!ds->ds_feature_inuse[f])
-			continue;
-		VERIFY(spa_feature_table[f].fi_flags &
-		    ZFEATURE_FLAG_PER_DATASET);
-		ASSERT0(zap_contains(mos, obj, spa_feature_table[f].fi_guid));
-		spa_feature_decr(dp->dp_spa, f, tx);
+		if (ds->ds_feature_inuse[f]) {
+			dsl_dataset_deactivate_feature(obj, f, tx);
+			ds->ds_feature_inuse[f] = B_FALSE;
+		}
 	}
 
 	dsl_scan_ds_destroyed(ds, tx);

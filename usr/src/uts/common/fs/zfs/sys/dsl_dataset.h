@@ -371,6 +371,8 @@ void dsl_dataset_destroy_remap_deadlist(dsl_dataset_t *ds, dmu_tx_t *tx);
 
 int dsl_dataset_activate_mooch_byteswap(objset_t *os);
 void dsl_dataset_activate_mooch_byteswap_sync(void *arg, dmu_tx_t *tx);
+void dsl_dataset_deactivate_feature(uint64_t dsobj,
+    spa_feature_t f, dmu_tx_t *tx);
 
 #ifdef ZFS_DEBUG
 #define	dprintf_ds(ds, fmt, ...) do { \

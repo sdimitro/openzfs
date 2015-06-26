@@ -871,6 +871,7 @@ struct arc_buf_hdr {
 	dva_t			b_dva;
 	uint64_t		b_birth;
 
+	arc_buf_contents_t	b_type;
 	arc_buf_hdr_t		*b_hash_next;
 	arc_flags_t		b_flags;
 
@@ -1528,11 +1529,14 @@ arc_buf_watch(arc_buf_t *buf)
 static arc_buf_contents_t
 arc_buf_type(arc_buf_hdr_t *hdr)
 {
+	arc_buf_contents_t type;
 	if (HDR_ISTYPE_METADATA(hdr)) {
-		return (ARC_BUFC_METADATA);
+		type = ARC_BUFC_METADATA;
 	} else {
-		return (ARC_BUFC_DATA);
+		type = ARC_BUFC_DATA;
 	}
+	VERIFY3U(hdr->b_type, ==, type);
+	return (type);
 }
 
 static uint32_t
@@ -2041,6 +2045,8 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag)
 
 	ASSERT(HDR_HAS_L1HDR(hdr));
 	ASSERT3U(HDR_GET_LSIZE(hdr), >, 0);
+	VERIFY(hdr->b_type == ARC_BUFC_DATA ||
+	    hdr->b_type == ARC_BUFC_METADATA);
 
 	ASSERT(refcount_is_zero(&hdr->b_l1hdr.b_refcnt));
 	ASSERT3P(hdr->b_l1hdr.b_buf, ==, NULL);
@@ -2313,6 +2319,7 @@ arc_hdr_alloc(spa_t *spa, int32_t psize, int32_t lsize,
 	hdr->b_flags = flags;
 	hdr->b_flags |= arc_bufc_to_flags(type);
 	hdr->b_flags |= ARC_FLAG_HAS_L1HDR;
+	hdr->b_type = type;
 	arc_hdr_set_compress(hdr, compress);
 
 	hdr->b_l1hdr.b_state = arc_anon;
@@ -3896,6 +3903,7 @@ arc_get_data_buf(arc_buf_hdr_t *hdr, uint64_t size, void *tag)
 		mutex_exit(&arc_reclaim_lock);
 	}
 
+	VERIFY3U(hdr->b_type, ==, type);
 	if (type == ARC_BUFC_METADATA) {
 		datap = zio_buf_alloc(size);
 		arc_space_consume(size, ARC_SPACE_META);
@@ -3959,6 +3967,7 @@ arc_free_data_buf(arc_buf_hdr_t *hdr, void *data, uint64_t size, void *tag)
 	}
 	(void) refcount_remove_many(&state->arcs_size, size, tag);
 
+	VERIFY3U(hdr->b_type, ==, type);
 	if (type == ARC_BUFC_METADATA) {
 		zio_buf_free(data, size);
 		arc_space_return(size, ARC_SPACE_META);
@@ -4927,6 +4936,8 @@ arc_release(arc_buf_t *buf, void *tag)
 
 		nhdr->b_flags |= arc_bufc_to_flags(type);
 		nhdr->b_flags |= ARC_FLAG_HAS_L1HDR;
+		nhdr->b_type = hdr->b_type;
+		VERIFY3U(nhdr->b_type, ==, type);
 
 		nhdr->b_l1hdr.b_buf = buf;
 		nhdr->b_l1hdr.b_bufcnt = 1;

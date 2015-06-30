@@ -70,42 +70,41 @@ typedef enum arc_flags
 	/*
 	 * Public flags that can be passed into the ARC by external consumers.
 	 */
-	ARC_FLAG_NONE			= 1 << 0,	/* No flags set */
-	ARC_FLAG_WAIT			= 1 << 1,	/* perform sync I/O */
-	ARC_FLAG_NOWAIT			= 1 << 2,	/* perform async I/O */
-	ARC_FLAG_PREFETCH		= 1 << 3,	/* I/O is a prefetch */
-	ARC_FLAG_CACHED			= 1 << 4,	/* I/O was in cache */
-	ARC_FLAG_L2CACHE		= 1 << 5,	/* cache in L2ARC */
-	ARC_FLAG_PREDICTIVE_PREFETCH	= 1 << 6,	/* I/O from zfetch */
+	ARC_FLAG_WAIT			= 1 << 0,	/* perform sync I/O */
+	ARC_FLAG_NOWAIT			= 1 << 1,	/* perform async I/O */
+	ARC_FLAG_PREFETCH		= 1 << 2,	/* I/O is a prefetch */
+	ARC_FLAG_CACHED			= 1 << 3,	/* I/O was in cache */
+	ARC_FLAG_L2CACHE		= 1 << 4,	/* cache in L2ARC */
+	ARC_FLAG_PREDICTIVE_PREFETCH	= 1 << 5,	/* I/O from zfetch */
 
 	/*
 	 * Private ARC flags.  These flags are private ARC only flags that
 	 * will show up in b_flags in the arc_hdr_buf_t. These flags should
 	 * only be set by ARC code.
 	 */
-	ARC_FLAG_IN_HASH_TABLE		= 1 << 7,	/* buffer is hashed */
-	ARC_FLAG_IO_IN_PROGRESS		= 1 << 8,	/* I/O in progress */
-	ARC_FLAG_IO_ERROR		= 1 << 9,	/* I/O failed for buf */
-	ARC_FLAG_FREED_IN_READ		= 1 << 10,	/* freed during read */
-	ARC_FLAG_INDIRECT		= 1 << 11,	/* indirect block */
+	ARC_FLAG_IN_HASH_TABLE		= 1 << 6,	/* buffer is hashed */
+	ARC_FLAG_IO_IN_PROGRESS		= 1 << 7,	/* I/O in progress */
+	ARC_FLAG_IO_ERROR		= 1 << 8,	/* I/O failed for buf */
+	ARC_FLAG_FREED_IN_READ		= 1 << 9,	/* freed during read */
+	ARC_FLAG_INDIRECT		= 1 << 10,	/* indirect block */
 	/* Indicates that block was read with ASYNC priority. */
-	ARC_FLAG_PRIO_ASYNC_READ	= 1 << 12,
-	ARC_FLAG_L2_WRITING		= 1 << 13,	/* write in progress */
-	ARC_FLAG_L2_EVICTED		= 1 << 14,	/* evicted during I/O */
-	ARC_FLAG_L2_WRITE_HEAD		= 1 << 15,	/* head of write list */
+	ARC_FLAG_PRIO_ASYNC_READ	= 1 << 11,
+	ARC_FLAG_L2_WRITING		= 1 << 12,	/* write in progress */
+	ARC_FLAG_L2_EVICTED		= 1 << 13,	/* evicted during I/O */
+	ARC_FLAG_L2_WRITE_HEAD		= 1 << 14,	/* head of write list */
 	/* indicates that the buffer contains metadata (otherwise, data) */
-	ARC_FLAG_BUFC_METADATA		= 1 << 16,
+	ARC_FLAG_BUFC_METADATA		= 1 << 15,
 
 	/* Flags specifying whether optional hdr struct fields are defined */
-	ARC_FLAG_HAS_L1HDR		= 1 << 17,
-	ARC_FLAG_HAS_L2HDR		= 1 << 18,
+	ARC_FLAG_HAS_L1HDR		= 1 << 16,
+	ARC_FLAG_HAS_L2HDR		= 1 << 17,
 
 	/*
 	 * Indicates the arc_buf_hdr_t's b_pdata matches the on-disk data.
 	 * This allows the l2arc to use the blkptr's checksum to verify
 	 * the data without having to store the checksum in the hdr.
 	 */
-	ARC_FLAG_COMPRESSED_ARC		= 1 << 19,
+	ARC_FLAG_COMPRESSED_ARC		= 1 << 18,
 
 
 	/*

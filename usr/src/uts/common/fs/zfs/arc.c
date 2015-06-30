@@ -2303,21 +2303,22 @@ arc_hdr_free_pdata(arc_buf_hdr_t *hdr)
 }
 
 static arc_buf_hdr_t *
-arc_hdr_alloc(spa_t *spa, int32_t psize, int32_t lsize,
-    enum zio_compress compress, arc_buf_contents_t type, int flags)
+arc_hdr_alloc(uint64_t spa, int32_t psize, int32_t lsize,
+    enum zio_compress compress, arc_buf_contents_t type)
 {
 	arc_buf_hdr_t *hdr;
 
 	ASSERT3U(lsize, >, 0);
+	VERIFY(type == ARC_BUFC_DATA || type == ARC_BUFC_METADATA);
+
 	hdr = kmem_cache_alloc(hdr_full_cache, KM_PUSHPAGE);
 	ASSERT(HDR_EMPTY(hdr));
 	ASSERT3P(hdr->b_l1hdr.b_freeze_cksum, ==, NULL);
 	ASSERT3P(hdr->b_l1hdr.b_thawed, ==, NULL);
 	HDR_SET_PSIZE(hdr, psize);
 	HDR_SET_LSIZE(hdr, lsize);
-	hdr->b_spa = spa_load_guid(spa);
-	hdr->b_flags = flags;
-	hdr->b_flags |= arc_bufc_to_flags(type);
+	hdr->b_spa = spa;
+	hdr->b_flags = arc_bufc_to_flags(type);
 	hdr->b_flags |= ARC_FLAG_HAS_L1HDR;
 	hdr->b_type = type;
 	arc_hdr_set_compress(hdr, compress);
@@ -2444,8 +2445,8 @@ arc_hdr_realloc(arc_buf_hdr_t *hdr, kmem_cache_t *old, kmem_cache_t *new)
 arc_buf_t *
 arc_alloc_buf(spa_t *spa, int32_t size, void *tag, arc_buf_contents_t type)
 {
-	arc_buf_hdr_t *hdr = arc_hdr_alloc(spa, size, size,
-	    ZIO_COMPRESS_OFF, type, ARC_FLAG_NONE);
+	arc_buf_hdr_t *hdr = arc_hdr_alloc(spa_load_guid(spa), size, size,
+	    ZIO_COMPRESS_OFF, type);
 	ASSERT(!MUTEX_HELD(HDR_LOCK(hdr)));
 	arc_buf_t *buf = arc_buf_alloc_impl(hdr, tag);
 	arc_buf_thaw(buf);
@@ -4472,8 +4473,8 @@ top:
 			/* this block is not in the cache */
 			arc_buf_hdr_t *exists = NULL;
 			arc_buf_contents_t type = BP_GET_BUFC_TYPE(bp);
-			hdr = arc_hdr_alloc(spa, psize, lsize,
-			    BP_GET_COMPRESS(bp), type, ARC_FLAG_NONE);
+			hdr = arc_hdr_alloc(spa_load_guid(spa), psize, lsize,
+			    BP_GET_COMPRESS(bp), type);
 			buf = arc_buf_alloc_impl(hdr, private);
 
 			if (!BP_IS_EMBEDDED(bp)) {
@@ -4895,9 +4896,12 @@ arc_release(arc_buf_t *buf, void *tag)
 	if (hdr->b_l1hdr.b_bufcnt > 1) {
 		arc_buf_hdr_t *nhdr;
 		arc_buf_t **bufp;
-
 		uint64_t spa = hdr->b_spa;
+		uint64_t psize = HDR_GET_PSIZE(hdr);
+		uint64_t lsize = HDR_GET_LSIZE(hdr);
+		enum zio_compress compress = HDR_GET_COMPRESS(hdr);
 		arc_buf_contents_t type = arc_buf_type(hdr);
+		VERIFY3U(hdr->b_type, ==, type);
 
 		ASSERT(hdr->b_l1hdr.b_buf != buf || buf->b_next != NULL);
 		/*
@@ -4928,27 +4932,21 @@ arc_release(arc_buf_t *buf, void *tag)
 
 		mutex_exit(hash_lock);
 
-		nhdr = kmem_cache_alloc(hdr_full_cache, KM_PUSHPAGE);
-		ASSERT(HDR_EMPTY(nhdr));
-		HDR_SET_LSIZE(nhdr, HDR_GET_LSIZE(hdr));
-		HDR_SET_PSIZE(nhdr, HDR_GET_PSIZE(hdr));
-		nhdr->b_spa = spa;
-
-		nhdr->b_flags |= arc_bufc_to_flags(type);
-		nhdr->b_flags |= ARC_FLAG_HAS_L1HDR;
-		nhdr->b_type = hdr->b_type;
+		/*
+		 * Allocate a new hdr. The new hdr will contain a b_pdata
+		 * buffer which will be freed in arc_write().
+		 */
+		nhdr = arc_hdr_alloc(spa, psize, lsize, compress, type);
+		ASSERT3P(nhdr->b_l1hdr.b_buf, ==, NULL);
+		ASSERT0(nhdr->b_l1hdr.b_bufcnt);
+		ASSERT0(refcount_count(&nhdr->b_l1hdr.b_refcnt));
 		VERIFY3U(nhdr->b_type, ==, type);
 
 		nhdr->b_l1hdr.b_buf = buf;
 		nhdr->b_l1hdr.b_bufcnt = 1;
-		nhdr->b_l1hdr.b_state = arc_anon;
-		nhdr->b_l1hdr.b_arc_access = 0;
-		nhdr->b_l1hdr.b_pdata = NULL;
-		nhdr->b_l1hdr.b_byteswap = DMU_BSWAP_NUMFUNCS;
-		nhdr->b_l1hdr.b_freeze_cksum = NULL;
-
 		(void) refcount_add(&nhdr->b_l1hdr.b_refcnt, tag);
 		buf->b_hdr = nhdr;
+
 		mutex_exit(&buf->b_evict_lock);
 		(void) refcount_add_many(&arc_anon->arcs_size,
 		    HDR_GET_LSIZE(nhdr), buf);

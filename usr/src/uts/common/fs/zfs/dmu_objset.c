@@ -573,6 +573,18 @@ dmu_objset_mooch_origin(objset_t *clone, objset_t **originp)
 	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 
 	/*
+	 * We may be receiving into a %recv clone, in which we can not
+	 * mooch from our origin (which is the filesystem we're logically
+	 * receiving into), because we are going to dsl_dataset_clone_swap()
+	 * with it.  If we have not already enabled the mooching feature on
+	 * our origin, dmu_objset_mooch_origin_impl() would incorrectly think
+	 * that we should mooch from it.  Given that receive does not read
+	 * level 0 blocks, it doesn't need to know what the mooch origin is,
+	 * so we can ignore this case.
+	 */
+	ASSERT(!dmu_objset_is_receiving(clone));
+
+	/*
 	 * os_origin_mooch_objset is never cleared, so if it's already set,
 	 * we can safely return it without grabbing the lock.
 	 */

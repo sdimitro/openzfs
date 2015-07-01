@@ -7008,9 +7008,7 @@ zfs_do_mooch(int argc, char **argv)
 	if (err != 0) {
 		(void) fprintf(stderr, gettext("can't mooch: %s\n"),
 		    strerror(err));
-	}
-
-	if (err == 0) {
+	} else if (!delete) {
 		(void) printf("mapping established for directory %s.\n"
 		    "create files now.  hit ^c when finished\n",
 		    dir_name);

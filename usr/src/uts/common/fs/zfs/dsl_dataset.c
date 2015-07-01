@@ -2937,6 +2937,29 @@ dsl_dataset_clone_swap_sync_impl(dsl_dataset_t *clone,
 	ASSERT3P(clone->ds_prev, ==, origin_head->ds_prev);
 
 	/*
+	 * Note: It may be that one of the clone and origin_head is
+	 * doing mooch_byteswap, and the other is not.  This is a
+	 * delicate transition, because the dmu_objset_mooch_origin() is
+	 * defined in terms of whether the origin is doing
+	 * mooch_byteswap.
+	 *
+	 * Given that the mooch_byteswap flag can not be directly
+	 * cleared, the only ways this can happen are:
+	 *  - receiving an incremental send stream that enables mooching
+	 *  - rolling back to a snapshot which is not mooching
+	 *
+	 * In both of these cases, the transition is safe:
+	 *  - If we're receiving, any mooching blocks are already
+	 *    assuming they are mooching from the origin_head's
+	 *    mooch_origin(), and we don't read any of these mooching
+	 *    blocks until the clone_swap completes (which is enforced
+	 *    by dmu_objset_mooch_origin()).
+	 *  - If we're rolling back, the clone will be destroyed
+	 *    immediately after this, so we can't read its mooching
+	 *    blocks and get confused about the mooch_origin.
+	 */
+
+	/*
 	 * Swap per-dataset feature flags.
 	 */
 	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
@@ -2969,10 +2992,6 @@ dsl_dataset_clone_swap_sync_impl(dsl_dataset_t *clone,
 			clone->ds_feature_inuse[f] = B_TRUE;
 		}
 	}
-
-	/* can't swap across the MOOCH_BYTESWAP boundary */
-	ASSERT3U(clone->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP], ==,
-	    origin_head->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
 
 	dmu_buf_will_dirty(clone->ds_dbuf, tx);
 	dmu_buf_will_dirty(origin_head->ds_dbuf, tx);

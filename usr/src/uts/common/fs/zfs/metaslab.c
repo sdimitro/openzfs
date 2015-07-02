@@ -2164,11 +2164,7 @@ metaslab_preload(void *arg)
 	metaslab_load_wait(msp);
 	if (!msp->ms_loaded)
 		(void) metaslab_load(msp);
-
-	/*
-	 * Set the ms_access_txg value so that we don't unload it right away.
-	 */
-	msp->ms_access_txg = spa_syncing_txg(spa) + metaslab_unload_delay + 1;
+	msp->ms_selected_txg = spa_syncing_txg(spa);
 	mutex_exit(&msp->ms_lock);
 }
 
@@ -2711,7 +2707,12 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 	 */
 	metaslab_group_sort(mg, msp, metaslab_weight(msp));
 
-	if (msp->ms_loaded && msp->ms_access_txg < txg) {
+	/*
+	 * If the metaslab is loaded and we've not tried to load or allocate
+	 * from it in 'metaslab_unload_delay' txgs, then unload it.
+	 */
+	if (msp->ms_loaded &&
+	    msp->ms_selected_txg + metaslab_unload_delay < txg) {
 		for (int t = 1; t < TXG_CONCURRENT_STATES; t++) {
 			VERIFY0(range_tree_space(
 			    msp->ms_alloctree[(txg + t) & TXG_MASK]));
@@ -2958,8 +2959,9 @@ metaslab_block_alloc(metaslab_t *msp, uint64_t size,
 			vdev_dirty(mg->mg_vd, VDD_METASLAB, msp, txg);
 
 		range_tree_add(msp->ms_alloctree[txg & TXG_MASK], start, size);
-		msp->ms_access_txg = txg + metaslab_unload_delay;
 
+		/* Track the last successful allocation */
+		msp->ms_alloc_txg = txg;
 		metaslab_verify_space(msp, txg);
 	}
 
@@ -2992,6 +2994,7 @@ metaslab_alloc_holefill(metaslab_t *msp, uint64_t asize, uint64_t txg,
 			return (-1ULL);
 		}
 	}
+	msp->ms_selected_txg = txg;
 
 	if (msp->ms_condensing) {
 		return (-1ULL);
@@ -3225,6 +3228,7 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			mutex_exit(&msp->ms_lock);
 			continue;
 		}
+		msp->ms_selected_txg = txg;
 
 		/*
 		 * Now that we have the lock, recheck to see if we should

@@ -350,7 +350,15 @@ struct metaslab {
 	int64_t		ms_deferspace;	/* sum of ms_defermap[] space	*/
 	uint64_t	ms_weight;	/* weight vs. others in group	*/
 	uint64_t	ms_activation_weight;	/* activation weight	*/
-	uint64_t	ms_access_txg;
+
+	/*
+	 * Track of whenever a metaslab is selected for loading or allocation.
+	 * We use this value to determine how long the metaslab should
+	 * stay cached.
+	 */
+	uint64_t	ms_selected_txg;
+
+	uint64_t	ms_alloc_txg;	/* last successful alloc (debug only) */
 	uint64_t	ms_max_size;	/* maximum allocatable size	*/
 
 	/*

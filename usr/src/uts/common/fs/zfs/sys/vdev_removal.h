@@ -66,13 +66,6 @@ typedef struct spa_condensing_indirect {
 	 */
 	list_t		sci_new_mapping_entries[TXG_SIZE];
 
-	/*
-	 * To ensure that we can restart easily, we always need to set the
-	 * max_offset of the new mapping object to be the source offset of
-	 * the next mapping entry.
-	 */
-	uint64_t	sci_max_offset[TXG_SIZE];
-
 	vdev_indirect_mapping_t *sci_new_mapping;
 } spa_condensing_indirect_t;
 

@@ -109,16 +109,18 @@ extern uint64_t vdev_indirect_mapping_bytes_mapped(
 extern uint64_t vdev_indirect_mapping_size(vdev_indirect_mapping_t *vim);
 
 /*
- * Writes to the mapping the given list of vdev_indirect_mapping_entry_t
+ * Writes the given list of vdev_indirect_mapping_entry_t to the mapping
  * then updates internal state.
  */
 extern void vdev_indirect_mapping_add_entries(vdev_indirect_mapping_t *vim,
     list_t *vime_list, dmu_tx_t *tx);
-extern void vdev_indirect_mapping_extend_max_offset(
-    vdev_indirect_mapping_t *vim, uint64_t max_offset, dmu_tx_t *tx);
 
 extern vdev_indirect_mapping_entry_phys_t *
     vdev_indirect_mapping_entry_for_offset(vdev_indirect_mapping_t *vim,
+    uint64_t offset);
+
+extern vdev_indirect_mapping_entry_phys_t *
+    vdev_indirect_mapping_entry_for_offset_or_next(vdev_indirect_mapping_t *vim,
     uint64_t offset);
 
 extern uint32_t *vdev_indirect_mapping_load_obsolete_counts(

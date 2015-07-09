@@ -381,7 +381,6 @@ spa_condense_indirect_complete_sync(void *arg, dmu_tx_t *tx)
 	ASSERT3P(sci, ==, spa->spa_condensing_indirect);
 	for (int i = 0; i < TXG_SIZE; i++) {
 		ASSERT(list_is_empty(&sci->sci_new_mapping_entries[i]));
-		ASSERT0(sci->sci_max_offset[i]);
 	}
 	ASSERT(vic->vic_mapping_object != 0);
 	ASSERT3U(vd->vdev_id, ==, scip->scip_vdev);
@@ -433,15 +432,10 @@ spa_condense_indirect_commit_sync(void *arg, dmu_tx_t *tx)
 
 	ASSERT(dmu_tx_is_syncing(tx));
 	ASSERT3P(sci, ==, spa->spa_condensing_indirect);
-	ASSERT3U(sci->sci_max_offset[txg & TXG_MASK], >, 0);
 
 	vdev_indirect_mapping_add_entries(sci->sci_new_mapping,
 	    &sci->sci_new_mapping_entries[txg & TXG_MASK], tx);
 	ASSERT(list_is_empty(&sci->sci_new_mapping_entries[txg & TXG_MASK]));
-
-	vdev_indirect_mapping_extend_max_offset(sci->sci_new_mapping,
-	    sci->sci_max_offset[txg & TXG_MASK], tx);
-	sci->sci_max_offset[txg & TXG_MASK] = 0;
 }
 
 /*
@@ -450,8 +444,7 @@ spa_condense_indirect_commit_sync(void *arg, dmu_tx_t *tx)
  */
 static void
 spa_condense_indirect_commit_entry(spa_t *spa,
-    vdev_indirect_mapping_entry_phys_t *vimep, uint32_t count,
-    uint64_t next_offset)
+    vdev_indirect_mapping_entry_phys_t *vimep, uint32_t count)
 {
 	spa_condensing_indirect_t *sci = spa->spa_condensing_indirect;
 
@@ -466,9 +459,7 @@ spa_condense_indirect_commit_entry(spa_t *spa,
 	 * If we are the first entry committed this txg, kick off the sync
 	 * task to write to the MOS on our behalf.
 	 */
-	EQUIV(list_is_empty(&sci->sci_new_mapping_entries[txgoff]),
-	    sci->sci_max_offset[txgoff] == 0);
-	if (sci->sci_max_offset[txgoff] == 0) {
+	if (list_is_empty(&sci->sci_new_mapping_entries[txgoff])) {
 		dsl_sync_task_nowait(dmu_tx_pool(tx),
 		    spa_condense_indirect_commit_sync, sci,
 		    0, ZFS_SPACE_CHECK_NONE, tx);
@@ -479,8 +470,6 @@ spa_condense_indirect_commit_entry(spa_t *spa,
 	vime->vime_mapping = *vimep;
 	vime->vime_obsolete_count = count;
 	list_insert_tail(&sci->sci_new_mapping_entries[txgoff], vime);
-	ASSERT3U(next_offset, >=, sci->sci_max_offset[txgoff]);
-	sci->sci_max_offset[txgoff] = next_offset;
 
 	dmu_tx_commit(tx);
 }
@@ -508,24 +497,8 @@ spa_condense_indirect_generate_new_mapping(vdev_t *vd,
 		uint64_t entry_size = DVA_GET_ASIZE(&entry->vimep_dst);
 		ASSERT3U(obsolete_counts[mapi], <=, entry_size);
 		if (obsolete_counts[mapi] < entry_size) {
-			/*
-			 * We use vdev_indirect_mapping_entry_for_offset to
-			 * determine where to restart; however, since it
-			 * assumes that the provided offset is mapped, we must
-			 * always update vim_max_offset to be the source
-			 * offset of the next entry to be examined or
-			 * UINT64_MAX if all entries have been examined.
-			 */
-			uint64_t next_offset;
-			if (mapi < old_num_entries - 1) {
-				next_offset =
-				    DVA_MAPPING_GET_SRC_OFFSET(entry + 1);
-			} else {
-				next_offset = UINT64_MAX;
-			}
-
 			spa_condense_indirect_commit_entry(spa, entry,
-			    obsolete_counts[mapi], next_offset);
+			    obsolete_counts[mapi]);
 
 			/*
 			 * This delay may be requested for testing, debugging,
@@ -562,6 +535,13 @@ spa_condense_indirect_thread(void *arg)
 	ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
 
 	for (int i = 0; i < TXG_SIZE; i++) {
+		/*
+		 * The list must start out empty in order for the
+		 * _commit_sync() sync task to be properly registered
+		 * on the first call to _commit_entry(); so it's wise
+		 * to double check and ensure we actually are starting
+		 * with empty lists.
+		 */
 		ASSERT(list_is_empty(&sci->sci_new_mapping_entries[i]));
 	}
 
@@ -582,26 +562,36 @@ spa_condense_indirect_thread(void *arg)
 	 */
 	uint64_t max_offset =
 	    vdev_indirect_mapping_max_offset(sci->sci_new_mapping);
-	if (max_offset == UINT64_MAX) {
-		/*
-		 * We've already written the whole new mapping.
-		 * This special value will cause us to skip the
-		 * generate_new_mapping step and just do the sync
-		 * task to complete the condense.
-		 */
-		start_index = UINT64_MAX;
-	} else if (max_offset == 0) {
+	if (max_offset == 0) {
 		/* We haven't written anything to the new mapping yet. */
 		start_index = 0;
 	} else {
 		/*
 		 * Pick up from where we left off. _entry_for_offset()
-		 * returns a pointer into the vim_entries array.
+		 * returns a pointer into the vim_entries array. If
+		 * max_offset is greater than any of the mappings
+		 * contained in the table  NULL will be returned and
+		 * that indicates we've exhausted our iteration of the
+		 * old_mapping.
 		 */
-		start_index = vdev_indirect_mapping_entry_for_offset(
-		    old_mapping, max_offset) - old_mapping->vim_entries;
-		ASSERT3U(start_index, <,
-		    vdev_indirect_mapping_num_entries(old_mapping));
+
+		vdev_indirect_mapping_entry_phys_t *entry =
+		    vdev_indirect_mapping_entry_for_offset_or_next(old_mapping,
+		    max_offset);
+
+		if (entry == NULL) {
+			/*
+			 * We've already written the whole new mapping.
+			 * This special value will cause us to skip the
+			 * generate_new_mapping step and just do the sync
+			 * task to complete the condense.
+			 */
+			start_index = UINT64_MAX;
+		} else {
+			start_index = entry - old_mapping->vim_entries;
+			ASSERT3U(start_index, <,
+			    vdev_indirect_mapping_num_entries(old_mapping));
+		}
 	}
 
 	spa_condense_indirect_generate_new_mapping(vd, counts, start_index);

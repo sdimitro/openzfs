@@ -308,6 +308,11 @@ static int arc_dead;
 static boolean_t arc_warm;
 
 /*
+ * log2 fraction of the zio arena to keep free.
+ */
+static int arc_zio_arena_free_shift = 4;
+
+/*
  * These tunables are for performance analysis.
  */
 uint64_t zfs_arc_max;
@@ -3535,15 +3540,15 @@ arc_available_memory(void)
 	/*
 	 * If zio data pages are being allocated out of a separate heap segment,
 	 * then enforce that the size of available vmem for this arena remains
-	 * above about 1/16th free.
+	 * above about 1/8th (1/(2^arc_zio_arena_free_shift)) free.
 	 *
-	 * Note: The 1/16th arena free requirement was put in place
-	 * to aggressively evict memory from the arc in order to avoid
-	 * memory fragmentation issues.
+	 * Note that reducing the arc_zio_arena_free_shift keeps more virtual
+	 * memory (in the zio_arena) free, which can avoid memory
+	 * fragmentation issues.
 	 */
 	if (zio_arena != NULL) {
-		n = vmem_size(zio_arena, VMEM_FREE) -
-		    (vmem_size(zio_arena, VMEM_ALLOC) >> 4);
+		n = vmem_size(zio_arena, VMEM_FREE) - (vmem_size(zio_arena,
+		    VMEM_ALLOC) >> arc_zio_arena_free_shift);
 		if (n < lowest) {
 			lowest = n;
 			r = FMR_ZIO_ARENA;

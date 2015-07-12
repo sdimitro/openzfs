@@ -310,7 +310,7 @@ static boolean_t arc_warm;
 /*
  * log2 fraction of the zio arena to keep free.
  */
-static int arc_zio_arena_free_shift = 4;
+int arc_zio_arena_free_shift = 3;
 
 /*
  * These tunables are for performance analysis.

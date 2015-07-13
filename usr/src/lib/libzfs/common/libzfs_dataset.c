@@ -3190,7 +3190,7 @@ zfs_create(libzfs_handle_t *hdl, const char *path, zfs_type_t type,
 
 	/* open zpool handle for prop validation */
 	char pool_path[MAXNAMELEN];
-	(void) strlcpy(pool_path, path, sizeof(pool_path));
+	(void) strlcpy(pool_path, path, sizeof (pool_path));
 
 	/* truncate pool_path at first slash */
 	char *p = strchr(pool_path, '/');

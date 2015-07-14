@@ -291,31 +291,48 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		    space_map_object(vd->vdev_dtl_sm));
 	}
 
-	if (vic->vic_mapping_object != 0) {
-		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
-		    vic->vic_mapping_object);
-	}
-
-	if (vic->vic_births_object != 0) {
-		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
-		    vic->vic_births_object);
-	}
-
-	if (vic->vic_prev_indirect_vdev != UINT64_MAX) {
-		fnvlist_add_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
-		    vic->vic_prev_indirect_vdev);
-	}
-
-	if (vic->vic_obsolete_sm_object != 0) {
-		fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBSOLETE_SM,
-		    vic->vic_obsolete_sm_object);
-	}
-
-	if (vic->vic_precise_obsolete_counts)
-		fnvlist_add_boolean(nv, ZPOOL_CONFIG_PRECISE_OBSOLETE_COUNTS);
-
 	if (vd->vdev_crtxg)
 		fnvlist_add_uint64(nv, ZPOOL_CONFIG_CREATE_TXG, vd->vdev_crtxg);
+
+	if (flags & VDEV_CONFIG_MOS) {
+		if (vd->vdev_leaf_zap != 0) {
+			ASSERT(vd->vdev_ops->vdev_op_leaf);
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_VDEV_LEAF_ZAP,
+			    vd->vdev_leaf_zap);
+		}
+
+		if (vd->vdev_top_zap != 0) {
+			ASSERT(vd == vd->vdev_top);
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_VDEV_TOP_ZAP,
+			    vd->vdev_top_zap);
+		}
+
+		if (vic->vic_mapping_object != 0) {
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBJECT,
+			    vic->vic_mapping_object);
+		}
+
+		if (vic->vic_births_object != 0) {
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_INDIRECT_BIRTHS,
+			    vic->vic_births_object);
+		}
+
+		if (vic->vic_prev_indirect_vdev != UINT64_MAX) {
+			fnvlist_add_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
+			    vic->vic_prev_indirect_vdev);
+		}
+
+		if (vic->vic_obsolete_sm_object != 0) {
+			fnvlist_add_uint64(nv,
+			    ZPOOL_CONFIG_INDIRECT_OBSOLETE_SM,
+			    vic->vic_obsolete_sm_object);
+		}
+
+		if (vic->vic_precise_obsolete_counts) {
+			fnvlist_add_boolean(nv,
+			    ZPOOL_CONFIG_PRECISE_OBSOLETE_COUNTS);
+		}
+	}
 
 	if (getstats) {
 		vdev_stat_t vs;

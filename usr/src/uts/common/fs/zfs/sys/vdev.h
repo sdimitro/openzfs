@@ -75,6 +75,10 @@ extern void vdev_indirect_mark_obsolete(vdev_t *vd, uint64_t offset,
     uint64_t size, uint64_t txg);
 extern void spa_vdev_indirect_mark_obsolete(spa_t *spa, uint64_t vdev,
     uint64_t offset, uint64_t size, dmu_tx_t *tx);
+extern void vdev_destroy_unlink_zap(vdev_t *vd, uint64_t zapobj,
+    dmu_tx_t *tx);
+extern uint64_t vdev_create_link_zap(vdev_t *vd, dmu_tx_t *tx);
+extern void vdev_construct_zaps(vdev_t *vd, dmu_tx_t *tx);
 
 extern void vdev_hold(vdev_t *);
 extern void vdev_rele(vdev_t *);
@@ -134,7 +138,8 @@ extern void vdev_state_clean(vdev_t *vd);
 typedef enum vdev_config_flag {
 	VDEV_CONFIG_SPARE = 1 << 0,
 	VDEV_CONFIG_L2CACHE = 1 << 1,
-	VDEV_CONFIG_REMOVING = 1 << 2
+	VDEV_CONFIG_REMOVING = 1 << 2,
+	VDEV_CONFIG_MOS = 1 << 3
 } vdev_config_flag_t;
 
 extern void vdev_top_config_generate(spa_t *spa, nvlist_t *config);

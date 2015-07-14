@@ -807,6 +807,13 @@ vdev_remove_complete_sync(void *arg, dmu_tx_t *tx)
 	    spa->spa_removing_phys.sr_to_copy);
 
 	vdev_destroy_spacemaps(vd, tx);
+	/*
+	 * This only works when removing data devices that are both leaves
+	 * and top levels.
+	 */
+	ASSERT3U(vd->vdev_leaf_zap, !=, 0);
+	vdev_destroy_unlink_zap(vd, vd->vdev_leaf_zap, tx);
+	vd->vdev_leaf_zap = 0;
 
 	spa_finish_removal(dmu_tx_pool(tx)->dp_spa, DSS_FINISHED, tx);
 }
@@ -855,6 +862,10 @@ vdev_remove_replace_with_indirect(vdev_t *vd, uint64_t txg)
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 
 	ivd = vdev_add_parent(vd, &vdev_indirect_ops);
+
+	ivd->vdev_leaf_zap = vd->vdev_leaf_zap;
+	vd->vdev_leaf_zap = 0;
+
 	vdev_remove_child(ivd, vd);
 	vdev_compact_children(ivd);
 
@@ -919,6 +930,17 @@ vdev_remove_complete(vdev_t *vd)
 	 * removal via vdev_remove_complete_sync in syncing context.
 	 */
 	(void) spa_vdev_exit(spa, NULL, txg, 0);
+
+	/*
+	 * Top ZAP should have been transferred to the indirect vdev in
+	 * vdev_remove_replace_with_indirect.
+	 */
+	ASSERT0(vd->vdev_top_zap);
+
+	/*
+	 * Leaf ZAP should have been moved in vdev_remove_replace_with_indirect.
+	 */
+	ASSERT0(vd->vdev_leaf_zap);
 
 	txg = spa_vdev_enter(spa);
 	(void) vdev_label_init(vd, 0, VDEV_LABEL_REMOVE);
@@ -1469,6 +1491,11 @@ spa_vdev_remove_log(vdev_t *vd, uint64_t *txg)
 	ASSERT(MUTEX_HELD(&spa_namespace_lock));
 	ASSERT(spa_config_held(spa, SCL_ALL, RW_WRITER) == SCL_ALL);
 
+	/* The top ZAP should have been destroyed by vdev_remove_empty. */
+	ASSERT0(vd->vdev_top_zap);
+	/* The leaf ZAP should have been destroyed by vdev_dtl_sync. */
+	ASSERT0(vd->vdev_leaf_zap);
+
 	(void) vdev_label_init(vd, 0, VDEV_LABEL_REMOVE);
 
 	if (list_link_active(&vd->vdev_state_dirty_node))
@@ -1633,7 +1660,6 @@ spa_vdev_remove_top(vdev_t *vd, uint64_t *txg)
 
 	vdev_dirty_leaves(vd, VDD_DTL, *txg);
 	vdev_config_dirty(vd);
-
 	dmu_tx_t *tx = dmu_tx_create_assigned(spa->spa_dsl_pool, *txg);
 	dsl_sync_task_nowait(spa->spa_dsl_pool,
 	    vdev_remove_initiate_sync,

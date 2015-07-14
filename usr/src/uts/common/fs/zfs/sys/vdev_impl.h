@@ -170,18 +170,6 @@ typedef struct vdev_indirect_config {
 	 * UINT64_MAX if there are no previously removed vdevs.
 	 */
 	uint64_t	vic_prev_indirect_vdev;
-
-	/*
-	 * This is a space map object which has a free space map entry for
-	 * every segment that was marked obsolete since the last time this
-	 * indirect vdev was condensed.
-	 */
-	uint64_t	vic_obsolete_sm_object;
-
-	/*
-	 * This is true if the obsolete indirect mapping counts are exact.
-	 */
-	boolean_t	vic_precise_obsolete_counts;
 } vdev_indirect_config_t;
 
 /*
@@ -458,6 +446,8 @@ extern int zfs_vdev_cache_size;
 extern void vdev_indirect_sync_obsolete(vdev_t *vd, dmu_tx_t *tx);
 extern boolean_t vdev_indirect_should_condense(vdev_t *vd);
 extern void spa_condense_indirect_start_sync(vdev_t *vd, dmu_tx_t *tx);
+extern int vdev_obsolete_sm_object(vdev_t *vd);
+extern boolean_t vdev_obsolete_counts_are_precise(vdev_t *vd);
 
 /*
  * The vdev_buf_t is used to translate between zio_t and buf_t, and back again.

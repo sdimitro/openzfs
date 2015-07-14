@@ -276,7 +276,6 @@ spa_condensing_indirect_destroy(spa_condensing_indirect_t *sci)
 boolean_t
 vdev_indirect_should_condense(vdev_t *vd)
 {
-	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 	spa_t *spa = vd->vdev_spa;
 
@@ -306,14 +305,14 @@ vdev_indirect_should_condense(vdev_t *vd)
 	 * If nothing new has been marked obsolete, there is no
 	 * point in condensing.
 	 */
-	if (vic->vic_obsolete_sm_object == 0) {
-		ASSERT3P(vd->vdev_obsolete_sm, ==, NULL);
+	if (vd->vdev_obsolete_sm == NULL) {
+		ASSERT0(vdev_obsolete_sm_object(vd));
 		return (B_FALSE);
 	}
 
 	ASSERT(vd->vdev_obsolete_sm != NULL);
 
-	ASSERT3U(vic->vic_obsolete_sm_object, ==,
+	ASSERT3U(vdev_obsolete_sm_object(vd), ==,
 	    space_map_object(vd->vdev_obsolete_sm));
 
 	uint64_t bytes_mapped = vdev_indirect_mapping_bytes_mapped(vim);
@@ -624,30 +623,32 @@ spa_condense_indirect_start_sync(vdev_t *vd, dmu_tx_t *tx)
 	spa_t *spa = vd->vdev_spa;
 	spa_condensing_indirect_phys_t *scip =
 	    &spa->spa_condensing_indirect_phys;
-	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 
 	ASSERT0(scip->scip_next_mapping_object);
 	ASSERT0(scip->scip_prev_obsolete_sm_object);
 	ASSERT0(scip->scip_vdev);
 	ASSERT(dmu_tx_is_syncing(tx));
 	ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
-	ASSERT(vic->vic_obsolete_sm_object != 0);
 	ASSERT(spa_feature_is_active(spa, SPA_FEATURE_OBSOLETE_COUNTS));
 	ASSERT(vdev_indirect_mapping_num_entries(vd->vdev_indirect_mapping));
+
+	uint64_t obsolete_sm_obj = vdev_obsolete_sm_object(vd);
+	ASSERT(obsolete_sm_obj != 0);
 
 	scip->scip_vdev = vd->vdev_id;
 	scip->scip_next_mapping_object =
 	    vdev_indirect_mapping_alloc(spa->spa_meta_objset, tx);
 
-	scip->scip_prev_obsolete_sm_object = vic->vic_obsolete_sm_object;
+	scip->scip_prev_obsolete_sm_object = obsolete_sm_obj;
+
 	/*
 	 * We don't need to allocate a new space map object, since
 	 * vdev_indirect_sync_obsolete will allocate one when needed.
 	 */
 	space_map_close(vd->vdev_obsolete_sm);
 	vd->vdev_obsolete_sm = NULL;
-	vic->vic_obsolete_sm_object = 0;
-	vdev_config_dirty(vd);
+	VERIFY0(zap_remove(spa->spa_meta_objset, vd->vdev_top_zap,
+	    VDEV_TOP_ZAP_INDIRECT_OBSOLETE_SM, tx));
 
 	VERIFY0(zap_add(spa->spa_dsl_pool->dp_meta_objset,
 	    DMU_POOL_DIRECTORY_OBJECT,
@@ -685,19 +686,25 @@ vdev_indirect_sync_obsolete(vdev_t *vd, dmu_tx_t *tx)
 	ASSERT(vd->vdev_removing || vd->vdev_ops == &vdev_indirect_ops);
 	ASSERT(spa_feature_is_enabled(spa, SPA_FEATURE_OBSOLETE_COUNTS));
 
-	if (vic->vic_obsolete_sm_object == 0) {
-		vic->vic_obsolete_sm_object =
+	if (vdev_obsolete_sm_object(vd) == 0) {
+		uint64_t obsolete_sm_object =
 		    space_map_alloc(spa->spa_meta_objset, tx);
-		vdev_config_dirty(vd);
+
+		ASSERT(vd->vdev_top_zap != 0);
+		VERIFY0(zap_add(vd->vdev_spa->spa_meta_objset, vd->vdev_top_zap,
+		    VDEV_TOP_ZAP_INDIRECT_OBSOLETE_SM,
+		    sizeof (obsolete_sm_object), 1, &obsolete_sm_object, tx));
+		ASSERT3U(vdev_obsolete_sm_object(vd), !=, 0);
+
 		spa_feature_incr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
 		VERIFY0(space_map_open(&vd->vdev_obsolete_sm,
-		    spa->spa_meta_objset, vic->vic_obsolete_sm_object,
+		    spa->spa_meta_objset, obsolete_sm_object,
 		    0, vd->vdev_asize, 0));
 		space_map_update(vd->vdev_obsolete_sm);
 	}
 
 	ASSERT(vd->vdev_obsolete_sm != NULL);
-	ASSERT3U(vic->vic_obsolete_sm_object, ==,
+	ASSERT3U(vdev_obsolete_sm_object(vd), ==,
 	    space_map_object(vd->vdev_obsolete_sm));
 
 	space_map_write(vd->vdev_obsolete_sm,
@@ -752,6 +759,45 @@ spa_condense_indirect_restart(spa_t *spa)
 	spa->spa_condense_thread = thread_create(NULL, 0,
 	    spa_condense_indirect_thread, vd, 0, &p0, TS_RUN,
 	    minclsyspri);
+}
+
+/*
+ * Gets the obsolete spacemap object from the vdev's ZAP.
+ * Returns the spacemap object, or 0 if it wasn't in the ZAP or the ZAP doesn't
+ * exist yet.
+ */
+int
+vdev_obsolete_sm_object(vdev_t *vd)
+{
+	ASSERT0(spa_config_held(vd->vdev_spa, SCL_ALL, RW_WRITER));
+	if (vd->vdev_top_zap == 0) {
+		return (0);
+	}
+
+	uint64_t sm_obj = 0;
+	int err = zap_lookup(vd->vdev_spa->spa_meta_objset, vd->vdev_top_zap,
+	    VDEV_TOP_ZAP_INDIRECT_OBSOLETE_SM, sizeof (sm_obj), 1, &sm_obj);
+
+	ASSERT(err == 0 || err == ENOENT);
+
+	return (sm_obj);
+}
+
+boolean_t
+vdev_obsolete_counts_are_precise(vdev_t *vd)
+{
+	ASSERT0(spa_config_held(vd->vdev_spa, SCL_ALL, RW_WRITER));
+	if (vd->vdev_top_zap == 0) {
+		return (B_FALSE);
+	}
+
+	uint64_t val = 0;
+	int err = zap_lookup(vd->vdev_spa->spa_meta_objset, vd->vdev_top_zap,
+	    VDEV_TOP_ZAP_OBSOLETE_COUNTS_ARE_PRECISE, sizeof (val), 1, &val);
+
+	ASSERT(err == 0 || err == ENOENT);
+
+	return (val != 0);
 }
 
 /* ARGSUSED */

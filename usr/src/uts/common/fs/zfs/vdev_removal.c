@@ -228,7 +228,11 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 		 * refcounts are precise.
 		 */
 		spa_feature_incr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
-		vd->vdev_indirect_config.vic_precise_obsolete_counts = B_TRUE;
+		uint64_t one = 1;
+		VERIFY0(zap_add(spa->spa_meta_objset, vd->vdev_top_zap,
+		    VDEV_TOP_ZAP_OBSOLETE_COUNTS_ARE_PRECISE, sizeof (one), 1,
+		    &one, tx));
+		ASSERT3U(vdev_obsolete_counts_are_precise(vd), !=, 0);
 	}
 
 	vic->vic_mapping_object = vdev_indirect_mapping_alloc(mos, tx);
@@ -837,10 +841,6 @@ vdev_indirect_state_transfer(vdev_t *ivd, vdev_t *vd)
 	ASSERT0(range_tree_space(ivd->vdev_obsolete_segments));
 
 	if (vd->vdev_obsolete_sm != NULL) {
-		vdev_indirect_config_t *ivic = &ivd->vdev_indirect_config;
-		ASSERT(ivic->vic_obsolete_sm_object != 0);
-		ASSERT3U(ivic->vic_obsolete_sm_object, ==,
-		    space_map_object(vd->vdev_obsolete_sm));
 		ASSERT3U(ivd->vdev_asize, ==, vd->vdev_asize);
 
 		/*
@@ -1241,18 +1241,20 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 	ASSERT3P(svr->svr_thread, ==, NULL);
 
 	spa_feature_decr(spa, SPA_FEATURE_DEVICE_REMOVAL, tx);
-	if (vic->vic_precise_obsolete_counts) {
+	if (vdev_obsolete_counts_are_precise(vd)) {
 		spa_feature_decr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);
-		vic->vic_precise_obsolete_counts = B_FALSE;
+		VERIFY0(zap_remove(spa->spa_meta_objset, vd->vdev_top_zap,
+		    VDEV_TOP_ZAP_OBSOLETE_COUNTS_ARE_PRECISE, tx));
 	}
 
-	if (vic->vic_obsolete_sm_object != 0) {
+	if (vdev_obsolete_sm_object(vd) != 0) {
 		ASSERT(vd->vdev_obsolete_sm != NULL);
-		ASSERT3U(vic->vic_obsolete_sm_object, ==,
+		ASSERT3U(vdev_obsolete_sm_object(vd), ==,
 		    space_map_object(vd->vdev_obsolete_sm));
 
 		space_map_free(vd->vdev_obsolete_sm, tx);
-		vic->vic_obsolete_sm_object = 0;
+		VERIFY0(zap_remove(spa->spa_meta_objset, vd->vdev_top_zap,
+		    VDEV_TOP_ZAP_INDIRECT_OBSOLETE_SM, tx));
 		space_map_close(vd->vdev_obsolete_sm);
 		vd->vdev_obsolete_sm = NULL;
 		spa_feature_decr(spa, SPA_FEATURE_OBSOLETE_COUNTS, tx);

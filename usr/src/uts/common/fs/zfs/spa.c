@@ -6299,7 +6299,6 @@ spa_sync_upgrades(spa_t *spa, dmu_tx_t *tx)
 static void
 vdev_indirect_state_sync_verify(vdev_t *vd)
 {
-	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 	vdev_indirect_births_t *vib = vd->vdev_indirect_births;
 
@@ -6308,14 +6307,14 @@ vdev_indirect_state_sync_verify(vdev_t *vd)
 		ASSERT(vib != NULL);
 	}
 
-	if (vic->vic_obsolete_sm_object != 0) {
+	if (vdev_obsolete_sm_object(vd) != 0) {
 		ASSERT(vd->vdev_obsolete_sm != NULL);
 		ASSERT(vd->vdev_removing ||
 		    vd->vdev_ops == &vdev_indirect_ops);
 		ASSERT(vdev_indirect_mapping_num_entries(vim) > 0);
 		ASSERT(vdev_indirect_mapping_bytes_mapped(vim) > 0);
 
-		ASSERT3U(vic->vic_obsolete_sm_object, ==,
+		ASSERT3U(vdev_obsolete_sm_object(vd), ==,
 		    space_map_object(vd->vdev_obsolete_sm));
 		ASSERT3U(vdev_indirect_mapping_bytes_mapped(vim), >=,
 		    space_map_allocated(vd->vdev_obsolete_sm));

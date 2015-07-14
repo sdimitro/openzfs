@@ -656,19 +656,19 @@ get_metaslab_refcount(vdev_t *vd)
 static int
 get_obsolete_refcount(vdev_t *vd)
 {
-	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	int refcount = 0;
 
-	if (vd->vdev_top == vd && vic->vic_obsolete_sm_object != 0) {
+	uint64_t obsolete_sm_obj = vdev_obsolete_sm_object(vd);
+	if (vd->vdev_top == vd && obsolete_sm_obj != 0) {
 		dmu_object_info_t doi;
 		VERIFY0(dmu_object_info(vd->vdev_spa->spa_meta_objset,
-		    vic->vic_obsolete_sm_object, &doi));
+		    obsolete_sm_obj, &doi));
 		if (doi.doi_bonus_size == sizeof (space_map_phys_t)) {
 			refcount++;
 		}
 	} else {
 		ASSERT3P(vd->vdev_obsolete_sm, ==, NULL);
-		ASSERT3U(vic->vic_obsolete_sm_object, ==, 0);
+		ASSERT3U(obsolete_sm_obj, ==, 0);
 	}
 	for (int c = 0; c < vd->vdev_children; c++) {
 		refcount += get_obsolete_refcount(vd->vdev_child[c]);
@@ -949,13 +949,14 @@ print_vdev_indirect(vdev_t *vd)
 	}
 	(void) printf("\n");
 
-	if (vic->vic_obsolete_sm_object != 0) {
+	uint64_t obsolete_sm_object = vdev_obsolete_sm_object(vd);
+	if (obsolete_sm_object != 0) {
 		objset_t *mos = vd->vdev_spa->spa_meta_objset;
 		(void) printf("obsolete space map object %llu:\n",
-		    (u_longlong_t)vic->vic_obsolete_sm_object);
+		    (u_longlong_t)obsolete_sm_object);
 		ASSERT(vd->vdev_obsolete_sm != NULL);
 		ASSERT3U(space_map_object(vd->vdev_obsolete_sm), ==,
-		    vic->vic_obsolete_sm_object);
+		    obsolete_sm_object);
 		dump_spacemap(mos, vd->vdev_obsolete_sm);
 		(void) printf("\n");
 	}
@@ -2902,14 +2903,13 @@ increment_indirect_mapping_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
 static uint32_t *
 zdb_load_obsolete_counts(vdev_t *vd)
 {
-	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 	spa_t *spa = vd->vdev_spa;
 	spa_condensing_indirect_phys_t *scip =
 	    &spa->spa_condensing_indirect_phys;
 	uint32_t *counts;
 
-	EQUIV(vic->vic_obsolete_sm_object != 0, vd->vdev_obsolete_sm != NULL);
+	EQUIV(vdev_obsolete_sm_object(vd) != 0, vd->vdev_obsolete_sm != NULL);
 	counts = vdev_indirect_mapping_load_obsolete_counts(vim);
 	if (vd->vdev_obsolete_sm != NULL) {
 		vdev_indirect_mapping_load_obsolete_spacemap(vim, counts,
@@ -3003,7 +3003,6 @@ static boolean_t
 zdb_check_for_obsolete_leaks(vdev_t *vd, zdb_cb_t *zcb)
 {
 	boolean_t leaks = B_FALSE;
-	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 	uint64_t total_leaked = 0;
 
@@ -3034,7 +3033,8 @@ zdb_check_for_obsolete_leaks(vdev_t *vd, zdb_cb_t *zcb)
 		ASSERT3U(DVA_GET_ASIZE(&vimep->vimep_dst), >=,
 		    zcb->zcb_vd_obsolete_counts[vd->vdev_id][i]);
 		if (bytes_leaked != 0 &&
-		    (vic->vic_precise_obsolete_counts || dump_opt['d'] >= 5)) {
+		    (vdev_obsolete_counts_are_precise(vd) ||
+		    dump_opt['d'] >= 5)) {
 			(void) printf("obsolete indirect mapping count "
 			    "mismatch on %llu:%llx:%llx : %llx bytes leaked\n",
 			    (u_longlong_t)vd->vdev_id,
@@ -3045,7 +3045,7 @@ zdb_check_for_obsolete_leaks(vdev_t *vd, zdb_cb_t *zcb)
 		total_leaked += ABS(bytes_leaked);
 	}
 
-	if (!vic->vic_precise_obsolete_counts && total_leaked > 0) {
+	if (!vdev_obsolete_counts_are_precise(vd) && total_leaked > 0) {
 		int pct_leaked = total_leaked * 100 /
 		    vdev_indirect_mapping_bytes_mapped(vim);
 		(void) printf("cannot verify obsolete indirect mapping "
@@ -3559,11 +3559,11 @@ verify_device_removal_feature_counts(spa_t *spa)
 				obsolete_counts_count++;
 			}
 		}
-		if (vic->vic_precise_obsolete_counts) {
+		if (vdev_obsolete_counts_are_precise(vd)) {
 			ASSERT(vic->vic_mapping_object != 0);
 			precise_vdev_count++;
 		}
-		if (vic->vic_obsolete_sm_object != 0) {
+		if (vdev_obsolete_sm_object(vd) != 0) {
 			ASSERT(vic->vic_mapping_object != 0);
 			obsolete_sm_count++;
 		}

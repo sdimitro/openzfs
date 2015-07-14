@@ -484,10 +484,6 @@ vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,
 	ASSERT3U(vic->vic_prev_indirect_vdev, ==, UINT64_MAX);
 	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
 	    &vic->vic_prev_indirect_vdev);
-	vic->vic_precise_obsolete_counts = nvlist_exists(nv,
-	    ZPOOL_CONFIG_PRECISE_OBSOLETE_COUNTS);
-	(void) nvlist_lookup_uint64(nv, ZPOOL_CONFIG_INDIRECT_OBSOLETE_SM,
-	    &vic->vic_obsolete_sm_object);
 
 	/*
 	 * Look for the 'not present' flag.  This will only be set if the device
@@ -2245,15 +2241,14 @@ vdev_load(vdev_t *vd)
 		return (error);
 	}
 
-
-	if (vd->vdev_indirect_config.vic_obsolete_sm_object != 0) {
-		vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
+	uint64_t obsolete_sm_object = vdev_obsolete_sm_object(vd);
+	if (obsolete_sm_object != 0) {
 		objset_t *mos = vd->vdev_spa->spa_meta_objset;
 		ASSERT(vd->vdev_asize != 0);
 		ASSERT(vd->vdev_obsolete_sm == NULL);
 
 		if ((error = space_map_open(&vd->vdev_obsolete_sm, mos,
-		    vic->vic_obsolete_sm_object, 0, vd->vdev_asize, 0))) {
+		    obsolete_sm_object, 0, vd->vdev_asize, 0))) {
 			vdev_set_state(vd, B_FALSE, VDEV_STATE_CANT_OPEN,
 			    VDEV_AUX_CORRUPT_DATA);
 			return (error);

@@ -321,17 +321,6 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 			fnvlist_add_uint64(nv, ZPOOL_CONFIG_PREV_INDIRECT_VDEV,
 			    vic->vic_prev_indirect_vdev);
 		}
-
-		if (vic->vic_obsolete_sm_object != 0) {
-			fnvlist_add_uint64(nv,
-			    ZPOOL_CONFIG_INDIRECT_OBSOLETE_SM,
-			    vic->vic_obsolete_sm_object);
-		}
-
-		if (vic->vic_precise_obsolete_counts) {
-			fnvlist_add_boolean(nv,
-			    ZPOOL_CONFIG_PRECISE_OBSOLETE_COUNTS);
-		}
 	}
 
 	if (getstats) {

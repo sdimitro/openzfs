@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+         Copyright (c) 2015 Delphix. All rights reserved.
+-->
 <?fileVersion 4.0.0?>
 
 <cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
@@ -41,7 +44,7 @@
 								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1554365885" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="TEXT_DOMAIN=&quot;SUNW_OST_OSLIB&quot;"/>
 									<listOptionValue builtIn="false" value="_REENTRANT"/>
-									<listOptionValue builtIn="false" value="DEBUG"/>
+									<listOptionValue builtIn="false" value="DEBUG=1"/>
 									<listOptionValue builtIn="false" value="_TS_ERRNO"/>
 									<listOptionValue builtIn="false" value="_LARGEFILE64_SOURCE"/>
 									<listOptionValue builtIn="false" value="TRUE=1"/>

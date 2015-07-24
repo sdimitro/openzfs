@@ -783,10 +783,10 @@ ztest_kill(ztest_shared_t *zs)
 
 	/*
 	 * Before we kill off ztest, make sure that the config is updated.
-	 * See comment above spa_config_sync().
+	 * See comment above spa_write_cachefile().
 	 */
 	mutex_enter(&spa_namespace_lock);
-	spa_config_sync(ztest_spa, B_FALSE, B_FALSE);
+	spa_write_cachefile(ztest_spa, B_FALSE, B_FALSE);
 	mutex_exit(&spa_namespace_lock);
 
 	zfs_dbgmsg_print(FTAG);

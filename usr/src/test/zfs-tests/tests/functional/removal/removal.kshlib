@@ -39,6 +39,13 @@ function wait_for_removal # pool [callback args]
 		[[ -z $callback ]] || log_must $callback "$@"
 		sleep 0.5
 	done
+
+	#
+	# The pool state changes before the TXG finishes syncing; wait for
+	# the removal to be completed on disk.
+	#
+	sync
+
 	log_must is_pool_removed $pool
 	return 0
 }

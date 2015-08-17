@@ -243,10 +243,6 @@ static kcondvar_t	arc_reclaim_thread_cv;
 static boolean_t	arc_reclaim_thread_exit;
 static kcondvar_t	arc_reclaim_waiters_cv;
 
-static kmutex_t		arc_user_evicts_lock;
-static kcondvar_t	arc_user_evicts_cv;
-static boolean_t	arc_user_evicts_thread_exit;
-
 uint_t arc_reduce_dnlc_percent = 3;
 
 /*
@@ -913,9 +909,6 @@ struct arc_buf_hdr {
 	l1arc_buf_hdr_t		b_l1hdr;
 };
 
-static arc_buf_t *arc_eviction_list;
-static arc_buf_hdr_t arc_eviction_hdr;
-
 #define	GHOST_STATE(state)	\
 	((state) == arc_mru_ghost || (state) == arc_mfu_ghost ||	\
 	(state) == arc_l2c_only)
@@ -924,7 +917,6 @@ static arc_buf_hdr_t arc_eviction_hdr;
 #define	HDR_IO_IN_PROGRESS(hdr)	((hdr)->b_flags & ARC_FLAG_IO_IN_PROGRESS)
 #define	HDR_IO_ERROR(hdr)	((hdr)->b_flags & ARC_FLAG_IO_ERROR)
 #define	HDR_PREFETCH(hdr)	((hdr)->b_flags & ARC_FLAG_PREFETCH)
-#define	HDR_FREED_IN_READ(hdr)	((hdr)->b_flags & ARC_FLAG_FREED_IN_READ)
 
 #define	HDR_L2CACHE(hdr)	((hdr)->b_flags & ARC_FLAG_L2CACHE)
 #define	HDR_L2_READING(hdr)	\
@@ -1775,6 +1767,9 @@ add_reference(arc_buf_hdr_t *hdr, void *tag)
 	}
 }
 
+/*
+ * Returns new refcount.
+ */
 static int
 remove_reference(arc_buf_hdr_t *hdr, kmutex_t *hash_lock, void *tag)
 {
@@ -2060,8 +2055,6 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag)
 	buf = kmem_cache_alloc(buf_cache, KM_PUSHPAGE);
 	buf->b_hdr = hdr;
 	buf->b_data = NULL;
-	buf->b_efunc = NULL;
-	buf->b_private = NULL;
 	buf->b_next = hdr->b_l1hdr.b_buf;
 
 	add_reference(hdr, tag);
@@ -2091,8 +2084,6 @@ arc_buf_clone(arc_buf_t *from)
 	buf = kmem_cache_alloc(buf_cache, KM_PUSHPAGE);
 	buf->b_hdr = hdr;
 	buf->b_data = NULL;
-	buf->b_efunc = NULL;
-	buf->b_private = NULL;
 	buf->b_next = hdr->b_l1hdr.b_buf;
 	hdr->b_l1hdr.b_buf = buf;
 	buf->b_data = arc_get_data_buf(hdr, HDR_GET_LSIZE(hdr), buf);
@@ -2148,48 +2139,8 @@ arc_loan_inuse_buf(arc_buf_t *buf, void *tag)
 	ASSERT(HDR_HAS_L1HDR(hdr));
 	(void) refcount_add(&hdr->b_l1hdr.b_refcnt, arc_onloan_tag);
 	(void) refcount_remove(&hdr->b_l1hdr.b_refcnt, tag);
-	buf->b_efunc = NULL;
-	buf->b_private = NULL;
 
 	atomic_add_64(&arc_loaned_bytes, HDR_GET_LSIZE(hdr));
-}
-
-void
-arc_buf_add_ref(arc_buf_t *buf, void* tag)
-{
-	arc_buf_hdr_t *hdr;
-	kmutex_t *hash_lock;
-
-	/*
-	 * Check to see if this buffer is evicted.  Callers
-	 * must verify b_data != NULL to know if the add_ref
-	 * was successful.
-	 */
-	mutex_enter(&buf->b_evict_lock);
-	if (buf->b_data == NULL) {
-		mutex_exit(&buf->b_evict_lock);
-		return;
-	}
-	hash_lock = HDR_LOCK(buf->b_hdr);
-	mutex_enter(hash_lock);
-	hdr = buf->b_hdr;
-	ASSERT(HDR_HAS_L1HDR(hdr));
-	ASSERT3P(hash_lock, ==, HDR_LOCK(hdr));
-	mutex_exit(&buf->b_evict_lock);
-
-	ASSERT(hdr->b_l1hdr.b_state == arc_mru ||
-	    hdr->b_l1hdr.b_state == arc_mfu);
-	ASSERT3P(hdr->b_l1hdr.b_pdata, !=, NULL);
-
-	add_reference(hdr, tag);
-	DTRACE_PROBE1(arc__hit, arc_buf_hdr_t *, hdr);
-	arc_access(hdr, hash_lock);
-	arc_cksum_verify(buf);
-	mutex_exit(hash_lock);
-	ARCSTAT_BUMP(arcstat_hits);
-	ARCSTAT_CONDSTAT(!HDR_PREFETCH(hdr),
-	    demand, prefetch, !HDR_ISTYPE_METADATA(hdr),
-	    data, metadata, hits);
 }
 
 static void
@@ -2224,7 +2175,7 @@ arc_hdr_free_on_write(arc_buf_hdr_t *hdr)
  * arc_buf_t off of the the arc_buf_hdr_t's list and free it.
  */
 static void
-arc_buf_destroy(arc_buf_t *buf, boolean_t remove)
+arc_buf_destroy_impl(arc_buf_t *buf, boolean_t remove)
 {
 	arc_buf_t **bufp;
 	arc_buf_hdr_t *hdr = buf->b_hdr;
@@ -2255,8 +2206,6 @@ arc_buf_destroy(arc_buf_t *buf, boolean_t remove)
 	}
 	*bufp = buf->b_next;
 	buf->b_next = NULL;
-
-	ASSERT(buf->b_efunc == NULL);
 
 	if (hdr->b_l1hdr.b_bufcnt == 0)
 		arc_cksum_free(hdr);
@@ -2521,25 +2470,9 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 	if (HDR_HAS_L1HDR(hdr)) {
 		arc_cksum_free(hdr);
 
-		while (hdr->b_l1hdr.b_buf) {
-			arc_buf_t *buf = hdr->b_l1hdr.b_buf;
+		while (hdr->b_l1hdr.b_buf != NULL)
+			arc_buf_destroy_impl(hdr->b_l1hdr.b_buf, B_TRUE);
 
-			if (buf->b_efunc != NULL) {
-				mutex_enter(&arc_user_evicts_lock);
-				mutex_enter(&buf->b_evict_lock);
-				ASSERT3P(buf->b_hdr, !=, NULL);
-				arc_buf_destroy(hdr->b_l1hdr.b_buf, B_FALSE);
-				hdr->b_l1hdr.b_buf = buf->b_next;
-				buf->b_hdr = &arc_eviction_hdr;
-				buf->b_next = arc_eviction_list;
-				arc_eviction_list = buf;
-				mutex_exit(&buf->b_evict_lock);
-				cv_signal(&arc_user_evicts_cv);
-				mutex_exit(&arc_user_evicts_lock);
-			} else {
-				arc_buf_destroy(hdr->b_l1hdr.b_buf, B_TRUE);
-			}
-		}
 #ifdef ZFS_DEBUG
 		if (hdr->b_l1hdr.b_thawed != NULL) {
 			kmem_free(hdr->b_l1hdr.b_thawed, 1);
@@ -2563,119 +2496,35 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 }
 
 void
-arc_buf_free(arc_buf_t *buf, void *tag)
-{
-	arc_buf_hdr_t *hdr = buf->b_hdr;
-	int hashed = hdr->b_l1hdr.b_state != arc_anon;
-
-	ASSERT3P(buf->b_efunc, ==, NULL);
-	ASSERT3P(buf->b_data, !=, NULL);
-
-	if (hashed) {
-		kmutex_t *hash_lock = HDR_LOCK(hdr);
-
-		mutex_enter(hash_lock);
-		hdr = buf->b_hdr;
-		ASSERT3P(hash_lock, ==, HDR_LOCK(hdr));
-
-		(void) remove_reference(hdr, hash_lock, tag);
-		arc_buf_destroy(buf, B_TRUE);
-		mutex_exit(hash_lock);
-	} else if (HDR_IO_IN_PROGRESS(hdr)) {
-		int destroy_hdr;
-		/*
-		 * We are in the middle of an async write.  Don't destroy
-		 * this buffer unless the write completes before we finish
-		 * decrementing the reference count.
-		 */
-		mutex_enter(&arc_user_evicts_lock);
-		(void) remove_reference(hdr, NULL, tag);
-		ASSERT(refcount_is_zero(&hdr->b_l1hdr.b_refcnt));
-		destroy_hdr = !HDR_IO_IN_PROGRESS(hdr);
-		mutex_exit(&arc_user_evicts_lock);
-		if (destroy_hdr)
-			arc_hdr_destroy(hdr);
-	} else {
-		if (remove_reference(hdr, NULL, tag) > 0)
-			arc_buf_destroy(buf, B_TRUE);
-		else
-			arc_hdr_destroy(hdr);
-	}
-}
-
-boolean_t
-arc_buf_remove_ref(arc_buf_t *buf, void* tag)
+arc_buf_destroy(arc_buf_t *buf, void* tag)
 {
 	arc_buf_hdr_t *hdr = buf->b_hdr;
 	kmutex_t *hash_lock = HDR_LOCK(hdr);
-	boolean_t no_callback = (buf->b_efunc == NULL);
 
 	if (hdr->b_l1hdr.b_state == arc_anon) {
-		ASSERT(hdr->b_l1hdr.b_bufcnt == 1);
-		arc_buf_free(buf, tag);
-		return (no_callback);
+		ASSERT3U(hdr->b_l1hdr.b_bufcnt, ==, 1);
+		ASSERT(!HDR_IO_IN_PROGRESS(hdr));
+		VERIFY0(remove_reference(hdr, NULL, tag));
+		arc_hdr_destroy(hdr);
+		return;
 	}
 
 	mutex_enter(hash_lock);
-	hdr = buf->b_hdr;
+	ASSERT3P(hdr, ==, buf->b_hdr);
 	ASSERT(hdr->b_l1hdr.b_bufcnt > 0);
 	ASSERT3P(hash_lock, ==, HDR_LOCK(hdr));
 	ASSERT3P(hdr->b_l1hdr.b_state, !=, arc_anon);
 	ASSERT3P(buf->b_data, !=, NULL);
 
 	(void) remove_reference(hdr, hash_lock, tag);
-	if (no_callback)
-		arc_buf_destroy(buf, B_TRUE);
+	arc_buf_destroy_impl(buf, B_TRUE);
 	mutex_exit(hash_lock);
-	return (no_callback);
 }
 
 int32_t
 arc_buf_size(arc_buf_t *buf)
 {
 	return (HDR_GET_LSIZE(buf->b_hdr));
-}
-
-/*
- * Called from the DMU to determine if the current buffer should be
- * evicted. In order to ensure proper locking, the eviction must be initiated
- * from the DMU. Return true if the buffer is associated with user data and
- * duplicate buffers still exist.
- */
-boolean_t
-arc_buf_eviction_needed(arc_buf_t *buf)
-{
-	arc_buf_hdr_t *hdr;
-	boolean_t evict_needed = B_FALSE;
-
-	if (!zfs_dup_eviction_enabled)
-		return (B_FALSE);
-
-	mutex_enter(&buf->b_evict_lock);
-	hdr = buf->b_hdr;
-	if (hdr == NULL) {
-		/*
-		 * We are in arc_do_user_evicts(); let that function
-		 * perform the eviction.
-		 */
-		ASSERT(buf->b_data == NULL);
-		mutex_exit(&buf->b_evict_lock);
-		return (B_FALSE);
-	} else if (buf->b_data == NULL) {
-		/*
-		 * We have already been added to the arc eviction list;
-		 * recommend eviction.
-		 */
-		ASSERT3P(hdr, ==, &arc_eviction_hdr);
-		mutex_exit(&buf->b_evict_lock);
-		return (B_TRUE);
-	}
-
-	if (hdr->b_l1hdr.b_bufcnt > 1)
-		evict_needed = B_TRUE;
-
-	mutex_exit(&buf->b_evict_lock);
-	return (evict_needed);
 }
 
 /*
@@ -2762,20 +2611,8 @@ arc_evict_hdr(arc_buf_hdr_t *hdr, kmutex_t *hash_lock)
 		}
 		if (buf->b_data != NULL)
 			bytes_evicted += HDR_GET_LSIZE(hdr);
-		if (buf->b_efunc != NULL) {
-			mutex_enter(&arc_user_evicts_lock);
-			arc_buf_destroy(buf, B_FALSE);
-			hdr->b_l1hdr.b_buf = buf->b_next;
-			buf->b_hdr = &arc_eviction_hdr;
-			buf->b_next = arc_eviction_list;
-			arc_eviction_list = buf;
-			cv_signal(&arc_user_evicts_cv);
-			mutex_exit(&arc_user_evicts_lock);
-			mutex_exit(&buf->b_evict_lock);
-		} else {
-			mutex_exit(&buf->b_evict_lock);
-			arc_buf_destroy(buf, B_TRUE);
-		}
+		mutex_exit(&buf->b_evict_lock);
+		arc_buf_destroy_impl(buf, B_TRUE);
 	}
 
 	if (HDR_HAS_L2HDR(hdr)) {
@@ -3354,29 +3191,6 @@ arc_adjust(void)
 	return (total_evicted);
 }
 
-static void
-arc_do_user_evicts(void)
-{
-	mutex_enter(&arc_user_evicts_lock);
-	while (arc_eviction_list != NULL) {
-		arc_buf_t *buf = arc_eviction_list;
-		arc_eviction_list = buf->b_next;
-		mutex_enter(&buf->b_evict_lock);
-		buf->b_hdr = NULL;
-		mutex_exit(&buf->b_evict_lock);
-		mutex_exit(&arc_user_evicts_lock);
-
-		if (buf->b_efunc != NULL)
-			VERIFY0(buf->b_efunc(buf->b_private));
-
-		buf->b_efunc = NULL;
-		buf->b_private = NULL;
-		kmem_cache_free(buf_cache, buf);
-		mutex_enter(&arc_user_evicts_lock);
-	}
-	mutex_exit(&arc_user_evicts_lock);
-}
-
 void
 arc_flush(spa_t *spa, boolean_t retry)
 {
@@ -3403,9 +3217,6 @@ arc_flush(spa_t *spa, boolean_t retry)
 
 	(void) arc_flush_state(arc_mfu_ghost, guid, ARC_BUFC_DATA, retry);
 	(void) arc_flush_state(arc_mfu_ghost, guid, ARC_BUFC_METADATA, retry);
-
-	arc_do_user_evicts();
-	ASSERT(spa || arc_eviction_list == NULL);
 }
 
 void
@@ -3657,6 +3468,20 @@ arc_reclaim_thread(void)
 		int64_t free_memory = arc_available_memory();
 		uint64_t evicted = 0;
 
+		/*
+		 * This is necessary in order for the mdb ::arc dcmd to
+		 * show up to date information. Since the ::arc command
+		 * does not call the kstat's update function, without
+		 * this call, the command may show stale stats for the
+		 * anon, mru, mru_ghost, mfu, and mfu_ghost lists. Even
+		 * with this change, the data might be up to 1 second
+		 * out of date; but that should suffice. The arc_state_t
+		 * structures can be queried directly if more accurate
+		 * information is needed.
+		 */
+		if (arc_ksp != NULL)
+			arc_ksp->ks_update(arc_ksp, KSTAT_READ);
+
 		mutex_exit(&arc_reclaim_lock);
 
 		if (free_memory < 0) {
@@ -3728,51 +3553,6 @@ arc_reclaim_thread(void)
 	arc_reclaim_thread_exit = B_FALSE;
 	cv_broadcast(&arc_reclaim_thread_cv);
 	CALLB_CPR_EXIT(&cpr);		/* drops arc_reclaim_lock */
-	thread_exit();
-}
-
-static void
-arc_user_evicts_thread(void)
-{
-	callb_cpr_t cpr;
-
-	CALLB_CPR_INIT(&cpr, &arc_user_evicts_lock, callb_generic_cpr, FTAG);
-
-	mutex_enter(&arc_user_evicts_lock);
-	while (!arc_user_evicts_thread_exit) {
-		mutex_exit(&arc_user_evicts_lock);
-
-		arc_do_user_evicts();
-
-		/*
-		 * This is necessary in order for the mdb ::arc dcmd to
-		 * show up to date information. Since the ::arc command
-		 * does not call the kstat's update function, without
-		 * this call, the command may show stale stats for the
-		 * anon, mru, mru_ghost, mfu, and mfu_ghost lists. Even
-		 * with this change, the data might be up to 1 second
-		 * out of date; but that should suffice. The arc_state_t
-		 * structures can be queried directly if more accurate
-		 * information is needed.
-		 */
-		if (arc_ksp != NULL)
-			arc_ksp->ks_update(arc_ksp, KSTAT_READ);
-
-		mutex_enter(&arc_user_evicts_lock);
-
-		/*
-		 * Block until signaled, or after one second (we need to
-		 * call the arc's kstat update function regularly).
-		 */
-		CALLB_CPR_SAFE_BEGIN(&cpr);
-		(void) cv_timedwait(&arc_user_evicts_cv,
-		    &arc_user_evicts_lock, ddi_get_lbolt() + hz);
-		CALLB_CPR_SAFE_END(&cpr, &arc_user_evicts_lock);
-	}
-
-	arc_user_evicts_thread_exit = B_FALSE;
-	cv_broadcast(&arc_user_evicts_cv);
-	CALLB_CPR_EXIT(&cpr);		/* drops arc_user_evicts_lock */
 	thread_exit();
 }
 
@@ -4129,7 +3909,7 @@ arc_bcopy_func(zio_t *zio, arc_buf_t *buf, void *arg)
 {
 	if (zio == NULL || zio->io_error == 0)
 		bcopy(buf->b_data, arg, HDR_GET_LSIZE(buf->b_hdr));
-	VERIFY(arc_buf_remove_ref(buf, arg));
+	arc_buf_destroy(buf, arg);
 }
 
 /* a generic arc_done_func_t */
@@ -4138,7 +3918,7 @@ arc_getbuf_func(zio_t *zio, arc_buf_t *buf, void *arg)
 {
 	arc_buf_t **bufp = arg;
 	if (zio && zio->io_error) {
-		VERIFY(arc_buf_remove_ref(buf, arg));
+		arc_buf_destroy(buf, arg);
 		*bufp = NULL;
 	} else {
 		*bufp = buf;
@@ -4193,9 +3973,7 @@ arc_read_done(zio_t *zio)
 		arc_buf_hdr_t *found = buf_hash_find(hdr->b_spa, zio->io_bp,
 		    &hash_lock);
 
-		ASSERT((found == NULL && HDR_FREED_IN_READ(hdr) &&
-		    hash_lock == NULL) ||
-		    (found == hdr &&
+		ASSERT((found == hdr &&
 		    DVA_EQUAL(&hdr->b_dva, BP_IDENTITY(zio->io_bp))) ||
 		    (found == hdr && HDR_L2_READING(hdr)));
 	}
@@ -4212,7 +3990,6 @@ arc_read_done(zio_t *zio)
 		} else {
 			hdr->b_l1hdr.b_byteswap = DMU_BSWAP_NUMFUNCS;
 		}
-		zio->io_error = arc_decompress(buf);
 	}
 
 	hdr->b_flags &= ~ARC_FLAG_L2_EVICTED;
@@ -4236,7 +4013,19 @@ arc_read_done(zio_t *zio)
 	/* create copies of the data buffer for the callers */
 	abuf = buf;
 	for (acb = callback_list; acb; acb = acb->acb_next) {
-		if (acb->acb_done) {
+		if (acb->acb_done != NULL) {
+			/*
+			 * If we're here, then this must be a demand read
+			 * since prefetch requests don't have callbacks.
+			 * If a read request has a callback (i.e. acb_done is
+			 * not NULL), then we decompress the data for the
+			 * first request and clone the rest. This avoids
+			 * having to waste cpu resources decompressing data
+			 * that nobody is explicitly waiting to read.
+			 */
+			if (abuf == buf && zio->io_error == 0) {
+				zio->io_error = arc_decompress(buf);
+			}
 			if (abuf == NULL) {
 				abuf = arc_buf_clone(buf);
 			}
@@ -4252,10 +4041,9 @@ arc_read_done(zio_t *zio)
 		 * be a prefetch.
 		 */
 		ASSERT(hdr->b_flags & ARC_FLAG_PREFETCH);
-		ASSERT3P(buf->b_efunc, ==, NULL);
 		ASSERT3U(hdr->b_l1hdr.b_bufcnt, ==, 1);
 		ASSERT3P(hdr->b_l1hdr.b_pdata, !=, NULL);
-		arc_buf_destroy(buf, B_TRUE);
+		arc_buf_destroy_impl(buf, B_TRUE);
 	}
 
 	ASSERT(refcount_is_zero(&hdr->b_l1hdr.b_refcnt) ||
@@ -4491,7 +4279,7 @@ top:
 				/* somebody beat us to the hash insert */
 				mutex_exit(hash_lock);
 				buf_discard_identity(hdr);
-				(void) arc_buf_remove_ref(buf, private);
+				arc_buf_destroy(buf, private);
 				goto top; /* restart the IO request */
 			}
 		} else {
@@ -4689,19 +4477,6 @@ top:
 	return (0);
 }
 
-void
-arc_set_callback(arc_buf_t *buf, arc_evict_func_t *func, void *private)
-{
-	ASSERT3P(buf->b_hdr, !=, NULL);
-	ASSERT3P(buf->b_hdr->b_l1hdr.b_state, !=, arc_anon);
-	ASSERT(!refcount_is_zero(&buf->b_hdr->b_l1hdr.b_refcnt) ||
-	    func == NULL);
-	ASSERT3P(buf->b_efunc, ==, NULL);
-
-	buf->b_efunc = func;
-	buf->b_private = private;
-}
-
 /*
  * Notify the arc that a block was freed, and thus will never be used again.
  */
@@ -4752,67 +4527,6 @@ arc_freed(spa_t *spa, const blkptr_t *bp)
 }
 
 /*
- * Clear the user eviction callback set by arc_set_callback(), first calling
- * it if it exists.  Because the presence of a callback keeps an arc_buf cached
- * clearing the callback may result in the arc_buf being destroyed.  However,
- * it will not result in the *last* arc_buf being destroyed, hence the data
- * will remain cached in the ARC. We make a copy of the arc buffer here so
- * that we can process the callback without holding any locks.
- *
- * It's possible that the callback is already in the process of being cleared
- * by another thread.  In this case we can not clear the callback.
- *
- * Returns B_TRUE if the callback was successfully called and cleared.
- */
-boolean_t
-arc_clear_callback(arc_buf_t *buf)
-{
-	arc_buf_hdr_t *hdr;
-	kmutex_t *hash_lock;
-	arc_evict_func_t *efunc = buf->b_efunc;
-	void *private = buf->b_private;
-
-	mutex_enter(&buf->b_evict_lock);
-	hdr = buf->b_hdr;
-	if (hdr == NULL) {
-		/*
-		 * We are in arc_do_user_evicts().
-		 */
-		ASSERT3P(buf->b_data, ==, NULL);
-		mutex_exit(&buf->b_evict_lock);
-		return (B_FALSE);
-	} else if (buf->b_data == NULL) {
-		/*
-		 * We are on the eviction list; process this buffer now
-		 * but let arc_do_user_evicts() do the reaping.
-		 */
-		buf->b_efunc = NULL;
-		mutex_exit(&buf->b_evict_lock);
-		VERIFY0(efunc(private));
-		return (B_TRUE);
-	}
-	hash_lock = HDR_LOCK(hdr);
-	mutex_enter(hash_lock);
-	hdr = buf->b_hdr;
-	ASSERT3P(hash_lock, ==, HDR_LOCK(hdr));
-
-	ASSERT3U(refcount_count(&hdr->b_l1hdr.b_refcnt), <,
-	    hdr->b_l1hdr.b_bufcnt);
-	ASSERT(hdr->b_l1hdr.b_state == arc_mru ||
-	    hdr->b_l1hdr.b_state == arc_mfu);
-
-	buf->b_efunc = NULL;
-	buf->b_private = NULL;
-
-	mutex_exit(&buf->b_evict_lock);
-	arc_buf_destroy(buf, B_TRUE);
-
-	mutex_exit(hash_lock);
-	VERIFY0(efunc(private));
-	return (B_TRUE);
-}
-
-/*
  * Release this buffer from the cache, making it an anonymous buffer.  This
  * must be done after a read and prior to modifying the buffer contents.
  * If the buffer has more than one reference, we must make
@@ -4847,9 +4561,6 @@ arc_release(arc_buf_t *buf, void *tag)
 		ASSERT3U(hdr->b_l1hdr.b_bufcnt, ==, 1);
 		ASSERT3S(refcount_count(&hdr->b_l1hdr.b_refcnt), ==, 1);
 		ASSERT(!multilist_link_active(&hdr->b_l1hdr.b_arc_node));
-
-		ASSERT3P(buf->b_efunc, ==, NULL);
-		ASSERT3P(buf->b_private, ==, NULL);
 
 		hdr->b_l1hdr.b_arc_access = 0;
 
@@ -4968,8 +4679,6 @@ arc_release(arc_buf_t *buf, void *tag)
 		buf_discard_identity(hdr);
 		arc_buf_thaw(buf);
 	}
-	buf->b_efunc = NULL;
-	buf->b_private = NULL;
 }
 
 int
@@ -5491,6 +5200,12 @@ arc_state_fini(void)
 	multilist_destroy(&arc_mfu_ghost->arcs_list[ARC_BUFC_DATA]);
 }
 
+uint64_t
+arc_max_bytes(void)
+{
+	return (arc_c_max);
+}
+
 void
 arc_init(void)
 {
@@ -5506,9 +5221,6 @@ arc_init(void)
 	mutex_init(&arc_reclaim_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&arc_reclaim_thread_cv, NULL, CV_DEFAULT, NULL);
 	cv_init(&arc_reclaim_waiters_cv, NULL, CV_DEFAULT, NULL);
-
-	mutex_init(&arc_user_evicts_lock, NULL, MUTEX_DEFAULT, NULL);
-	cv_init(&arc_user_evicts_cv, NULL, CV_DEFAULT, NULL);
 
 	/* Convert seconds to clock ticks */
 	arc_min_prefetch_lifespan = 1 * hz;
@@ -5595,9 +5307,6 @@ arc_init(void)
 	buf_init();
 
 	arc_reclaim_thread_exit = B_FALSE;
-	arc_user_evicts_thread_exit = B_FALSE;
-	arc_eviction_list = NULL;
-	bzero(&arc_eviction_hdr, sizeof (arc_buf_hdr_t));
 
 	arc_ksp = kstat_create("zfs", 0, "arcstats", "misc", KSTAT_TYPE_NAMED,
 	    sizeof (arc_stats) / sizeof (kstat_named_t), KSTAT_FLAG_VIRTUAL);
@@ -5609,9 +5318,6 @@ arc_init(void)
 	}
 
 	(void) thread_create(NULL, 0, arc_reclaim_thread, NULL, 0, &p0,
-	    TS_RUN, minclsyspri);
-
-	(void) thread_create(NULL, 0, arc_user_evicts_thread, NULL, 0, &p0,
 	    TS_RUN, minclsyspri);
 
 	arc_dead = B_FALSE;
@@ -5648,18 +5354,6 @@ arc_fini(void)
 	}
 	mutex_exit(&arc_reclaim_lock);
 
-	mutex_enter(&arc_user_evicts_lock);
-	arc_user_evicts_thread_exit = B_TRUE;
-	/*
-	 * The user evicts thread will set arc_user_evicts_thread_exit
-	 * to B_FALSE when it is finished exiting; we're waiting for that.
-	 */
-	while (arc_user_evicts_thread_exit) {
-		cv_signal(&arc_user_evicts_cv);
-		cv_wait(&arc_user_evicts_cv, &arc_user_evicts_lock);
-	}
-	mutex_exit(&arc_user_evicts_lock);
-
 	/* Use B_TRUE to ensure *all* buffers are evicted */
 	arc_flush(NULL, B_TRUE);
 
@@ -5673,9 +5367,6 @@ arc_fini(void)
 	mutex_destroy(&arc_reclaim_lock);
 	cv_destroy(&arc_reclaim_thread_cv);
 	cv_destroy(&arc_reclaim_waiters_cv);
-
-	mutex_destroy(&arc_user_evicts_lock);
-	cv_destroy(&arc_user_evicts_cv);
 
 	arc_state_fini();
 	buf_fini();

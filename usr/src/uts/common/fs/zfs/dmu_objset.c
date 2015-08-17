@@ -340,8 +340,7 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 			bzero(buf->b_data, sizeof (objset_phys_t));
 			bcopy(os->os_phys_buf->b_data, buf->b_data,
 			    arc_buf_size(os->os_phys_buf));
-			(void) arc_buf_remove_ref(os->os_phys_buf,
-			    &os->os_phys_buf);
+			arc_buf_destroy(os->os_phys_buf, &os->os_phys_buf);
 			os->os_phys_buf = buf;
 		}
 
@@ -428,8 +427,7 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 		if (needlock)
 			dsl_pool_config_exit(dmu_objset_pool(os), FTAG);
 		if (err != 0) {
-			VERIFY(arc_buf_remove_ref(os->os_phys_buf,
-			    &os->os_phys_buf));
+			arc_buf_destroy(os->os_phys_buf, &os->os_phys_buf);
 			kmem_free(os, sizeof (objset_t));
 			return (err);
 		}
@@ -838,7 +836,7 @@ dmu_objset_evict_done(objset_t *os)
 	}
 	zil_free(os->os_zil);
 
-	VERIFY(arc_buf_remove_ref(os->os_phys_buf, &os->os_phys_buf));
+	arc_buf_destroy(os->os_phys_buf, &os->os_phys_buf);
 
 	/*
 	 * This is a barrier to prevent the objset from going away in

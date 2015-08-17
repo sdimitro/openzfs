@@ -36,6 +36,7 @@
 #include <sys/zfs_context.h>
 #include <sys/refcount.h>
 #include <sys/zrlock.h>
+#include <sys/multilist.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -228,6 +229,11 @@ typedef struct dmu_buf_impl {
 	 */
 	avl_node_t db_link;
 
+	/*
+	 * Link in dbuf_cache.
+	 */
+	multilist_node_t db_cache_link;
+
 	/* Data which is unique to data (leaf) blocks: */
 
 	/* User callback information. */
@@ -289,8 +295,7 @@ void dmu_buf_write_embedded(dmu_buf_t *dbuf, void *data,
     bp_embedded_type_t etype, enum zio_compress comp,
     int uncompressed_size, int compressed_size, int byteorder, dmu_tx_t *tx);
 
-void dbuf_clear(dmu_buf_impl_t *db);
-void dbuf_evict(dmu_buf_impl_t *db);
+void dbuf_destroy(dmu_buf_impl_t *db);
 
 void dbuf_setdirty(dmu_buf_impl_t *db, dmu_tx_t *tx);
 void dbuf_unoverride(dbuf_dirty_record_t *dr);

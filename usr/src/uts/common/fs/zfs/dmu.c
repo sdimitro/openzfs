@@ -1432,7 +1432,7 @@ void
 dmu_return_arcbuf(arc_buf_t *buf)
 {
 	arc_return_buf(buf, FTAG);
-	VERIFY(arc_buf_remove_ref(buf, FTAG));
+	arc_buf_destroy(buf, FTAG);
 }
 
 /*
@@ -2150,10 +2150,10 @@ dmu_init(void)
 	xuio_stat_init();
 	dmu_objset_init();
 	dnode_init();
-	dbuf_init();
 	zfetch_init();
 	l2arc_init();
 	arc_init();
+	dbuf_init();
 }
 
 void

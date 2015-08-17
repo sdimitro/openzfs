@@ -2402,7 +2402,7 @@ zio_ddt_collision(zio_t *zio, ddt_t *ddt, ddt_entry_t *dde)
 				    bcmp(abuf->b_data, zio->io_orig_data,
 				    zio->io_orig_size) != 0)
 					error = SET_ERROR(EEXIST);
-				VERIFY(arc_buf_remove_ref(abuf, &abuf));
+				arc_buf_destroy(abuf, &abuf);
 			}
 
 			ddt_enter(ddt);

@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <sys/zfs_acl.h>
 #include <sys/sa_impl.h>
+#include <sys/multilist.h>
 
 #ifdef _KERNEL
 #define	ZFS_OBJ_NAME	"zfs"
@@ -485,7 +486,7 @@ dbuf(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	char objectname[32];
 	char blkidname[32];
 	char path[MAXNAMELEN];
-	int ptr_width = (int) (sizeof (void *)) * 2;
+	int ptr_width = (int)(sizeof (void *)) * 2;
 
 	if (DCMD_HDRSPEC(flags))
 		mdb_printf("%*s %8s %3s %9s %5s %s\n",
@@ -1855,7 +1856,6 @@ metaslab_walk_step(mdb_walk_state_t *wsp)
 	return (wsp->walk_callback(msp, &ms, wsp->walk_cbdata));
 }
 
-/* ARGSUSED */
 static int
 metaslab_walk_init(mdb_walk_state_t *wsp)
 {
@@ -2392,6 +2392,69 @@ zio_state(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		addr = 0;
 
 	return (mdb_pwalk_dcmd("zio_root", "zio", argc, argv, addr));
+}
+
+typedef struct mdb_multilist {
+	uint64_t ml_num_sublists;
+	uintptr_t ml_sublists;
+} mdb_multilist_t;
+
+typedef struct multilist_walk_data {
+	uint64_t mwd_idx;
+	mdb_multilist_t mwd_ml;
+} multilist_walk_data_t;
+
+/* ARGSUSED */
+static int
+multilist_print_cb(uintptr_t addr, const void *unknown, void *arg)
+{
+	mdb_printf("%#lr\n", addr);
+	return (WALK_NEXT);
+}
+
+static int
+multilist_walk_step(mdb_walk_state_t *wsp)
+{
+	multilist_walk_data_t *mwd = wsp->walk_data;
+
+	if (mwd->mwd_idx >= mwd->mwd_ml.ml_num_sublists)
+		return (WALK_DONE);
+
+	wsp->walk_addr = mwd->mwd_ml.ml_sublists +
+	    mdb_ctf_sizeof_by_name("multilist_sublist_t") * mwd->mwd_idx +
+	    mdb_ctf_offsetof_by_name("multilist_sublist_t", "mls_list");
+
+	mdb_pwalk("list", multilist_print_cb, (void*)NULL, wsp->walk_addr);
+	mwd->mwd_idx++;
+
+	return (WALK_NEXT);
+}
+
+static int
+multilist_walk_init(mdb_walk_state_t *wsp)
+{
+	multilist_walk_data_t *mwd;
+
+	if (wsp->walk_addr == NULL) {
+		mdb_warn("must supply address of multilist_t\n");
+		return (WALK_ERR);
+	}
+
+	mwd = mdb_zalloc(sizeof (multilist_walk_data_t), UM_SLEEP | UM_GC);
+	if (mdb_ctf_vread(&mwd->mwd_ml, "multilist_t", "mdb_multilist_t",
+	    wsp->walk_addr, 0) == -1) {
+		return (WALK_ERR);
+	}
+
+	if (mwd->mwd_ml.ml_num_sublists == 0 ||
+	    mwd->mwd_ml.ml_sublists == NULL) {
+		mdb_warn("invalid or uninitialized multilist at %#lx\n",
+		    wsp->walk_addr);
+		return (WALK_ERR);
+	}
+
+	wsp->walk_data = mwd;
+	return (WALK_NEXT);
 }
 
 typedef struct txg_list_walk_data {
@@ -3941,6 +4004,8 @@ static const mdb_walker_t walkers[] = {
 	    spa_walk_init, spa_walk_step, NULL },
 	{ "metaslab", "given a spa_t *, walk all metaslab_t structures",
 	    metaslab_walk_init, metaslab_walk_step, NULL },
+	{ "multilist", "given a multilist_t *, walk all list_t structures",
+	    multilist_walk_init, multilist_walk_step, NULL },
 	{ "zfs_acl_node", "given a zfs_acl_t, walk all zfs_acl_nodes",
 	    zfs_acl_node_walk_init, zfs_acl_node_walk_step, NULL },
 	{ "zfs_acl_node_aces", "given a zfs_acl_node_t, walk all ACEs",

@@ -3340,7 +3340,7 @@ arc_available_memory(void)
 	 * heap is allocated.  (Or, in the calculation, if less than 1/4th is
 	 * free)
 	 */
-	n = vmem_size(heap_arena, VMEM_FREE) -
+	n = (int64_t)vmem_size(heap_arena, VMEM_FREE) -
 	    (vmem_size(heap_arena, VMEM_FREE | VMEM_ALLOC) >> 2);
 	if (n < lowest) {
 		lowest = n;
@@ -3358,8 +3358,9 @@ arc_available_memory(void)
 	 * fragmentation issues.
 	 */
 	if (zio_arena != NULL) {
-		n = vmem_size(zio_arena, VMEM_FREE) - (vmem_size(zio_arena,
-		    VMEM_ALLOC) >> arc_zio_arena_free_shift);
+		n = (int64_t)vmem_size(zio_arena, VMEM_FREE) -
+		    (vmem_size(zio_arena, VMEM_ALLOC) >>
+		    arc_zio_arena_free_shift);
 		if (n < lowest) {
 			lowest = n;
 			r = FMR_ZIO_ARENA;

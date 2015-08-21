@@ -179,7 +179,7 @@ extern void vpanic(const char *, __va_list);
 typedef struct kthread kthread_t;
 
 #define	thread_create(stk, stksize, func, arg, len, pp, state, pri)	\
-	zk_thread_create(func, arg)
+	zk_thread_create(func, arg, len)
 #define	thread_exit() thr_exit(NULL)
 #define	thread_join(t)	panic("libzpool cannot join threads")
 

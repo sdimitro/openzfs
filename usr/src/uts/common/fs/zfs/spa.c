@@ -1268,8 +1268,10 @@ spa_unload(spa_t *spa)
 		spa->spa_async_zio_root = NULL;
 	}
 
-	if (spa->spa_vdev_removal != NULL)
+	if (spa->spa_vdev_removal != NULL) {
 		spa_vdev_removal_destroy(spa->spa_vdev_removal);
+		spa->spa_vdev_removal = NULL;
+	}
 
 	spa_condense_fini(spa);
 

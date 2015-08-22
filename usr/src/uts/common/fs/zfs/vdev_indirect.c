@@ -737,8 +737,10 @@ spa_condense_init(spa_t *spa)
 void
 spa_condense_fini(spa_t *spa)
 {
-	if (spa->spa_condensing_indirect != NULL)
+	if (spa->spa_condensing_indirect != NULL) {
 		spa_condensing_indirect_destroy(spa->spa_condensing_indirect);
+		spa->spa_condensing_indirect = NULL;
+	}
 }
 
 /*

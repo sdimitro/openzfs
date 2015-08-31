@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -558,6 +558,8 @@ get_replication(nvlist_t *nvroot, boolean_t fatal)
 	    &top, &toplevels) == 0);
 
 	lastrep.zprl_type = NULL;
+	lastrep.zprl_parity = 0;
+	lastrep.zprl_children = 0;
 	for (t = 0; t < toplevels; t++) {
 		uint64_t is_log = B_FALSE;
 
@@ -1035,7 +1037,7 @@ is_device_in_use(nvlist_t *config, nvlist_t *nv, boolean_t force,
 	nvlist_t **child;
 	uint_t c, children;
 	char *type, *path;
-	int ret;
+	int ret = 0;
 	char buf[MAXPATHLEN];
 	uint64_t wholedisk;
 	boolean_t anyinuse = B_FALSE;

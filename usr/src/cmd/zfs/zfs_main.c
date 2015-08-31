@@ -723,7 +723,7 @@ zfs_do_create(int argc, char **argv)
 {
 	zfs_type_t type = ZFS_TYPE_FILESYSTEM;
 	zfs_handle_t *zhp = NULL;
-	uint64_t volsize;
+	uint64_t volsize = 0;
 	int c;
 	boolean_t noreserve = B_FALSE;
 	boolean_t bflag = B_FALSE;
@@ -810,7 +810,7 @@ zfs_do_create(int argc, char **argv)
 
 	if (type == ZFS_TYPE_VOLUME && !noreserve) {
 		zpool_handle_t *zpool_handle;
-		nvlist_t *real_props;
+		nvlist_t *real_props = NULL;
 		uint64_t spa_version;
 		char *p;
 		zfs_prop_t resv_prop;
@@ -2383,7 +2383,7 @@ userspace_cb(void *arg, const char *domain, uid_t rid, uint64_t space)
 	nvlist_t *props;
 	us_node_t *n;
 	zfs_sort_column_t *sortcol = cb->cb_sortcol;
-	unsigned type;
+	unsigned type = 0;
 	const char *typestr;
 	size_t namelen;
 	size_t typelen;
@@ -4931,8 +4931,8 @@ store_allow_perm(zfs_deleg_who_type_t type, boolean_t local, boolean_t descend,
 	int i;
 	char ld[2] = { '\0', '\0' };
 	char who_buf[ZFS_MAXNAMELEN+32];
-	char base_type;
-	char set_type;
+	char base_type = '\0';
+	char set_type = '\0';
 	nvlist_t *base_nvl = NULL;
 	nvlist_t *set_nvl = NULL;
 	nvlist_t *nvl;
@@ -5085,7 +5085,7 @@ construct_fsacl_list(boolean_t un, struct allow_opts *opts, nvlist_t **nvlp)
 
 		while (curr < end) {
 			const char *who;
-			zfs_deleg_who_type_t who_type;
+			zfs_deleg_who_type_t who_type = ZFS_DELEG_WHO_UNKNOWN;
 			char *endch;
 			char *delim = strchr(curr, ',');
 			char errbuf[256];
@@ -6427,7 +6427,7 @@ unshare_unmount(int op, int argc, char **argv)
 		 */
 		struct mnttab entry;
 		uu_avl_pool_t *pool;
-		uu_avl_t *tree;
+		uu_avl_t *tree = NULL;
 		unshare_unmount_node_t *node;
 		uu_avl_index_t idx;
 		uu_avl_walk_t *walk;

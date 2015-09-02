@@ -3047,7 +3047,7 @@ source may be specified as with the \fB-i\fR option.
 .sp
 .ne 2
 .na
-\fB\fB-R\fR\fR
+\fB\fB-R\fR, \fB--replicate\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3066,7 +3066,7 @@ snapshots and file systems that do not exist on the sending side are destroyed.
 .sp
 .ne 2
 .na
-\fB\fB-D\fR\fR
+\fB\fB-D\fR, \fB--dedup\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3081,7 +3081,7 @@ will be much better if the filesystem uses a dedup-capable checksum (e.g.
 .sp
 .ne 2
 .na
-\fB\fB-L\fR\fR
+\fB\fB-L\fR, \fB--large-block\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3096,7 +3096,7 @@ flags and the \fBlarge_blocks\fR feature.
 .sp
 .ne 2
 .na
-\fB\fB-e\fR\fR
+\fB\fB-e\fR, \fB--embed\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3113,7 +3113,7 @@ then the receiving system must have that feature enabled as well. See
 .sp
 .ne 2
 .na
-\fB\fB-p\fR\fR
+\fB\fB-p\fR, \fB--props\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3124,7 +3124,7 @@ Include the dataset's properties in the stream.  This flag is implicit when
 .sp
 .ne 2
 .na
-\fB\fB-n\fR\fR
+\fB\fB-n\fR, \fB--dryrun\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3136,7 +3136,7 @@ data will be sent.
 .sp
 .ne 2
 .na
-\fB\fB-P\fR\fR
+\fB\fB-P\fR, \fB--parsable\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3146,7 +3146,7 @@ Print machine-parsable verbose information about the stream package generated.
 .sp
 .ne 2
 .na
-\fB\fB-v\fR\fR
+\fB\fB-v\fR, \fB--verbose\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3192,7 +3192,7 @@ or the origin's origin, etc.
 .sp
 .ne 2
 .na
-\fB\fB-b\fR\fR
+\fB\fB-b\fR, \fB--rebase\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3211,7 +3211,7 @@ received as a clone of that snapshot.
 .sp
 .ne 2
 .na
-\fB\fB-L\fR\fR
+\fB\fB-L\fR, \fB--large-block\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3226,7 +3226,7 @@ flags and the \fBlarge_blocks\fR feature.
 .sp
 .ne 2
 .na
-\fB\fB-e\fR\fR
+\fB\fB-e\fR, \fB--embed\fR\fR
 .ad
 .sp .6
 .RS 4n
@@ -3314,6 +3314,9 @@ are used to detect and correctly handle the cases above.
 .ne 2
 .na
 \fBzfs send\fR [\fB-nvPe\fR] \fB-t\fR \fIreceive_resume_token\fR
+.ad
+.na
+\fBzfs send\fR [\fB-nvPe\fR] \fB--resume\fR \fIreceive_resume_token\fR
 .ad
 .sp .6
 .RS 4n

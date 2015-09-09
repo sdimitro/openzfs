@@ -592,16 +592,12 @@ typedef struct arc_stats {
 	kstat_named_t arcstat_l2_evict_reading;
 	kstat_named_t arcstat_l2_evict_l1cached;
 	kstat_named_t arcstat_l2_free_on_write;
-	kstat_named_t arcstat_l2_cdata_free_on_write;
 	kstat_named_t arcstat_l2_abort_lowmem;
 	kstat_named_t arcstat_l2_cksum_bad;
 	kstat_named_t arcstat_l2_io_error;
 	kstat_named_t arcstat_l2_size;
 	kstat_named_t arcstat_l2_asize;
 	kstat_named_t arcstat_l2_hdr_size;
-	kstat_named_t arcstat_l2_compress_successes;
-	kstat_named_t arcstat_l2_compress_zeros;
-	kstat_named_t arcstat_l2_compress_failures;
 	kstat_named_t arcstat_memory_throttle_count;
 	kstat_named_t arcstat_meta_used;
 	kstat_named_t arcstat_meta_limit;
@@ -680,16 +676,12 @@ static arc_stats_t arc_stats = {
 	{ "l2_evict_reading",		KSTAT_DATA_UINT64 },
 	{ "l2_evict_l1cached",		KSTAT_DATA_UINT64 },
 	{ "l2_free_on_write",		KSTAT_DATA_UINT64 },
-	{ "l2_cdata_free_on_write",	KSTAT_DATA_UINT64 },
 	{ "l2_abort_lowmem",		KSTAT_DATA_UINT64 },
 	{ "l2_cksum_bad",		KSTAT_DATA_UINT64 },
 	{ "l2_io_error",		KSTAT_DATA_UINT64 },
 	{ "l2_size",			KSTAT_DATA_UINT64 },
 	{ "l2_asize",			KSTAT_DATA_UINT64 },
 	{ "l2_hdr_size",		KSTAT_DATA_UINT64 },
-	{ "l2_compress_successes",	KSTAT_DATA_UINT64 },
-	{ "l2_compress_zeros",		KSTAT_DATA_UINT64 },
-	{ "l2_compress_failures",	KSTAT_DATA_UINT64 },
 	{ "memory_throttle_count",	KSTAT_DATA_UINT64 },
 	{ "arc_meta_used",		KSTAT_DATA_UINT64 },
 	{ "arc_meta_limit",		KSTAT_DATA_UINT64 },

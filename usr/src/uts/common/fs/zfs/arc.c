@@ -1394,15 +1394,13 @@ arc_cksum_verify(arc_buf_t *buf)
 	mutex_exit(&hdr->b_l1hdr.b_freeze_lock);
 }
 
-static int
-arc_cksum_equal(arc_buf_hdr_t *hdr, zio_t *zio)
+static boolean_t
+arc_cksum_is_equal(arc_buf_hdr_t *hdr, zio_t *zio)
 {
-	zio_bad_cksum_t info;
 	enum zio_compress compress = BP_GET_COMPRESS(zio->io_bp);
-	int error;
+	boolean_t valid_cksum;
 
 	ASSERT(!BP_IS_EMBEDDED(zio->io_bp));
-	ASSERT(!BP_IS_GANG(zio->io_bp));
 	VERIFY3U(BP_GET_PSIZE(zio->io_bp), ==, HDR_GET_PSIZE(hdr));
 
 	/*
@@ -1445,9 +1443,24 @@ arc_cksum_equal(arc_buf_hdr_t *hdr, zio_t *zio)
 		zio_push_transform(zio, cbuf, csize, HDR_GET_PSIZE(hdr), NULL);
 	}
 
-	error = zio_checksum_error(zio, &info);
+	/*
+	 * Block pointers always store the checksum for the logical data.
+	 * If the block pointer has the gang bit set, then the checksum
+	 * it represents is for the reconstituted data and not for an
+	 * individual gang member. The zio pipeline, however, must be able to
+	 * determine the checksum of each of the gang constituents so it
+	 * treats the checksum comparison differently than what we need
+	 * for l2arc blocks. This prevents us from using the
+	 * zio_checksum_error() interface directly. Instead we must call the
+	 * zio_checksum_error_impl() so that we can ensure the checksum is
+	 * generated using the correct checksum algorithm and accounts for the
+	 * logical I/O size and not just a gang fragment.
+	 */
+	valid_cksum = (zio_checksum_error_impl(zio->io_spa, zio->io_bp,
+	    BP_GET_CHECKSUM(zio->io_bp), zio->io_data, zio->io_size,
+	    zio->io_offset, NULL) == 0);
 	zio_pop_transforms(zio);
-	return (error);
+	return (valid_cksum);
 }
 
 static void
@@ -5791,7 +5804,7 @@ l2arc_read_done(zio_t *zio)
 	arc_buf_hdr_t *hdr;
 	arc_buf_t *buf;
 	kmutex_t *hash_lock;
-	int error;
+	boolean_t valid_cksum;
 
 	ASSERT3P(zio->io_vd, !=, NULL);
 	ASSERT(zio->io_flags & ZIO_FLAG_DONT_PROPAGATE);
@@ -5817,8 +5830,8 @@ l2arc_read_done(zio_t *zio)
 	zio->io_bp_copy = cb->l2rcb_bp;	/* XXX fix in L2ARC 2.0	*/
 	zio->io_bp = &zio->io_bp_copy;	/* XXX fix in L2ARC 2.0	*/
 
-	error = arc_cksum_equal(hdr, zio);
-	if (error == 0 && zio->io_error == 0 && !HDR_L2_EVICTED(hdr)) {
+	valid_cksum = arc_cksum_is_equal(hdr, zio);
+	if (valid_cksum && zio->io_error == 0 && !HDR_L2_EVICTED(hdr)) {
 		mutex_exit(hash_lock);
 		zio->io_private = buf;
 		arc_read_done(zio);
@@ -5833,7 +5846,7 @@ l2arc_read_done(zio_t *zio)
 		} else {
 			zio->io_error = SET_ERROR(EIO);
 		}
-		if (error != 0)
+		if (!valid_cksum)
 			ARCSTAT_BUMP(arcstat_l2_cksum_bad);
 
 		/*

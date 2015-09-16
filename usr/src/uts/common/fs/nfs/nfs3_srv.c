@@ -2395,24 +2395,25 @@ rfs_log_deletions(rpcvers_t rfs_version, char *name, struct svc_req *req,
 	struct sockaddr *ca;
 	struct sockaddr_in *si;
 	char addrbuf[INET6_ADDRSTRLEN];
+	char *addr;
 
 	if (!log_nfs_deletions)
 		return;
 
 	ca = (struct sockaddr *)svc_getrpccaller(req->rq_xprt)->buf;
 	si = (struct sockaddr_in *)ca;
-	inet_ntop(ca->sa_family, &si->sin_addr, addrbuf, sizeof (addrbuf));
+	addr = inet_ntop(ca->sa_family, &si->sin_addr, addrbuf,
+	    sizeof (addrbuf));
 
 	if (vp->v_path == NULL) {
 		cmn_err(CE_NOTE, "rfs%u: %s <uncached>/%s (mount %s) deleted "
 		    "by %d from %s\n", rfs_version,
-		    (file ? "File" : "Directory"),
-		    exi->exi_export.ex_path, name, crgetuid(cr),
-		    addrbuf);
+		    (file ? "File" : "Directory"), exi->exi_export.ex_path,
+		    name, crgetuid(cr), addr);
 	} else {
 		cmn_err(CE_NOTE, "rfs%u: %s %s/%s deleted by %d from %s\n",
 		    rfs_version, (file ? "File" : "Directory"),  vp->v_path,
-		    name, crgetuid(cr), addrbuf);
+		    name, crgetuid(cr), addr);
 	}
 }
 

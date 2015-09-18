@@ -27,7 +27,6 @@ from subprocess import PIPE
 from subprocess import Popen
 from sys import argv
 from sys import maxint
-from sys import exit
 from threading import Timer
 from time import time
 
@@ -123,12 +122,12 @@ class Cmd(object):
         self.killed = False
         self.result = Result()
 
-        if self.timeout == None:
+        if self.timeout is None:
             self.timeout = 60
 
     def __str__(self):
-        return "Pathname: %s\nOutputdir: %s\nTimeout: %d\nUser: %s\n" % (
-                self.pathname, self.outputdir, self.timeout, self.user)
+        return "Pathname: %s\nOutputdir: %s\nTimeout: %d\nUser: %s\n" % \
+            (self.pathname, self.outputdir, self.timeout, self.user)
 
     def kill_cmd(self, proc):
         """
@@ -298,9 +297,9 @@ class Test(Cmd):
         if len(self.post_user):
             post_user = ' (as %s)' % (self.post_user)
         return "Pathname: %s\nOutputdir: %s\nTimeout: %d\nPre: %s%s\nPost: " \
-               "%s%s\nUser: %s\n" % (self.pathname, self.outputdir,
-                self.timeout, self.pre, pre_user, self.post, post_user,
-                self.user)
+               "%s%s\nUser: %s\n" % \
+               (self.pathname, self.outputdir, self.timeout, self.pre,
+                pre_user, self.post, post_user, self.user)
 
     def verify(self, logger):
         """
@@ -329,13 +328,13 @@ class Test(Cmd):
         Create Cmd instances for the pre/post scripts. If the pre script
         doesn't pass, skip this Test. Run the post script regardless.
         """
-        pretest = Cmd(self.pre, outputdir=os.path.join(self.outputdir,
-                      os.path.basename(self.pre)), timeout=self.timeout,
+        odir = os.path.join(self.outputdir, os.path.basename(self.pre))
+        pretest = Cmd(self.pre, outputdir=odir, timeout=self.timeout,
                       user=self.pre_user)
         test = Cmd(self.pathname, outputdir=self.outputdir,
                    timeout=self.timeout, user=self.user)
-        posttest = Cmd(self.post, outputdir=os.path.join(self.outputdir,
-                       os.path.basename(self.post)), timeout=self.timeout,
+        odir = os.path.join(self.outputdir, os.path.basename(self.post))
+        posttest = Cmd(self.post, outputdir=odir, timeout=self.timeout,
                        user=self.post_user)
 
         cont = True
@@ -373,9 +372,9 @@ class TestGroup(Test):
         if len(self.post_user):
             post_user = ' (as %s)' % (self.post_user)
         return "Pathname: %s\nOutputdir: %s\nTests: %s\nTimeout: %d\n" \
-               "Pre: %s%s\nPost: %s%s\nUser: %s\n" % (self.pathname,
-                self.outputdir, self.tests, self.timeout, self.pre, pre_user,
-                self.post, post_user, self.user)
+               "Pre: %s%s\nPost: %s%s\nUser: %s\n" % \
+               (self.pathname, self.outputdir, self.tests, self.timeout,
+                self.pre, pre_user, self.post, post_user, self.user)
 
     def verify(self, logger):
         """
@@ -417,8 +416,8 @@ class TestGroup(Test):
             if not verify_file(os.path.join(self.pathname, test)):
                 del self.tests[self.tests.index(test)]
                 logger.info("Warning: Test '%s' removed from TestGroup '%s' "
-                            "because it failed verification." % (test,
-                            self.pathname))
+                            "because it failed verification." %
+                            (test, self.pathname))
 
         return len(self.tests) is not 0
 
@@ -428,11 +427,11 @@ class TestGroup(Test):
         doesn't pass, skip all the tests in this TestGroup. Run the post
         script regardless.
         """
-        pretest = Cmd(self.pre, outputdir=os.path.join(self.outputdir,
-                      os.path.basename(self.pre)), timeout=self.timeout,
+        odir = os.path.join(self.outputdir, os.path.basename(self.pre))
+        pretest = Cmd(self.pre, outputdir=odir, timeout=self.timeout,
                       user=self.pre_user)
-        posttest = Cmd(self.post, outputdir=os.path.join(self.outputdir,
-                       os.path.basename(self.post)), timeout=self.timeout,
+        odir = os.path.join(self.outputdir, os.path.basename(self.post))
+        posttest = Cmd(self.post, outputdir=odir, timeout=self.timeout,
                        user=self.post_user)
 
         cont = True
@@ -544,11 +543,9 @@ class TestRun(object):
             if 'tests' in config.options(section):
                 testgroup = TestGroup(section)
                 for prop in TestGroup.props:
-                    try:
-                        setattr(testgroup, prop, config.get('DEFAULT', prop))
-                        setattr(testgroup, prop, config.get(section, prop))
-                    except ConfigParser.NoOptionError:
-                        pass
+                    for sect in ['DEFAULT', section]:
+                        if config.has_option(sect, prop):
+                            setattr(testgroup, prop, config.get(sect, prop))
 
                 # Repopulate tests using eval to convert the string to a list
                 testgroup.tests = eval(config.get(section, 'tests'))
@@ -558,11 +555,10 @@ class TestRun(object):
             else:
                 test = Test(section)
                 for prop in Test.props:
-                    try:
-                        setattr(test, prop, config.get('DEFAULT', prop))
-                        setattr(test, prop, config.get(section, prop))
-                    except ConfigParser.NoOptionError:
-                        pass
+                    for sect in ['DEFAULT', section]:
+                        if config.has_option(sect, prop):
+                            setattr(test, prop, config.get(sect, prop))
+
                 if test.verify(logger):
                     self.tests[section] = test
 
@@ -577,7 +573,7 @@ class TestRun(object):
         """
 
         defaults = dict([(prop, getattr(options, prop)) for prop, _ in
-                        self.defaults])
+                         self.defaults])
         config = ConfigParser.RawConfigParser(defaults)
 
         for test in sorted(self.tests.keys()):
@@ -593,7 +589,7 @@ class TestRun(object):
         except IOError:
             fail('Could not open \'%s\' for writing.' % options.template)
 
-    def complete_outputdirs(self, options):
+    def complete_outputdirs(self):
         """
         Collect all the pathnames for Tests, and TestGroups. Work
         backwards one pathname component at a time, to create a unique
@@ -616,7 +612,7 @@ class TestRun(object):
             components -= 1
             for testfile in tmp_dict.keys():
                 uniq = '/'.join(testfile.split('/')[components:]).lstrip('/')
-                if not uniq in l:
+                if uniq not in l:
                     l.append(uniq)
                     tmp_dict[testfile].outputdir = os.path.join(base, uniq)
                 else:
@@ -688,7 +684,7 @@ class TestRun(object):
         h, m = divmod(m, 60)
         print '\nRunning Time:\t%02d:%02d:%02d' % (h, m, s)
         print 'Percent passed:\t%.1f%%' % ((float(Result.runresults['PASS']) /
-               float(Result.total)) * 100)
+                                            float(Result.total)) * 100)
         print 'Log directory:\t%s' % self.outputdir
 
 
@@ -711,7 +707,6 @@ def verify_user(user, logger):
     sudo without being prompted for a password.
     """
     testcmd = [SUDO, '-n', '-u', user, TRUE]
-    can_sudo = exists = True
 
     if user in Cmd.verified_users:
         return True
@@ -719,7 +714,6 @@ def verify_user(user, logger):
     try:
         _ = getpwnam(user)
     except KeyError:
-        exists = False
         logger.info("Warning: user '%s' does not exist.", user)
         return False
 
@@ -762,7 +756,7 @@ def options_cb(option, opt_str, value, parser):
     path_options = ['runfile', 'outputdir', 'template']
 
     if option.dest is 'runfile' and '-w' in parser.rargs or \
-        option.dest is 'template' and '-c' in parser.rargs:
+            option.dest is 'template' and '-c' in parser.rargs:
         fail('-c and -w are mutually exclusive.')
 
     if opt_str in parser.rargs:
@@ -826,7 +820,7 @@ def parse_args():
     return options
 
 
-def main(args):
+def main():
     options = parse_args()
     testrun = TestRun(options)
 
@@ -841,11 +835,11 @@ def main(args):
     else:
         fail('Unknown command specified')
 
-    testrun.complete_outputdirs(options)
+    testrun.complete_outputdirs()
     testrun.run(options)
     testrun.summary()
     exit(0)
 
 
 if __name__ == '__main__':
-    main(argv[1:])
+    main()

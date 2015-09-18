@@ -16,6 +16,7 @@
 # Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
+export PATH="/usr/bin:/sbin:/usr/sbin:/opt/zfs-tests/bin"
 export STF_SUITE="/opt/zfs-tests"
 export STF_TOOLS="/opt/test-runner/stf"
 runner="/opt/test-runner/bin/run"
@@ -29,9 +30,8 @@ function fail
 
 function find_disks
 {
-	typeset all_disks=$(echo '' | sudo /usr/sbin/format | awk \
-	    '/c[0-9]/ {print $2}')
-	typeset used_disks=$(/sbin/zpool status | awk \
+	typeset all_disks=$(echo '' | sudo format | awk '/c[0-9]/ {print $2}')
+	typeset used_disks=$(zpool status | awk \
 	    '/c[0-9]*t[0-9a-f]*d[0-9]/ {print $1}' | sed 's/s[0-9]//g')
 
 	typeset disk used avail_disks
@@ -48,7 +48,7 @@ function find_disks
 
 function find_rpool
 {
-	typeset ds=$(/usr/sbin/mount | awk '/^\/ / {print $3}')
+	typeset ds=$(mount | awk '/^\/ / {print $3}')
 	echo ${ds%%/*}
 }
 
@@ -78,7 +78,7 @@ function verify_disks
 {
 	typeset disk
 	for disk in $DISKS; do
-		sudo /usr/sbin/prtvtoc /dev/rdsk/${disk}s0 >/dev/null 2>&1
+		sudo prtvtoc /dev/rdsk/${disk}s0 >/dev/null 2>&1
 		[[ $? -eq 0 ]] || return 1
 	done
 	return 0
@@ -128,6 +128,6 @@ num_disks=$(echo $DISKS | awk '{print NF}')
 [[ $num_disks -lt 3 ]] && fail "Not enough disks to run ZFS Test Suite"
 
 # Ensure user has only basic privileges.
-/usr/bin/ppriv -s EIP=basic -e $runner $quiet -c $runfile
+ppriv -s EIP=basic -e $runner $quiet -c $runfile
 
 exit $?

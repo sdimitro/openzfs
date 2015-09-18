@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -35,27 +35,27 @@ verify_runnable "both"
 log_assert "Destroying the fromsnap of zfs send -b doesn't cause issues."
 log_onexit cleanup_pool $POOL2
 
-log_must $ZFS create $POOL2/$FS
-log_must $ZFS create $POOL2/$FS/f1
+log_must zfs create $POOL2/$FS
+log_must zfs create $POOL2/$FS/f1
 typeset mntpnt1=$(get_prop mountpoint $POOL2/$FS/f1)
-log_must $DD if=/dev/urandom of=$mntpnt1/file bs=128k count=2k
-log_must $ZFS snapshot $POOL2/$FS/f1@snap
+log_must dd if=/dev/urandom of=$mntpnt1/file bs=1024k count=1k
+log_must zfs snapshot $POOL2/$FS/f1@snap
 
-log_must $ZFS create $POOL2/$FS/f2
-log_must $ZFS snapshot  $POOL2/$FS/f2@snap
+log_must zfs create $POOL2/$FS/f2
+log_must zfs snapshot  $POOL2/$FS/f2@snap
 
 # Flush the cache so the send takes a little while
 log_must zpool export $POOL2
 log_must zpool import $POOL2
-$ZFS send -b -i $POOL2/$FS/f2@snap $POOL2/$FS/f1@snap >/dev/null &
+zfs send -b -i $POOL2/$FS/f2@snap $POOL2/$FS/f1@snap >/dev/null &
 jobs=$!
 log_must sleep .5
-log_neg $ZFS destroy $POOL2/$FS/f2@snap
+log_neg zfs destroy $POOL2/$FS/f2@snap
 
 log_must /usr/bin/kill $jobs
 wait $jobs
 
-log_neg eval "$ZFS send -b -i $POOL2/$FS/f2@nonexist_snap $POOL2/$FS/f1@snap " \
+log_neg eval "zfs send -b -i $POOL2/$FS/f2@nonexist_snap $POOL2/$FS/f1@snap " \
 ">/dev/null"
 
 log_pass "Destroying the fromsnap of zfs send -b doesn't cause issues."

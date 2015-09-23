@@ -3274,7 +3274,10 @@ ztest_objset_destroy_cb(const char *name, void *arg)
 	if (strchr(name, '@') != NULL) {
 		VERIFY0(dsl_destroy_snapshot(name, B_TRUE));
 	} else {
-		VERIFY0(dsl_destroy_head(name));
+		error = dsl_destroy_head(name);
+		/* There could be a hold on this dataset */
+		if (error != EBUSY)
+			ASSERT0(error);
 	}
 	return (0);
 }

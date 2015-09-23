@@ -775,6 +775,7 @@ dbuf_loan_arcbuf(dmu_buf_impl_t *db)
 {
 	arc_buf_t *abuf;
 
+	ASSERT(db->db_blkid != DMU_BONUS_BLKID);
 	mutex_enter(&db->db_mtx);
 	if (arc_released(db->db_buf) || refcount_count(&db->db_holds) > 1) {
 		int blksz = db->db.db_size;
@@ -2112,14 +2113,6 @@ dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx)
 	dmu_buf_fill_done(&db->db, tx);
 }
 
-/*
- * "Clear" the contents of this dbuf.  This will mark the dbuf
- * EVICTING and clear *most* of its references.  Unfortunately,
- * when we are not holding the dn_dbufs_mtx, we can't clear the
- * entry in the dn_dbufs list.  We have to wait until dbuf_destroy()
- * in this case.  For callers from the DMU we will usually see:
- *	dbuf_clear()->dbuf_destroy()
- */
 void
 dbuf_destroy(dmu_buf_impl_t *db)
 {
@@ -2133,6 +2126,13 @@ dbuf_destroy(dmu_buf_impl_t *db)
 	if (db->db_buf != NULL) {
 		arc_buf_destroy(db->db_buf, db);
 		db->db_buf = NULL;
+	}
+
+	if (db->db_blkid == DMU_BONUS_BLKID) {
+		ASSERT(db->db.db_data != NULL);
+		zio_buf_free(db->db.db_data, DN_MAX_BONUSLEN);
+		arc_space_return(DN_MAX_BONUSLEN, ARC_SPACE_OTHER);
+		db->db_state = DB_UNCACHED;
 	}
 
 	dbuf_clear_data(db);

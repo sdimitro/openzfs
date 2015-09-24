@@ -97,6 +97,8 @@ extern zio_checksum_t zio_checksum_edonr_byteswap;
 extern zio_checksum_tmpl_init_t zio_checksum_edonr_tmpl_init;
 extern zio_checksum_tmpl_free_t zio_checksum_edonr_tmpl_free;
 
+extern int zio_checksum_equal(spa_t *, blkptr_t *, enum zio_checksum,
+    void *, uint64_t, uint64_t, zio_bad_cksum_t *);
 extern void zio_checksum_compute(zio_t *zio, enum zio_checksum checksum,
     void *data, uint64_t size);
 extern int zio_checksum_error_impl(spa_t *, blkptr_t *, enum zio_checksum,

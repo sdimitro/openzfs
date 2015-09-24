@@ -105,7 +105,7 @@ typedef enum arc_flags
 	 * the data without having to store the checksum in the hdr.
 	 */
 	ARC_FLAG_COMPRESSED_ARC		= 1 << 17,
-
+	ARC_FLAG_SHARED_DATA		= 1 << 18,
 
 	/*
 	 * The arc buffer's compression mode is stored in the top 7 bits of the

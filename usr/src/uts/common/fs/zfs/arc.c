@@ -1097,6 +1097,8 @@ static void arc_buf_watch(arc_buf_t *);
 
 static arc_buf_contents_t arc_buf_type(arc_buf_hdr_t *);
 static uint32_t arc_bufc_to_flags(arc_buf_contents_t);
+static inline void arc_hdr_set_flags(arc_buf_hdr_t *hdr, arc_flags_t flags);
+static inline void arc_hdr_clear_flags(arc_buf_hdr_t *hdr, arc_flags_t flags);
 
 static boolean_t l2arc_write_eligible(uint64_t, arc_buf_hdr_t *);
 static void l2arc_read_done(zio_t *);
@@ -1191,7 +1193,7 @@ buf_hash_insert(arc_buf_hdr_t *hdr, kmutex_t **lockp)
 
 	hdr->b_hash_next = buf_hash_table.ht_table[idx];
 	buf_hash_table.ht_table[idx] = hdr;
-	hdr->b_flags |= ARC_FLAG_IN_HASH_TABLE;
+	arc_hdr_set_flags(hdr, ARC_FLAG_IN_HASH_TABLE);
 
 	/* collect some hash table performance data */
 	if (i > 0) {
@@ -1224,7 +1226,7 @@ buf_hash_remove(arc_buf_hdr_t *hdr)
 	}
 	*hdrp = hdr->b_hash_next;
 	hdr->b_hash_next = NULL;
-	hdr->b_flags &= ~ARC_FLAG_IN_HASH_TABLE;
+	arc_hdr_clear_flags(hdr, ARC_FLAG_IN_HASH_TABLE);
 
 	/* collect some hash table performance data */
 	ARCSTAT_BUMPDOWN(arcstat_hash_elements);
@@ -1654,9 +1656,40 @@ arc_buf_freeze(arc_buf_t *buf)
 
 }
 
+/*
+ * The arc_buf_hdr_t's b_flags should never be modified directly. Instead,
+ * the following functions should be used to ensure that the flags are
+ * updated in a thread-safe way. When manipulating the flags either
+ * the hash_lock must be held or the hdr must be undiscoverable. This
+ * ensures that we're not racing with any other threads when updating
+ * the flags.
+ */
+static inline void
+arc_hdr_set_flags(arc_buf_hdr_t *hdr, arc_flags_t flags)
+{
+	ASSERT(MUTEX_HELD(HDR_LOCK(hdr)) || HDR_EMPTY(hdr));
+	hdr->b_flags |= flags;
+}
+
+static inline void
+arc_hdr_clear_flags(arc_buf_hdr_t *hdr, arc_flags_t flags)
+{
+	ASSERT(MUTEX_HELD(HDR_LOCK(hdr)) || HDR_EMPTY(hdr));
+	hdr->b_flags &= ~flags;
+}
+
+/*
+ * Setting the compression bits in the arc_buf_hdr_t's b_flags is
+ * done in a special way since we have to clear and set bits
+ * at the same time. Consumers that wish to set the compression bits
+ * must use this function to ensure that the flags are updated in
+ * thread-safe manner.
+ */
 static void
 arc_hdr_set_compress(arc_buf_hdr_t *hdr, enum zio_compress cmp)
 {
+	ASSERT(MUTEX_HELD(HDR_LOCK(hdr)) || HDR_EMPTY(hdr));
+
 	/*
 	 * Holes and embedded blocks will always have a psize = 0 so
 	 * we ignore the compression of the blkptr and set the
@@ -1665,11 +1698,15 @@ arc_hdr_set_compress(arc_buf_hdr_t *hdr, enum zio_compress cmp)
 	 * want to uncompress them. Mark them as uncompressed.
 	 */
 	if (!zfs_compressed_arc_enabled || HDR_GET_PSIZE(hdr) == 0) {
-		hdr->b_flags &= ~ARC_FLAG_COMPRESSED_ARC;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_COMPRESSED_ARC);
 		HDR_SET_COMPRESS(hdr, ZIO_COMPRESS_OFF);
+		ASSERT(!HDR_COMPRESSION_ENABLED(hdr));
+		ASSERT3U(HDR_GET_COMPRESS(hdr), ==, ZIO_COMPRESS_OFF);
 	} else {
-		hdr->b_flags |= ARC_FLAG_COMPRESSED_ARC;
+		arc_hdr_set_flags(hdr, ARC_FLAG_COMPRESSED_ARC);
 		HDR_SET_COMPRESS(hdr, cmp);
+		ASSERT3U(HDR_GET_COMPRESS(hdr), ==, cmp);
+		ASSERT(HDR_COMPRESSION_ENABLED(hdr));
 	}
 }
 
@@ -1833,7 +1870,7 @@ add_reference(arc_buf_hdr_t *hdr, void *tag)
 			arc_evitable_space_decrement(hdr, state);
 		}
 		/* remove the prefetch flag if we get a reference */
-		hdr->b_flags &= ~ARC_FLAG_PREFETCH;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_PREFETCH);
 	}
 }
 
@@ -2169,11 +2206,11 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag)
 	if (hdr->b_l1hdr.b_byteswap == DMU_BSWAP_NUMFUNCS &&
 	    HDR_GET_COMPRESS(hdr) == ZIO_COMPRESS_OFF) {
 		buf->b_data = hdr->b_l1hdr.b_pdata;
-		hdr->b_flags |= ARC_FLAG_SHARED_DATA;
+		arc_hdr_set_flags(hdr, ARC_FLAG_SHARED_DATA);
 	} else {
 		buf->b_data = arc_get_data_buf(hdr, HDR_GET_LSIZE(hdr), buf);
 		ARCSTAT_INCR(arcstat_overhead_size, HDR_GET_LSIZE(hdr));
-		hdr->b_flags &= ~ARC_FLAG_SHARED_DATA;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_SHARED_DATA);
 	}
 	VERIFY3P(buf->b_data, !=, NULL);
 
@@ -2307,7 +2344,7 @@ arc_share_buf(arc_buf_hdr_t *hdr, arc_buf_t *buf)
 	 */
 	refcount_transfer_ownership(&state->arcs_size, buf, hdr);
 	hdr->b_l1hdr.b_pdata = buf->b_data;
-	hdr->b_flags |= ARC_FLAG_SHARED_DATA;
+	arc_hdr_set_flags(hdr, ARC_FLAG_SHARED_DATA);
 
 	/*
 	 * Since we've transferred ownership to the hdr we need
@@ -2334,7 +2371,7 @@ arc_unshare_buf(arc_buf_hdr_t *hdr, arc_buf_t *buf)
 	 * to transfer its ownership to the rightful owner.
 	 */
 	refcount_transfer_ownership(&state->arcs_size, hdr, buf);
-	hdr->b_flags &= ~ARC_FLAG_SHARED_DATA;
+	arc_hdr_clear_flags(hdr, ARC_FLAG_SHARED_DATA);
 	hdr->b_l1hdr.b_pdata = NULL;
 
 	/*
@@ -2377,7 +2414,7 @@ arc_buf_destroy_impl(arc_buf_t *buf, boolean_t remove)
 		if (destroyed_buf_is_shared) {
 			ASSERT(ARC_BUF_LAST(buf));
 			ASSERT(HDR_SHARED_DATA(hdr));
-			hdr->b_flags &= ~ARC_FLAG_SHARED_DATA;
+			arc_hdr_clear_flags(hdr, ARC_FLAG_SHARED_DATA);
 		} else {
 			arc_free_data_buf(hdr, buf->b_data, size, buf);
 			ARCSTAT_INCR(arcstat_overhead_size, -size);
@@ -2504,9 +2541,9 @@ arc_hdr_alloc(uint64_t spa, int32_t psize, int32_t lsize,
 	HDR_SET_PSIZE(hdr, psize);
 	HDR_SET_LSIZE(hdr, lsize);
 	hdr->b_spa = spa;
-	hdr->b_flags = arc_bufc_to_flags(type);
-	hdr->b_flags |= ARC_FLAG_HAS_L1HDR;
 	hdr->b_type = type;
+	hdr->b_flags = 0;
+	arc_hdr_set_flags(hdr, arc_bufc_to_flags(type) | ARC_FLAG_HAS_L1HDR);
 	arc_hdr_set_compress(hdr, compress);
 
 	hdr->b_l1hdr.b_state = arc_anon;
@@ -2551,7 +2588,7 @@ arc_hdr_realloc(arc_buf_hdr_t *hdr, kmem_cache_t *old, kmem_cache_t *new)
 	bcopy(hdr, nhdr, HDR_L2ONLY_SIZE);
 
 	if (new == hdr_full_cache) {
-		nhdr->b_flags |= ARC_FLAG_HAS_L1HDR;
+		arc_hdr_set_flags(nhdr, ARC_FLAG_HAS_L1HDR);
 		/*
 		 * arc_access and arc_change_state need to be aware that a
 		 * header has just come out of L2ARC, so we set its state to
@@ -2584,7 +2621,7 @@ arc_hdr_realloc(arc_buf_hdr_t *hdr, kmem_cache_t *old, kmem_cache_t *new)
 		VERIFY(!HDR_L2_WRITING(hdr));
 		VERIFY3P(hdr->b_l1hdr.b_pdata, ==, NULL);
 
-		nhdr->b_flags &= ~ARC_FLAG_HAS_L1HDR;
+		arc_hdr_clear_flags(nhdr, ARC_FLAG_HAS_L1HDR);
 	}
 	/*
 	 * The header has been reallocated so we need to re-insert it into any
@@ -2657,8 +2694,7 @@ arc_hdr_l2hdr_destroy(arc_buf_hdr_t *hdr)
 	vdev_space_update(dev->l2ad_vdev, -asize, 0, 0);
 
 	(void) refcount_remove_many(&dev->l2ad_alloc, asize, hdr);
-
-	hdr->b_flags &= ~ARC_FLAG_HAS_L2HDR;
+	arc_hdr_clear_flags(hdr, ARC_FLAG_HAS_L2HDR);
 }
 
 static void
@@ -2672,6 +2708,9 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 	}
 	ASSERT(!HDR_IO_IN_PROGRESS(hdr));
 	ASSERT(!HDR_IN_HASH_TABLE(hdr));
+
+	if (!HDR_EMPTY(hdr))
+		buf_discard_identity(hdr);
 
 	if (HDR_HAS_L2HDR(hdr)) {
 		l2arc_dev_t *dev = hdr->b_l2hdr.b_dev;
@@ -2695,9 +2734,6 @@ arc_hdr_destroy(arc_buf_hdr_t *hdr)
 		if (!buflist_held)
 			mutex_exit(&dev->l2ad_mtx);
 	}
-
-	if (!HDR_EMPTY(hdr))
-		buf_discard_identity(hdr);
 
 	if (HDR_HAS_L1HDR(hdr)) {
 		arc_cksum_free(hdr);
@@ -2876,7 +2912,7 @@ arc_evict_hdr(arc_buf_hdr_t *hdr, kmutex_t *hash_lock)
 
 		arc_change_state(evicted_state, hdr, hash_lock);
 		ASSERT(HDR_IN_HASH_TABLE(hdr));
-		hdr->b_flags |= ARC_FLAG_IN_HASH_TABLE;
+		arc_hdr_set_flags(hdr, ARC_FLAG_IN_HASH_TABLE);
 		DTRACE_PROBE1(arc__evict, arc_buf_hdr_t *, hdr);
 	}
 
@@ -4041,7 +4077,7 @@ arc_access(arc_buf_hdr_t *hdr, kmutex_t *hash_lock)
 				ASSERT(multilist_link_active(
 				    &hdr->b_l1hdr.b_arc_node));
 			} else {
-				hdr->b_flags &= ~ARC_FLAG_PREFETCH;
+				arc_hdr_clear_flags(hdr, ARC_FLAG_PREFETCH);
 				ARCSTAT_BUMP(arcstat_mru_hits);
 			}
 			hdr->b_l1hdr.b_arc_access = now;
@@ -4075,7 +4111,7 @@ arc_access(arc_buf_hdr_t *hdr, kmutex_t *hash_lock)
 		if (HDR_PREFETCH(hdr)) {
 			new_state = arc_mru;
 			if (refcount_count(&hdr->b_l1hdr.b_refcnt) > 0)
-				hdr->b_flags &= ~ARC_FLAG_PREFETCH;
+				arc_hdr_clear_flags(hdr, ARC_FLAG_PREFETCH);
 			DTRACE_PROBE1(new_state__mru, arc_buf_hdr_t *, hdr);
 		} else {
 			new_state = arc_mfu;
@@ -4225,9 +4261,9 @@ arc_read_done(zio_t *zio)
 		}
 	}
 
-	hdr->b_flags &= ~ARC_FLAG_L2_EVICTED;
+	arc_hdr_clear_flags(hdr, ARC_FLAG_L2_EVICTED);
 	if (l2arc_noprefetch && HDR_PREFETCH(hdr))
-		hdr->b_flags &= ~ARC_FLAG_L2CACHE;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_L2CACHE);
 
 	callback_list = hdr->b_l1hdr.b_acb;
 	ASSERT3P(callback_list, !=, NULL);
@@ -4270,13 +4306,13 @@ arc_read_done(zio_t *zio)
 		}
 	}
 	hdr->b_l1hdr.b_acb = NULL;
-	hdr->b_flags &= ~ARC_FLAG_IO_IN_PROGRESS;
+	arc_hdr_clear_flags(hdr, ARC_FLAG_IO_IN_PROGRESS);
 	if (abuf == NULL) {
 		/*
 		 * This buffer didn't have a callback so it must
 		 * be a prefetch.
 		 */
-		ASSERT(hdr->b_flags & ARC_FLAG_PREFETCH);
+		ASSERT(HDR_PREFETCH(hdr));
 		ASSERT0(hdr->b_l1hdr.b_bufcnt);
 		ASSERT3P(hdr->b_l1hdr.b_pdata, !=, NULL);
 	}
@@ -4287,7 +4323,7 @@ arc_read_done(zio_t *zio)
 	if (zio->io_error == 0) {
 		arc_hdr_verify(hdr, zio->io_bp);
 	} else {
-		hdr->b_flags |= ARC_FLAG_IO_ERROR;
+		arc_hdr_set_flags(hdr, ARC_FLAG_IO_ERROR);
 		if (hdr->b_l1hdr.b_state != arc_anon)
 			arc_change_state(arc_anon, hdr, hash_lock);
 		if (HDR_IN_HASH_TABLE(hdr))
@@ -4406,7 +4442,8 @@ top:
 				ARCSTAT_BUMP(arcstat_sync_wait_for_async);
 			}
 			if (hdr->b_flags & ARC_FLAG_PREDICTIVE_PREFETCH) {
-				hdr->b_flags &= ~ARC_FLAG_PREDICTIVE_PREFETCH;
+				arc_hdr_clear_flags(hdr,
+				    ARC_FLAG_PREDICTIVE_PREFETCH);
 			}
 
 			if (*arc_flags & ARC_FLAG_WAIT) {
@@ -4452,7 +4489,8 @@ top:
 				    arc_buf_hdr_t *, hdr);
 				ARCSTAT_BUMP(
 				    arcstat_demand_hit_predictive_prefetch);
-				hdr->b_flags &= ~ARC_FLAG_PREDICTIVE_PREFETCH;
+				arc_hdr_clear_flags(hdr,
+				    ARC_FLAG_PREDICTIVE_PREFETCH);
 			}
 			ASSERT(!BP_IS_EMBEDDED(bp) || !BP_IS_HOLE(bp));
 
@@ -4475,12 +4513,12 @@ top:
 
 		} else if (*arc_flags & ARC_FLAG_PREFETCH &&
 		    refcount_count(&hdr->b_l1hdr.b_refcnt) == 0) {
-			hdr->b_flags |= ARC_FLAG_PREFETCH;
+			arc_hdr_set_flags(hdr, ARC_FLAG_PREFETCH);
 		}
 		DTRACE_PROBE1(arc__hit, arc_buf_hdr_t *, hdr);
 		arc_access(hdr, hash_lock);
 		if (*arc_flags & ARC_FLAG_L2CACHE)
-			hdr->b_flags |= ARC_FLAG_L2CACHE;
+			arc_hdr_set_flags(hdr, ARC_FLAG_L2CACHE);
 		mutex_exit(hash_lock);
 		ARCSTAT_BUMP(arcstat_hits);
 		ARCSTAT_CONDSTAT(!HDR_PREFETCH(hdr),
@@ -4560,13 +4598,13 @@ top:
 		}
 
 		if (*arc_flags & ARC_FLAG_PREFETCH)
-			hdr->b_flags |= ARC_FLAG_PREFETCH;
+			arc_hdr_set_flags(hdr, ARC_FLAG_PREFETCH);
 		if (*arc_flags & ARC_FLAG_L2CACHE)
-			hdr->b_flags |= ARC_FLAG_L2CACHE;
+			arc_hdr_set_flags(hdr, ARC_FLAG_L2CACHE);
 		if (BP_GET_LEVEL(bp) > 0)
-			hdr->b_flags |= ARC_FLAG_INDIRECT;
+			arc_hdr_set_flags(hdr, ARC_FLAG_INDIRECT);
 		if (*arc_flags & ARC_FLAG_PREDICTIVE_PREFETCH)
-			hdr->b_flags |= ARC_FLAG_PREDICTIVE_PREFETCH;
+			arc_hdr_set_flags(hdr, ARC_FLAG_PREDICTIVE_PREFETCH);
 		ASSERT(!GHOST_STATE(hdr->b_l1hdr.b_state));
 
 		acb = kmem_zalloc(sizeof (arc_callback_t), KM_SLEEP);
@@ -4575,7 +4613,7 @@ top:
 
 		ASSERT3P(hdr->b_l1hdr.b_acb, ==, NULL);
 		hdr->b_l1hdr.b_acb = acb;
-		hdr->b_flags |= ARC_FLAG_IO_IN_PROGRESS;
+		arc_hdr_set_flags(hdr, ARC_FLAG_IO_IN_PROGRESS);
 
 		if (HDR_HAS_L2HDR(hdr) &&
 		    (vd = hdr->b_l2hdr.b_dev->l2ad_vdev) != NULL) {
@@ -4588,6 +4626,11 @@ top:
 			    !spa_config_tryenter(spa, SCL_L2ARC, vd, RW_READER))
 				vd = NULL;
 		}
+
+		if (priority == ZIO_PRIORITY_ASYNC_READ)
+			arc_hdr_set_flags(hdr, ARC_FLAG_PRIO_ASYNC_READ);
+		else
+			arc_hdr_clear_flags(hdr, ARC_FLAG_PRIO_ASYNC_READ);
 
 		if (hash_lock != NULL)
 			mutex_exit(hash_lock);
@@ -4604,11 +4647,6 @@ top:
 		ARCSTAT_CONDSTAT(!HDR_PREFETCH(hdr),
 		    demand, prefetch, !HDR_ISTYPE_METADATA(hdr),
 		    data, metadata, misses);
-
-		if (priority == ZIO_PRIORITY_ASYNC_READ)
-			hdr->b_flags |= ARC_FLAG_PRIO_ASYNC_READ;
-		else
-			hdr->b_flags &= ~ARC_FLAG_PRIO_ASYNC_READ;
 
 		if (vd != NULL && l2arc_ndev != 0 && !(l2arc_norw && devw)) {
 			/*
@@ -4896,12 +4934,10 @@ arc_release(arc_buf_t *buf, void *tag)
 			 */
 			arc_unshare_buf(hdr, buf);
 			arc_share_buf(hdr, lastbuf);
-
 			VERIFY3P(lastbuf->b_data, !=, NULL);
 		} else if (HDR_SHARED_DATA(hdr)) {
 			ASSERT(arc_buf_is_shared(lastbuf));
 		}
-
 		ASSERT3P(hdr->b_l1hdr.b_pdata, !=, NULL);
 		ASSERT3P(state, !=, arc_l2c_only);
 
@@ -5019,7 +5055,7 @@ arc_write_ready(zio_t *zio)
 		ASSERT(zio->io_flags & ZIO_FLAG_REEXECUTED);
 
 	arc_cksum_compute(buf);
-	hdr->b_flags |= ARC_FLAG_IO_IN_PROGRESS;
+	arc_hdr_set_flags(hdr, ARC_FLAG_IO_IN_PROGRESS);
 
 	enum zio_compress compress;
 	if (BP_IS_HOLE(zio->io_bp) || BP_IS_EMBEDDED(zio->io_bp)) {
@@ -5144,13 +5180,13 @@ arc_write_done(zio_t *zio)
 				ASSERT(BP_GET_LEVEL(zio->io_bp) == 0);
 			}
 		}
-		hdr->b_flags &= ~ARC_FLAG_IO_IN_PROGRESS;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_IO_IN_PROGRESS);
 		/* if it's not anon, we are doing a scrub */
 		if (exists == NULL && hdr->b_l1hdr.b_state == arc_anon)
 			arc_access(hdr, hash_lock);
 		mutex_exit(hash_lock);
 	} else {
-		hdr->b_flags &= ~ARC_FLAG_IO_IN_PROGRESS;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_IO_IN_PROGRESS);
 	}
 
 	ASSERT(!refcount_is_zero(&hdr->b_l1hdr.b_refcnt));
@@ -5176,7 +5212,7 @@ arc_write(zio_t *pio, spa_t *spa, uint64_t txg, blkptr_t *bp, arc_buf_t *buf,
 	ASSERT3P(hdr->b_l1hdr.b_acb, ==, NULL);
 	ASSERT3U(hdr->b_l1hdr.b_bufcnt, >, 0);
 	if (l2arc)
-		hdr->b_flags |= ARC_FLAG_L2CACHE;
+		arc_hdr_set_flags(hdr, ARC_FLAG_L2CACHE);
 	callback = kmem_zalloc(sizeof (arc_write_callback_t), KM_SLEEP);
 	callback->awcb_ready = ready;
 	callback->awcb_physdone = physdone;
@@ -6053,7 +6089,7 @@ top:
 			 * Error - drop L2ARC entry.
 			 */
 			list_remove(buflist, hdr);
-			hdr->b_flags &= ~ARC_FLAG_HAS_L2HDR;
+			arc_hdr_clear_flags(hdr, ARC_FLAG_HAS_L2HDR);
 
 			ARCSTAT_INCR(arcstat_l2_asize, -arc_hdr_size(hdr));
 			ARCSTAT_INCR(arcstat_l2_size, -HDR_GET_LSIZE(hdr));
@@ -6067,7 +6103,7 @@ top:
 		 * Allow ARC to begin reads and ghost list evictions to
 		 * this L2ARC entry.
 		 */
-		hdr->b_flags &= ~ARC_FLAG_L2_WRITING;
+		arc_hdr_clear_flags(hdr, ARC_FLAG_L2_WRITING);
 
 		mutex_exit(hash_lock);
 	}
@@ -6302,7 +6338,7 @@ top:
 			 */
 			if (HDR_L2_READING(hdr)) {
 				ARCSTAT_BUMP(arcstat_l2_evict_reading);
-				hdr->b_flags |= ARC_FLAG_L2_EVICTED;
+				arc_hdr_set_flags(hdr, ARC_FLAG_L2_EVICTED);
 			}
 
 			/* Ensure this header has finished being written */
@@ -6342,8 +6378,7 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz)
 	write_sz = write_asize = write_psize = 0;
 	full = B_FALSE;
 	head = kmem_cache_alloc(hdr_l2only_cache, KM_PUSHPAGE);
-	head->b_flags |= ARC_FLAG_L2_WRITE_HEAD;
-	head->b_flags |= ARC_FLAG_HAS_L2HDR;
+	arc_hdr_set_flags(head, ARC_FLAG_L2_WRITE_HEAD | ARC_FLAG_HAS_L2HDR);
 
 	/*
 	 * Copy buffers for L2ARC writing.
@@ -6423,8 +6458,8 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz)
 
 			hdr->b_l2hdr.b_dev = dev;
 			hdr->b_l2hdr.b_daddr = dev->l2ad_hand;
-			hdr->b_flags |= ARC_FLAG_L2_WRITING;
-			hdr->b_flags |= ARC_FLAG_HAS_L2HDR;
+			arc_hdr_set_flags(hdr,
+			    ARC_FLAG_L2_WRITING | ARC_FLAG_HAS_L2HDR);
 
 			mutex_enter(&dev->l2ad_mtx);
 			list_insert_head(&dev->l2ad_buflist, hdr);

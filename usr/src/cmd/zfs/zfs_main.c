@@ -3733,7 +3733,7 @@ zfs_do_send(int argc, char **argv)
 		{"dedup",	no_argument,		NULL, 'D'},
 		{"verbose",	no_argument,		NULL, 'v'},
 		{"dryrun",	no_argument,		NULL, 'n'},
-		{"large-block",	no_argument,		NULL, 'l'},
+		{"large-block",	no_argument,		NULL, 'L'},
 		{"embed",	no_argument,		NULL, 'e'},
 		{"resume",	required_argument,	NULL, 't'},
 		{0, 0, 0, 0}
@@ -3799,6 +3799,8 @@ zfs_do_send(int argc, char **argv)
 			usage(B_FALSE);
 			break;
 		case '?':
+			/*FALLTHROUGH*/
+		default:
 			(void) fprintf(stderr, gettext("invalid option '%c'\n"),
 			    optopt);
 			usage(B_FALSE);

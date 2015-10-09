@@ -2196,6 +2196,16 @@ dmu_recv_resume_begin_check(void *arg, dmu_tx_t *tx)
 		return (SET_ERROR(EINVAL));
 	}
 
+	/*
+	 * Check if the receive is still running.  If so, it will be owned.
+	 * Note that nothing else can own the dataset (e.g. after the receive
+	 * fails) because it will be marked inconsistent.
+	 */
+	if (dsl_dataset_has_owner(ds)) {
+		dsl_dataset_rele(ds, FTAG);
+		return (SET_ERROR(EBUSY));
+	}
+
 	/* There should not be any snapshots of this fs yet. */
 	if (ds->ds_prev != NULL && ds->ds_prev->ds_dir == ds->ds_dir) {
 		dsl_dataset_rele(ds, FTAG);

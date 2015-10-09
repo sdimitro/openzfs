@@ -2148,6 +2148,7 @@ guid_to_name_cb(zfs_handle_t *zhp, void *arg)
 	if (gtnd->skip != NULL &&
 	    (slash = strrchr(zhp->zfs_name, '/')) != NULL &&
 	    strcmp(slash + 1, gtnd->skip) == 0) {
+		zfs_close(zhp);
 		return (0);
 	}
 
@@ -2175,35 +2176,34 @@ static int
 guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
     boolean_t bookmark_ok, char *name)
 {
-	/* exhaustive search all local snapshots */
 	char pname[ZFS_MAXNAMELEN];
 	guid_to_name_data_t gtnd;
-	int err = 0;
-	zfs_handle_t *zhp;
-	char *cp;
 
 	gtnd.guid = guid;
 	gtnd.bookmark_ok = bookmark_ok;
 	gtnd.name = name;
 	gtnd.skip = NULL;
 
-	(void) strlcpy(pname, parent, sizeof (pname));
-
 	/*
-	 * Search progressively larger portions of the hierarchy.  This will
+	 * Search progressively larger portions of the hierarchy, starting
+	 * with the filesystem specified by 'parent'.  This will
 	 * select the "most local" version of the origin snapshot in the case
 	 * that there are multiple matching snapshots in the system.
 	 */
-	while ((cp = strrchr(pname, '/')) != NULL) {
-
+	(void) strlcpy(pname, parent, sizeof (pname));
+	char *cp = strrchr(pname, '@');
+	if (cp == NULL)
+		cp = strchr(pname, '\0');
+	for (; cp != NULL; cp = strrchr(pname, '/')) {
 		/* Chop off the last component and open the parent */
 		*cp = '\0';
-		zhp = make_dataset_handle(hdl, pname);
+		zfs_handle_t *zhp = make_dataset_handle(hdl, pname);
 
 		if (zhp == NULL)
 			continue;
-
-		err = zfs_iter_children(zhp, guid_to_name_cb, &gtnd);
+		int err = guid_to_name_cb(zfs_handle_dup(zhp), &gtnd);
+		if (err != EEXIST)
+			err = zfs_iter_children(zhp, guid_to_name_cb, &gtnd);
 		if (err != EEXIST && bookmark_ok)
 			err = zfs_iter_bookmarks(zhp, guid_to_name_cb, &gtnd);
 		zfs_close(zhp);

@@ -1386,7 +1386,7 @@ zfs_send_resume_token_to_nvlist(libzfs_handle_t *hdl, const char *token)
 	    &version, &checksum, &packed_len);
 	if (nread != 3) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-		    "resume token is corrupt (sscanf failed)"));
+		    "resume token is corrupt (invalid format)"));
 		return (NULL);
 	}
 
@@ -1425,7 +1425,8 @@ zfs_send_resume_token_to_nvlist(libzfs_handle_t *hdl, const char *token)
 	/* uncompress */
 	void *packed = zfs_alloc(hdl, packed_len);
 	uLongf packed_len_long = packed_len;
-	if (uncompress(packed, &packed_len_long, compressed, len) != Z_OK) {
+	if (uncompress(packed, &packed_len_long, compressed, len) != Z_OK ||
+	    packed_len_long != packed_len) {
 		free(packed);
 		free(compressed);
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
@@ -1457,25 +1458,24 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 	zfs_handle_t *zhp;
 	int error = 0;
 	char name[ZFS_MAXNAMELEN];
-	nvlist_t *resume_nvl =
-	    zfs_send_resume_token_to_nvlist(hdl, resume_token);
 	enum lzc_send_flags lzc_flags = 0;
-
-	if (flags->verbose) {
-		(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
-		    "resume token contents:\n"));
-		nvlist_print(stderr, resume_nvl);
-	}
 
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
 	    "cannot resume send"));
 
+	nvlist_t *resume_nvl =
+	    zfs_send_resume_token_to_nvlist(hdl, resume_token);
 	if (resume_nvl == NULL) {
 		/*
 		 * zfs_error_aux has already been set by
 		 * zfs_send_resume_token_to_nvlist
 		 */
 		return (zfs_error(hdl, EZFS_FAULT, errbuf));
+	}
+	if (flags->verbose) {
+		(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
+		    "resume token contents:\n"));
+		nvlist_print(stderr, resume_nvl);
 	}
 
 	if (nvlist_lookup_string(resume_nvl, "toname", &toname) != 0 ||

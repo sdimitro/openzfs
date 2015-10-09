@@ -3453,17 +3453,21 @@ dmu_recv_stream(dmu_recv_cookie_t *drc, vnode_t *vp, offset_t *voffp,
 	}
 
 	uint32_t payloadlen = drc->drc_drr_begin->drr_payloadlen;
-	void *payload = kmem_alloc(payloadlen, KM_SLEEP);
+	void *payload = NULL;
+	if (payloadlen != 0)
+		payload = kmem_alloc(payloadlen, KM_SLEEP);
 
 	err = receive_read_payload_and_next_header(&ra, payloadlen, payload);
-	if (err != 0)
+	if (err != 0) {
+		if (payloadlen != 0)
+			kmem_free(payload, payloadlen);
 		goto out;
+	}
 	if (payloadlen != 0) {
 		err = nvlist_unpack(payload, payloadlen, &begin_nvl, KM_SLEEP);
 		kmem_free(payload, payloadlen);
 		if (err != 0)
 			goto out;
-
 	}
 
 	if (featureflags & DMU_BACKUP_FEATURE_RESUMING) {

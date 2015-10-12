@@ -48,6 +48,8 @@
 #include <sys/callb.h>
 #include <sys/vdev.h>
 
+uint_t zfs_dbuf_evict_key;
+
 /*
  * Number of times that zfs_free_range() took the slow path while doing
  * a zfs receive.  A nonzero value indicates a potential performance problem.
@@ -447,6 +449,14 @@ dbuf_evict_one(void)
 
 	ASSERT(!MUTEX_HELD(&dbuf_evict_lock));
 
+	/*
+	 * Set the thread's tsd to indicate that it's processing evictions.
+	 * Once a thread stops evicting from the dbuf cache it will
+	 * reset its tsd to NULL.
+	 */
+	ASSERT3P(tsd_get(zfs_dbuf_evict_key), ==, NULL);
+	(void) tsd_set(zfs_dbuf_evict_key, (void *)B_TRUE);
+
 	dmu_buf_impl_t *db = multilist_sublist_tail(mls);
 	while (db != NULL && mutex_tryenter(&db->db_mtx) == 0) {
 		db = multilist_sublist_prev(mls, db);
@@ -464,6 +474,7 @@ dbuf_evict_one(void)
 	} else {
 		multilist_sublist_unlock(mls);
 	}
+	(void) tsd_set(zfs_dbuf_evict_key, NULL);
 }
 
 /*
@@ -518,16 +529,25 @@ dbuf_evict_notify(void)
 {
 
 	/*
-	 * As the dbuf eviction thread ages entries out of the cache,
-	 * it will call dbuf_destroy() on those dbufs. This may result
-	 * in a call flow as follows:
+	 * We use thread specific data to track when a thread has
+	 * started processing evictions. This allows us to avoid deeply
+	 * nested stacks that would have a call flow similar to this:
 	 *
 	 * dbuf_rele()-->dbuf_rele_and_unlock()-->dbuf_evict_notify()
+	 *	^						|
+	 *	|						|
+	 *	+-----dbuf_destroy()<--dbuf_evict_one()<--------+
 	 *
-	 * Since the dbuf eviction thread will keep looping to evict
-	 * aged entries, there is no point in trying to wake itself up here.
+	 * The dbuf_eviction_thread will always have its tsd set until
+	 * that thread exits. All other threads will only set their tsd
+	 * if they are participating in the eviction process. This only
+	 * happens if the eviction thread is unable to process evictions
+	 * fast enough. To keep the dbuf cache size in check, other threads
+	 * can evict from the dbuf cache directly. Those threads will set
+	 * their tsd values so that we ensure that they only evict one dbuf
+	 * from the dbuf cache.
 	 */
-	if (curthread == dbuf_cache_evict_thread)
+	if (tsd_get(zfs_dbuf_evict_key) != NULL)
 		return;
 
 	if (refcount_count(&dbuf_cache_size) > dbuf_cache_max_bytes) {
@@ -597,6 +617,7 @@ retry:
 	    dbuf_cache_multilist_index_func);
 	refcount_create(&dbuf_cache_size);
 
+	tsd_create(&zfs_dbuf_evict_key, NULL);
 	dbuf_evict_thread_exit = B_FALSE;
 	mutex_init(&dbuf_evict_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&dbuf_evict_cv, NULL, CV_DEFAULT, NULL);
@@ -623,6 +644,7 @@ dbuf_fini(void)
 		cv_wait(&dbuf_evict_cv, &dbuf_evict_lock);
 	}
 	mutex_exit(&dbuf_evict_lock);
+	tsd_destroy(&zfs_dbuf_evict_key);
 
 	mutex_destroy(&dbuf_evict_lock);
 	cv_destroy(&dbuf_evict_cv);

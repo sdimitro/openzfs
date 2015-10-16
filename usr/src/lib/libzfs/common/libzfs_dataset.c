@@ -2017,6 +2017,10 @@ get_numeric_property(zfs_handle_t *zhp, zfs_prop_t prop, zprop_source_t *src,
 		*val = zhp->zfs_dmustats.dds_inconsistent;
 		break;
 
+	case ZFS_PROP_REDACTED:
+		*val = zhp->zfs_dmustats.dds_redacted;
+		break;
+
 	default:
 		switch (zfs_prop_get_type(prop)) {
 		case PROP_TYPE_NUMBER:

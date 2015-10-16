@@ -88,6 +88,7 @@ typedef enum drr_headertype {
 #define	DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP	(1 << 18)
 #define	DMU_BACKUP_FEATURE_LARGE_BLOCKS		(1 << 19)
 #define	DMU_BACKUP_FEATURE_RESUMING		(1 << 20)
+#define	DMU_BACKUP_FEATURE_REDACTED		(1 << 21)
 
 /*
  * Mask of all supported backup features
@@ -97,7 +98,7 @@ typedef enum drr_headertype {
     DMU_BACKUP_FEATURE_EMBED_DATA | DMU_BACKUP_FEATURE_EMBED_DATA_LZ4 | \
     DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP | \
     DMU_BACKUP_FEATURE_RESUMING | \
-    DMU_BACKUP_FEATURE_LARGE_BLOCKS)
+    DMU_BACKUP_FEATURE_LARGE_BLOCKS | DMU_BACKUP_FEATURE_REDACTED)
 
 /* Are all features in the given flag word currently supported? */
 #define	DMU_STREAM_SUPPORTED(x)	(!((x) & ~DMU_BACKUP_FEATURE_MASK))

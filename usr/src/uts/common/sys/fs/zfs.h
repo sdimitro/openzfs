@@ -151,6 +151,7 @@ typedef enum {
 	ZFS_PROP_MOOCH_BYTESWAP,
 	ZFS_PROP_RECEIVE_RESUME_TOKEN,
 	ZFS_PROP_REMAPTXG,		/* not exposed to the user */
+	ZFS_PROP_REDACTED,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 

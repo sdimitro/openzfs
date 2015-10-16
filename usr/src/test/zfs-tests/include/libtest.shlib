@@ -2683,3 +2683,12 @@ function get_min
 
 	echo $min
 }
+
+#
+# Generate a random number between 1 and the argument.
+#
+function random
+{
+        typeset max=$1
+        echo $(( ($RANDOM % $max) + 1 ))
+}

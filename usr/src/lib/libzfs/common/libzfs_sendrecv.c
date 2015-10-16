@@ -59,6 +59,9 @@ extern void zfs_setprop_error(libzfs_handle_t *, zfs_prop_t, int, char *);
 static int zfs_receive_impl(libzfs_handle_t *, const char *, const char *,
     recvflags_t *, int, const char *, nvlist_t *, avl_tree_t *, char **, int,
     uint64_t *);
+static int guid_to_name_redact_snaps(libzfs_handle_t *hdl, const char *parent,
+    uint64_t guid, boolean_t bookmark_ok, uint64_t *redact_snap_guids,
+    uint64_t num_redact_snaps, char *name);
 static int guid_to_name(libzfs_handle_t *, const char *,
     uint64_t, boolean_t, char *);
 
@@ -1449,7 +1452,7 @@ zfs_send_resume_token_to_nvlist(libzfs_handle_t *hdl, const char *token)
 
 int
 zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
-    const char *resume_token)
+    const char *resume_token, const char *redact_book)
 {
 	char errbuf[1024];
 	char *toname;
@@ -1459,6 +1462,9 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 	int error = 0;
 	char name[ZFS_MAXNAMELEN];
 	enum lzc_send_flags lzc_flags = 0;
+	uint64_t *redact_snap_guids = NULL;
+	nvlist_t *redact_snaps = NULL;
+	int num_redact_snaps = 0;
 
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
 	    "cannot resume send"));
@@ -1512,14 +1518,54 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 		return (zfs_error(hdl, EZFS_BADPATH, errbuf));
 	}
 
+	if (nvlist_lookup_uint64_array(resume_nvl, "book_redact_snaps",
+	    &redact_snap_guids, (uint_t *)&num_redact_snaps) != 0) {
+		num_redact_snaps = -1;
+	}
+
 	if (fromguid != 0) {
-		if (guid_to_name(hdl, toname, fromguid, B_TRUE, name) != 0) {
+		if (guid_to_name_redact_snaps(hdl, toname, fromguid, B_TRUE,
+		    redact_snap_guids, num_redact_snaps, name) != 0) {
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "incremental source %#llx no longer exists"),
 			    (longlong_t)fromguid);
 			return (zfs_error(hdl, EZFS_BADPATH, errbuf));
 		}
 		fromname = name;
+	}
+
+	redact_snap_guids = NULL;
+
+	if (nvlist_lookup_uint64_array(resume_nvl, "redact_snaps",
+	    &redact_snap_guids, (uint_t *)&num_redact_snaps) == 0) {
+		int error_num = 0;
+		char redact_name[ZFS_MAXNAMELEN];
+
+		if (redact_book == NULL) {
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "no redaction bookmark provided"));
+			return (zfs_error(hdl, EZFS_BADPROP, errbuf));
+		}
+
+		redact_snaps = fnvlist_alloc();
+		for (int i = 0; i < num_redact_snaps; i++) {
+			error = guid_to_name(hdl, toname, redact_snap_guids[i],
+			    B_TRUE, redact_name);
+			if (error != 0) {
+				error_num = i;
+				break;
+			}
+			fnvlist_add_boolean(redact_snaps, redact_name);
+		}
+
+		if (error != 0) {
+			fnvlist_free(redact_snaps);
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "redaction snapshot with guid %llx no longer "
+			    "exists"),
+			    (longlong_t)redact_snap_guids[error_num]);
+			return (zfs_error(hdl, EZFS_NOENT, errbuf));
+		}
 	}
 
 	if (flags->verbose) {
@@ -1546,18 +1592,20 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 			error = pthread_create(&tid, NULL,
 			    send_progress_thread, &pa);
 			if (error != 0) {
+				fnvlist_free(redact_snaps);
 				zfs_close(zhp);
 				return (error);
 			}
 		}
 
-		error = lzc_send_resume(zhp->zfs_name, fromname, outfd,
-		    lzc_flags, resumeobj, resumeoff);
+		error = lzc_send_resume_redacted(zhp->zfs_name, fromname, outfd,
+		    lzc_flags, resumeobj, resumeoff, redact_snaps, redact_book);
 
 		if (flags->progress) {
 			(void) pthread_cancel(tid);
 			(void) pthread_join(tid, NULL);
 		}
+		fnvlist_free(redact_snaps);
 
 		char errbuf[1024];
 		(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
@@ -1568,6 +1616,13 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 		switch (error) {
 		case 0:
 			return (0);
+		case ESRCH:
+			if (lzc_exists(zhp->zfs_name)) {
+				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+				    "incremental source could not be found"));
+			}
+			return (zfs_error(hdl, EZFS_NOENT, errbuf));
+
 		case EXDEV:
 		case ENOENT:
 		case EDQUOT:
@@ -1918,6 +1973,24 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd,
 			    "target is busy; if a filesystem, "
 			    "it must not be mounted"));
 			return (zfs_error(hdl, EZFS_BUSY, errbuf));
+		case EEXIST:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "redaction bookmark (%s) provided already exists"),
+			    redactbook);
+			return (zfs_error(hdl, EZFS_EXISTS, errbuf));
+		case ENAMETOOLONG:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "provided bookmark name cannot be used, final name"
+			    "would be too long"));
+			return (zfs_error(hdl, EZFS_NAMETOOLONG, errbuf));
+		case E2BIG:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "too many redaction snapshots specified"));
+			return (zfs_error(hdl, EZFS_TOOMANY, errbuf));
+		case EINVAL:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "redaction snapshot must be descendent of tosnap"));
+			return (zfs_error(hdl, EZFS_CROSSTARGET, errbuf));
 
 		case EDQUOT:
 		case EFBIG:
@@ -2136,7 +2209,36 @@ typedef struct guid_to_name_data {
 	boolean_t bookmark_ok;
 	char *name;
 	char *skip;
+	uint64_t *redact_snap_guids;
+	uint64_t num_redact_snaps;
 } guid_to_name_data_t;
+
+boolean_t
+redact_snaps_match(zfs_handle_t *zhp, guid_to_name_data_t *gtnd)
+{
+	uint64_t *bmark_snaps;
+	uint_t bmark_num_snaps;
+	nvlist_t *nvl;
+	if (zhp->zfs_type != ZFS_TYPE_BOOKMARK)
+		return (B_FALSE);
+
+	nvl = fnvlist_lookup_nvlist(zhp->zfs_props, "redact_snaps");
+	bmark_snaps = fnvlist_lookup_uint64_array(nvl, ZPROP_VALUE,
+	    &bmark_num_snaps);
+	if (bmark_num_snaps != gtnd->num_redact_snaps)
+		return (B_FALSE);
+	int i = 0;
+	for (; i < bmark_num_snaps; i++) {
+		int j = 0;
+		for (; j < bmark_num_snaps; j++) {
+			if (bmark_snaps[i] == gtnd->redact_snap_guids[j])
+				break;
+		}
+		if (j == bmark_num_snaps)
+			break;
+	}
+	return (i == bmark_num_snaps);
+}
 
 static int
 guid_to_name_cb(zfs_handle_t *zhp, void *arg)
@@ -2152,7 +2254,8 @@ guid_to_name_cb(zfs_handle_t *zhp, void *arg)
 		return (0);
 	}
 
-	if (zfs_prop_get_int(zhp, ZFS_PROP_GUID) == gtnd->guid) {
+	if (zfs_prop_get_int(zhp, ZFS_PROP_GUID) == gtnd->guid &&
+	    (gtnd->num_redact_snaps == -1 || redact_snaps_match(zhp, gtnd))) {
 		(void) strcpy(gtnd->name, zhp->zfs_name);
 		zfs_close(zhp);
 		return (EEXIST);
@@ -2171,10 +2274,19 @@ guid_to_name_cb(zfs_handle_t *zhp, void *arg)
  * progressively larger portions of the hierarchy.  This allows one to send a
  * tree of datasets individually and guarantee that we will find the source
  * guid within that hierarchy, even if there are multiple matches elsewhere.
+ *
+ * If num_redact_snaps is not -1, we attempt to find a redaction bookmark with
+ * the specified number of redaction snapshots.  If num_redact_snaps isn't 0 or
+ * -1, then redact_snap_guids will be an array of the guids of the snapshots the
+ * redaction bookmark was created with.  If num_redact_snaps is -1, then we will
+ * attempt to find a snapshot or bookmark (if bookmark_ok is passed) with the
+ * given guid.  Note that a redaction bookmark can be returned if
+ * num_redact_snaps == -1.
  */
 static int
-guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
-    boolean_t bookmark_ok, char *name)
+guid_to_name_redact_snaps(libzfs_handle_t *hdl, const char *parent,
+    uint64_t guid, boolean_t bookmark_ok, uint64_t *redact_snap_guids,
+    uint64_t num_redact_snaps, char *name)
 {
 	char pname[ZFS_MAXNAMELEN];
 	guid_to_name_data_t gtnd;
@@ -2183,6 +2295,8 @@ guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
 	gtnd.bookmark_ok = bookmark_ok;
 	gtnd.name = name;
 	gtnd.skip = NULL;
+	gtnd.redact_snap_guids = redact_snap_guids;
+	gtnd.num_redact_snaps = num_redact_snaps;
 
 	/*
 	 * Search progressively larger portions of the hierarchy, starting
@@ -2219,6 +2333,14 @@ guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
 	}
 
 	return (ENOENT);
+}
+
+static int
+guid_to_name(libzfs_handle_t *hdl, const char *parent, uint64_t guid,
+    boolean_t bookmark_ok, char *name)
+{
+	return (guid_to_name_redact_snaps(hdl, parent, guid, bookmark_ok, NULL,
+	    -1, name));
 }
 
 /*
@@ -2908,6 +3030,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 	nvlist_t *snapprops_nvlist = NULL;
 	zprop_errflags_t prop_errflags;
 	boolean_t recursive;
+	boolean_t redacted;
 
 	begin_time = time(NULL);
 
@@ -3111,6 +3234,9 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 
 	(void) strcpy(zc.zc_name, zc.zc_value);
 	*strchr(zc.zc_name, '@') = '\0';
+
+	redacted = DMU_GET_FEATUREFLAGS(drrb->drr_versioninfo) &
+	    DMU_BACKUP_FEATURE_REDACTED;
 
 	if (zfs_dataset_exists(hdl, zc.zc_name, ZFS_TYPE_DATASET)) {
 		zfs_handle_t *zhp;
@@ -3384,7 +3510,7 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 	 * receive (indicated by stream_avl being non-NULL).
 	 */
 	cp = strchr(zc.zc_value, '@');
-	if (cp && (ioctl_err == 0 || !newfs)) {
+	if (cp && (ioctl_err == 0 || !newfs) && !redacted) {
 		zfs_handle_t *h;
 
 		*cp = '\0';

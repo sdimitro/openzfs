@@ -20,7 +20,7 @@
 #
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 # Copyright (c) 2013, Joyent, Inc. All rights reserved.
 #
 
@@ -93,6 +93,16 @@ SYMBOL_VERSION ILLUMOS_0.1 {	# Illumos additions
     fnvlist_lookup_uint64;
     fnvlist_lookup_string;
     fnvlist_lookup_nvlist;
+    fnvlist_lookup_boolean_array;
+    fnvlist_lookup_byte_array;
+    fnvlist_lookup_int8_array;
+    fnvlist_lookup_int16_array;
+    fnvlist_lookup_int32_array;
+    fnvlist_lookup_int64_array;
+    fnvlist_lookup_uint8_array;
+    fnvlist_lookup_uint16_array;
+    fnvlist_lookup_uint32_array;
+    fnvlist_lookup_uint64_array;
     fnvpair_value_boolean_value;
     fnvpair_value_byte;
     fnvpair_value_int8;

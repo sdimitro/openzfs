@@ -596,5 +596,46 @@ Booting off of pools using \fBedonr\fR is \fBNOT\fR supported
 -- any attempt to enable \fBedonr\fR on a root pool will fail with an
 error.
 
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBredaction_bookmarks\fR\fR
+.ad
+.RS 4n
+.TS
+l l .
+GUID	com.delphix:readction_bookmarks
+READ\-ONLY COMPATIBLE	no
+DEPENDENCIES	bookmarks, extensible_dataset
+.TE
+
+This feature enables the use of the redacted zfs send.  Redacted zfs sends
+creates redaction bookmarks, which store the list of blocks redacted by the
+send that created them.  For more information about redacted send,
+see \fBzfs\fR(1M).
+
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBredacted_datasets\fR\fR
+.ad
+.RS 4n
+.TS
+l l .
+GUID	com.delphix:readcted_datasets
+READ\-ONLY COMPATIBLE	no
+DEPENDENCIES	extensible_dataset
+.TE
+
+This feature enables the receiving of redacted zfs send streams.  Redacted zfs
+send streams creates redacted datasets when received.  These datasets are
+missing some of their blocks, and so cannot be safely mounted, and their
+contents cannot be safely read.  For more information about redacted receive,
+see \fBzfs\fR(1M).
+
 .SH "SEE ALSO"
 \fBzpool\fR(1M)

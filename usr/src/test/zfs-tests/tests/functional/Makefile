@@ -54,6 +54,7 @@ SUBDIRS = acl \
 	poolversion \
 	privilege \
 	quota \
+	redacted_send \
 	redundancy \
 	refquota \
 	refreserv \

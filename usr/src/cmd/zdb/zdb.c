@@ -46,11 +46,13 @@
 #include <sys/dsl_dir.h>
 #include <sys/dsl_dataset.h>
 #include <sys/dsl_pool.h>
+#include <sys/dsl_bookmark.h>
 #include <sys/dbuf.h>
 #include <sys/zil.h>
 #include <sys/zil_impl.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
+#include <sys/dmu_send.h>
 #include <sys/dmu_traverse.h>
 #include <sys/zio_checksum.h>
 #include <sys/zio_compress.h>
@@ -378,6 +380,43 @@ dump_uint8(objset_t *os, uint64_t object, void *data, size_t size)
 static void
 dump_uint64(objset_t *os, uint64_t object, void *data, size_t size)
 {
+	uint64_t *arr;
+
+	if (dump_opt['d'] < 6)
+		return;
+	if (data == NULL) {
+		dmu_object_info_t doi;
+
+		VERIFY0(dmu_object_info(os, object, &doi));
+		size = doi.doi_max_offset;
+		arr = kmem_alloc(size, KM_SLEEP);
+
+		int err = dmu_read(os, object, 0, size, arr, 0);
+		if (err != 0) {
+			(void) printf("got error %u from dmu_read\n", err);
+			kmem_free(arr, size);
+			return;
+		}
+	} else {
+		arr = data;
+	}
+
+	if (size == 0) {
+		(void) printf("\t\t[]\n");
+		return;
+	}
+
+	(void) printf("\t\t[%0llx", (u_longlong_t)arr[0]);
+	for (size_t i = 1; i * sizeof (uint64_t) < size; i++) {
+		if (i % 4 != 0)
+			(void) printf(", %0llx", (u_longlong_t)arr[i]);
+		else
+			(void) printf(",\n\t\t%0llx", (u_longlong_t)arr[i]);
+	}
+	(void) printf("]\n");
+
+	if (data == NULL)
+		kmem_free(arr, size);
 }
 
 /*ARGSUSED*/
@@ -1635,6 +1674,115 @@ dump_full_bpobj(bpobj_t *bpo, char *name, int indent)
 }
 
 static void
+dump_bookmarks(objset_t *os, const char *osname, int verbosity)
+{
+	zap_cursor_t zc;
+	zap_attribute_t attr;
+	dsl_dataset_t *ds = dmu_objset_ds(os);
+	objset_t *mos = os->os_spa->spa_meta_objset;
+	if (verbosity < 4)
+		return;
+
+	for (zap_cursor_init(&zc, mos, ds->ds_bookmarks);
+	    zap_cursor_retrieve(&zc, &attr) == 0;
+	    zap_cursor_advance(&zc)) {
+		char buf[ZFS_MAXNAMELEN];
+		zfs_bookmark_phys_t prop;
+		dsl_pool_t *dp;
+
+		(void) snprintf(buf, ZFS_MAXNAMELEN, "%s#%s", osname,
+		    attr.za_name);
+		VERIFY0(dsl_pool_hold(buf, FTAG, &dp));
+		VERIFY0(dsl_bookmark_lookup(dp, buf, NULL, &prop));
+
+		(void) printf("\t#%s: ", attr.za_name);
+		(void) printf("{guid: %llx creation_txg: %llu creation_time: "
+		    "%llu redaction_obj: %llu}\n", (u_longlong_t)prop.zbm_guid,
+		    (u_longlong_t)prop.zbm_creation_txg,
+		    (u_longlong_t)prop.zbm_creation_time,
+		    (u_longlong_t)prop.zbm_redaction_obj);
+
+		if (verbosity < 5 || prop.zbm_redaction_obj == 0) {
+			dsl_pool_rele(dp, FTAG);
+			continue;
+		}
+
+		redaction_list_t *rl;
+		VERIFY0(dsl_redaction_list_hold_obj(dp,
+		    prop.zbm_redaction_obj, FTAG, &rl));
+
+		redaction_list_phys_t *rlp = rl->rl_phys;
+		(void) printf("\tRedacted:\n\t\tProgress: ");
+		if (rlp->rlp_last_object != UINT64_MAX ||
+		    rlp->rlp_last_blkid != UINT64_MAX) {
+			(void) printf("%llu %llu (incomplete)\n",
+			    (u_longlong_t)rlp->rlp_last_object,
+			    (u_longlong_t)rlp->rlp_last_blkid);
+		} else {
+			(void) printf("complete\n");
+		}
+		(void) printf("\t\tSnapshots: [");
+		for (int i = 0; i < rlp->rlp_num_snaps; i++) {
+			if (i > 0)
+				(void) printf(", ");
+			(void) printf("%0llu",
+			    (u_longlong_t)rlp->rlp_snaps[i]);
+		}
+		(void) printf("]\n\t\tLength: %llu\n",
+		    (u_longlong_t)rlp->rlp_num_entries);
+
+		if (verbosity < 6 || prop.zbm_redaction_obj == 0) {
+			dsl_redaction_list_rele(rl, FTAG);
+			dsl_pool_rele(dp, FTAG);
+			continue;
+		}
+
+		redact_block_phys_t *rbp_buf;
+		uint64_t size;
+		dmu_object_info_t doi;
+
+		VERIFY0(dmu_object_info(mos, prop.zbm_redaction_obj, &doi));
+		size = doi.doi_max_offset;
+		rbp_buf = kmem_alloc(size, KM_SLEEP);
+
+		int err = dmu_read(mos, prop.zbm_redaction_obj, 0, size,
+		    rbp_buf, 0);
+		if (err != 0) {
+			dsl_redaction_list_rele(rl, FTAG);
+			(void) printf("got error %u from dmu_read\n", err);
+			kmem_free(rbp_buf, size);
+			continue;
+		}
+
+		if (size == 0) {
+			dsl_redaction_list_rele(rl, FTAG);
+			(void) printf("\t\tRedaction List: []\n\n");
+			continue;
+		}
+		(void) printf("\t\tRedaction List: [{object: %llx, offset: "
+		    "%llx, blksz: %x, count: %llx}",
+		    (u_longlong_t)rbp_buf[0].rbp_object,
+		    (u_longlong_t)rbp_buf[0].rbp_blkid,
+		    (uint_t)(redact_block_get_size(&rbp_buf[0])),
+		    (u_longlong_t)redact_block_get_count(&rbp_buf[0]));
+
+		for (size_t i = 1; i < rlp->rlp_num_entries; i++) {
+			(void) printf(",\n\t\t{object: %llx, offset: %llx, "
+			    "blksz: %x, count: %llx}",
+			    (u_longlong_t)rbp_buf[i].rbp_object,
+			    (u_longlong_t)rbp_buf[i].rbp_blkid,
+			    (uint_t)(redact_block_get_size(&rbp_buf[i])),
+			    (u_longlong_t)redact_block_get_count(&rbp_buf[i]));
+		}
+		dsl_redaction_list_rele(rl, FTAG);
+		dsl_pool_rele(dp, FTAG);
+		(void) printf("]\n\n");
+		kmem_free(rbp_buf, size);
+	}
+	zap_cursor_fini(&zc);
+}
+
+static void
 dump_deadlist(dsl_deadlist_t *dl)
 {
 	dsl_deadlist_entry_t *dle;
@@ -1918,7 +2066,8 @@ static object_viewer_t *object_viewer[DMU_OT_NUMTYPES + 1] = {
 };
 
 static void
-dump_object(objset_t *os, uint64_t object, int verbosity, int *print_header)
+dump_object(objset_t *os, uint64_t object, int verbosity, boolean_t redacted,
+    int *print_header)
 {
 	dmu_buf_t *db = NULL;
 	dmu_object_info_t doi;
@@ -1991,11 +2140,13 @@ dump_object(objset_t *os, uint64_t object, int verbosity, int *print_header)
 		    "SPILL_BLKPTR" : "");
 		(void) printf("\tdnode maxblkid: %llu\n",
 		    (longlong_t)dn->dn_phys->dn_maxblkid);
-
-		object_viewer[ZDB_OT_TYPE(doi.doi_bonus_type)](os, object,
-		    bonus, bsize);
-		object_viewer[ZDB_OT_TYPE(doi.doi_type)](os, object, NULL, 0);
-		*print_header = 1;
+		if (!redacted) {
+			object_viewer[ZDB_OT_TYPE(doi.doi_bonus_type)](os,
+			    object, bonus, bsize);
+			object_viewer[ZDB_OT_TYPE(doi.doi_type)](os, object,
+			    NULL, 0);
+			*print_header = 1;
+		}
 	}
 
 	if (verbosity >= 5)
@@ -2052,12 +2203,16 @@ dump_dir(objset_t *os)
 	char osname[MAXNAMELEN];
 	char *type = "UNKNOWN";
 	int verbosity = dump_opt['d'];
-	int print_header = 1;
+	int print_header;
 	int i, error;
+	boolean_t redacted;
 
 	dsl_pool_config_enter(dmu_objset_pool(os), FTAG);
 	dmu_objset_fast_stat(os, &dds);
 	dsl_pool_config_exit(dmu_objset_pool(os), FTAG);
+
+	redacted = (boolean_t)dds.dds_redacted;
+	print_header = !redacted;
 
 	if (dds.dds_type < DMU_OST_NUMTYPES)
 		type = objset_types[dds.dds_type];
@@ -2092,9 +2247,10 @@ dump_dir(objset_t *os)
 	    numbuf, (u_longlong_t)usedobjs, blkbuf);
 
 	if (zopt_objects != 0) {
-		for (i = 0; i < zopt_objects; i++)
+		for (i = 0; i < zopt_objects; i++) {
 			dump_object(os, zopt_object[i], verbosity,
-			    &print_header);
+			    redacted, &print_header);
+		}
 		(void) printf("\n");
 		return;
 	}
@@ -2112,23 +2268,28 @@ dump_dir(objset_t *os)
 		}
 	}
 
+	if (dmu_objset_ds(os) != NULL)
+		dump_bookmarks(os, osname, verbosity);
+
 	if (verbosity < 2)
 		return;
 
 	if (BP_IS_HOLE(os->os_rootbp))
 		return;
 
-	dump_object(os, 0, verbosity, &print_header);
+	dump_object(os, 0, verbosity, redacted, &print_header);
 	object_count = 0;
 	if (DMU_USERUSED_DNODE(os) != NULL &&
 	    DMU_USERUSED_DNODE(os)->dn_type != 0) {
-		dump_object(os, DMU_USERUSED_OBJECT, verbosity, &print_header);
-		dump_object(os, DMU_GROUPUSED_OBJECT, verbosity, &print_header);
+		dump_object(os, DMU_USERUSED_OBJECT, verbosity, redacted,
+		    &print_header);
+		dump_object(os, DMU_GROUPUSED_OBJECT, verbosity, redacted,
+		    &print_header);
 	}
 
 	object = 0;
 	while ((error = dmu_object_next(os, &object, B_FALSE, 0)) == 0) {
-		dump_object(os, object, verbosity, &print_header);
+		dump_object(os, object, verbosity, redacted, &print_header);
 		object_count++;
 	}
 
@@ -2345,14 +2506,20 @@ dump_one_dir(const char *dsname, void *arg)
 	int error;
 	objset_t *os;
 
-	error = dmu_objset_own(dsname, DMU_OST_ANY, B_TRUE, FTAG, &os);
+	/*
+	 * We can't own an objset if it's redacted.  Therefore, we do this
+	 * dance: hold the objset, then acquire a long hold on its dataset, then
+	 * release the pool.
+	 */
+	error = dmu_objset_hold(dsname, FTAG, &os);
 	if (error) {
 		(void) printf("Could not open %s, error %d\n", dsname, error);
 		return (0);
 	}
-
+	dsl_dataset_long_hold(dmu_objset_ds(os), FTAG);
+	dsl_pool_rele(dmu_objset_pool(os), FTAG);
 	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
-		if (!dmu_objset_ds(os)->ds_feature_inuse[f])
+		if (!dsl_dataset_feature_is_active(dmu_objset_ds(os), f))
 			continue;
 		ASSERT(spa_feature_table[f].fi_flags &
 		    ZFEATURE_FLAG_PER_DATASET);
@@ -2362,9 +2529,9 @@ dump_one_dir(const char *dsname, void *arg)
 	if (dsl_dataset_remap_deadlist_exists(dmu_objset_ds(os))) {
 		remap_deadlist_count++;
 	}
-
 	dump_dir(os);
-	dmu_objset_disown(os, FTAG);
+	dsl_dataset_long_rele(dmu_objset_ds(os), FTAG);
+	dsl_dataset_rele(dmu_objset_ds(os), FTAG);
 	fuid_table_destroy();
 	sa_loaded = B_FALSE;
 	return (0);
@@ -4412,8 +4579,16 @@ main(int argc, char **argv)
 				}
 			}
 		} else {
-			error = dmu_objset_own(target, DMU_OST_ANY,
-			    B_TRUE, FTAG, &os);
+			/*
+			 * We can't own an objset if it's redacted.  Therefore,
+			 * we do this dance: hold the objset, then acquire a
+			 * long hold on its dataset, then release the pool.
+			 */
+			error = dmu_objset_hold(target, FTAG, &os);
+			if (error == 0) {
+				dsl_dataset_long_hold(dmu_objset_ds(os), FTAG);
+				dsl_pool_rele(dmu_objset_pool(os), FTAG);
+			}
 		}
 	}
 	nvlist_free(policy);
@@ -4456,7 +4631,12 @@ main(int argc, char **argv)
 			zdb_read_block(argv[i], spa);
 	}
 
-	(os != NULL) ? dmu_objset_disown(os, FTAG) : spa_close(spa, FTAG);
+	if (os != NULL) {
+		dsl_dataset_long_rele(dmu_objset_ds(os), FTAG);
+		dsl_dataset_rele(dmu_objset_ds(os), FTAG);
+	} else {
+		spa_close(spa, FTAG);
+	}
 
 	fuid_table_destroy();
 	sa_loaded = B_FALSE;

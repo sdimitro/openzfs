@@ -13,7 +13,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -29,6 +29,7 @@
 #include <sys/spa.h>
 #include <sys/dsl_bookmark.h>
 #include <zfs_namecheck.h>
+#include <sys/dmu_send.h>
 
 static int
 dsl_bookmark_hold_ds(dsl_pool_t *dp, const char *fullname,
@@ -70,9 +71,25 @@ dsl_dataset_bmark_lookup(dsl_dataset_t *ds, const char *shortname,
 	else
 		mt = MT_EXACT;
 
-	err = zap_lookup_norm(mos, bmark_zapobj, shortname, sizeof (uint64_t),
-	    sizeof (*bmark_phys) / sizeof (uint64_t), bmark_phys, mt,
-	    NULL, 0, NULL);
+	uint64_t num_integers, int_size;
+
+	err = zap_length(mos, bmark_zapobj, shortname, &int_size,
+	    &num_integers);
+	if (err == 0) {
+		ASSERT3U(int_size, ==, sizeof (uint64_t));
+		ASSERT3U(num_integers, <=, sizeof (*bmark_phys) / int_size);
+
+		err = zap_lookup_norm(mos, bmark_zapobj, shortname, int_size,
+		    num_integers, bmark_phys, mt, NULL, 0, NULL);
+
+		/*
+		 * If this is an old bookmark, created before redacted bookmarks
+		 * existed, we know the redaction obj should be zero, so set it
+		 * manually.
+		 */
+		if (err == 0 && num_integers == 3)
+			bmark_phys->zbm_redaction_obj = 0;
+	}
 
 	return (err == ENOENT ? ESRCH : err);
 }
@@ -104,6 +121,15 @@ dsl_bookmark_lookup(dsl_pool_t *dp, const char *fullname,
 	dsl_dataset_rele(ds, FTAG);
 	return (error);
 }
+
+typedef struct dsl_bookmark_create_redacted_arg {
+	const char	*dbcra_bmark;
+	const char	*dbcra_snap;
+	redaction_list_t **dbcra_rl;
+	uint64_t	dbcra_numsnaps;
+	uint64_t	*dbcra_snaps;
+	void		*dbcra_tag;
+} dsl_bookmark_create_redacted_arg_t;
 
 typedef struct dsl_bookmark_create_arg {
 	nvlist_t *dbca_bmarks;
@@ -176,57 +202,89 @@ dsl_bookmark_create_check(void *arg, dmu_tx_t *tx)
 	return (rv);
 }
 
+/*
+ * If redaction_list is non-null, we create a redacted bookmark and redaction
+ * list, and store the object number of the redaction list in redact_obj.
+ */
+static void
+dsl_bookmark_create_sync_impl(const char *bookmark, const char *snapshot,
+    dmu_tx_t *tx, uint64_t num_redact_snaps, uint64_t *redact_snaps, void *tag,
+    redaction_list_t **redaction_list)
+{
+	dsl_pool_t *dp = dmu_tx_pool(tx);
+	objset_t *mos = dp->dp_meta_objset;
+	dsl_dataset_t *snapds, *bmark_fs;
+	zfs_bookmark_phys_t bmark_phys;
+	char *shortname;
+
+	VERIFY0(dsl_dataset_hold(dp, snapshot, FTAG, &snapds));
+	VERIFY0(dsl_bookmark_hold_ds(dp, bookmark, &bmark_fs, FTAG,
+	    &shortname));
+	if (bmark_fs->ds_bookmarks == 0) {
+		bmark_fs->ds_bookmarks = zap_create_norm(mos,
+		    U8_TEXTPREP_TOUPPER, DMU_OTN_ZAP_METADATA, DMU_OT_NONE, 0,
+		    tx);
+		spa_feature_incr(dp->dp_spa, SPA_FEATURE_BOOKMARKS, tx);
+
+		dsl_dataset_zapify(bmark_fs, tx);
+		VERIFY0(zap_add(mos, bmark_fs->ds_object,
+		    DS_FIELD_BOOKMARK_NAMES, sizeof (bmark_fs->ds_bookmarks), 1,
+		    &bmark_fs->ds_bookmarks, tx));
+	}
+
+	bmark_phys.zbm_guid = dsl_dataset_phys(snapds)->ds_guid;
+	bmark_phys.zbm_creation_txg = dsl_dataset_phys(snapds)->ds_creation_txg;
+	bmark_phys.zbm_creation_time =
+	    dsl_dataset_phys(snapds)->ds_creation_time;
+	if (redaction_list != NULL) {
+		bmark_phys.zbm_redaction_obj = dmu_object_alloc(mos,
+		    DMU_OTN_UINT64_METADATA, SPA_OLD_MAXBLOCKSIZE,
+		    DMU_OTN_UINT64_METADATA, sizeof (redaction_list_phys_t) +
+		    num_redact_snaps * sizeof (uint64_t), tx);
+		spa_feature_incr(dmu_objset_spa(mos),
+		    SPA_FEATURE_REDACTION_BOOKMARKS, tx);
+
+		VERIFY0(dsl_redaction_list_hold_obj(dp,
+		    bmark_phys.zbm_redaction_obj, tag, redaction_list));
+		dsl_redaction_list_long_hold(dp, *redaction_list, tag);
+
+		ASSERT3U((*redaction_list)->rl_dbuf->db_size, >=,
+		    sizeof (redaction_list_phys_t) + num_redact_snaps *
+		    sizeof (uint64_t));
+		dmu_buf_will_dirty((*redaction_list)->rl_dbuf, tx);
+		bcopy(redact_snaps, (*redaction_list)->rl_phys->rlp_snaps,
+		    sizeof (uint64_t) * num_redact_snaps);
+		(*redaction_list)->rl_phys->rlp_num_snaps = num_redact_snaps;
+	} else {
+		bmark_phys.zbm_redaction_obj = 0;
+	}
+
+	VERIFY0(zap_add(mos, bmark_fs->ds_bookmarks, shortname,
+	    sizeof (uint64_t), sizeof (zfs_bookmark_phys_t) / sizeof (uint64_t),
+	    &bmark_phys, tx));
+
+	spa_history_log_internal_ds(bmark_fs, "bookmark", tx,
+	    "name=%s creation_txg=%llu target_snap=%llu redact_obj=%llu",
+	    shortname, (longlong_t)bmark_phys.zbm_creation_txg,
+	    (longlong_t)snapds->ds_object,
+	    (longlong_t)bmark_phys.zbm_redaction_obj);
+
+	dsl_dataset_rele(bmark_fs, FTAG);
+	dsl_dataset_rele(snapds, FTAG);
+}
+
 static void
 dsl_bookmark_create_sync(void *arg, dmu_tx_t *tx)
 {
-	dsl_bookmark_create_arg_t *dbca = arg;
 	dsl_pool_t *dp = dmu_tx_pool(tx);
-	objset_t *mos = dp->dp_meta_objset;
+	dsl_bookmark_create_arg_t *dbca = arg;
 
 	ASSERT(spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_BOOKMARKS));
 
 	for (nvpair_t *pair = nvlist_next_nvpair(dbca->dbca_bmarks, NULL);
 	    pair != NULL; pair = nvlist_next_nvpair(dbca->dbca_bmarks, pair)) {
-		dsl_dataset_t *snapds, *bmark_fs;
-		zfs_bookmark_phys_t bmark_phys;
-		char *shortname;
-
-		VERIFY0(dsl_dataset_hold(dp, fnvpair_value_string(pair),
-		    FTAG, &snapds));
-		VERIFY0(dsl_bookmark_hold_ds(dp, nvpair_name(pair),
-		    &bmark_fs, FTAG, &shortname));
-		if (bmark_fs->ds_bookmarks == 0) {
-			bmark_fs->ds_bookmarks =
-			    zap_create_norm(mos, U8_TEXTPREP_TOUPPER,
-			    DMU_OTN_ZAP_METADATA, DMU_OT_NONE, 0, tx);
-			spa_feature_incr(dp->dp_spa, SPA_FEATURE_BOOKMARKS, tx);
-
-			dsl_dataset_zapify(bmark_fs, tx);
-			VERIFY0(zap_add(mos, bmark_fs->ds_object,
-			    DS_FIELD_BOOKMARK_NAMES,
-			    sizeof (bmark_fs->ds_bookmarks), 1,
-			    &bmark_fs->ds_bookmarks, tx));
-		}
-
-		bmark_phys.zbm_guid = dsl_dataset_phys(snapds)->ds_guid;
-		bmark_phys.zbm_creation_txg =
-		    dsl_dataset_phys(snapds)->ds_creation_txg;
-		bmark_phys.zbm_creation_time =
-		    dsl_dataset_phys(snapds)->ds_creation_time;
-
-		VERIFY0(zap_add(mos, bmark_fs->ds_bookmarks,
-		    shortname, sizeof (uint64_t),
-		    sizeof (zfs_bookmark_phys_t) / sizeof (uint64_t),
-		    &bmark_phys, tx));
-
-		spa_history_log_internal_ds(bmark_fs, "bookmark", tx,
-		    "name=%s creation_txg=%llu target_snap=%llu",
-		    shortname,
-		    (longlong_t)bmark_phys.zbm_creation_txg,
-		    (longlong_t)snapds->ds_object);
-
-		dsl_dataset_rele(bmark_fs, FTAG);
-		dsl_dataset_rele(snapds, FTAG);
+		dsl_bookmark_create_sync_impl(nvpair_name(pair),
+		    fnvpair_value_string(pair), tx, 0, NULL, NULL, NULL);
 	}
 }
 
@@ -249,6 +307,62 @@ dsl_bookmark_create(nvlist_t *bmarks, nvlist_t *errors)
 	return (dsl_sync_task(nvpair_name(pair), dsl_bookmark_create_check,
 	    dsl_bookmark_create_sync, &dbca,
 	    fnvlist_num_pairs(bmarks), ZFS_SPACE_CHECK_NORMAL));
+}
+
+static int
+dsl_bookmark_create_redacted_check(void *arg, dmu_tx_t *tx)
+{
+	dsl_bookmark_create_redacted_arg_t *dbcra = arg;
+	dsl_pool_t *dp = dmu_tx_pool(tx);
+	dsl_dataset_t *snapds;
+	int rv = 0;
+
+	if (!spa_feature_is_enabled(dp->dp_spa,
+	    SPA_FEATURE_REDACTION_BOOKMARKS))
+		return (SET_ERROR(ENOTSUP));
+	/*
+	 * If the list of redact snaps will not fit in the bonus buffer with
+	 * the furthest reached object and offset, fail.
+	 */
+	if (dbcra->dbcra_numsnaps > (dmu_bonus_max() -
+	    sizeof (redaction_list_phys_t)) / sizeof (uint64_t))
+		return (SET_ERROR(E2BIG));
+
+	rv = dsl_dataset_hold(dp, dbcra->dbcra_snap,
+	    FTAG, &snapds);
+	if (rv == 0) {
+		rv = dsl_bookmark_create_check_impl(snapds, dbcra->dbcra_bmark,
+		    tx);
+		dsl_dataset_rele(snapds, FTAG);
+	}
+	return (rv);
+}
+
+static void
+dsl_bookmark_create_redacted_sync(void *arg, dmu_tx_t *tx)
+{
+	dsl_bookmark_create_redacted_arg_t *dbcra = arg;
+	dsl_bookmark_create_sync_impl(dbcra->dbcra_bmark, dbcra->dbcra_snap, tx,
+	    dbcra->dbcra_numsnaps, dbcra->dbcra_snaps, dbcra->dbcra_tag,
+	    dbcra->dbcra_rl);
+}
+
+int
+dsl_bookmark_create_redacted(const char *bookmark, const char *snapshot,
+    uint64_t numsnaps, uint64_t *snapguids, void *tag, redaction_list_t **rl)
+{
+	dsl_bookmark_create_redacted_arg_t dbcra;
+
+	dbcra.dbcra_bmark = bookmark;
+	dbcra.dbcra_snap = snapshot;
+	dbcra.dbcra_rl = rl;
+	dbcra.dbcra_numsnaps = numsnaps;
+	dbcra.dbcra_snaps = snapguids;
+	dbcra.dbcra_tag = tag;
+
+	return (dsl_sync_task(bookmark, dsl_bookmark_create_redacted_check,
+	    dsl_bookmark_create_redacted_sync, &dbcra, 5,
+	    ZFS_SPACE_CHECK_NORMAL));
 }
 
 int
@@ -289,6 +403,22 @@ dsl_get_bookmarks_impl(dsl_dataset_t *ds, nvlist_t *props, nvlist_t *outnvl)
 		    zfs_prop_to_name(ZFS_PROP_CREATION))) {
 			dsl_prop_nvlist_add_uint64(out_props,
 			    ZFS_PROP_CREATION, bmark_phys.zbm_creation_time);
+		}
+		if (nvlist_exists(props, "redact_snaps")) {
+			redaction_list_t *rl;
+			int err = dsl_redaction_list_hold_obj(dp,
+			    bmark_phys.zbm_redaction_obj, FTAG, &rl);
+			if (err == 0) {
+				nvlist_t *nvl;
+				nvl = fnvlist_alloc();
+				fnvlist_add_uint64_array(nvl, ZPROP_VALUE,
+				    rl->rl_phys->rlp_snaps,
+				    rl->rl_phys->rlp_num_snaps);
+				fnvlist_add_nvlist(out_props, "redact_snaps",
+				    nvl);
+				nvlist_free(nvl);
+				dsl_redaction_list_rele(rl, FTAG);
+			}
 		}
 
 		fnvlist_add_nvlist(outnvl, bmark_name, out_props);
@@ -340,12 +470,25 @@ dsl_dataset_bookmark_remove(dsl_dataset_t *ds, const char *name, dmu_tx_t *tx)
 	objset_t *mos = ds->ds_dir->dd_pool->dp_meta_objset;
 	uint64_t bmark_zapobj = ds->ds_bookmarks;
 	matchtype_t mt;
+	zfs_bookmark_phys_t book;
+	int error = 0;
 
 	if (dsl_dataset_phys(ds)->ds_flags & DS_FLAG_CI_DATASET)
 		mt = MT_FIRST;
 	else
 		mt = MT_EXACT;
 
+	error = zap_lookup(mos, bmark_zapobj, name, sizeof (uint64_t),
+	    sizeof (zfs_bookmark_phys_t) / sizeof (uint64_t), &book);
+
+	if (error != 0)
+		return (error);
+
+	if (book.zbm_redaction_obj != 0) {
+		VERIFY0(dmu_object_free(mos, book.zbm_redaction_obj, tx));
+		spa_feature_decr(dmu_objset_spa(mos),
+		    SPA_FEATURE_REDACTION_BOOKMARKS, tx);
+	}
 	return (zap_remove_norm(mos, bmark_zapobj, name, mt, tx));
 }
 
@@ -382,6 +525,20 @@ dsl_bookmark_destroy_check(void *arg, dmu_tx_t *tx)
 				 * "already destroyed"
 				 */
 				continue;
+			}
+			if (error == 0 && bm.zbm_redaction_obj != 0) {
+				redaction_list_t *rl = NULL;
+				error = dsl_redaction_list_hold_obj(tx->tx_pool,
+				    bm.zbm_redaction_obj, FTAG, &rl);
+				if (error == ENOENT) {
+					error = 0;
+				} else if (error == 0 &&
+				    dsl_redaction_list_long_held(rl)) {
+					error = EINVAL;
+				}
+				if (rl != NULL) {
+					dsl_redaction_list_rele(rl, FTAG);
+				}
 			}
 		}
 		if (error == 0) {
@@ -454,4 +611,76 @@ dsl_bookmark_destroy(nvlist_t *bmarks, nvlist_t *errors)
 	    ZFS_SPACE_CHECK_RESERVED);
 	fnvlist_free(dbda.dbda_success);
 	return (rv);
+}
+
+/* Return B_TRUE if there are any long holds on this dataset. */
+boolean_t
+dsl_redaction_list_long_held(redaction_list_t *rl)
+{
+	return (!refcount_is_zero(&rl->rl_longholds));
+}
+
+void
+dsl_redaction_list_long_hold(dsl_pool_t *dp, redaction_list_t *rl, void *tag)
+{
+	ASSERT(dsl_pool_config_held(dp));
+	(void) refcount_add(&rl->rl_longholds, tag);
+}
+
+void
+dsl_redaction_list_long_rele(redaction_list_t *rl, void *tag)
+{
+	(void) refcount_remove(&rl->rl_longholds, tag);
+}
+
+/* ARGSUSED */
+static void
+redaction_list_evict(void *rlu)
+{
+	redaction_list_t *rl = rlu;
+	refcount_destroy(&rl->rl_longholds);
+
+	kmem_free(rl, sizeof (redaction_list_t));
+}
+
+void
+dsl_redaction_list_rele(redaction_list_t *rl, void *tag)
+{
+	dmu_buf_rele(rl->rl_dbuf, tag);
+}
+
+int
+dsl_redaction_list_hold_obj(dsl_pool_t *dp, uint64_t rlobj, void *tag,
+    redaction_list_t **rlp)
+{
+	objset_t *mos = dp->dp_meta_objset;
+	dmu_buf_t *dbuf;
+	redaction_list_t *rl;
+	int err;
+
+	ASSERT(dsl_pool_config_held(dp));
+
+	err = dmu_bonus_hold(mos, rlobj, tag, &dbuf);
+	if (err != 0)
+		return (err);
+
+	rl = dmu_buf_get_user(dbuf);
+	if (rl == NULL) {
+		redaction_list_t *winner = NULL;
+
+		rl = kmem_zalloc(sizeof (redaction_list_t), KM_SLEEP);
+		rl->rl_dbuf = dbuf;
+		rl->rl_object = rlobj;
+		rl->rl_phys = dbuf->db_data;
+		refcount_create(&rl->rl_longholds);
+		dmu_buf_init_user(&rl->rl_dbu, redaction_list_evict,
+		    &rl->rl_dbuf);
+		if ((winner = dmu_buf_set_user_ie(dbuf, &rl->rl_dbu)) != NULL) {
+			kmem_free(rl, sizeof (*rl));
+			dmu_buf_rele(dbuf, tag);
+			rl = winner;
+		}
+	}
+	*rlp = rl;
+	return (0);
 }

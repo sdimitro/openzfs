@@ -478,8 +478,8 @@ int
 lzc_send(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags)
 {
-	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0, NULL,
-	    NULL));
+	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0,
+	    NULL, NULL));
 }
 
 int
@@ -498,6 +498,18 @@ lzc_send_resume(const char *snapname, const char *from, int fd,
 	    resumeoff, NULL, NULL));
 }
 
+/*
+ * snapname: The name of the "tosnap", or the snapshot whose contents we are
+ * sending.
+ * from: The name of the "fromsnap", or the incremental source.
+ * fd: File descriptor to write the stream to.
+ * flags: flags that determine features to be used by the stream.
+ * resumeobj: Object to resume from, for resuming send
+ * resumeoff: Offset to resume from, for resuming send.
+ * redactnv: nvlist of string -> boolean(ignored) containing the names of all
+ * the snapshots that we should redact with respect to.
+ * redactbook: Name of the redaction bookmark to create.
+ */
 int
 lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
@@ -521,24 +533,9 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 		fnvlist_add_uint64(args, "resume_object", resumeobj);
 		fnvlist_add_uint64(args, "resume_offset", resumeoff);
 	}
-
 	if (redactnv != NULL) {
-		nvlist_t *nvl = fnvlist_alloc();
-		char bookbuf[MAXNAMELEN];
-		char *cp;
-
-		(void) strncpy(bookbuf, snapname, sizeof (bookbuf));
-		cp = strchr(bookbuf, '@');
-		if (cp == NULL)
-			return (EINVAL);
-		(void) snprintf(cp, sizeof (bookbuf) - (cp - bookbuf), "#%s",
-		    redactbook);
-		fnvlist_add_string(nvl, bookbuf, snapname);
-		err = lzc_bookmark(nvl, NULL);
-		fnvlist_free(nvl);
-		if (err != 0) {
-			return (err);
-		}
+		fnvlist_add_nvlist(args, "redactsnaps", redactnv);
+		fnvlist_add_string(args, "redactbook", redactbook);
 	}
 
 	err = lzc_ioctl(ZFS_IOC_SEND_NEW, snapname, args, NULL);
@@ -763,16 +760,25 @@ lzc_bookmark(nvlist_t *bookmarks, nvlist_t **errlist)
  * returned for each bookmark.
  *
  * The following are valid properties on bookmarks, all of which are numbers
- * (represented as uint64 in the nvlist)
+ * (represented as uint64 in the nvlist), except redact_snaps, which is a
+ * uint64 array.
  *
  * "guid" - globally unique identifier of the snapshot it refers to
  * "createtxg" - txg when the snapshot it refers to was created
  * "creation" - timestamp when the snapshot it refers to was created
+ * "redact_snaps" - list of guids of the redaction snapshots for the specified
+ *     bookmark.  If the bookmark is not a redaction bookmark, the nvlist will
+ *     not contain an entry for this value.  If it is redacted with respect to
+ *     no snapshots, it will contain value -> NULL uint64 array
  *
  * The format of the returned nvlist as follows:
  * <short name of bookmark> -> {
  *     <name of property> -> {
  *         "value" -> uint64
+ *     }
+ *     ...
+ *     "redact_snaps" -> {
+ *         "value" -> uint64 array
  *     }
  *  }
  */

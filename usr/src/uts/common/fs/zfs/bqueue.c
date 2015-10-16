@@ -13,7 +13,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
  */
 
 #include	<sys/bqueue.h>
@@ -27,13 +27,27 @@ obj2node(bqueue_t *q, void *data)
 
 /*
  * Initialize a blocking queue  The maximum capacity of the queue is set to
- * size.  Types that want to be stored in a bqueue must contain a bqueue_node_t,
- * and offset should give its offset from the start of the struct.  Return 0 on
- * success, or -1 on failure.
+ * size.  Types that are stored in a bqueue must contain a bqueue_node_t,
+ * and node_offset must be its offset from the start of the struct.
+ * fill_fraction is a performance tuning value; when the queue is full, any
+ * threads attempting to enqueue records will block.  They will block until
+ * they're signaled, which will occur when the queue is at least 1/fill_fraction
+ * empty.  Similar behavior occurs on dequeue; if the queue is empty, threads
+ * block.  They will be signalled when the queue has 1/fill_fraction full, or
+ * when bqueue_flush is called.  As a result, you must call bqueue_flush when
+ * you enqueue your final record on a thread, in case the dequeueing threads are
+ * currently blocked and that enqueue does not cause them to be awoken.
+ * Alternatively, this behavior can be disabled (causing signaling to happen
+ * immediately) by setting fill_fraction to any value larger than size.
+ * Return 0 on success, or -1 on failure.
  */
 int
-bqueue_init(bqueue_t *q, uint64_t size, size_t node_offset)
+bqueue_init(bqueue_t *q, uint64_t fill_fraction, uint64_t size,
+    size_t node_offset)
 {
+	if (fill_fraction == 0) {
+		return (-1);
+	}
 	list_create(&q->bq_list, node_offset + sizeof (bqueue_node_t),
 	    node_offset + offsetof(bqueue_node_t, bqn_node));
 	cv_init(&q->bq_add_cv, NULL, CV_DEFAULT, NULL);
@@ -42,6 +56,7 @@ bqueue_init(bqueue_t *q, uint64_t size, size_t node_offset)
 	q->bq_node_offset = node_offset;
 	q->bq_size = 0;
 	q->bq_maxsize = size;
+	q->bq_fill_fraction = fill_fraction;
 	return (0);
 }
 
@@ -77,7 +92,8 @@ bqueue_enqueue(bqueue_t *q, void *data, uint64_t item_size)
 	}
 	q->bq_size += item_size;
 	list_insert_tail(&q->bq_list, data);
-	cv_signal(&q->bq_pop_cv);
+	if (q->bq_size >= q->bq_maxsize / q->bq_fill_fraction)
+		cv_signal(&q->bq_pop_cv);
 	mutex_exit(&q->bq_lock);
 }
 /*
@@ -96,8 +112,9 @@ bqueue_dequeue(bqueue_t *q)
 	ret = list_remove_head(&q->bq_list);
 	item_size = obj2node(q, ret)->bqn_size;
 	q->bq_size -= item_size;
+	if (q->bq_size <= q->bq_maxsize - (q->bq_maxsize / q->bq_fill_fraction))
+		cv_signal(&q->bq_add_cv);
 	mutex_exit(&q->bq_lock);
-	cv_signal(&q->bq_add_cv);
 	return (ret);
 }
 
@@ -108,4 +125,14 @@ boolean_t
 bqueue_empty(bqueue_t *q)
 {
 	return (q->bq_size == 0);
+}
+
+/*
+ * Flush the queue; force the popping threads to wake up, even if we're below
+ * the fill fraction.
+ */
+void
+bqueue_flush(bqueue_t *q)
+{
+	cv_broadcast(&q->bq_pop_cv);
 }

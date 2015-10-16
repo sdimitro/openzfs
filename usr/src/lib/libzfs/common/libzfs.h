@@ -128,6 +128,7 @@ typedef enum zfs_error {
 	EZFS_DIFF,		/* general failure of zfs diff */
 	EZFS_DIFFDATA,		/* bad zfs diff data */
 	EZFS_POOLREADONLY,	/* pool is in read-only mode */
+	EZFS_TOOMANY,		/* argument list too long */
 	EZFS_UNKNOWN
 } zfs_error_t;
 
@@ -610,7 +611,7 @@ extern int zfs_send(zfs_handle_t *, const char *, const char *,
 extern int zfs_send_one(zfs_handle_t *, const char *, int, enum lzc_send_flags,
     nvlist_t *redactnv, const char *redactbook);
 extern int zfs_send_resume(libzfs_handle_t *, sendflags_t *, int outfd,
-    const char *);
+    const char *, const char *);
 extern nvlist_t *zfs_send_resume_token_to_nvlist(libzfs_handle_t *hdl,
     const char *token);
 

@@ -1053,6 +1053,8 @@ static const char *spa_feature_names[] = {
 	"com.delphix:embedded_data",
 	"org.open-zfs:large_blocks",
 	"org.illumos:sha512",
+	"com.delphix:redaction_bookmarks",
+	"com.delphix:redacted_datasets",
 	NULL
 };
 

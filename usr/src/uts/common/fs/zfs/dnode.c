@@ -410,8 +410,8 @@ dmu_object_refresh_mooch_obj(objset_t *os, uint64_t object)
 {
 	dnode_t *dn;
 	uint64_t obj;
-	ASSERT(os->os_dsl_dataset->
-	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
+	ASSERT(dsl_dataset_feature_is_active(os->os_dsl_dataset,
+	    SPA_FEATURE_MOOCH_BYTESWAP));
 	VERIFY0(dnode_hold(os, object, FTAG, &dn));
 	VERIFY0(dmu_objset_mooch_obj_refd(os, object, &obj));
 	if (dn->dn_origin_obj_refd == 0) {
@@ -461,9 +461,10 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_id_flags = 0;
 
 	if (os->os_dsl_dataset != NULL &&
-	    os->os_dsl_dataset->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]) {
-		int error = dmu_objset_mooch_obj_refd(os,
-		    object, &dn->dn_origin_obj_refd);
+	    dsl_dataset_feature_is_active(os->os_dsl_dataset,
+	    SPA_FEATURE_MOOCH_BYTESWAP)) {
+		int error = dmu_objset_mooch_obj_refd(os, object,
+		    &dn->dn_origin_obj_refd);
 		ASSERT(error == 0 || error == ENOENT);
 	}
 

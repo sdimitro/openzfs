@@ -519,8 +519,8 @@ dmu_objset_mooch_origin_impl(objset_t *clone)
 	int err;
 
 	ASSERT(dsl_pool_config_held(dmu_objset_pool(clone)));
-	ASSERT(clone->os_dsl_dataset->
-	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
+	ASSERT(dsl_dataset_feature_is_active(clone->os_dsl_dataset,
+	    SPA_FEATURE_MOOCH_BYTESWAP));
 
 	if (clone->os_origin_mooch_objset != NULL)
 		return (0);
@@ -535,7 +535,8 @@ dmu_objset_mooch_origin_impl(objset_t *clone)
 		dsl_dataset_rele(origin_ds, FTAG);
 		return (err);
 	}
-	if (origin_ds->ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]) {
+	if (dsl_dataset_feature_is_active(origin_ds,
+	    SPA_FEATURE_MOOCH_BYTESWAP)) {
 		err = dmu_objset_mooch_origin_impl(origin);
 		origin_mooch_objset = origin->os_origin_mooch_objset;
 	} else {
@@ -570,8 +571,8 @@ dmu_objset_mooch_origin(objset_t *clone, objset_t **originp)
 {
 	int err = 0;
 
-	ASSERT(clone->os_dsl_dataset->
-	    ds_feature_inuse[SPA_FEATURE_MOOCH_BYTESWAP]);
+	ASSERT(dsl_dataset_feature_is_active(clone->os_dsl_dataset,
+	    SPA_FEATURE_MOOCH_BYTESWAP));
 
 	/*
 	 * We may be receiving into a %recv clone, in which we can not

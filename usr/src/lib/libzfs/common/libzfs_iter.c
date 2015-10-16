@@ -185,6 +185,7 @@ zfs_iter_bookmarks(zfs_handle_t *zhp, zfs_iter_f func, void *data)
 	fnvlist_add_boolean(props, zfs_prop_to_name(ZFS_PROP_GUID));
 	fnvlist_add_boolean(props, zfs_prop_to_name(ZFS_PROP_CREATETXG));
 	fnvlist_add_boolean(props, zfs_prop_to_name(ZFS_PROP_CREATION));
+	fnvlist_add_boolean(props, "redact_snaps");
 
 	if ((err = lzc_get_bookmarks(zhp->zfs_name, props, &bmarks)) != 0)
 		goto out;

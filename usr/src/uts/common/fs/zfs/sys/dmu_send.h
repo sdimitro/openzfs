@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -42,7 +42,8 @@ extern const char *recv_clone_name;
 
 int dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
     boolean_t large_block_ok, int outfd, uint64_t resumeobj, uint64_t resumeoff,
-    struct vnode *vp, offset_t *off);
+    nvlist_t *redactsnaps, const char *redactbook, struct vnode *vp,
+    offset_t *off);
 int dmu_send_estimate(struct dsl_dataset *ds, struct dsl_dataset *fromds,
     uint64_t *sizep);
 int dmu_send_estimate_from_txg(struct dsl_dataset *ds, uint64_t fromtxg,
@@ -62,17 +63,75 @@ typedef struct dmu_recv_cookie {
 	boolean_t drc_force;
 	boolean_t drc_resumable;
 	struct avl_tree *drc_guid_to_ds_map;
-	zio_cksum_t drc_cksum;
 	uint64_t drc_newsnapobj;
 	void *drc_owner;
 	cred_t *drc_cred;
+	nvlist_t *drc_begin_nvl;
+
+	objset_t *drc_os;
+	vnode_t *drc_vp; /* The vnode to read the stream from */
+	uint64_t drc_voff; /* The current offset in the stream */
+	uint64_t drc_bytes_read;
+	/*
+	 * A record that has had its payload read in, but hasn't yet been handed
+	 * off to the worker thread.
+	 */
+	struct receive_record_arg *drc_rrd;
+	/* A record that has had its header read in, but not its payload. */
+	struct receive_record_arg *drc_next_rrd;
+	zio_cksum_t drc_cksum;
+	zio_cksum_t drc_prev_cksum;
+	int drc_err;
+	/* Sorted list of objects not to issue prefetches for. */
+	struct objlist *drc_ignore_objlist;
 } dmu_recv_cookie_t;
+
+typedef struct redact_block_phys {
+	uint64_t	rbp_object;
+	uint64_t	rbp_blkid;
+	/*
+	 * The top 16 bits of this field represent the block size in sectors of
+	 * the blocks in question; the bottom 48 bits are used to store the
+	 * number of consecutive blocks that are in the redaction list.  They
+	 * should be accessed using the inline functions below.
+	 */
+	uint64_t	rbp_size_count;
+	uint64_t	rbp_padding;
+} redact_block_phys_t;
+
+#define	REDACT_BLOCK_MAX_COUNT ((1ULL << 48) - 1)
+
+inline uint64_t
+redact_block_get_size(redact_block_phys_t *rbp)
+{
+	return (BF64_GET_SB((rbp)->rbp_size_count, 48, 16, SPA_MINBLOCKSHIFT,
+	    0));
+}
+
+inline void
+redact_block_set_size(redact_block_phys_t *rbp, uint64_t size)
+{
+	BF64_SET_SB((rbp)->rbp_size_count, 48, 16, SPA_MINBLOCKSHIFT, 0, size);
+}
+
+inline uint64_t
+redact_block_get_count(redact_block_phys_t *rbp)
+{
+	return (BF64_GET_SB((rbp)->rbp_size_count, 0, 48, 0, 1));
+}
+
+inline void
+redact_block_set_count(redact_block_phys_t *rbp, uint64_t count)
+{
+	BF64_SET_SB((rbp)->rbp_size_count, 0, 48, 0, 1, count);
+}
 
 int dmu_recv_begin(char *tofs, char *tosnap,
     struct dmu_replay_record *drr_begin,
-    boolean_t force, boolean_t resumable, char *origin, dmu_recv_cookie_t *drc);
-int dmu_recv_stream(dmu_recv_cookie_t *drc, struct vnode *vp, offset_t *voffp,
-    int cleanup_fd, uint64_t *action_handlep);
+    boolean_t force, boolean_t resumable, char *origin, dmu_recv_cookie_t *drc,
+    vnode_t *vp, offset_t *voffp);
+int dmu_recv_stream(dmu_recv_cookie_t *drc, int cleanup_fd,
+    uint64_t *action_handlep, offset_t *voffp);
 int dmu_recv_end(dmu_recv_cookie_t *drc, void *owner);
 boolean_t dmu_objset_is_receiving(objset_t *os);
 

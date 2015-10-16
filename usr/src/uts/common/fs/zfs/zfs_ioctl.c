@@ -4182,8 +4182,9 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 	if (zc->zc_string[0])
 		origin = zc->zc_string;
 
-	error = dmu_recv_begin(tofs, tosnap,
-	    &zc->zc_begin_record, force, zc->zc_resumable, origin, &drc);
+	off = fp->f_offset;
+	error = dmu_recv_begin(tofs, tosnap, &zc->zc_begin_record, force,
+	    zc->zc_resumable, origin, &drc, fp->f_vnode, &off);
 	if (error != 0)
 		goto out;
 
@@ -4246,9 +4247,8 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 		props_error = SET_ERROR(EINVAL);
 	}
 
-	off = fp->f_offset;
-	error = dmu_recv_stream(&drc, fp->f_vnode, &off, zc->zc_cleanup_fd,
-	    &zc->zc_action_handle);
+	error = dmu_recv_stream(&drc, zc->zc_cleanup_fd,
+	    &zc->zc_action_handle, &off);
 
 	if (error == 0) {
 		zfsvfs_t *zfsvfs = NULL;
@@ -5323,6 +5323,10 @@ zfs_ioc_space_snaps(const char *lastsnap, nvlist_t *innvl, nvlist_t *outnvl)
  *         presence indicates DRR_WRITE_EMBEDDED records are permitted
  *     (optional) "resume_object" and "resume_offset" -> (uint64)
  *         if present, resume send stream from specified object and offset.
+ *     (optional) "redactbook" -> (string)
+ *         if present, generate a redaction bookmark
+ *     (optional) "redactsnaps" -> (nvlist, values ignored)
+ *         if present, generate a redacted send stream
  * }
  *
  * outnvl is unused
@@ -5339,6 +5343,8 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	boolean_t embedok;
 	uint64_t resumeobj = 0;
 	uint64_t resumeoff = 0;
+	nvlist_t *redactnvl = NULL;
+	char *redactbook = NULL;
 
 	error = nvlist_lookup_int32(innvl, "fd", &fd);
 	if (error != 0)
@@ -5352,13 +5358,17 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	(void) nvlist_lookup_uint64(innvl, "resume_object", &resumeobj);
 	(void) nvlist_lookup_uint64(innvl, "resume_offset", &resumeoff);
 
+	(void) nvlist_lookup_nvlist(innvl, "redactsnaps", &redactnvl);
+	(void) nvlist_lookup_string(innvl, "redactbook", &redactbook);
+
 	file_t *fp = getf(fd);
 	if (fp == NULL)
 		return (SET_ERROR(EBADF));
 
 	off = fp->f_offset;
 	error = dmu_send(snapname, fromname, embedok, largeblockok, fd,
-	    resumeobj, resumeoff, fp->f_vnode, &off);
+	    resumeobj, resumeoff, redactnvl,
+	    redactbook, fp->f_vnode, &off);
 
 	if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
 		fp->f_offset = off;

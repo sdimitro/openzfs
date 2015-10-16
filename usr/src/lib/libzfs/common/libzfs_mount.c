@@ -257,6 +257,9 @@ zfs_is_mountable(zfs_handle_t *zhp, char *buf, size_t buflen,
 	    getzoneid() == GLOBAL_ZONEID)
 		return (B_FALSE);
 
+	if (zfs_prop_get_int(zhp, ZFS_PROP_REDACTED))
+		return (B_FALSE);
+
 	if (source)
 		*source = sourcetype;
 

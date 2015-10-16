@@ -274,7 +274,8 @@ get_usage(zfs_help_t idx)
 		    "<filesystem|volume|snapshot>\n"
 		    "\tsend --redact snapshot[,...] [-PLe] "
 		    "[-i bookmark] <snapshot> <bookmark_name>\n"
-		    "\tsend [-nvPe] -t <receive_resume_token>\n"));
+		    "\tsend [-nvPe] -t <receive_resume_token> [bookmark_name]"
+		    "\n"));
 	case HELP_SET:
 		return (gettext("\tset <property=value> ... "
 		    "<filesystem|volume|snapshot> ...\n"));
@@ -3817,9 +3818,8 @@ zfs_do_send(int argc, char **argv)
 			    gettext("invalid flags combined with -t\n"));
 			usage(B_FALSE);
 		}
-		if (argc != 0) {
-			(void) fprintf(stderr, gettext("no additional "
-			    "arguments are permitted with -t\n"));
+		if (argc > 1) {
+			(void) fprintf(stderr, gettext("too many arguments\n"));
 			usage(B_FALSE);
 		}
 	} else if (redactnv != NULL) {
@@ -3861,7 +3861,7 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		return (zfs_send_resume(g_zfs, &flags, STDOUT_FILENO,
-		    resume_token));
+		    resume_token, argv[0]));
 	}
 
 	/*
@@ -3890,13 +3890,6 @@ zfs_do_send(int argc, char **argv)
 		}
 
 		if (redactnv != NULL) {
-			if (fromname != NULL && !strchr(fromname, '#')) {
-				(void) fprintf(stderr, gettext("Error: Cannot "
-				    "do an incremental redacted send from "
-				    "anything except a redaction "
-				    "bookmark.\n"));
-				return (1);
-			}
 			if (strchr(argv[0], '@') == NULL) {
 				(void) fprintf(stderr, gettext("Error: Cannot "
 				    "do a redacted send to a filesystem.\n"));
@@ -5954,6 +5947,17 @@ share_mount_one(zfs_handle_t *zhp, int op, int flags, char *protocol,
 		    "\"zfs receive -r\", which can be resumed with "
 		    "\"zfs send -t\"\n"),
 		    cmdname, zfs_get_name(zhp));
+		return (1);
+	}
+
+	if (zfs_prop_get_int(zhp, ZFS_PROP_REDACTED)) {
+		if (!explicit)
+			return (0);
+
+		(void) fprintf(stderr, gettext("cannot %s '%s': "
+		    "Dataset is not complete, was created by receiving "
+		    "a redacted zfs send stream.\n"), cmdname,
+		    zfs_get_name(zhp));
 		return (1);
 	}
 

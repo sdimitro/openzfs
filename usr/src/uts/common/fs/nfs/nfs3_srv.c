@@ -18,7 +18,9 @@
  *
  * CDDL HEADER END
  */
+
 /*
+ * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
@@ -468,8 +470,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 				if (exi != NULL)
 					exi_rele(exi);
 				VN_RELE(vp);
-				resp->status = NFS3ERR_ACCES;
-				error = 1;
+				error = EACCES;
 			}
 			if (tp != NULL)
 				TPC_RELE(tp);
@@ -495,8 +496,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 				if (publicfh_flag && exi != NULL)
 					exi_rele(exi);
 				VN_RELE(vp);
-				resp->status = NFS3ERR_ACCES;
-				error = 1;
+				error = EACCES;
 			}
 		}
 	}

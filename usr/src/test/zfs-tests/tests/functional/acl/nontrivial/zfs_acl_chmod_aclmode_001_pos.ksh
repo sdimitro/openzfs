@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 #
 
 
@@ -52,15 +52,12 @@ verify_runnable "both"
 function cleanup
 {
 	# Cleanup tarfile & basedir.
-
-	(( ${#cwd} != 0 )) && cd $cwd
-
 	if [[ -f $TARFILE ]]; then
-		log_must $RM -f $TARFILE
+		log_must rm -f $TARFILE
 	fi
 
 	if [[ -d $basedir ]]; then
-		log_must $RM -rf $basedir
+		log_must rm -rf $basedir
 	fi
 }
 
@@ -193,7 +190,7 @@ function cal_bits # isdir bits bits_limit acl_access ctrl
 
 	tmpstr=${tmpstr#/}
 
-	$ECHO "$tmpstr"
+	echo "$tmpstr"
 }
 
 #
@@ -217,7 +214,7 @@ function translate_acl # isdir acl
 		action=${acl##*:}
 		acl=$prefix:$(cal_bits $isdir 7 7 $acl 0):$action
 	fi
-	$ECHO "$acl"
+	echo "$acl"
 }
 
 #
@@ -268,7 +265,7 @@ function check_new_acl # bit newmode isdir
 				new_acl=${new_acl}${str}execute
 		fi
 	fi
-	$ECHO "$new_acl"
+	echo "$new_acl"
 }
 
 function build_new_acl # newmode isdir
@@ -287,7 +284,7 @@ function build_new_acl # newmode isdir
 		status=$(check_new_acl $bit $newmode $isdir)
 	fi
 	expect=$prefix$status:deny
-	$ECHO $expect
+	echo $expect
 }
 
 #
@@ -450,7 +447,7 @@ function verify_aclmode # <aclmode> <node> <newmode>
 			aclcur=$(get_ACE $node $count)
 			aclcur=${aclcur#$count:}
 			if [[ -n $expect1 && $expect1 != $aclcur ]]; then
-				$LS -vd $node
+				ls -vd $node
 				log_fail "$aclmode $i #$count " \
 					"ACE: $aclcur, expect to be " \
 					"$expect1"
@@ -472,7 +469,7 @@ function verify_aclmode # <aclmode> <node> <newmode>
 		fi
 
 		if [[ $? -ne 0 ]]; then
-			$LS -vd $node
+			ls -vd $node
 			log_fail "Unexpect acl: $node, $aclmode ($newmode)"
 		fi
 	fi
@@ -485,8 +482,6 @@ typeset acl
 typeset target
 typeset -i passthrough=0
 typeset -i flag=0
-cwd=$PWD
-cd $TESTDIR
 
 for mode in "${aclmode_flag[@]}"; do
 
@@ -494,17 +489,17 @@ for mode in "${aclmode_flag[@]}"; do
 	# Set different value of aclmode
 	#
 
-	log_must $ZFS set aclmode=$mode $TESTPOOL/$TESTFS
+	log_must zfs set aclmode=$mode $TESTPOOL/$TESTFS
 
 	for user in root $ZFS_ACL_STAFF1; do
 		log_must set_cur_usr $user
 
-		log_must usr_exec $MKDIR $basedir
+		log_must usr_exec mkdir $basedir
 
-		log_must usr_exec $MKDIR $odir
-		log_must usr_exec $TOUCH $ofile
-		log_must usr_exec $MKDIR $ndir
-		log_must usr_exec $TOUCH $nfile
+		log_must usr_exec mkdir $odir
+		log_must usr_exec touch $ofile
+		log_must usr_exec mkdir $ndir
+		log_must usr_exec touch $nfile
 
 		for obj in $allnodes; do
 			maxnumber=0
@@ -524,14 +519,14 @@ for mode in "${aclmode_flag[@]}"; do
 				#
 				# Place on the target should succeed.
 				#
-					log_must usr_exec $CHMOD A+$acl $obj
+					log_must usr_exec chmod A+$acl $obj
 					acls[$maxnumber]=$acl
 
 					((maxnumber = maxnumber + 1))
 				done
 			done
 			# Archive the file and directory
-			log_must $TAR cpf@ $TARFILE $basedir
+			log_must tar cpf@ $TARFILE $basedir
 
 			if [[ -d $obj ]]; then
 				target=$odir
@@ -539,16 +534,16 @@ for mode in "${aclmode_flag[@]}"; do
 				target=$ofile
 			fi
 			for newmode in "${argv[@]}"; do
-				log_must usr_exec $CHMOD $newmode $obj
-				log_must usr_exec $CHMOD $newmode $target
+				log_must usr_exec chmod $newmode $obj
+				log_must usr_exec chmod $newmode $target
 				log_must verify_aclmode $mode $obj $newmode
 
 				# Restore the tar archive
-				log_must $TAR xpf@ $TARFILE
+				log_must tar xpf@ $TARFILE
 			done
 		done
 
-		log_must usr_exec $RM -rf $basedir $TARFILE
+		log_must usr_exec rm -rf $basedir $TARFILE
 	done
 done
 

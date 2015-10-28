@@ -235,6 +235,9 @@ typedef struct dsl_dataset {
 	kmutex_t ds_sendstream_lock;
 	list_t ds_sendstreams;
 
+	/* Protected by our dsl_dir's dd_lock */
+	list_t ds_prop_cbs;
+
 	/*
 	 * When in the middle of a resumable receive, tracks how much
 	 * progress we have made.

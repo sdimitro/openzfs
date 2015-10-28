@@ -114,13 +114,6 @@ struct dsl_pool;
 	"com.delphix:resume_redact_book_snaps"
 
 /*
- * This field is present (with value=0) if this dataset may contain large
- * blocks (>128KB).  If it is present, then this dataset
- * is counted in the refcount of the SPA_FEATURE_LARGE_BLOCKS feature.
- */
-#define	DS_FIELD_LARGE_BLOCKS "org.open-zfs:large_blocks"
-
-/*
  * This field is set to the object number of the remap deadlist if one exists.
  */
 #define	DS_FIELD_REMAP_DEADLIST	"com.delphix:remap_deadlist"

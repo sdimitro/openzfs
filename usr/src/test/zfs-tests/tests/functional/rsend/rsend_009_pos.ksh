@@ -58,8 +58,8 @@ function cleanup
 log_assert "Verify zfs receive can handle out of space correctly."
 log_onexit cleanup
 
-log_must mkfile 200M $TESTDIR/bfile
-log_must mkfile 64M  $TESTDIR/sfile
+log_must mkfile $MINVDEVSIZE $TESTDIR/bfile
+log_must mkfile $SPA_MINDEVSIZE  $TESTDIR/sfile
 log_must zpool create bpool $TESTDIR/bfile
 log_must zpool create spool $TESTDIR/sfile
 

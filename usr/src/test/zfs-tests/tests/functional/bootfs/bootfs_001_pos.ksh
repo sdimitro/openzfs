@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -60,7 +64,7 @@ log_onexit cleanup
 
 typeset VDEV=/bootfs_001_pos_a.$$.dat
 
-log_must $MKFILE 400m $VDEV
+log_must $MKFILE $MINVDEVSIZE $VDEV
 create_pool "$TESTPOOL" "$VDEV"
 log_must $ZFS create $TESTPOOL/$TESTFS
 

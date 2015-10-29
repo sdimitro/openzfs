@@ -15,16 +15,16 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-/tmp}
-log_must $MKFILE 128m $TMPDIR/dsk1
-log_must $MKFILE 128m $TMPDIR/dsk2
-log_must $MKFILE 128m $TMPDIR/dsk3
+log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk1
+log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk2
+log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk3
 DISKS="$TMPDIR/dsk1 raidz $TMPDIR/dsk2 $TMPDIR/dsk3"
 
 function cleanup

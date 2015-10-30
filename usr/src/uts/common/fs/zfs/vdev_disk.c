@@ -532,11 +532,6 @@ skip_open:
 			 * we own the whole disk now.
 			 */
 			*max_psize = capacity * blksz;
-			if (*max_psize > vd->vdev_max_asize) {
-				zfs_dbgmsg("capacity change: vdev %s, "
-				    "psize %llu, max_psize %llu",
-				    vd->vdev_path, *psize, *max_psize);
-			}
 		}
 
 		/*

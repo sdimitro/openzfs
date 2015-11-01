@@ -12,43 +12,38 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015 by Delphix. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
 
 #
 # Description:
-# Verify resumability of a full and incremental ZFS send/receive in the
-# presence of a corrupted stream.
+# Verify resumability of full and incremental ZFS send/receive with the -c
+# (compress) flag in the presence of a corrupted stream.
 #
 # Strategy:
-# 1. Start a full ZFS send, redirect output to a file
+# 1. Start a full ZFS send with the -c flag (compress), redirect output to
+#    a file
 # 2. Mess up the contents of the stream state file on disk
 # 3. Try ZFS receive, which should fail with a checksum mismatch error
 # 4. ZFS send to the stream state file again using the receive_resume_token
 # 5. ZFS receieve and verify the receive completes successfully
 # 6. Repeat steps on an incremental ZFS send
-# 7. Repeat the entire procedure for a dataset at the pool root
 #
 
 verify_runnable "both"
 
 sendfs=$POOL/sendfs
-recvfs=$POOL3/recvfs
-streamfs=$POOL2/stream
+recvfs=$POOL2/recvfs
+streamfs=$POOL/stream
 
-log_assert "Verify resumability of a full and incremental ZFS send/receive " \
-    "in the presence of a corrupted stream"
+log_assert "Verify compressed send streams can be resumed if interrupted"
 log_onexit resume_cleanup $sendfs $streamfs
 
-for sendfs in $POOL2/sendfs $POOL2; do
-	test_fs_setup $sendfs $recvfs
-	resume_test "zfs send -v $sendfs@a" $streamfs $recvfs
-	resume_test "zfs send -v -i @a $sendfs@b" $streamfs $recvfs
-	file_check $sendfs $recvfs
-done
+test_fs_setup $sendfs $recvfs
+resume_test "$ZFS send -c -v $sendfs@a" $streamfs $recvfs
+resume_test "$ZFS send -c -v -i @a $sendfs@b" $streamfs $recvfs
+file_check $sendfs $recvfs
 
-log_pass "Verify resumability of a full and incremental ZFS send/receive " \
-    "in the presence of a corrupted stream"
+log_pass "Compressed send streams can be resumed if interrupted"

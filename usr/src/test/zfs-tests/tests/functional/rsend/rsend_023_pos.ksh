@@ -38,13 +38,13 @@
 
 verify_runnable "both"
 
-log_assert "Verify resumability of an incremental ZFS send/receive with the " \
-    "-b (rebase) flag"
-log_onexit cleanup_pool $POOL2
-
 sendfs=$POOL/sendfs
 recvfs=$POOL2/recvfs
 streamfs=$POOL/stream
+
+log_assert "Verify resumability of an incremental ZFS send/receive with the " \
+    "-b (rebase) flag"
+log_onexit resume_cleanup $sendfs $streamfs
 
 test_fs_setup $sendfs $recvfs
 log_must zfs receive -v $recvfs </$POOL/initial.zsend

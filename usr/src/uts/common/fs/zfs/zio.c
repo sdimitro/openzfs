@@ -1187,6 +1187,7 @@ zio_write_bp_init(zio_t *zio)
 		 */
 		if (!BP_IS_HOLE(bp) && zp->zp_nopwrite) {
 			ASSERT(!zp->zp_dedup);
+			ASSERT3U(BP_GET_CHECKSUM(bp), ==, zp->zp_checksum);
 			zio->io_flags |= ZIO_FLAG_NOPWRITE;
 			return (ZIO_PIPELINE_CONTINUE);
 		}
@@ -1204,6 +1205,14 @@ zio_write_bp_init(zio_t *zio)
 			zio->io_pipeline |= ZIO_STAGE_DDT_WRITE;
 			return (ZIO_PIPELINE_CONTINUE);
 		}
+
+		/*
+		 * We were unable to handle this as an override bp, treat
+		 * it as a regular write I/O.
+		 */
+		zio->io_bp_override = NULL;
+		*bp = zio->io_bp_orig;
+		zio->io_pipeline = zio->io_orig_pipeline;
 	}
 
 	return (ZIO_PIPELINE_CONTINUE);

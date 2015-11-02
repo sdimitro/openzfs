@@ -2059,7 +2059,7 @@ update_redaction_list(struct send_merge_data *smd, objset_t *os,
 		} else  {
 			uint64_t count = redact_block_get_count(coalesce);
 			if (coalesce->rbp_object == object &&
-			    coalesce->rbp_blkid + count + 1 == blkid &&
+			    coalesce->rbp_blkid + count == blkid &&
 			    count < REDACT_BLOCK_MAX_COUNT) {
 				ASSERT3U(redact_block_get_size(coalesce), ==,
 				    blksz);
@@ -2200,7 +2200,7 @@ redact_block_merge(struct send_merge_thread_arg *smta,
 		}
 	}
 
-	if (data->obj_type != DMU_OT_PLAIN_FILE_CONTENTS) {
+	if (DMU_OT_IS_METADATA(data->obj_type)) {
 		compare = -2;
 	} else {
 		compare = is_above(redact_data, data);

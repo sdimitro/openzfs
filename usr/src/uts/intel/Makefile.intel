@@ -443,6 +443,7 @@ DRV_KMODS	+= fcsm
 DRV_KMODS	+= fp
 DRV_KMODS	+= qlc
 DRV_KMODS	+= iscsi
+DRV_KMODS	+= pvscsi
 
 #
 #	PCMCIA specific module(s)

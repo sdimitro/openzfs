@@ -2773,7 +2773,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
 	leaves = MAX(zs->zs_mirrors, 1) * ztest_opts.zo_raidz;
 
-	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
+	spa_config_enter(spa, SCL_ALL, FTAG, RW_WRITER);
 
 	/*
 	 * If a vdev is in the process of being removed, its removal may
@@ -2782,7 +2782,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	 * of removal.
 	 */
 	if (spa->spa_vdev_removal != NULL) {
-		spa_config_exit(spa, SCL_VDEV, FTAG);
+		spa_config_exit(spa, SCL_ALL, FTAG);
 		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
 		return;
 	}
@@ -2838,7 +2838,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	 * If oldvd has siblings, then half of the time, detach it.
 	 */
 	if (oldvd_has_siblings && ztest_random(2) == 0) {
-		spa_config_exit(spa, SCL_VDEV, FTAG);
+		spa_config_exit(spa, SCL_ALL, FTAG);
 		error = spa_vdev_detach(spa, oldguid, pguid, B_FALSE);
 		if (error != 0 && error != ENODEV && error != EBUSY &&
 		    error != ENOTSUP)
@@ -2865,6 +2865,10 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	}
 
 	if (newvd) {
+		/*
+		 * Reopen to ensure the vdev's asize field isn't stale.
+		 */
+		vdev_reopen(newvd);
 		newsize = vdev_get_min_asize(newvd);
 	} else {
 		/*
@@ -2902,7 +2906,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	else
 		expected_error = 0;
 
-	spa_config_exit(spa, SCL_VDEV, FTAG);
+	spa_config_exit(spa, SCL_ALL, FTAG);
 
 	/*
 	 * Build the nvlist describing newpath.

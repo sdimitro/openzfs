@@ -59,6 +59,7 @@ int dsl_bookmark_create_redacted(const char *, const char *, uint64_t,
     uint64_t *, void *, redaction_list_t **);
 int dsl_get_bookmarks(const char *, nvlist_t *, nvlist_t *);
 int dsl_get_bookmarks_impl(dsl_dataset_t *, nvlist_t *, nvlist_t *);
+int dsl_get_bookmark_props(const char *, const char *, nvlist_t *);
 int dsl_bookmark_destroy(nvlist_t *, nvlist_t *);
 int dsl_bookmark_lookup(struct dsl_pool *, const char *,
     struct dsl_dataset *, zfs_bookmark_phys_t *);

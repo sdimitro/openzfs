@@ -66,6 +66,7 @@
  * of this setting.
  */
 int zfs_max_recordsize = 1 * 1024 * 1024;
+boolean_t zfs_allow_redacted_dataset_mount = B_FALSE;
 
 #define	SWITCH64(x, y) \
 	{ \
@@ -828,8 +829,9 @@ dsl_dataset_tryown(dsl_dataset_t *ds, void *tag, boolean_t override)
 	ASSERT(dsl_pool_config_held(ds->ds_dir->dd_pool));
 	mutex_enter(&ds->ds_lock);
 	if (ds->ds_owner == NULL && (override || !(DS_IS_INCONSISTENT(ds) ||
-	    dsl_dataset_feature_is_active(ds,
-	    SPA_FEATURE_REDACTED_DATASETS)))) {
+	    (dsl_dataset_feature_is_active(ds,
+	    SPA_FEATURE_REDACTED_DATASETS) &&
+	    !zfs_allow_redacted_dataset_mount)))) {
 		ds->ds_owner = tag;
 		dsl_dataset_long_hold(ds, tag);
 		gotit = TRUE;

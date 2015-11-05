@@ -251,7 +251,7 @@ get_usage(zfs_help_t idx)
 		    "[filesystem|volume|snapshot] ...\n"));
 	case HELP_MOUNT:
 		return (gettext("\tmount\n"
-		    "\tmount [-vO] [-o opts] <-a | filesystem>\n"));
+		    "\tmount [-fvO] [-o opts] <-a | filesystem>\n"));
 	case HELP_PROMOTE:
 		return (gettext("\tpromote <clone-filesystem>\n"));
 	case HELP_RECEIVE:
@@ -5956,7 +5956,7 @@ share_mount_one(zfs_handle_t *zhp, int op, int flags, char *protocol,
 		return (1);
 	}
 
-	if (zfs_prop_get_int(zhp, ZFS_PROP_REDACTED)) {
+	if (zfs_prop_get_int(zhp, ZFS_PROP_REDACTED) && !(flags & MS_FORCE)) {
 		if (!explicit)
 			return (0);
 
@@ -6102,7 +6102,7 @@ share_mount(int op, int argc, char **argv)
 	int flags = 0;
 
 	/* check options */
-	while ((c = getopt(argc, argv, op == OP_MOUNT ? ":avo:O" : "a"))
+	while ((c = getopt(argc, argv, op == OP_MOUNT ? ":avo:Of" : "a"))
 	    != -1) {
 		switch (c) {
 		case 'a':
@@ -6127,6 +6127,9 @@ share_mount(int op, int argc, char **argv)
 
 		case 'O':
 			flags |= MS_OVERLAY;
+			break;
+		case 'f':
+			flags |= MS_FORCE;
 			break;
 		case ':':
 			(void) fprintf(stderr, gettext("missing argument for "

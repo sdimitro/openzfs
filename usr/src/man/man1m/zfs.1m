@@ -156,7 +156,7 @@ zfs \- configures ZFS file systems
 
 .LP
 .nf
-\fBzfs\fR \fBmount\fR [\fB-vO\fR] [\fB-o \fIoptions\fR\fR] \fB-a\fR | \fIfilesystem\fR
+\fBzfs\fR \fBmount\fR [\fB-fvO\fR] [\fB-o \fIoptions\fR\fR] \fB-a\fR | \fIfilesystem\fR
 .fi
 
 .LP
@@ -2814,7 +2814,7 @@ Displays all \fBZFS\fR file systems currently mounted.
 .sp
 .ne 2
 .na
-\fB\fBzfs mount\fR [\fB-vO\fR] [\fB-o\fR \fIoptions\fR] \fB-a\fR |
+\fB\fBzfs mount\fR [\fB-fvO\fR] [\fB-o\fR \fIoptions\fR] \fB-a\fR |
 \fIfilesystem\fR\fR
 .ad
 .sp .6
@@ -2862,6 +2862,16 @@ Report mount progress.
 .RS 4n
 Mount all available \fBZFS\fR file systems. Invoked automatically as part of
 the boot process.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fB-f\fR\fR
+.ad
+.sp .6
+.RS 4n
+Attempt to force mounting of all filesystems, even those that couldn't normally be mounted.
 .RE
 
 .sp

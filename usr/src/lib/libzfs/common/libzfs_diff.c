@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -606,7 +607,7 @@ get_snapshot_names(differ_info_t *di, const char *fromsnap,
 		 * not the same dataset name, might be okay if
 		 * tosnap is a clone of a fromsnap descendant.
 		 */
-		char origin[ZFS_MAXNAMELEN];
+		char origin[ZFS_MAX_DATASET_NAME_LEN];
 		zprop_source_t src;
 		zfs_handle_t *zhp;
 

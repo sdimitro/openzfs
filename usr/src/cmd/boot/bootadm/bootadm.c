@@ -21,10 +21,8 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Milan Jurik. All rights reserved.
- */
-
-/*
  * Copyright 2014 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -2934,7 +2932,7 @@ is_be(char *root)
 	be_node_list_t	*be_nodes = NULL;
 	be_node_list_t	*cur_be;
 	boolean_t	be_exist = B_FALSE;
-	char		ds_path[ZFS_MAXNAMELEN];
+	char		ds_path[ZFS_MAX_DATASET_NAME_LEN];
 
 	if (!is_zfs(root))
 		return (B_FALSE);
@@ -4685,12 +4683,12 @@ list_entry(menu_t *mp, char *menu_path, char *opt)
 
 int
 add_boot_entry(menu_t *mp,
-	char *title,
-	char *findroot,
-	char *kernel,
-	char *mod_kernel,
-	char *module,
-	char *bootfs)
+    char *title,
+    char *findroot,
+    char *kernel,
+    char *mod_kernel,
+    char *module,
+    char *bootfs)
 {
 	int		lineNum;
 	int		entryNum;

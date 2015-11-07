@@ -63,7 +63,6 @@
 #include <sys/mooch_byteswap.h>
 #include <sys/blkptr.h>
 #include <zfs_comutil.h>
-#undef ZFS_MAXNAMELEN
 #undef verify
 #include <libzfs.h>
 
@@ -1686,11 +1685,11 @@ dump_bookmarks(objset_t *os, const char *osname, int verbosity)
 	for (zap_cursor_init(&zc, mos, ds->ds_bookmarks);
 	    zap_cursor_retrieve(&zc, &attr) == 0;
 	    zap_cursor_advance(&zc)) {
-		char buf[ZFS_MAXNAMELEN];
+		char buf[ZFS_MAX_DATASET_NAME_LEN];
 		zfs_bookmark_phys_t prop;
 		dsl_pool_t *dp;
 
-		(void) snprintf(buf, ZFS_MAXNAMELEN, "%s#%s", osname,
+		(void) snprintf(buf, sizeof (buf), "%s#%s", osname,
 		    attr.za_name);
 		VERIFY0(dsl_pool_hold(buf, FTAG, &dp));
 		VERIFY0(dsl_bookmark_lookup(dp, buf, NULL, &prop));
@@ -2200,7 +2199,7 @@ dump_dir(objset_t *os)
 	uint64_t refdbytes, usedobjs, scratch;
 	char numbuf[32];
 	char blkbuf[BP_SPRINTF_LEN + 20];
-	char osname[MAXNAMELEN];
+	char osname[ZFS_MAX_DATASET_NAME_LEN];
 	char *type = "UNKNOWN";
 	int verbosity = dump_opt['d'];
 	int print_header;

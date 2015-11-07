@@ -21,10 +21,8 @@
 
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
- */
-
-/*
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 #ifndef	_LIBBE_PRIV_H
@@ -133,7 +131,7 @@ typedef struct be_plcy_list {
 
 struct be_defaults {
 	boolean_t	be_deflt_rpool_container;
-	char		be_deflt_bename_starts_with[ZFS_MAXNAMELEN];
+	char		be_deflt_bename_starts_with[ZFS_MAX_DATASET_NAME_LEN];
 };
 
 /* Library globals */

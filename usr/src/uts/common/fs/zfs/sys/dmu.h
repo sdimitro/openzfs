@@ -819,7 +819,7 @@ typedef struct dmu_objset_stats {
 	uint8_t dds_is_snapshot;
 	uint8_t dds_inconsistent;
 	uint8_t dds_redacted;
-	char dds_origin[MAXNAMELEN];
+	char dds_origin[ZFS_MAX_DATASET_NAME_LEN];
 } dmu_objset_stats_t;
 
 /*

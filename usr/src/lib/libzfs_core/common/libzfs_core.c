@@ -227,7 +227,7 @@ lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **errlist)
 	nvpair_t *elem;
 	nvlist_t *args;
 	int error;
-	char pool[MAXNAMELEN];
+	char pool[ZFS_MAX_DATASET_NAME_LEN];
 
 	*errlist = NULL;
 
@@ -279,7 +279,7 @@ lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist)
 	nvpair_t *elem;
 	nvlist_t *args;
 	int error;
-	char pool[MAXNAMELEN];
+	char pool[ZFS_MAX_DATASET_NAME_LEN];
 
 	/* determine the pool name */
 	elem = nvlist_next_nvpair(snaps, NULL);
@@ -306,7 +306,7 @@ lzc_snaprange_space(const char *firstsnap, const char *lastsnap,
 	nvlist_t *args;
 	nvlist_t *result;
 	int err;
-	char fs[MAXNAMELEN];
+	char fs[ZFS_MAX_DATASET_NAME_LEN];
 	char *atp;
 
 	/* determine the fs name */
@@ -371,7 +371,7 @@ lzc_exists(const char *dataset)
 int
 lzc_hold(nvlist_t *holds, int cleanup_fd, nvlist_t **errlist)
 {
-	char pool[MAXNAMELEN];
+	char pool[ZFS_MAX_DATASET_NAME_LEN];
 	nvlist_t *args;
 	nvpair_t *elem;
 	int error;
@@ -418,7 +418,7 @@ lzc_hold(nvlist_t *holds, int cleanup_fd, nvlist_t **errlist)
 int
 lzc_release(nvlist_t *holds, nvlist_t **errlist)
 {
-	char pool[MAXNAMELEN];
+	char pool[ZFS_MAX_DATASET_NAME_LEN];
 	nvpair_t *elem;
 
 	/* determine the pool name */
@@ -747,7 +747,7 @@ lzc_bookmark(nvlist_t *bookmarks, nvlist_t **errlist)
 {
 	nvpair_t *elem;
 	int error;
-	char pool[MAXNAMELEN];
+	char pool[ZFS_MAX_DATASET_NAME_LEN];
 
 	/* determine the pool name */
 	elem = nvlist_next_nvpair(bookmarks, NULL);
@@ -837,7 +837,7 @@ lzc_destroy_bookmarks(nvlist_t *bmarks, nvlist_t **errlist)
 {
 	nvpair_t *elem;
 	int error;
-	char pool[MAXNAMELEN];
+	char pool[ZFS_MAX_DATASET_NAME_LEN];
 
 	/* determine the pool name */
 	elem = nvlist_next_nvpair(bmarks, NULL);

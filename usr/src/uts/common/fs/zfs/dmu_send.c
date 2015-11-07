@@ -2688,7 +2688,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	struct send_block_record *rec;
 	redaction_list_t *new_rl = NULL;
 	redaction_list_t *from_rl = NULL;
-	char newredactbook[ZFS_MAXNAMELEN];
+	char newredactbook[ZFS_MAX_DATASET_NAME_LEN];
 	boolean_t resuming = (resumeobj != 0 || resumeoff != 0);
 
 	err = dmu_objset_from_ds(to_ds, &os);
@@ -2819,12 +2819,12 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	if (redactbook != NULL) {
 		char *c;
 		int n;
-		(void) strncpy(newredactbook, tosnap, ZFS_MAXNAMELEN);
+		(void) strncpy(newredactbook, tosnap, ZFS_MAX_DATASET_NAME_LEN);
 		c = strchr(newredactbook, '@');
 		ASSERT3P(c, !=, NULL);
-		n = snprintf(c, ZFS_MAXNAMELEN - (c - newredactbook), "#%s",
-		    redactbook);
-		if (n >= ZFS_MAXNAMELEN - (c - newredactbook)) {
+		n = snprintf(c, ZFS_MAX_DATASET_NAME_LEN - (c - newredactbook),
+		    "#%s", redactbook);
+		if (n >= ZFS_MAX_DATASET_NAME_LEN - (c - newredactbook)) {
 			kmem_free(drr, sizeof (dmu_replay_record_t));
 			dsl_pool_rele(dp, tag);
 			return (SET_ERROR(ENAMETOOLONG));
@@ -4054,7 +4054,7 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 		dsl_dataset_rele(ds, FTAG);
 	} else if (error == ENOENT) {
 		/* target fs does not exist; must be a full backup or clone */
-		char buf[MAXNAMELEN];
+		char buf[ZFS_MAX_DATASET_NAME_LEN];
 
 		/*
 		 * If it's a non-clone incremental, we are missing the
@@ -4074,7 +4074,7 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 			return (SET_ERROR(EINVAL));
 
 		/* Open the parent of tofs */
-		ASSERT3U(strlen(tofs), <, MAXNAMELEN);
+		ASSERT3U(strlen(tofs), <, sizeof (buf));
 		(void) strlcpy(buf, tofs, strrchr(tofs, '/') - tofs + 1);
 		error = dsl_dataset_hold(dp, buf, FTAG, &ds);
 		if (error != 0)
@@ -4328,7 +4328,8 @@ dmu_recv_resume_begin_check(void *arg, dmu_tx_t *tx)
 	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_LZ4_COMPRESS))
 		return (SET_ERROR(ENOTSUP));
 
-	char recvname[ZFS_MAXNAMELEN];
+	/* 6 extra bytes for /%recv */
+	char recvname[ZFS_MAX_DATASET_NAME_LEN + 6];
 
 	(void) snprintf(recvname, sizeof (recvname), "%s/%s",
 	    tofs, recv_clone_name);
@@ -4435,7 +4436,8 @@ dmu_recv_resume_begin_sync(void *arg, dmu_tx_t *tx)
 	dsl_pool_t *dp = dmu_tx_pool(tx);
 	const char *tofs = drba->drba_cookie->drc_tofs;
 	dsl_dataset_t *ds;
-	char recvname[ZFS_MAXNAMELEN];
+	/* 6 extra bytes for /%recv */
+	char recvname[ZFS_MAX_DATASET_NAME_LEN + 6];
 
 	(void) snprintf(recvname, sizeof (recvname), "%s/%s",
 	    tofs, recv_clone_name);
@@ -5097,7 +5099,7 @@ dmu_recv_cleanup_ds(dmu_recv_cookie_t *drc)
 		txg_wait_synced(drc->drc_ds->ds_dir->dd_pool, 0);
 		dsl_dataset_disown(drc->drc_ds, dmu_recv_tag);
 	} else {
-		char name[MAXNAMELEN];
+		char name[ZFS_MAX_DATASET_NAME_LEN];
 		dsl_dataset_name(drc->drc_ds, name);
 		dsl_dataset_disown(drc->drc_ds, dmu_recv_tag);
 		(void) dsl_destroy_head(name);
@@ -5901,13 +5903,12 @@ static int dmu_recv_end_modified_blocks = 3;
 static int
 dmu_recv_existing_end(dmu_recv_cookie_t *drc)
 {
-	char name[MAXNAMELEN];
-
 #ifdef _KERNEL
 	/*
 	 * We will be destroying the ds; make sure its origin is unmounted if
 	 * necessary.
 	 */
+	char name[ZFS_MAX_DATASET_NAME_LEN];
 	dsl_dataset_name(drc->drc_ds, name);
 	zfs_destroy_unmount_origin(name);
 #endif

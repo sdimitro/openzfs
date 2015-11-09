@@ -31,6 +31,7 @@ PROGS = cleanup \
 	zfs_mount_009_neg \
 	zfs_mount_010_neg \
 	zfs_mount_011_neg \
+	zfs_mount_012_neg \
 	zfs_mount_all_001_pos
 
 FILES = zfs_mount.cfg \

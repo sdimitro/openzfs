@@ -22,6 +22,7 @@
 # Copyright 2010, 2011 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 Joshua M. Clulow <josh@sysmgr.org>
 # Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 # Configuration variables for the runtime environment of the nightly
@@ -236,3 +237,10 @@ export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
 export CW_NO_SHADOW=1
 export ONNV_BUILDNUM=151014
+
+# If your distro uses certain versions of Perl, make sure either Makefile.master
+# contains your new defaults OR your .env file sets them.
+# These are how you would override for building on OmniOS r151012, for example.
+#export PERL_VERSION=5.16.1
+#export PERL_ARCH=i86pc-solaris-thread-multi-64int
+#export PERL_PKGVERS=-5161

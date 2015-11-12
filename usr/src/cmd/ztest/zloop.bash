@@ -69,19 +69,15 @@ function store_core
 			corestack=$(mdb -e "::stack" core)
 
 			# Dump core + logs to stored directory
-			echo $corestatus >>$dest/status
-			echo $corestack >>$dest/status
+			echo "$corestatus" >>$dest/status
+			echo "$corestack" >>$dest/status
 			or_die /bin/mv core $dest/
 
 			# Record info in cores logfile
-			echo "*** core @ $coredir/$coreid/core:" >>ztest.cores
-			echo $corestatus >>ztest.cores
-			echo $corestack >>ztest.cores
-
-			echo "*** core status:"
-			echo $corestatus
-			echo $corestack
-			echo
+			echo "*** core @ $coredir/$coreid/core:" | /bin/tee -a ztest.cores
+			echo "$corestatus" | /bin/tee -a ztest.cores
+			echo "$corestack" | /bin/tee -a ztest.cores
+			echo "" | /bin/tee -a ztest.cores
 		fi
 		echo "continuing..."
 	fi
@@ -113,8 +109,8 @@ if [[ -f core ]]; then
 fi
 
 if [[ ! -d $coredir ]]; then
-	echo "core dump directory ($coredir) does not exist."
-	exit 1
+	echo "core dump directory ($coredir) does not exist, creating it."
+	or_die /bin/mkdir -p $coredir
 fi
 
 if [[ ! -w $coredir ]]; then
@@ -164,7 +160,7 @@ while [[ $curtime -le $(($starttime + $looptimeout)) ]]; do
 	cmd="ztest $zopt $@"
 	desc="$(/bin/date '+%m/%d %T') $cmd"
 	echo "$desc" | /bin/tee -a ztest.history
-	echo "$desc" >ztest.out
+	echo "$desc" >>ztest.out
 	$BIN/$cmd >>ztest.out 2>&1
 	ztrc=$?
 	/bin/egrep '===|WARNING' ztest.out >>ztest.history

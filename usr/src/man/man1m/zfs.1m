@@ -3424,8 +3424,11 @@ source file system itself) is used as the target file system name.
 .sp .6
 .RS 4n
 Forces the stream to be received as a clone of the given snapshot.
-This is only valid if the stream is an incremental stream whose source
-is the same as the provided origin.
+If the stream is a full send stream, this will create the filesystem
+described by the stream as a clone of the specified snapshot. Which
+snapshot was specified will not affect the success or failure of the
+receive, as long as the snapshot does exist.  If the stream is an
+incremental send stream, all the normal verification will be performed.
 .RE
 
 .sp

@@ -192,7 +192,7 @@ function cmp_ds_cont
 	dstdir=$(get_prop mountpoint $dst_fs)
 
 	diff -r $srcdir $dstdir > /dev/null 2>&1
-	echo $?
+	return $?
 }
 
 #
@@ -666,4 +666,5 @@ function resume_cleanup
 	datasetexists $sendfs && log_must zfs destroy -r $sendfs
 	datasetexists $streamfs && log_must zfs destroy -r $streamfs
 	cleanup_pool $POOL2
+	rm -f /$POOL/initial.zsend /$POOL/incremental.zsend
 }

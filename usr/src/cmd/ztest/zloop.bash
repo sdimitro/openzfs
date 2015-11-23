@@ -35,7 +35,25 @@ BIN=$ROOT/usr/bin/${ARCHBITS}
 SBIN=$ROOT/usr/sbin/${ARCHBITS}
 DIR=/var/tmp
 DEFAULTCOREDIR=/var/tmp/zloop
-DEFAULTTIMEOUT=7200 # run for 2 hours by default
+
+function usage
+{
+	echo -e "\n$0 [-t <timeout>] [-c <dump directory>]" \
+	    "[ -- [extra ztest parameters]]\n" \
+	    "\n" \
+	    "  This script runs ztest repeatedly with randomized arguments.\n" \
+	    "  If a crash is encountered, the ztest logs, any associated\n" \
+	    "  vdev files, and core file (if one exists) are moved to the\n" \
+	    "  output directory ($DEFAULTCOREDIR by default). Any options\n" \
+	    "  after the -- end-of-options marker will be passed to ztest.\n" \
+	    "\n" \
+	    "  Options:\n" \
+	    "    -t  Total time to loop for, in seconds. If not provided,\n" \
+	    "        zloop runs forever.\n" \
+	    "    -c  Specify a core dump directory to use.\n" \
+	    "    -h  Print this help message.\n" \
+	    "" >&2
+}
 
 function or_die
 {
@@ -91,12 +109,16 @@ set +x
 # parse arguments
 # expected format: zloop [-t timeout] [-c coredir] [-- extra ztest args]
 coredir=$DEFAULTCOREDIR
-looptimeout=$DEFAULTTIMEOUT
-while getopts ":t:c:" opt; do
+timeout=0
+while getopts ":ht:c:" opt; do
 	case $opt in
-		t ) [[ $OPTARG -gt 0 ]] && looptimeout=$OPTARG ;;
+		t ) [[ $OPTARG -gt 0 ]] && timeout=$OPTARG ;;
 		c ) [[ $OPTARG ]] && coredir=$OPTARG ;;
+		h ) usage
+		    exit 2
+		    ;;
 		* ) echo "Invalid argument: -$OPTARG";
+		    usage
 		    exit 1
 	esac
 done
@@ -127,7 +149,8 @@ foundcrashes=0	# number of crashes found so far
 starttime=$(/bin/date +%s)
 curtime=$starttime
 
-while [[ $curtime -le $(($starttime + $looptimeout)) ]]; do
+# if no timeout was specified, loop forever.
+while [[ $timeout -eq 0 ]] || [[ $curtime -le $(($starttime + $timeout)) ]]; do
 	zopt="-VVVVV"
 
 	# switch between common arrangements & fully randomized

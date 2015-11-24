@@ -25,6 +25,7 @@ PROGS = cleanup \
 	redacted_send_004_pos \
 	redacted_send_005_pos \
 	redacted_send_006_pos \
+	redacted_send_007_pos \
 	setup
 
 FILES = redacted_send.cfg \

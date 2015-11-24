@@ -2748,8 +2748,23 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 		featureflags |= DMU_BACKUP_FEATURE_RESUMING;
 	}
 
-	if (redactbook != NULL) {
+	if (redactbook != NULL || dsl_dataset_feature_is_active(to_ds,
+	    SPA_FEATURE_REDACTED_DATASETS)) {
+		if (redactbook != NULL && dsl_dataset_feature_is_active(to_ds,
+		    SPA_FEATURE_REDACTED_DATASETS)) {
+			kmem_free(drr, sizeof (dmu_replay_record_t));
+			dsl_pool_rele(dp, tag);
+			return (SET_ERROR(EALREADY));
+		}
 		featureflags |= DMU_BACKUP_FEATURE_REDACTED;
+		for (int i = 0; i < numredactsnaps; i++) {
+			if (dsl_dataset_feature_is_active(redactsnaparr[i],
+			    SPA_FEATURE_REDACTED_DATASETS)) {
+				kmem_free(drr, sizeof (dmu_replay_record_t));
+				dsl_pool_rele(dp, tag);
+				return (SET_ERROR(EALREADY));
+			}
+		}
 	}
 
 	DMU_SET_FEATUREFLAGS(drr->drr_u.drr_begin.drr_versioninfo,
@@ -2791,24 +2806,6 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	if (numredactsnaps > 0)
 		redact_args = kmem_zalloc(numredactsnaps * sizeof (to_arg),
 		    KM_SLEEP);
-
-	dsp = kmem_zalloc(sizeof (dmu_sendarg_t), KM_SLEEP);
-
-	dsp->dsa_drr = drr;
-	dsp->dsa_vp = vp;
-	dsp->dsa_outfd = outfd;
-	dsp->dsa_proc = curproc;
-	dsp->dsa_os = os;
-	dsp->dsa_off = off;
-	dsp->dsa_toguid = dsl_dataset_phys(to_ds)->ds_guid;
-	dsp->dsa_pending_op = PENDING_NONE;
-	dsp->dsa_featureflags = featureflags;
-	dsp->dsa_resume_object = resumeobj;
-	dsp->dsa_resume_offset = resumeoff;
-
-	mutex_enter(&to_ds->ds_sendstream_lock);
-	list_insert_head(&to_ds->ds_sendstreams, dsp);
-	mutex_exit(&to_ds->ds_sendstream_lock);
 
 	dsl_dataset_long_hold(to_ds, FTAG);
 	if (from_ds != NULL)
@@ -2865,21 +2862,45 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 		dsl_redaction_list_long_hold(dp, from_rl, FTAG);
 	}
 
+	dsp = kmem_zalloc(sizeof (dmu_sendarg_t), KM_SLEEP);
+
+	dsp->dsa_drr = drr;
+	dsp->dsa_vp = vp;
+	dsp->dsa_outfd = outfd;
+	dsp->dsa_proc = curproc;
+	dsp->dsa_os = os;
+	dsp->dsa_off = off;
+	dsp->dsa_toguid = dsl_dataset_phys(to_ds)->ds_guid;
+	dsp->dsa_pending_op = PENDING_NONE;
+	dsp->dsa_featureflags = featureflags;
+	dsp->dsa_resume_object = resumeobj;
+	dsp->dsa_resume_offset = resumeoff;
+
+	mutex_enter(&to_ds->ds_sendstream_lock);
+	list_insert_head(&to_ds->ds_sendstreams, dsp);
+	mutex_exit(&to_ds->ds_sendstream_lock);
+
 	dsl_pool_rele(dp, tag);
 
 	void *payload = NULL;
 	size_t payload_len = 0;
 	nvlist_t *nvl = fnvlist_alloc();
 
+	/*
+	 * If we're doing a redacted send, we include the snapshots we're
+	 * redacted with respect to so that the target system knows what send
+	 * streams can be correctly received on top of this dataset. If we're
+	 * instead sending a redacted dataset, we include the snapshots that the
+	 * dataset was created with respect to.
+	 */
 	if (redactbook != NULL) {
 		uint64_t *guids = NULL;
 		if (numredactsnaps > 0) {
 			guids = kmem_zalloc(numredactsnaps * sizeof (uint64_t),
 			    KM_SLEEP);
 		}
-		for (int i = 0; i < numredactsnaps; i++) {
+		for (int i = 0; i < numredactsnaps; i++)
 			guids[i] = dsl_dataset_phys(redactsnaparr[i])->ds_guid;
-		}
 
 		if (!resuming) {
 			err = dsl_bookmark_create_redacted(newredactbook,
@@ -2894,6 +2915,14 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 		fnvlist_add_uint64_array(nvl, BEGINNV_REDACT_SNAPS, guids,
 		    numredactsnaps);
 		kmem_free(guids, numredactsnaps * sizeof (uint64_t));
+	} else if (dsl_dataset_feature_is_active(to_ds,
+	    SPA_FEATURE_REDACTED_DATASETS)) {
+		uint64_t *tods_guids;
+		uint64_t length;
+		VERIFY(dsl_dataset_get_uint64_array_feature(to_ds,
+		    SPA_FEATURE_REDACTED_DATASETS, &length, &tods_guids));
+		fnvlist_add_uint64_array(nvl, BEGINNV_REDACT_SNAPS, tods_guids,
+		    length);
 	}
 
 	/*

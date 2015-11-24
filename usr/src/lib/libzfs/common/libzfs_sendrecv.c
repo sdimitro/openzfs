@@ -2002,6 +2002,11 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd,
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "redaction snapshot must be descendent of tosnap"));
 			return (zfs_error(hdl, EZFS_CROSSTARGET, errbuf));
+		case EALREADY:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "attempted to redact redacted dataset or with"
+			    "respect to redacted dataset"));
+			return (zfs_error(hdl, EZFS_BADBACKUP, errbuf));
 
 		case EDQUOT:
 		case EFBIG:

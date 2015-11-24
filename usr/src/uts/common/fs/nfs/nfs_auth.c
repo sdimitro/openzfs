@@ -1247,7 +1247,7 @@ retrieve:
  */
 int
 nfsauth4_secinfo_access(struct exportinfo *exi, struct svc_req *req,
-			int flavor, int perm, cred_t *cr)
+    int flavor, int perm, cred_t *cr)
 {
 	int access;
 
@@ -1522,6 +1522,7 @@ exi_cache_trim(struct exportinfo *exi)
 			 */
 			if (rw_tryenter(&c->authc_lock, RW_WRITER) == 0) {
 				exi_cache_auth_reclaim_failed++;
+				rw_exit(&exi->exi_cache_lock);
 				return;
 			}
 

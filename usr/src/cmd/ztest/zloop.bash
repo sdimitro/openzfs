@@ -33,7 +33,7 @@ ARCH=`uname -p`
 eval 'ARCHBITS=${'"${ARCH}_${BITS}"'}'
 BIN=$ROOT/usr/bin/${ARCHBITS}
 SBIN=$ROOT/usr/sbin/${ARCHBITS}
-DIR=/var/tmp
+DEFAULTWORKDIR=/var/tmp
 DEFAULTCOREDIR=/var/tmp/zloop
 
 function usage
@@ -50,6 +50,7 @@ function usage
 	    "  Options:\n" \
 	    "    -t  Total time to loop for, in seconds. If not provided,\n" \
 	    "        zloop runs forever.\n" \
+	    "    -f  Specify working directory for ztest vdev files.\n" \
 	    "    -c  Specify a core dump directory to use.\n" \
 	    "    -h  Print this help message.\n" \
 	    "" >&2
@@ -79,7 +80,8 @@ function store_core
 		or_die /bin/mv ztest.history $dest/
 		or_die /bin/mv ztest.ddt $dest/
 		or_die /bin/mv ztest.out $dest/
-		or_die /bin/mv $DIR/ztest.* $dest/vdev/
+		or_die /bin/mv $workdir/ztest* $dest/vdev/
+		or_die /bin/mv $workdir/zpool.cache $dest/vdev/
 
 		# check for core
 		if [[ -f core ]]; then
@@ -109,11 +111,13 @@ set +x
 # parse arguments
 # expected format: zloop [-t timeout] [-c coredir] [-- extra ztest args]
 coredir=$DEFAULTCOREDIR
+workdir=$DEFAULTWORKDIR
 timeout=0
-while getopts ":ht:c:" opt; do
+while getopts ":ht:c:f:" opt; do
 	case $opt in
 		t ) [[ $OPTARG -gt 0 ]] && timeout=$OPTARG ;;
 		c ) [[ $OPTARG ]] && coredir=$OPTARG ;;
+		f ) [[ $OPTARG ]] && workdir=$(/usr/bin/readlink -f $OPTARG) ;;
 		h ) usage
 		    exit 2
 		    ;;
@@ -178,7 +182,7 @@ while [[ $timeout -eq 0 ]] || [[ $curtime -le $(($starttime + $timeout)) ]]; do
 	zopt="$zopt -T $runtime"
 	zopt="$zopt -P $passtime"
 	zopt="$zopt -s $size"
-	zopt="$zopt -f $DIR"
+	zopt="$zopt -f $workdir"
 
 	cmd="ztest $zopt $@"
 	desc="$(/bin/date '+%m/%d %T') $cmd"
@@ -187,7 +191,7 @@ while [[ $timeout -eq 0 ]] || [[ $curtime -le $(($starttime + $timeout)) ]]; do
 	$BIN/$cmd >>ztest.out 2>&1
 	ztrc=$?
 	/bin/egrep '===|WARNING' ztest.out >>ztest.history
-	$SBIN/zdb -U $DIR/zpool.cache -DD ztest >>ztest.ddt
+	$SBIN/zdb -U $workdir/zpool.cache -DD ztest >>ztest.ddt
 
 	store_core
 

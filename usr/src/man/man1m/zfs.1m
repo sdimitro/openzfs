@@ -3334,14 +3334,23 @@ causes less data to be redacted (because the snapshots define what is permitted,
 and everything else is redacted)).  This use case will produce a new redacted
 snapshot.
 .sp
-3. To receive an incremental send from the redaction bookmark to
-anything else.  A send stream from the redaction bookmark will contain
+3. To receive an incremental send from a redaction bookmark on the original
+snapshot that was created when redacting with respect ot a subset of the set of
+snapshots the initial snapshot was created with respect to to
+anything else.  A send stream from such a redaction bookmark will contain
 all of the blocks necessary to fill in any redacted data, should it be
 needed, because the sending system is aware of what blocks were
 originally redacted.  This will either produce a normal snapshot or a
 redacted one, depending on whether the new send stream is redacted.
 .sp
-4. To receive a full send as a clone of the redacted snapshot.  Since the
+4. To receive an incremental send from a redacted version of the initial
+snapshot that is redacted with respect to a subect of the set of snapshots the
+initial snapshot was created with respect to.  A send stream from a compatible
+redacted dataset will contain all of the blocks necessary to fill in any
+redacted data.  This will either produce a normal snapshot or a
+redacted one, depending on whether the new send stream is redacted.
+.sp
+5. To receive a full send as a clone of the redacted snapshot.  Since the
 stream is a full send, it definitionally contains all the data needed to
 create a new dataset.  This use case will either produce a normal snapshot
 or a redacted one, depending on whether the full send stream was redacted.

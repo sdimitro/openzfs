@@ -269,38 +269,12 @@ static xuio_stats_t xuio_stats = {
 	atomic_add_64(&xuio_stats.stat.value.ui64, (val))
 #define	XUIOSTAT_BUMP(stat)	XUIOSTAT_INCR(stat, 1)
 
-/*
- * The list of data whose inclusion in a send stream can be pending from
- * one call to backup_cb to another.  Multiple calls to dump_free() and
- * dump_freeobjects() can be aggregated into a single DRR_FREE or
- * DRR_FREEOBJECTS replay record.
- */
-typedef enum {
-	PENDING_NONE,
-	PENDING_FREE,
-	PENDING_FREEOBJECTS
-} dmu_pendop_t;
-
-typedef struct dmu_sendarg {
-	list_node_t dsa_link;
-	dmu_replay_record_t *dsa_drr;
-	vnode_t *dsa_vp;
-	int dsa_outfd;
-	struct proc *dsa_proc;
-	offset_t *dsa_off;
-	objset_t *dsa_os;
-	zio_cksum_t dsa_zc;
-	uint64_t dsa_toguid;
-	int dsa_err;
-	dmu_pendop_t dsa_pending_op;
-	uint64_t dsa_featureflags;
-	uint64_t dsa_last_data_object;
-	uint64_t dsa_last_data_offset;
-	uint64_t dsa_resume_object;
-	uint64_t dsa_resume_offset;
-	boolean_t dsa_sent_begin;
-	boolean_t dsa_sent_end;
-} dmu_sendarg_t;
+typedef struct dmu_sendstatus {
+	list_node_t dss_link;
+	int dss_outfd;
+	struct proc *dss_proc;
+	offset_t *dss_off;
+} dmu_sendstatus_t;
 
 void dmu_object_zapify(objset_t *, uint64_t, dmu_object_type_t, dmu_tx_t *);
 void dmu_object_free_zapified(objset_t *, uint64_t, dmu_tx_t *);

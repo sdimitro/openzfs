@@ -206,6 +206,36 @@ struct send_redact_record {
 };
 
 /*
+ * The list of data whose inclusion in a send stream can be pending from
+ * one call to backup_cb to another.  Multiple calls to dump_free() and
+ * dump_freeobjects() can be aggregated into a single DRR_FREE or
+ * DRR_FREEOBJECTS replay record.
+ */
+typedef enum {
+	PENDING_NONE,
+	PENDING_FREE,
+	PENDING_FREEOBJECTS
+} dmu_pendop_t;
+
+typedef struct dmu_send_cookie {
+	dmu_replay_record_t *dsc_drr;
+	vnode_t *dsc_vp;
+	offset_t *dsc_off;
+	objset_t *dsc_os;
+	zio_cksum_t dsc_zc;
+	uint64_t dsc_toguid;
+	int dsc_err;
+	dmu_pendop_t dsc_pending_op;
+	uint64_t dsc_featureflags;
+	uint64_t dsc_last_data_object;
+	uint64_t dsc_last_data_offset;
+	uint64_t dsc_resume_object;
+	uint64_t dsc_resume_offset;
+	boolean_t dsc_sent_begin;
+	boolean_t dsc_sent_end;
+} dmu_send_cookie_t;
+
+/*
  * The redaction node is a wrapper around the redaction record that is used
  * by the redaction merging thread to sort the records and determine overlaps.
  *
@@ -221,9 +251,9 @@ struct redact_node {
 };
 
 static int
-dump_bytes(dmu_sendarg_t *dsp, void *buf, int len)
+dump_bytes(dmu_send_cookie_t *dscp, void *buf, int len)
 {
-	dsl_dataset_t *ds = dmu_objset_ds(dsp->dsa_os);
+	dsl_dataset_t *ds = dmu_objset_ds(dscp->dsc_os);
 	ssize_t resid; /* have to get resid to get detailed errno */
 
 	/*
@@ -240,15 +270,15 @@ dump_bytes(dmu_sendarg_t *dsp, void *buf, int len)
 
 	ASSERT0(len % 8);
 
-	dsp->dsa_err = vn_rdwr(UIO_WRITE, dsp->dsa_vp,
+	dscp->dsc_err = vn_rdwr(UIO_WRITE, dscp->dsc_vp,
 	    (caddr_t)buf, len,
 	    0, UIO_SYSSPACE, FAPPEND, RLIM64_INFINITY, CRED(), &resid);
 
 	mutex_enter(&ds->ds_sendstream_lock);
-	*dsp->dsa_off += len;
+	*dscp->dsc_off += len;
 	mutex_exit(&ds->ds_sendstream_lock);
 
-	return (dsp->dsa_err);
+	return (dscp->dsc_err);
 }
 
 /*
@@ -257,32 +287,32 @@ dump_bytes(dmu_sendarg_t *dsp, void *buf, int len)
  * up to the start of the checksum itself.
  */
 static int
-dump_record(dmu_sendarg_t *dsp, void *payload, int payload_len)
+dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 {
 	ASSERT3U(offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
 	    ==, sizeof (dmu_replay_record_t) - sizeof (zio_cksum_t));
-	fletcher_4_incremental_native(dsp->dsa_drr,
+	fletcher_4_incremental_native(dscp->dsc_drr,
 	    offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
-	    &dsp->dsa_zc);
-	if (dsp->dsa_drr->drr_type == DRR_BEGIN) {
-		dsp->dsa_sent_begin = B_TRUE;
+	    &dscp->dsc_zc);
+	if (dscp->dsc_drr->drr_type == DRR_BEGIN) {
+		dscp->dsc_sent_begin = B_TRUE;
 	} else {
-		ASSERT(ZIO_CHECKSUM_IS_ZERO(&dsp->dsa_drr->drr_u.
+		ASSERT(ZIO_CHECKSUM_IS_ZERO(&dscp->dsc_drr->drr_u.
 		    drr_checksum.drr_checksum));
-		dsp->dsa_drr->drr_u.drr_checksum.drr_checksum = dsp->dsa_zc;
+		dscp->dsc_drr->drr_u.drr_checksum.drr_checksum = dscp->dsc_zc;
 	}
-	if (dsp->dsa_drr->drr_type == DRR_END) {
-		dsp->dsa_sent_end = B_TRUE;
+	if (dscp->dsc_drr->drr_type == DRR_END) {
+		dscp->dsc_sent_end = B_TRUE;
 	}
-	fletcher_4_incremental_native(&dsp->dsa_drr->
+	fletcher_4_incremental_native(&dscp->dsc_drr->
 	    drr_u.drr_checksum.drr_checksum,
-	    sizeof (zio_cksum_t), &dsp->dsa_zc);
-	if (dump_bytes(dsp, dsp->dsa_drr, sizeof (dmu_replay_record_t)) != 0)
+	    sizeof (zio_cksum_t), &dscp->dsc_zc);
+	if (dump_bytes(dscp, dscp->dsc_drr, sizeof (dmu_replay_record_t)) != 0)
 		return (SET_ERROR(EINTR));
 	if (payload_len != 0) {
 		fletcher_4_incremental_native(payload, payload_len,
-		    &dsp->dsa_zc);
-		if (dump_bytes(dsp, payload, payload_len) != 0)
+		    &dscp->dsc_zc);
+		if (dump_bytes(dscp, payload, payload_len) != 0)
 			return (SET_ERROR(EINTR));
 	}
 	return (0);
@@ -297,10 +327,10 @@ dump_record(dmu_sendarg_t *dsp, void *payload, int payload_len)
  * and freeobject records that were generated on the source.
  */
 static int
-dump_free(dmu_sendarg_t *dsp, uint64_t object, uint64_t offset,
+dump_free(dmu_send_cookie_t *dscp, uint64_t object, uint64_t offset,
     uint64_t length)
 {
-	struct drr_free *drrf = &(dsp->dsa_drr->drr_u.drr_free);
+	struct drr_free *drrf = &(dscp->dsc_drr->drr_u.drr_free);
 
 	/*
 	 * When we receive a free record, dbuf_free_range() assumes
@@ -315,9 +345,9 @@ dump_free(dmu_sendarg_t *dsp, uint64_t object, uint64_t offset,
 	 * another way to assert that the one-record constraint is still
 	 * satisfied.
 	 */
-	ASSERT(object > dsp->dsa_last_data_object ||
-	    (object == dsp->dsa_last_data_object &&
-	    offset > dsp->dsa_last_data_offset));
+	ASSERT(object > dscp->dsc_last_data_object ||
+	    (object == dscp->dsc_last_data_object &&
+	    offset > dscp->dsc_last_data_offset));
 
 	if (length != -1ULL && offset + length < offset)
 		length = -1ULL;
@@ -329,14 +359,14 @@ dump_free(dmu_sendarg_t *dsp, uint64_t object, uint64_t offset,
 	 * other DRR_FREE records.  DRR_FREEOBJECTS records can only be
 	 * aggregated with other DRR_FREEOBJECTS records.
 	 */
-	if (dsp->dsa_pending_op != PENDING_NONE &&
-	    dsp->dsa_pending_op != PENDING_FREE) {
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dscp->dsc_pending_op != PENDING_NONE &&
+	    dscp->dsc_pending_op != PENDING_FREE) {
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (SET_ERROR(EINTR));
-		dsp->dsa_pending_op = PENDING_NONE;
+		dscp->dsc_pending_op = PENDING_NONE;
 	}
 
-	if (dsp->dsa_pending_op == PENDING_FREE) {
+	if (dscp->dsc_pending_op == PENDING_FREE) {
 		/*
 		 * There should never be a PENDING_FREE if length is -1
 		 * (because dump_dnode is the only place where this
@@ -354,45 +384,45 @@ dump_free(dmu_sendarg_t *dsp, uint64_t object, uint64_t offset,
 			return (0);
 		} else {
 			/* not a continuation.  Push out pending record */
-			if (dump_record(dsp, NULL, 0) != 0)
+			if (dump_record(dscp, NULL, 0) != 0)
 				return (SET_ERROR(EINTR));
-			dsp->dsa_pending_op = PENDING_NONE;
+			dscp->dsc_pending_op = PENDING_NONE;
 		}
 	}
 	/* create a FREE record and make it pending */
-	bzero(dsp->dsa_drr, sizeof (dmu_replay_record_t));
-	dsp->dsa_drr->drr_type = DRR_FREE;
+	bzero(dscp->dsc_drr, sizeof (dmu_replay_record_t));
+	dscp->dsc_drr->drr_type = DRR_FREE;
 	drrf->drr_object = object;
 	drrf->drr_offset = offset;
 	drrf->drr_length = length;
-	drrf->drr_toguid = dsp->dsa_toguid;
+	drrf->drr_toguid = dscp->dsc_toguid;
 	if (length == -1ULL) {
-		if (dump_record(dsp, NULL, 0) != 0)
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (SET_ERROR(EINTR));
 	} else {
-		dsp->dsa_pending_op = PENDING_FREE;
+		dscp->dsc_pending_op = PENDING_FREE;
 	}
 
 	return (0);
 }
 
 static int
-dump_write(dmu_sendarg_t *dsp, dmu_object_type_t type,
+dump_write(dmu_send_cookie_t *dscp, dmu_object_type_t type,
     uint64_t object, uint64_t offset, int lsize, int psize, const blkptr_t *bp,
     void *data)
 {
 	uint64_t payload_size;
-	struct drr_write *drrw = &(dsp->dsa_drr->drr_u.drr_write);
+	struct drr_write *drrw = &(dscp->dsc_drr->drr_u.drr_write);
 
 	/*
 	 * We send data in increasing object, offset order.
 	 * See comment in dump_free() for details.
 	 */
-	ASSERT(object > dsp->dsa_last_data_object ||
-	    (object == dsp->dsa_last_data_object &&
-	    offset > dsp->dsa_last_data_offset));
-	dsp->dsa_last_data_object = object;
-	dsp->dsa_last_data_offset = offset + lsize - 1;
+	ASSERT(object > dscp->dsc_last_data_object ||
+	    (object == dscp->dsc_last_data_object &&
+	    offset > dscp->dsc_last_data_offset));
+	dscp->dsc_last_data_object = object;
+	dscp->dsc_last_data_offset = offset + lsize - 1;
 
 	/*
 	 * If there is any kind of pending aggregation (currently either
@@ -400,23 +430,23 @@ dump_write(dmu_sendarg_t *dsp, dmu_object_type_t type,
 	 * the stream, since aggregation can't be done across operations
 	 * of different types.
 	 */
-	if (dsp->dsa_pending_op != PENDING_NONE) {
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dscp->dsc_pending_op != PENDING_NONE) {
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (SET_ERROR(EINTR));
-		dsp->dsa_pending_op = PENDING_NONE;
+		dscp->dsc_pending_op = PENDING_NONE;
 	}
 	/* write a WRITE record */
-	bzero(dsp->dsa_drr, sizeof (dmu_replay_record_t));
-	dsp->dsa_drr->drr_type = DRR_WRITE;
+	bzero(dscp->dsc_drr, sizeof (dmu_replay_record_t));
+	dscp->dsc_drr->drr_type = DRR_WRITE;
 	drrw->drr_object = object;
 	drrw->drr_type = type;
 	drrw->drr_offset = offset;
-	drrw->drr_toguid = dsp->dsa_toguid;
+	drrw->drr_toguid = dscp->dsc_toguid;
 	drrw->drr_logical_size = lsize;
 
 	/* only set the compression fields if the buf is compressed */
 	if (lsize != psize) {
-		ASSERT(dsp->dsa_featureflags & DMU_BACKUP_FEATURE_COMPRESSED);
+		ASSERT(dscp->dsc_featureflags & DMU_BACKUP_FEATURE_COMPRESSED);
 		ASSERT(!BP_IS_EMBEDDED(bp));
 		ASSERT(!BP_SHOULD_BYTESWAP(bp));
 		ASSERT(!DMU_OT_IS_METADATA(BP_GET_TYPE(bp)));
@@ -450,33 +480,33 @@ dump_write(dmu_sendarg_t *dsp, dmu_object_type_t type,
 		drrw->drr_key.ddk_cksum = bp->blk_cksum;
 	}
 
-	if (dump_record(dsp, data, payload_size) != 0)
+	if (dump_record(dscp, data, payload_size) != 0)
 		return (SET_ERROR(EINTR));
 	return (0);
 }
 
 static int
-dump_write_embedded(dmu_sendarg_t *dsp, uint64_t object, uint64_t offset,
+dump_write_embedded(dmu_send_cookie_t *dscp, uint64_t object, uint64_t offset,
     int blksz, const blkptr_t *bp)
 {
 	char buf[BPE_PAYLOAD_SIZE];
 	struct drr_write_embedded *drrw =
-	    &(dsp->dsa_drr->drr_u.drr_write_embedded);
+	    &(dscp->dsc_drr->drr_u.drr_write_embedded);
 
-	if (dsp->dsa_pending_op != PENDING_NONE) {
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dscp->dsc_pending_op != PENDING_NONE) {
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (EINTR);
-		dsp->dsa_pending_op = PENDING_NONE;
+		dscp->dsc_pending_op = PENDING_NONE;
 	}
 
 	ASSERT(BP_IS_EMBEDDED(bp));
 
-	bzero(dsp->dsa_drr, sizeof (dmu_replay_record_t));
-	dsp->dsa_drr->drr_type = DRR_WRITE_EMBEDDED;
+	bzero(dscp->dsc_drr, sizeof (dmu_replay_record_t));
+	dscp->dsc_drr->drr_type = DRR_WRITE_EMBEDDED;
 	drrw->drr_object = object;
 	drrw->drr_offset = offset;
 	drrw->drr_length = blksz;
-	drrw->drr_toguid = dsp->dsa_toguid;
+	drrw->drr_toguid = dscp->dsc_toguid;
 	drrw->drr_compression = BP_GET_COMPRESS(bp);
 	drrw->drr_etype = BPE_GET_ETYPE(bp);
 	drrw->drr_lsize = BPE_GET_LSIZE(bp);
@@ -484,38 +514,38 @@ dump_write_embedded(dmu_sendarg_t *dsp, uint64_t object, uint64_t offset,
 
 	decode_embedded_bp_compressed(bp, buf);
 
-	if (dump_record(dsp, buf, P2ROUNDUP(drrw->drr_psize, 8)) != 0)
+	if (dump_record(dscp, buf, P2ROUNDUP(drrw->drr_psize, 8)) != 0)
 		return (EINTR);
 	return (0);
 }
 
 static int
-dump_spill(dmu_sendarg_t *dsp, uint64_t object, int blksz, void *data)
+dump_spill(dmu_send_cookie_t *dscp, uint64_t object, int blksz, void *data)
 {
-	struct drr_spill *drrs = &(dsp->dsa_drr->drr_u.drr_spill);
+	struct drr_spill *drrs = &(dscp->dsc_drr->drr_u.drr_spill);
 
-	if (dsp->dsa_pending_op != PENDING_NONE) {
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dscp->dsc_pending_op != PENDING_NONE) {
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (SET_ERROR(EINTR));
-		dsp->dsa_pending_op = PENDING_NONE;
+		dscp->dsc_pending_op = PENDING_NONE;
 	}
 
 	/* write a SPILL record */
-	bzero(dsp->dsa_drr, sizeof (dmu_replay_record_t));
-	dsp->dsa_drr->drr_type = DRR_SPILL;
+	bzero(dscp->dsc_drr, sizeof (dmu_replay_record_t));
+	dscp->dsc_drr->drr_type = DRR_SPILL;
 	drrs->drr_object = object;
 	drrs->drr_length = blksz;
-	drrs->drr_toguid = dsp->dsa_toguid;
+	drrs->drr_toguid = dscp->dsc_toguid;
 
-	if (dump_record(dsp, data, blksz) != 0)
+	if (dump_record(dscp, data, blksz) != 0)
 		return (SET_ERROR(EINTR));
 	return (0);
 }
 
 static int
-dump_freeobjects(dmu_sendarg_t *dsp, uint64_t firstobj, uint64_t numobjs)
+dump_freeobjects(dmu_send_cookie_t *dscp, uint64_t firstobj, uint64_t numobjs)
 {
-	struct drr_freeobjects *drrfo = &(dsp->dsa_drr->drr_u.drr_freeobjects);
+	struct drr_freeobjects *drrfo = &(dscp->dsc_drr->drr_u.drr_freeobjects);
 
 	/*
 	 * If there is a pending op, but it's not PENDING_FREEOBJECTS,
@@ -524,13 +554,13 @@ dump_freeobjects(dmu_sendarg_t *dsp, uint64_t firstobj, uint64_t numobjs)
 	 * aggregated with other DRR_FREE records.  DRR_FREEOBJECTS records
 	 * can only be aggregated with other DRR_FREEOBJECTS records.
 	 */
-	if (dsp->dsa_pending_op != PENDING_NONE &&
-	    dsp->dsa_pending_op != PENDING_FREEOBJECTS) {
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dscp->dsc_pending_op != PENDING_NONE &&
+	    dscp->dsc_pending_op != PENDING_FREEOBJECTS) {
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (SET_ERROR(EINTR));
-		dsp->dsa_pending_op = PENDING_NONE;
+		dscp->dsc_pending_op = PENDING_NONE;
 	}
-	if (dsp->dsa_pending_op == PENDING_FREEOBJECTS) {
+	if (dscp->dsc_pending_op == PENDING_FREEOBJECTS) {
 		/*
 		 * See whether this free object array can be aggregated
 		 * with pending one
@@ -540,30 +570,30 @@ dump_freeobjects(dmu_sendarg_t *dsp, uint64_t firstobj, uint64_t numobjs)
 			return (0);
 		} else {
 			/* can't be aggregated.  Push out pending record */
-			if (dump_record(dsp, NULL, 0) != 0)
+			if (dump_record(dscp, NULL, 0) != 0)
 				return (SET_ERROR(EINTR));
-			dsp->dsa_pending_op = PENDING_NONE;
+			dscp->dsc_pending_op = PENDING_NONE;
 		}
 	}
 
 	/* write a FREEOBJECTS record */
-	bzero(dsp->dsa_drr, sizeof (dmu_replay_record_t));
-	dsp->dsa_drr->drr_type = DRR_FREEOBJECTS;
+	bzero(dscp->dsc_drr, sizeof (dmu_replay_record_t));
+	dscp->dsc_drr->drr_type = DRR_FREEOBJECTS;
 	drrfo->drr_firstobj = firstobj;
 	drrfo->drr_numobjs = numobjs;
-	drrfo->drr_toguid = dsp->dsa_toguid;
+	drrfo->drr_toguid = dscp->dsc_toguid;
 
-	dsp->dsa_pending_op = PENDING_FREEOBJECTS;
+	dscp->dsc_pending_op = PENDING_FREEOBJECTS;
 
 	return (0);
 }
 
 static int
-dump_dnode(dmu_sendarg_t *dsp, uint64_t object, dnode_phys_t *dnp)
+dump_dnode(dmu_send_cookie_t *dscp, uint64_t object, dnode_phys_t *dnp)
 {
-	struct drr_object *drro = &(dsp->dsa_drr->drr_u.drr_object);
+	struct drr_object *drro = &(dscp->dsc_drr->drr_u.drr_object);
 
-	if (object < dsp->dsa_resume_object) {
+	if (object < dscp->dsc_resume_object) {
 		/*
 		 * Note: when resuming, we will visit all the dnodes in
 		 * the block of dnodes that we are resuming from.  In
@@ -571,23 +601,23 @@ dump_dnode(dmu_sendarg_t *dsp, uint64_t object, dnode_phys_t *dnp)
 		 * the one we are resuming from.  We should be at most one
 		 * block's worth of dnodes behind the resume point.
 		 */
-		ASSERT3U(dsp->dsa_resume_object - object, <,
+		ASSERT3U(dscp->dsc_resume_object - object, <,
 		    1 << (DNODE_BLOCK_SHIFT - DNODE_SHIFT));
 		return (0);
 	}
 
 	if (dnp == NULL || dnp->dn_type == DMU_OT_NONE)
-		return (dump_freeobjects(dsp, object, 1));
+		return (dump_freeobjects(dscp, object, 1));
 
-	if (dsp->dsa_pending_op != PENDING_NONE) {
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dscp->dsc_pending_op != PENDING_NONE) {
+		if (dump_record(dscp, NULL, 0) != 0)
 			return (SET_ERROR(EINTR));
-		dsp->dsa_pending_op = PENDING_NONE;
+		dscp->dsc_pending_op = PENDING_NONE;
 	}
 
 	/* write an OBJECT record */
-	bzero(dsp->dsa_drr, sizeof (dmu_replay_record_t));
-	dsp->dsa_drr->drr_type = DRR_OBJECT;
+	bzero(dscp->dsc_drr, sizeof (dmu_replay_record_t));
+	dscp->dsc_drr->drr_type = DRR_OBJECT;
 	drro->drr_object = object;
 	drro->drr_type = dnp->dn_type;
 	drro->drr_bonustype = dnp->dn_bonustype;
@@ -595,28 +625,28 @@ dump_dnode(dmu_sendarg_t *dsp, uint64_t object, dnode_phys_t *dnp)
 	drro->drr_bonuslen = dnp->dn_bonuslen;
 	drro->drr_checksumtype = dnp->dn_checksum;
 	drro->drr_compress = dnp->dn_compress;
-	drro->drr_toguid = dsp->dsa_toguid;
+	drro->drr_toguid = dscp->dsc_toguid;
 
-	if (!(dsp->dsa_featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS) &&
+	if (!(dscp->dsc_featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS) &&
 	    drro->drr_blksz > SPA_OLD_MAXBLOCKSIZE)
 		drro->drr_blksz = SPA_OLD_MAXBLOCKSIZE;
 
-	if (dump_record(dsp, DN_BONUS(dnp),
+	if (dump_record(dscp, DN_BONUS(dnp),
 	    P2ROUNDUP(dnp->dn_bonuslen, 8)) != 0) {
 		return (SET_ERROR(EINTR));
 	}
 
 	/* Free anything past the end of the file. */
-	if (dump_free(dsp, object, (dnp->dn_maxblkid + 1) *
+	if (dump_free(dscp, object, (dnp->dn_maxblkid + 1) *
 	    (dnp->dn_datablkszsec << SPA_MINBLOCKSHIFT), -1ULL) != 0)
 		return (SET_ERROR(EINTR));
-	if (dsp->dsa_err != 0)
+	if (dscp->dsc_err != 0)
 		return (SET_ERROR(EINTR));
 	return (0);
 }
 
 static boolean_t
-backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
+backup_do_embed(dmu_send_cookie_t *dscp, const blkptr_t *bp)
 {
 	if (!BP_IS_EMBEDDED(bp))
 		return (B_FALSE);
@@ -625,7 +655,7 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
 	 * Compression function must be legacy, or explicitly enabled.
 	 */
 	if ((BP_GET_COMPRESS(bp) >= ZIO_COMPRESS_LEGACY_FUNCTIONS &&
-	    !(dsp->dsa_featureflags & DMU_BACKUP_FEATURE_LZ4)))
+	    !(dscp->dsc_featureflags & DMU_BACKUP_FEATURE_LZ4)))
 		return (B_FALSE);
 
 	/*
@@ -633,11 +663,11 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
 	 */
 	switch (BPE_GET_ETYPE(bp)) {
 	case BP_EMBEDDED_TYPE_DATA:
-		if (dsp->dsa_featureflags & DMU_BACKUP_FEATURE_EMBED_DATA)
+		if (dscp->dsc_featureflags & DMU_BACKUP_FEATURE_EMBED_DATA)
 			return (B_TRUE);
 		break;
 	case BP_EMBEDDED_TYPE_MOOCH_BYTESWAP:
-		if (dsp->dsa_featureflags &
+		if (dscp->dsc_featureflags &
 		    DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP)
 			return (B_TRUE);
 		break;
@@ -653,9 +683,9 @@ backup_do_embed(dmu_sendarg_t *dsp, const blkptr_t *bp)
  * the appropriate helper function.
  */
 static int
-do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
+do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 {
-	dsl_dataset_t *ds = dmu_objset_ds(dsa->dsa_os);
+	dsl_dataset_t *ds = dmu_objset_ds(dscp->dsc_os);
 	const blkptr_t *bp = &data->bp;
 	const zbookmark_phys_t *zb = &data->zb;
 	uint8_t indblkshift = data->indblkshift;
@@ -666,7 +696,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 	ASSERT3U(zb->zb_level, >=, 0);
 
 	ASSERT(zb->zb_object == DMU_META_DNODE_OBJECT ||
-	    zb->zb_object >= dsa->dsa_resume_object);
+	    zb->zb_object >= dscp->dsc_resume_object);
 
 	if (zb->zb_object != DMU_META_DNODE_OBJECT &&
 	    DMU_OBJECT_IS_SPECIAL(zb->zb_object)) {
@@ -676,7 +706,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		uint64_t span = bp_span(data->datablksz, indblkshift,
 		    zb->zb_level);
 		uint64_t dnobj = (zb->zb_blkid * span) >> DNODE_SHIFT;
-		err = dump_freeobjects(dsa, dnobj, span >> DNODE_SHIFT);
+		err = dump_freeobjects(dscp, dnobj, span >> DNODE_SHIFT);
 	} else if (BP_IS_HOLE(bp)) {
 		if (data->redact_marker)
 			return (0);
@@ -684,7 +714,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		uint64_t span = bp_span(data->datablksz, indblkshift,
 		    zb->zb_level);
 		uint64_t offset = zb->zb_blkid * span;
-		err = dump_free(dsa, zb->zb_object, offset, span);
+		err = dump_free(dscp, zb->zb_object, offset, span);
 	} else if (zb->zb_level > 0 || type == DMU_OT_OBJSET) {
 		return (0);
 	} else if (type == DMU_OT_DNODE) {
@@ -703,7 +733,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		dnode_phys_t *blk = abuf->b_data;
 
 		for (int i = 0; i < blksz >> DNODE_SHIFT; i++) {
-			err = dump_dnode(dsa, dnobj + i, blk + i);
+			err = dump_dnode(dscp, dnobj + i, blk + i);
 			if (err != 0)
 				break;
 		}
@@ -721,14 +751,14 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		    &aflags, zb) != 0)
 			return (SET_ERROR(EIO));
 
-		err = dump_spill(dsa, zb->zb_object, blksz, abuf->b_data);
+		err = dump_spill(dscp, zb->zb_object, blksz, abuf->b_data);
 		arc_buf_destroy(abuf, &abuf);
-	} else if (backup_do_embed(dsa, bp)) {
+	} else if (backup_do_embed(dscp, bp)) {
 		/* it's an embedded level-0 block of a regular object */
 		if (data->redact_marker)
 			return (0);
 		ASSERT0(zb->zb_level);
-		err = dump_write_embedded(dsa, zb->zb_object,
+		err = dump_write_embedded(dscp, zb->zb_object,
 		    zb->zb_blkid * data->datablksz, data->datablksz, bp);
 	} else {
 		/* it's a level-0 block of a regular object */
@@ -745,7 +775,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		 */
 		boolean_t split_large_blocks =
 		    data->datablksz > SPA_OLD_MAXBLOCKSIZE &&
-		    !(dsa->dsa_featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS);
+		    !(dscp->dsc_featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS);
 		/*
 		 * We should only request compressed data from the ARC if all
 		 * the following are true:
@@ -757,19 +787,19 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 		 *    system it can be byteswapped more easily)
 		 */
 		boolean_t request_compressed =
-		    (dsa->dsa_featureflags & DMU_BACKUP_FEATURE_COMPRESSED) &&
+		    (dscp->dsc_featureflags & DMU_BACKUP_FEATURE_COMPRESSED) &&
 		    !split_large_blocks && !BP_SHOULD_BYTESWAP(bp) &&
 		    !BP_IS_EMBEDDED(bp) && !DMU_OT_IS_METADATA(BP_GET_TYPE(bp));
 
 		ASSERT0(zb->zb_level);
-		ASSERT(zb->zb_object > dsa->dsa_resume_object ||
-		    (zb->zb_object == dsa->dsa_resume_object &&
-		    zb->zb_blkid * data->datablksz >= dsa->dsa_resume_offset));
+		ASSERT(zb->zb_object > dscp->dsc_resume_object ||
+		    (zb->zb_object == dscp->dsc_resume_object &&
+		    zb->zb_blkid * data->datablksz >= dscp->dsc_resume_offset));
 
 		ASSERT0(zb->zb_level);
-		ASSERT(zb->zb_object > dsa->dsa_resume_object ||
-		    (zb->zb_object == dsa->dsa_resume_object &&
-		    zb->zb_blkid * data->datablksz >= dsa->dsa_resume_offset));
+		ASSERT(zb->zb_object > dscp->dsc_resume_object ||
+		    (zb->zb_object == dscp->dsc_resume_object &&
+		    zb->zb_blkid * data->datablksz >= dscp->dsc_resume_offset));
 
 		if (BP_IS_EMBEDDED(bp) &&
 		    BPE_GET_ETYPE(bp) == BP_EMBEDDED_TYPE_MOOCH_BYTESWAP) {
@@ -777,9 +807,9 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 			dmu_buf_t *origin_db;
 			uint64_t origin_obj;
 
-			VERIFY0(dmu_objset_mooch_origin(dsa->dsa_os,
+			VERIFY0(dmu_objset_mooch_origin(dscp->dsc_os,
 			    &origin_objset));
-			VERIFY0(dmu_objset_mooch_obj_refd(dsa->dsa_os,
+			VERIFY0(dmu_objset_mooch_obj_refd(dscp->dsc_os,
 			    zb->zb_object, &origin_obj));
 			err = dmu_buf_hold(origin_objset, origin_obj,
 			    zb->zb_blkid * data->datablksz, FTAG, &origin_db,
@@ -827,14 +857,14 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 			while (data->datablksz > 0 && err == 0) {
 				int n = MIN(data->datablksz,
 				    SPA_OLD_MAXBLOCKSIZE);
-				err = dump_write(dsa, type, zb->zb_object,
+				err = dump_write(dscp, type, zb->zb_object,
 				    offset, n, n, NULL, buf);
 				offset += n;
 				buf += n;
 				data->datablksz -= n;
 			}
 		} else {
-			err = dump_write(dsa, type, zb->zb_object, offset,
+			err = dump_write(dscp, type, zb->zb_object, offset,
 			    data->datablksz, arc_buf_size(abuf), bp,
 			    abuf->b_data);
 		}
@@ -2515,6 +2545,34 @@ redact_snaps_contains(uint64_t *snaps, uint64_t num_snaps, uint64_t guid)
 	return (B_FALSE);
 }
 
+struct dmu_send_params {
+	/* Pool args */
+	void *tag; // Tag that dp was held with, will be used to release dp.
+	dsl_pool_t *dp;
+	/* To snapshot args */
+	const char *tosnap;
+	dsl_dataset_t *to_ds;
+	/* From snapshot args */
+	dsl_dataset_t *from_ds; // Only set if this is a rebase send
+	zfs_bookmark_phys_t ancestor_zb; // Always set
+	uint64_t *fromredactsnaps;
+	uint64_t numfromredactsnaps; // UINT64_MAX if not sending from redacted
+	/* Stream params */
+	boolean_t is_clone;
+	boolean_t embedok;
+	boolean_t large_block_ok;
+	boolean_t compressok;
+	uint64_t resumeobj;
+	uint64_t resumeoff;
+	dsl_dataset_t **redactsnaparr;
+	uint32_t numredactsnaps;
+	const char *redactbook;
+	/* Stream output params */
+	vnode_t *vp;
+	offset_t *off;
+	int outfd;
+};
+
 /*
  * Actually do the bulk of the work in a zfs send.
  *
@@ -2665,17 +2723,12 @@ redact_snaps_contains(uint64_t *snaps, uint64_t num_snaps, uint64_t guid)
  * Note: Releases dp using the specified tag.
  */
 static int
-dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
-    dsl_dataset_t *to_ds, dsl_dataset_t *from_ds,
-    zfs_bookmark_phys_t *ancestor_zb, boolean_t is_clone,
-    boolean_t embedok, boolean_t large_block_ok, boolean_t compressok,
-    int outfd, uint64_t resumeobj, uint64_t resumeoff,
-    dsl_dataset_t **redactsnaparr, uint32_t numredactsnaps,
-    const char *redactbook, vnode_t *vp, offset_t *off)
+dmu_send_impl(struct dmu_send_params *dspp)
 {
 	objset_t *os;
 	dmu_replay_record_t *drr;
-	dmu_sendarg_t *dsp;
+	dmu_sendstatus_t *dssp;
+	dmu_send_cookie_t dsc = {0};
 	int err;
 	uint64_t fromtxg = 0;
 	uint64_t featureflags = 0;
@@ -2689,7 +2742,13 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	redaction_list_t *new_rl = NULL;
 	redaction_list_t *from_rl = NULL;
 	char newredactbook[ZFS_MAX_DATASET_NAME_LEN];
-	boolean_t resuming = (resumeobj != 0 || resumeoff != 0);
+	boolean_t resuming = (dspp->resumeobj != 0 || dspp->resumeoff != 0);
+
+	dsl_dataset_t *to_ds = dspp->to_ds;
+	dsl_dataset_t *from_ds = dspp->from_ds;
+	zfs_bookmark_phys_t *ancestor_zb = &dspp->ancestor_zb;
+	dsl_pool_t *dp = dspp->dp;
+	void *tag = dspp->tag;
 
 	err = dmu_objset_from_ds(to_ds, &os);
 	if (err != 0) {
@@ -2717,15 +2776,15 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	}
 #endif
 
-	if (large_block_ok && dsl_dataset_feature_is_active(to_ds,
+	if (dspp->large_block_ok && dsl_dataset_feature_is_active(to_ds,
 	    SPA_FEATURE_LARGE_BLOCKS)) {
 		featureflags |= DMU_BACKUP_FEATURE_LARGE_BLOCKS;
 	}
-	if (embedok &&
+	if (dspp->embedok &&
 	    spa_feature_is_active(dp->dp_spa, SPA_FEATURE_EMBEDDED_DATA)) {
 		featureflags |= DMU_BACKUP_FEATURE_EMBED_DATA;
 	}
-	if (compressok) {
+	if (dspp->compressok) {
 		featureflags |= DMU_BACKUP_FEATURE_COMPRESSED;
 	}
 	if ((featureflags &
@@ -2739,7 +2798,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	 * we can not send mooch records, because the receiver won't have
 	 * the origin to mooch from.
 	 */
-	if (embedok && dsl_dataset_feature_is_active(to_ds,
+	if (dspp->embedok && dsl_dataset_feature_is_active(to_ds,
 	    SPA_FEATURE_MOOCH_BYTESWAP) && ancestor_zb != NULL) {
 		featureflags |= DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP;
 	}
@@ -2748,17 +2807,17 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 		featureflags |= DMU_BACKUP_FEATURE_RESUMING;
 	}
 
-	if (redactbook != NULL || dsl_dataset_feature_is_active(to_ds,
+	if (dspp->redactbook != NULL || dsl_dataset_feature_is_active(to_ds,
 	    SPA_FEATURE_REDACTED_DATASETS)) {
-		if (redactbook != NULL && dsl_dataset_feature_is_active(to_ds,
+		if (dspp->redactbook != NULL && dsl_dataset_feature_is_active(to_ds,
 		    SPA_FEATURE_REDACTED_DATASETS)) {
 			kmem_free(drr, sizeof (dmu_replay_record_t));
 			dsl_pool_rele(dp, tag);
 			return (SET_ERROR(EALREADY));
 		}
 		featureflags |= DMU_BACKUP_FEATURE_REDACTED;
-		for (int i = 0; i < numredactsnaps; i++) {
-			if (dsl_dataset_feature_is_active(redactsnaparr[i],
+		for (int i = 0; i < dspp->numredactsnaps; i++) {
+			if (dsl_dataset_feature_is_active(dspp->redactsnaparr[i],
 			    SPA_FEATURE_REDACTED_DATASETS)) {
 				kmem_free(drr, sizeof (dmu_replay_record_t));
 				dsl_pool_rele(dp, tag);
@@ -2773,7 +2832,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	drr->drr_u.drr_begin.drr_creation_time =
 	    dsl_dataset_phys(to_ds)->ds_creation_time;
 	drr->drr_u.drr_begin.drr_type = dmu_objset_type(os);
-	if (is_clone)
+	if (dspp->is_clone)
 		drr->drr_u.drr_begin.drr_flags |= DRR_FLAG_CLONE;
 	drr->drr_u.drr_begin.drr_toguid = dsl_dataset_phys(to_ds)->ds_guid;
 	if (dsl_dataset_phys(to_ds)->ds_flags & DS_FLAG_CI_DATASET)
@@ -2803,24 +2862,26 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 		    sizeof (drr->drr_u.drr_begin.drr_toname));
 	}
 
-	if (numredactsnaps > 0)
-		redact_args = kmem_zalloc(numredactsnaps * sizeof (to_arg),
-		    KM_SLEEP);
+	if (dspp->numredactsnaps > 0) {
+		redact_args = kmem_zalloc(dspp->numredactsnaps *
+		    sizeof (to_arg), KM_SLEEP);
+	}
 
 	dsl_dataset_long_hold(to_ds, FTAG);
 	if (from_ds != NULL)
 		dsl_dataset_long_hold(from_ds, FTAG);
-	for (int i = 0; i < numredactsnaps; i++)
-		dsl_dataset_long_hold(redactsnaparr[i], FTAG);
+	for (int i = 0; i < dspp->numredactsnaps; i++)
+		dsl_dataset_long_hold(dspp->redactsnaparr[i], FTAG);
 
-	if (redactbook != NULL) {
+	if (dspp->redactbook != NULL) {
 		char *c;
 		int n;
-		(void) strncpy(newredactbook, tosnap, ZFS_MAX_DATASET_NAME_LEN);
+		(void) strncpy(newredactbook, dspp->tosnap,
+		    ZFS_MAX_DATASET_NAME_LEN);
 		c = strchr(newredactbook, '@');
 		ASSERT3P(c, !=, NULL);
 		n = snprintf(c, ZFS_MAX_DATASET_NAME_LEN - (c - newredactbook),
-		    "#%s", redactbook);
+		    "#%s", dspp->redactbook);
 		if (n >= ZFS_MAX_DATASET_NAME_LEN - (c - newredactbook)) {
 			kmem_free(drr, sizeof (dmu_replay_record_t));
 			dsl_pool_rele(dp, tag);
@@ -2862,23 +2923,24 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 		dsl_redaction_list_long_hold(dp, from_rl, FTAG);
 	}
 
-	dsp = kmem_zalloc(sizeof (dmu_sendarg_t), KM_SLEEP);
-
-	dsp->dsa_drr = drr;
-	dsp->dsa_vp = vp;
-	dsp->dsa_outfd = outfd;
-	dsp->dsa_proc = curproc;
-	dsp->dsa_os = os;
-	dsp->dsa_off = off;
-	dsp->dsa_toguid = dsl_dataset_phys(to_ds)->ds_guid;
-	dsp->dsa_pending_op = PENDING_NONE;
-	dsp->dsa_featureflags = featureflags;
-	dsp->dsa_resume_object = resumeobj;
-	dsp->dsa_resume_offset = resumeoff;
+	dssp = kmem_zalloc(sizeof (dmu_sendstatus_t), KM_SLEEP);
+	dssp->dss_outfd = dspp->outfd;
+	dssp->dss_off = dspp->off;
+	dssp->dss_proc = curproc;
 
 	mutex_enter(&to_ds->ds_sendstream_lock);
-	list_insert_head(&to_ds->ds_sendstreams, dsp);
+	list_insert_head(&to_ds->ds_sendstreams, dssp);
 	mutex_exit(&to_ds->ds_sendstream_lock);
+
+	dsc.dsc_drr = drr;
+	dsc.dsc_vp = dspp->vp;
+	dsc.dsc_os = os;
+	dsc.dsc_off = dspp->off;
+	dsc.dsc_toguid = dsl_dataset_phys(to_ds)->ds_guid;
+	dsc.dsc_pending_op = PENDING_NONE;
+	dsc.dsc_featureflags = featureflags;
+	dsc.dsc_resume_object = dspp->resumeobj;
+	dsc.dsc_resume_offset = dspp->resumeoff;
 
 	dsl_pool_rele(dp, tag);
 
@@ -2893,28 +2955,32 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	 * instead sending a redacted dataset, we include the snapshots that the
 	 * dataset was created with respect to.
 	 */
-	if (redactbook != NULL) {
+	if (dspp->redactbook != NULL) {
 		uint64_t *guids = NULL;
-		if (numredactsnaps > 0) {
-			guids = kmem_zalloc(numredactsnaps * sizeof (uint64_t),
-			    KM_SLEEP);
+		if (dspp->numredactsnaps > 0) {
+			guids = kmem_zalloc(dspp->numredactsnaps *
+			    sizeof (uint64_t), KM_SLEEP);
 		}
-		for (int i = 0; i < numredactsnaps; i++)
-			guids[i] = dsl_dataset_phys(redactsnaparr[i])->ds_guid;
+		for (int i = 0; i < dspp->numredactsnaps; i++) {
+			guids[i] =
+			    dsl_dataset_phys(dspp->redactsnaparr[i])->ds_guid;
+		}
 
 		if (!resuming) {
 			err = dsl_bookmark_create_redacted(newredactbook,
-			    tosnap, numredactsnaps, guids, FTAG, &new_rl);
+			    dspp->tosnap, dspp->numredactsnaps, guids, FTAG,
+			    &new_rl);
 			if (err != 0) {
-				kmem_free(guids, numredactsnaps *
+				kmem_free(guids, dspp->numredactsnaps *
 				    sizeof (uint64_t));
+				fnvlist_free(nvl);
 				goto out;
 			}
 		}
 
 		fnvlist_add_uint64_array(nvl, BEGINNV_REDACT_SNAPS, guids,
-		    numredactsnaps);
-		kmem_free(guids, numredactsnaps * sizeof (uint64_t));
+		    dspp->numredactsnaps);
+		kmem_free(guids, dspp->numredactsnaps * sizeof (uint64_t));
 	} else if (dsl_dataset_feature_is_active(to_ds,
 	    SPA_FEATURE_REDACTED_DATASETS)) {
 		uint64_t *tods_guids;
@@ -2929,21 +2995,31 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	 * If we're sending from a redaction bookmark, then we should retrieve
 	 * the guids of that bookmark so we can send them over the wire.
 	 */
-	if (ancestor_zb != NULL && ancestor_zb->zbm_redaction_obj != 0) {
+	if (from_rl != NULL) {
 		fnvlist_add_uint64_array(nvl, BEGINNV_REDACT_FROM_SNAPS,
 		    from_rl->rl_phys->rlp_snaps,
 		    from_rl->rl_phys->rlp_num_snaps);
 	}
 
+	/*
+	 * If the snapshot we're sending from is redacted, include the redaction
+	 * list in the stream.
+	 */
+	if (dspp->numfromredactsnaps != UINT64_MAX) {
+		ASSERT3P(from_rl, ==, NULL);
+		fnvlist_add_uint64_array(nvl, BEGINNV_REDACT_FROM_SNAPS,
+		    dspp->fromredactsnaps, dspp->numfromredactsnaps);
+	}
+
 	if (resuming) {
-		uint64_t obj = resumeobj;
+		uint64_t obj = dspp->resumeobj;
 		dmu_object_info_t to_doi;
 
 		err = dmu_object_info(os, obj, &to_doi);
 		if (err != 0)
 			goto out;
 
-		uint64_t blkid = resumeoff / to_doi.doi_data_block_size;
+		uint64_t blkid = dspp->resumeoff / to_doi.doi_data_block_size;
 
 		/*
 		 * If we're resuming a redacted send, we have to modify where we
@@ -2962,16 +3038,16 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 			    new_rl->rl_phys->rlp_last_object;
 			uint64_t furthest_blkid =
 			    new_rl->rl_phys->rlp_last_blkid;
-			if (furthest_object < resumeobj ||
-			    (furthest_object == resumeobj &&
+			if (furthest_object < dspp->resumeobj ||
+			    (furthest_object == dspp->resumeobj &&
 			    furthest_blkid < blkid)) {
 				obj = furthest_object;
 				blkid = furthest_blkid;
 				SET_BOOKMARK(&smt_arg.resume_redact_zb,
 				    to_ds->ds_object, obj, 0, blkid);
 				smt_arg.bookmark_before = B_TRUE;
-			} else if (furthest_object > resumeobj ||
-			    (furthest_object == resumeobj &&
+			} else if (furthest_object > dspp->resumeobj ||
+			    (furthest_object == dspp->resumeobj &&
 			    furthest_blkid > blkid)) {
 				SET_BOOKMARK(&smt_arg.resume_redact_zb,
 				    to_ds->ds_object, furthest_object, 0,
@@ -3003,14 +3079,14 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 			 */
 			SET_BOOKMARK(&from_arg.resume, objset, obj, 0, blkid);
 		}
-		for (int i = 0; i < numredactsnaps; i++) {
+		for (int i = 0; i < dspp->numredactsnaps; i++) {
 			SET_BOOKMARK(&redact_args[i].resume,
-			    redactsnaparr[i]->ds_object, obj, 0,
+			    dspp->redactsnaparr[i]->ds_object, obj, 0,
 			    blkid);
 		}
 
-		fnvlist_add_uint64(nvl, BEGINNV_RESUME_OBJECT, resumeobj);
-		fnvlist_add_uint64(nvl, BEGINNV_RESUME_OFFSET, resumeoff);
+		fnvlist_add_uint64(nvl, BEGINNV_RESUME_OBJECT, dspp->resumeobj);
+		fnvlist_add_uint64(nvl, BEGINNV_RESUME_OFFSET, dspp->resumeoff);
 	}
 
 	if (fnvlist_num_pairs(nvl) > 0) {
@@ -3019,10 +3095,10 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	}
 
 	fnvlist_free(nvl);
-	err = dump_record(dsp, payload, payload_len);
+	err = dump_record(&dsc, payload, payload_len);
 	fnvlist_pack_free(payload, payload_len);
 	if (err != 0) {
-		err = dsp->dsa_err;
+		err = dsc.dsc_err;
 		goto out;
 	}
 
@@ -3058,14 +3134,14 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	(void) thread_create(NULL, 0, send_traverse_thread, &from_arg, 0,
 	    curproc, TS_RUN, minclsyspri);
 
-	for (int i = 0; i < numredactsnaps; i++) {
+	for (int i = 0; i < dspp->numredactsnaps; i++) {
 		struct send_thread_arg *arg = redact_args + i;
 		VERIFY0(bqueue_init(&arg->q, zfs_send_no_prefetch_queue_ff,
 		    zfs_send_no_prefetch_queue_length,
 		    offsetof(struct send_redact_record, ln)));
 		arg->error_code = 0;
 		arg->cancel = B_FALSE;
-		arg->ds = redactsnaparr[i];
+		arg->ds = dspp->redactsnaparr[i];
 		arg->fromtxg = dsl_dataset_phys(to_ds)->ds_creation_txg;
 		arg->flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA;
 		arg->to_os = os;
@@ -3075,7 +3151,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	}
 	if (new_rl != NULL) {
 		rmt_arg.cancel = B_FALSE;
-		rmt_arg.num_threads = numredactsnaps;
+		rmt_arg.num_threads = dspp->numredactsnaps;
 		rmt_arg.send_objset = os->os_dsl_dataset->ds_object;
 		VERIFY0(bqueue_init(&rmt_arg.q, zfs_send_no_prefetch_queue_ff,
 		    zfs_send_no_prefetch_queue_length,
@@ -3115,7 +3191,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 
 	rec = bqueue_dequeue(&spt_arg.q);
 	while (err == 0 && !rec->eos_marker) {
-		err = do_dump(dsp, rec);
+		err = do_dump(&dsc, rec);
 		rec = get_next_record(&spt_arg.q, rec);
 		if (issig(JUSTLOOKING) && issig(FORREAL))
 			err = EINTR;
@@ -3139,7 +3215,7 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	bqueue_destroy(&smt_arg.q);
 	if (new_rl != NULL)
 		bqueue_destroy(&rmt_arg.q);
-	for (int i = 0; i < numredactsnaps; i++) {
+	for (int i = 0; i < dspp->numredactsnaps; i++) {
 		bqueue_destroy(&redact_args[i].q);
 	}
 	bqueue_destroy(&to_arg.q);
@@ -3151,38 +3227,38 @@ dmu_send_impl(void *tag, dsl_pool_t *dp, const char *tosnap,
 	if (err != 0)
 		goto out;
 
-	if (dsp->dsa_pending_op != PENDING_NONE)
-		if (dump_record(dsp, NULL, 0) != 0)
+	if (dsc.dsc_pending_op != PENDING_NONE)
+		if (dump_record(&dsc, NULL, 0) != 0)
 			err = SET_ERROR(EINTR);
 
 	if (err != 0) {
-		if (err == EINTR && dsp->dsa_err != 0)
-			err = dsp->dsa_err;
+		if (err == EINTR && dsc.dsc_err != 0)
+			err = dsc.dsc_err;
 		goto out;
 	}
 
 	bzero(drr, sizeof (dmu_replay_record_t));
 	drr->drr_type = DRR_END;
-	drr->drr_u.drr_end.drr_checksum = dsp->dsa_zc;
-	drr->drr_u.drr_end.drr_toguid = dsp->dsa_toguid;
+	drr->drr_u.drr_end.drr_checksum = dsc.dsc_zc;
+	drr->drr_u.drr_end.drr_toguid = dsc.dsc_toguid;
 
-	if (dump_record(dsp, NULL, 0) != 0)
-		err = dsp->dsa_err;
+	if (dump_record(&dsc, NULL, 0) != 0)
+		err = dsc.dsc_err;
 
 out:
 	mutex_enter(&to_ds->ds_sendstream_lock);
-	list_remove(&to_ds->ds_sendstreams, dsp);
+	list_remove(&to_ds->ds_sendstreams, dssp);
 	mutex_exit(&to_ds->ds_sendstream_lock);
 
-	VERIFY(err != 0 || (dsp->dsa_sent_begin && dsp->dsa_sent_end));
+	VERIFY(err != 0 || (dsc.dsc_sent_begin && dsc.dsc_sent_end));
 
 	kmem_free(drr, sizeof (dmu_replay_record_t));
-	kmem_free(dsp, sizeof (dmu_sendarg_t));
-	if (numredactsnaps > 0)
-		kmem_free(redact_args, numredactsnaps * sizeof (to_arg));
+	kmem_free(dssp, sizeof (dmu_sendstatus_t));
+	if (dspp->numredactsnaps > 0)
+		kmem_free(redact_args, dspp->numredactsnaps * sizeof (to_arg));
 
-	for (int i = 0; i < numredactsnaps; i++)
-		dsl_dataset_long_rele(redactsnaparr[i], FTAG);
+	for (int i = 0; i < dspp->numredactsnaps; i++)
+		dsl_dataset_long_rele(dspp->redactsnaparr[i], FTAG);
 	if (from_ds != NULL)
 		dsl_dataset_long_rele(from_ds, FTAG);
 	dsl_dataset_long_rele(to_ds, FTAG);
@@ -3374,60 +3450,68 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
     boolean_t embedok, boolean_t large_block_ok, boolean_t compressok,
     int outfd, vnode_t *vp, offset_t *off)
 {
-	dsl_pool_t *dp;
-	dsl_dataset_t *ds;
-	dsl_dataset_t *fromds = NULL;
 	int err;
+	struct dmu_send_params dspp = {0};
+	dspp.embedok = embedok;
+	dspp.large_block_ok = large_block_ok;
+	dspp.compressok = compressok;
+	dspp.outfd = outfd;
+	dspp.vp = vp;
+	dspp.off = off;
+	dspp.tag = FTAG;
 
-	err = dsl_pool_hold(pool, FTAG, &dp);
+	err = dsl_pool_hold(pool, FTAG, &dspp.dp);
 	if (err != 0)
 		return (err);
 
-	err = dsl_dataset_hold_obj(dp, tosnap, FTAG, &ds);
+	err = dsl_dataset_hold_obj(dspp.dp, tosnap, FTAG, &dspp.to_ds);
 	if (err != 0) {
-		dsl_pool_rele(dp, FTAG);
+		dsl_pool_rele(dspp.dp, FTAG);
 		return (err);
 	}
 
 	if (fromsnap != 0) {
-		zfs_bookmark_phys_t zb;
-		boolean_t is_clone;
 
-		err = dsl_dataset_hold_obj(dp, fromsnap, FTAG, &fromds);
+		err = dsl_dataset_hold_obj(dspp.dp, fromsnap, FTAG,
+		    &dspp.from_ds);
 		if (err != 0) {
-			dsl_dataset_rele(ds, FTAG);
-			dsl_pool_rele(dp, FTAG);
+			dsl_dataset_rele(dspp.to_ds, FTAG);
+			dsl_pool_rele(dspp.dp, FTAG);
 			return (err);
 		}
 
-		err = find_common_ancestor(dp, fromds, ds, &zb);
+		err = find_common_ancestor(dspp.dp, dspp.from_ds, dspp.to_ds,
+		    &dspp.ancestor_zb);
 		if (err != 0) {
-			dsl_dataset_rele(ds, FTAG);
-			dsl_dataset_rele(fromds, FTAG);
-			dsl_pool_rele(dp, FTAG);
+			dsl_dataset_rele(dspp.to_ds, FTAG);
+			dsl_dataset_rele(dspp.from_ds, FTAG);
+			dsl_pool_rele(dspp.dp, FTAG);
 			return (err);
 		}
 
-		if (dsl_dataset_is_before(ds, fromds, 0)) {
-			is_clone = (ds->ds_dir != fromds->ds_dir);
-			dsl_dataset_rele(fromds, FTAG);
-			fromds = NULL;
-		} else {
-			is_clone = B_FALSE;
+		if (!dsl_dataset_get_uint64_array_feature(dspp.from_ds,
+		    SPA_FEATURE_REDACTED_DATASETS,
+		    &dspp.numfromredactsnaps,
+		    &dspp.fromredactsnaps)) {
+			dspp.numfromredactsnaps = UINT64_MAX;
 		}
 
-		err = dmu_send_impl(FTAG, dp, NULL, ds, fromds, &zb, is_clone,
-		    embedok, large_block_ok, compressok, outfd, 0, 0, NULL, 0,
-		    NULL, vp, off);
+		if (dsl_dataset_is_before(dspp.to_ds, dspp.from_ds, 0)) {
+			dspp.is_clone = (dspp.to_ds->ds_dir !=
+			    dspp.from_ds->ds_dir);
+			dsl_dataset_rele(dspp.from_ds, FTAG);
+			dspp.from_ds = NULL;
+		}
 
-		if (fromds != NULL)
-			dsl_dataset_rele(fromds, FTAG);
+		err = dmu_send_impl(&dspp);
+
+		if (dspp.from_ds != NULL)
+			dsl_dataset_rele(dspp.from_ds, FTAG);
 	} else {
-		err = dmu_send_impl(FTAG, dp, NULL, ds, NULL, NULL, B_FALSE,
-		    embedok, large_block_ok, compressok, outfd, 0, 0, NULL, 0,
-		    NULL, vp, off);
+		dspp.numfromredactsnaps = UINT64_MAX;
+		err = dmu_send_impl(&dspp);
 	}
-	dsl_dataset_rele(ds, FTAG);
+	dsl_dataset_rele(dspp.to_ds, FTAG);
 	return (err);
 }
 
@@ -3437,12 +3521,20 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
     uint64_t resumeobj, uint64_t resumeoff,
     nvlist_t *redactsnaps, const char *redactbook, vnode_t *vp, offset_t *off)
 {
-	dsl_pool_t *dp;
-	dsl_dataset_t *ds;
 	int err = 0;
 	boolean_t owned = B_FALSE;
-	dsl_dataset_t **redactsnaparr = NULL;
-	int numredactsnaps = 0;
+	struct dmu_send_params dspp = {0};
+	dspp.tosnap = tosnap;
+	dspp.embedok = embedok;
+	dspp.large_block_ok = large_block_ok;
+	dspp.compressok = compressok;
+	dspp.outfd = outfd;
+	dspp.vp = vp;
+	dspp.off = off;
+	dspp.tag = FTAG;
+	dspp.redactbook = redactbook;
+	dspp.resumeobj = resumeobj;
+	dspp.resumeoff = resumeoff;
 
 	if (fromsnap != NULL && strpbrk(fromsnap, "@#") == NULL)
 		return (SET_ERROR(EINVAL));
@@ -3451,24 +3543,24 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 	    (redactsnaps != NULL && redactbook == NULL))
 		return (SET_ERROR(EINVAL));
 
-	err = dsl_pool_hold(tosnap, FTAG, &dp);
+	err = dsl_pool_hold(tosnap, FTAG, &dspp.dp);
 	if (err != 0) {
 		return (err);
 	}
 
-	if (strchr(tosnap, '@') == NULL && spa_writeable(dp->dp_spa)) {
+	if (strchr(tosnap, '@') == NULL && spa_writeable(dspp.dp->dp_spa)) {
 		/*
 		 * We are sending a filesystem or volume.  Ensure
 		 * that it doesn't change by owning the dataset.
 		 */
-		err = dsl_dataset_own(dp, tosnap, FTAG, &ds);
+		err = dsl_dataset_own(dspp.dp, tosnap, FTAG, &dspp.to_ds);
 		owned = B_TRUE;
 	} else {
-		err = dsl_dataset_hold(dp, tosnap, FTAG, &ds);
+		err = dsl_dataset_hold(dspp.dp, tosnap, FTAG, &dspp.to_ds);
 	}
 
 	if (err != 0) {
-		dsl_pool_rele(dp, FTAG);
+		dsl_pool_rele(dspp.dp, FTAG);
 		return (err);
 	}
 
@@ -3479,7 +3571,7 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 		}
 
 		if (fnvlist_num_pairs(redactsnaps) > 0 && err == 0) {
-			redactsnaparr =
+			dspp.redactsnaparr =
 			    kmem_zalloc(fnvlist_num_pairs(redactsnaps) *
 			    sizeof (dsl_dataset_t *), KM_SLEEP);
 		}
@@ -3488,41 +3580,41 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 		    pair != NULL; pair =
 		    nvlist_next_nvpair(redactsnaps, pair)) {
 			const char *name = nvpair_name(pair);
-			err = dsl_dataset_hold(dp, name, FTAG, redactsnaparr +
-			    numredactsnaps);
+			err = dsl_dataset_hold(dspp.dp, name, FTAG,
+			    dspp.redactsnaparr + dspp.numredactsnaps);
 			if (err != 0)
 				break;
 			if (!dsl_dataset_is_before(
-			    redactsnaparr[numredactsnaps], ds, 0)) {
+			    dspp.redactsnaparr[dspp.numredactsnaps], dspp.to_ds,
+			    0)) {
 				err = EINVAL;
-				numredactsnaps++;
+				dspp.numredactsnaps++;
 				break;
 			}
-			numredactsnaps++;
+			dspp.numredactsnaps++;
 		}
 	}
 
 	if (err != 0) {
-		for (int i = 0; i < numredactsnaps; i++)
-			dsl_dataset_rele(redactsnaparr[i], FTAG);
+		for (int i = 0; i < dspp.numredactsnaps; i++)
+			dsl_dataset_rele(dspp.redactsnaparr[i], FTAG);
 
-		if (redactsnaparr != NULL) {
-			kmem_free(redactsnaparr,
+		if (dspp.redactsnaparr != NULL) {
+			kmem_free(dspp.redactsnaparr,
 			    fnvlist_num_pairs(redactsnaps) *
 			    sizeof (dsl_dataset_t *));
 		}
 
-		dsl_pool_rele(dp, FTAG);
+		dsl_pool_rele(dspp.dp, FTAG);
 		if (owned)
-			dsl_dataset_disown(ds, FTAG);
+			dsl_dataset_disown(dspp.to_ds, FTAG);
 		else
-			dsl_dataset_rele(ds, FTAG);
+			dsl_dataset_rele(dspp.to_ds, FTAG);
 		return (SET_ERROR(err));
 	}
 
 	if (fromsnap != NULL) {
-		zfs_bookmark_phys_t zb = { 0 };
-		boolean_t is_clone = B_FALSE;
+		zfs_bookmark_phys_t *zb = &dspp.ancestor_zb;
 		int fsnamelen = strpbrk(tosnap, "@#") - tosnap;
 		/*
 		 * If the fromsnap is in a different filesystem, then
@@ -3531,68 +3623,75 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 		if (strncmp(tosnap, fromsnap, fsnamelen) != 0 ||
 		    (fromsnap[fsnamelen] != '@' &&
 		    fromsnap[fsnamelen] != '#')) {
-			is_clone = B_TRUE;
+			dspp.is_clone = B_TRUE;
 		}
 
-		dsl_dataset_t *fromds = NULL;
 		if (strchr(fromsnap, '@')) {
-			err = dsl_dataset_hold(dp, fromsnap, FTAG, &fromds);
+			err = dsl_dataset_hold(dspp.dp, fromsnap, FTAG,
+			    &dspp.from_ds);
 
 			if (err != 0) {
-				ASSERT3P(fromds, ==, NULL);
+				ASSERT3P(dspp.from_ds, ==, NULL);
 			} else {
-				if (dsl_dataset_is_before(ds, fromds, 0)) {
-					ASSERT3U(is_clone, ==, (ds->ds_dir !=
-					    fromds->ds_dir));
-					zb.zbm_creation_txg = dsl_dataset_phys(
-					    fromds)->ds_creation_txg;
-					zb.zbm_creation_time = dsl_dataset_phys(
-					    fromds)->ds_creation_time;
-					zb.zbm_guid = dsl_dataset_phys(
-					    fromds)->ds_guid;
-					zb.zbm_redaction_obj = 0;
-					dsl_dataset_rele(fromds, FTAG);
-					fromds = NULL;
+				if (!dsl_dataset_get_uint64_array_feature(
+				    dspp.from_ds, SPA_FEATURE_REDACTED_DATASETS,
+				    &dspp.numfromredactsnaps,
+				    &dspp.fromredactsnaps)) {
+					dspp.numfromredactsnaps = UINT64_MAX;
+				}
+				if (dsl_dataset_is_before(dspp.to_ds,
+				    dspp.from_ds, 0)) {
+					ASSERT3U(dspp.is_clone, ==,
+					    (dspp.to_ds->ds_dir !=
+					    dspp.from_ds->ds_dir));
+					zb->zbm_creation_txg =
+					    dsl_dataset_phys(
+					    dspp.from_ds)->ds_creation_txg;
+					zb->zbm_creation_time =
+					    dsl_dataset_phys(
+					    dspp.from_ds)->ds_creation_time;
+					zb->zbm_guid = dsl_dataset_phys(
+					    dspp.from_ds)->ds_guid;
+					zb->zbm_redaction_obj = 0;
+					dsl_dataset_rele(dspp.from_ds, FTAG);
+					dspp.from_ds = NULL;
 				} else {
-					is_clone = B_FALSE;
-					err = find_common_ancestor(dp, fromds,
-					    ds, &zb);
+					dspp.is_clone = B_FALSE;
+					err = find_common_ancestor(dspp.dp,
+					    dspp.from_ds, dspp.to_ds, zb);
 				}
 			}
 		} else {
-			err = dsl_bookmark_lookup(dp, fromsnap, ds, &zb);
+			dspp.numfromredactsnaps = UINT64_MAX;
+			err = dsl_bookmark_lookup(dspp.dp, fromsnap, dspp.to_ds,
+			    zb);
 		}
 
 		if (err == 0) {
 			/* dmu_send_impl will call dsl_pool_rele for us. */
-			err = dmu_send_impl(FTAG, dp, tosnap, ds, fromds, &zb,
-			    is_clone, embedok, large_block_ok, compressok,
-			    outfd, resumeobj, resumeoff, redactsnaparr,
-			    numredactsnaps, redactbook, vp, off);
+			err = dmu_send_impl(&dspp);
 		} else {
-			dsl_pool_rele(dp, FTAG);
+			dsl_pool_rele(dspp.dp, FTAG);
 		}
 
-		if (fromds != NULL)
-			dsl_dataset_rele(fromds, FTAG);
+		if (dspp.from_ds != NULL)
+			dsl_dataset_rele(dspp.from_ds, FTAG);
 	} else {
-		err = dmu_send_impl(FTAG, dp, tosnap, ds, NULL, NULL, B_FALSE,
-		    embedok, large_block_ok, compressok, outfd, resumeobj,
-		    resumeoff, redactsnaparr, numredactsnaps, redactbook, vp,
-		    off);
+		dspp.numfromredactsnaps = UINT64_MAX;
+		err = dmu_send_impl(&dspp);
 	}
 out:
-	if (numredactsnaps > 0) {
-		for (int i = 0; i < numredactsnaps; i++)
-			dsl_dataset_rele(redactsnaparr[i], FTAG);
-		kmem_free(redactsnaparr, fnvlist_num_pairs(redactsnaps) *
+	if (dspp.numredactsnaps > 0) {
+		for (int i = 0; i < dspp.numredactsnaps; i++)
+			dsl_dataset_rele(dspp.redactsnaparr[i], FTAG);
+		kmem_free(dspp.redactsnaparr, fnvlist_num_pairs(redactsnaps) *
 		    sizeof (dsl_dataset_t *));
 	}
 
 	if (owned)
-		dsl_dataset_disown(ds, FTAG);
+		dsl_dataset_disown(dspp.to_ds, FTAG);
 	else
-		dsl_dataset_rele(ds, FTAG);
+		dsl_dataset_rele(dspp.to_ds, FTAG);
 	return (err);
 }
 
@@ -3884,12 +3983,12 @@ redact_check(dmu_recv_begin_arg_t *drba, dsl_dataset_t *origin)
 	    BEGINNV_REDACT_FROM_SNAPS, &redact_snaps, &numredactsnaps) ==
 	    0) {
 		/*
-		 * If the send stream was sent from the redaction bookmark, then
-		 * we're safe.  Verify that this is from the same redaction
-		 * bookmark that was created with the original send stream.
+		 * If the send stream was sent from the redaction bookmark or
+		 * the redacted version of the dataset, then we're safe.  Verify
+		 * that this is from the a compatible redaction bookmark or
+		 * redacted dataset.
 		 */
-		if (numredactsnaps != origin_num_snaps ||
-		    !compatible_redact_snaps(origin_snaps, origin_num_snaps,
+		if (!compatible_redact_snaps(origin_snaps, origin_num_snaps,
 		    redact_snaps, numredactsnaps)) {
 			err = EINVAL;
 		}

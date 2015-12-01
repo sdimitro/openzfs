@@ -4474,7 +4474,7 @@ zfs_ioc_send_progress(zfs_cmd_t *zc)
 {
 	dsl_pool_t *dp;
 	dsl_dataset_t *ds;
-	dmu_sendarg_t *dsp = NULL;
+	dmu_sendstatus_t *dsp = NULL;
 	int error;
 
 	error = dsl_pool_hold(zc->zc_name, FTAG, &dp);
@@ -4497,13 +4497,13 @@ zfs_ioc_send_progress(zfs_cmd_t *zc)
 	 */
 	for (dsp = list_head(&ds->ds_sendstreams); dsp != NULL;
 	    dsp = list_next(&ds->ds_sendstreams, dsp)) {
-		if (dsp->dsa_outfd == zc->zc_cookie &&
-		    dsp->dsa_proc == curproc)
+		if (dsp->dss_outfd == zc->zc_cookie &&
+		    dsp->dss_proc == curproc)
 			break;
 	}
 
 	if (dsp != NULL)
-		zc->zc_cookie = *(dsp->dsa_off);
+		zc->zc_cookie = *(dsp->dss_off);
 	else
 		error = SET_ERROR(ENOENT);
 

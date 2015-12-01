@@ -216,6 +216,9 @@ dsl_bookmark_create_sync_impl(const char *bookmark, const char *snapshot,
 	dsl_dataset_t *snapds, *bmark_fs;
 	zfs_bookmark_phys_t bmark_phys;
 	char *shortname;
+	boolean_t bookmark_redacted;
+	uint64_t *dsredactsnaps;
+	uint64_t dsnumsnaps;
 
 	VERIFY0(dsl_dataset_hold(dp, snapshot, FTAG, &snapds));
 	VERIFY0(dsl_bookmark_hold_ds(dp, bookmark, &bmark_fs, FTAG,
@@ -236,7 +239,15 @@ dsl_bookmark_create_sync_impl(const char *bookmark, const char *snapshot,
 	bmark_phys.zbm_creation_txg = dsl_dataset_phys(snapds)->ds_creation_txg;
 	bmark_phys.zbm_creation_time =
 	    dsl_dataset_phys(snapds)->ds_creation_time;
-	if (redaction_list != NULL) {
+
+	bookmark_redacted = dsl_dataset_get_uint64_array_feature(snapds,
+	    SPA_FEATURE_REDACTED_DATASETS, &dsnumsnaps, &dsredactsnaps);
+	if (redaction_list != NULL || bookmark_redacted) {
+		redaction_list_t *local_rl;
+		if (bookmark_redacted) {
+			redact_snaps = dsredactsnaps;
+			num_redact_snaps = dsnumsnaps;
+		}
 		bmark_phys.zbm_redaction_obj = dmu_object_alloc(mos,
 		    DMU_OTN_UINT64_METADATA, SPA_OLD_MAXBLOCKSIZE,
 		    DMU_OTN_UINT64_METADATA, sizeof (redaction_list_phys_t) +
@@ -245,16 +256,22 @@ dsl_bookmark_create_sync_impl(const char *bookmark, const char *snapshot,
 		    SPA_FEATURE_REDACTION_BOOKMARKS, tx);
 
 		VERIFY0(dsl_redaction_list_hold_obj(dp,
-		    bmark_phys.zbm_redaction_obj, tag, redaction_list));
-		dsl_redaction_list_long_hold(dp, *redaction_list, tag);
+		    bmark_phys.zbm_redaction_obj, tag, &local_rl));
+		dsl_redaction_list_long_hold(dp, local_rl, tag);
 
-		ASSERT3U((*redaction_list)->rl_dbuf->db_size, >=,
+		ASSERT3U((local_rl)->rl_dbuf->db_size, >=,
 		    sizeof (redaction_list_phys_t) + num_redact_snaps *
 		    sizeof (uint64_t));
-		dmu_buf_will_dirty((*redaction_list)->rl_dbuf, tx);
-		bcopy(redact_snaps, (*redaction_list)->rl_phys->rlp_snaps,
+		dmu_buf_will_dirty(local_rl->rl_dbuf, tx);
+		bcopy(redact_snaps, local_rl->rl_phys->rlp_snaps,
 		    sizeof (uint64_t) * num_redact_snaps);
-		(*redaction_list)->rl_phys->rlp_num_snaps = num_redact_snaps;
+		local_rl->rl_phys->rlp_num_snaps = num_redact_snaps;
+		if (bookmark_redacted) {
+			dsl_redaction_list_long_rele(local_rl, tag);
+			dsl_redaction_list_rele(local_rl, tag);
+		} else {
+			*redaction_list = local_rl;
+		}
 	} else {
 		bmark_phys.zbm_redaction_obj = 0;
 	}

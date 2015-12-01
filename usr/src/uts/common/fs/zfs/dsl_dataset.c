@@ -539,8 +539,8 @@ dsl_dataset_hold_obj(dsl_pool_t *dp, uint64_t dsobj, void *tag,
 
 		bplist_create(&ds->ds_pending_deadlist);
 
-		list_create(&ds->ds_sendstreams, sizeof (dmu_sendarg_t),
-		    offsetof(dmu_sendarg_t, dsa_link));
+		list_create(&ds->ds_sendstreams, sizeof (dmu_sendstatus_t),
+		    offsetof(dmu_sendstatus_t, dss_link));
 
 		list_create(&ds->ds_prop_cbs, sizeof (dsl_prop_cb_record_t),
 		    offsetof(dsl_prop_cb_record_t, cbr_ds_node));

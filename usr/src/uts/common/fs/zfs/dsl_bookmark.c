@@ -382,6 +382,52 @@ dsl_bookmark_create_redacted(const char *bookmark, const char *snapshot,
 	    ZFS_SPACE_CHECK_NORMAL));
 }
 
+/*
+ * Retrieve the list of properties given in the 'props' nvlist for a bookmark.
+ * If 'props' is NULL, retrieves all properties.
+ */
+static void
+dsl_bookmark_fetch_props(dsl_pool_t *dp, zfs_bookmark_phys_t *bmark_phys,
+    nvlist_t *props, nvlist_t *out_props)
+{
+	ASSERT3P(dp, !=, NULL);
+	ASSERT3P(bmark_phys, !=, NULL);
+	ASSERT3P(out_props, !=, NULL);
+	ASSERT(RRW_LOCK_HELD(&dp->dp_config_rwlock));
+
+	if (props == NULL || nvlist_exists(props,
+	    zfs_prop_to_name(ZFS_PROP_GUID))) {
+		dsl_prop_nvlist_add_uint64(out_props,
+		    ZFS_PROP_GUID, bmark_phys->zbm_guid);
+	}
+	if (props == NULL || nvlist_exists(props,
+	    zfs_prop_to_name(ZFS_PROP_CREATETXG))) {
+		dsl_prop_nvlist_add_uint64(out_props,
+		    ZFS_PROP_CREATETXG, bmark_phys->zbm_creation_txg);
+	}
+	if (props == NULL || nvlist_exists(props,
+	    zfs_prop_to_name(ZFS_PROP_CREATION))) {
+		dsl_prop_nvlist_add_uint64(out_props,
+		    ZFS_PROP_CREATION, bmark_phys->zbm_creation_time);
+	}
+	if (props == NULL || nvlist_exists(props, "redact_snaps")) {
+		redaction_list_t *rl;
+		int err = dsl_redaction_list_hold_obj(dp,
+		    bmark_phys->zbm_redaction_obj, FTAG, &rl);
+		if (err == 0) {
+			nvlist_t *nvl;
+			nvl = fnvlist_alloc();
+			fnvlist_add_uint64_array(nvl, ZPROP_VALUE,
+			    rl->rl_phys->rlp_snaps,
+			    rl->rl_phys->rlp_num_snaps);
+			fnvlist_add_nvlist(out_props, "redact_snaps",
+			    nvl);
+			nvlist_free(nvl);
+			dsl_redaction_list_rele(rl, FTAG);
+		}
+	}
+}
+
 int
 dsl_get_bookmarks_impl(dsl_dataset_t *ds, nvlist_t *props, nvlist_t *outnvl)
 {
@@ -406,37 +452,8 @@ dsl_get_bookmarks_impl(dsl_dataset_t *ds, nvlist_t *props, nvlist_t *outnvl)
 			break;
 
 		nvlist_t *out_props = fnvlist_alloc();
-		if (nvlist_exists(props,
-		    zfs_prop_to_name(ZFS_PROP_GUID))) {
-			dsl_prop_nvlist_add_uint64(out_props,
-			    ZFS_PROP_GUID, bmark_phys.zbm_guid);
-		}
-		if (nvlist_exists(props,
-		    zfs_prop_to_name(ZFS_PROP_CREATETXG))) {
-			dsl_prop_nvlist_add_uint64(out_props,
-			    ZFS_PROP_CREATETXG, bmark_phys.zbm_creation_txg);
-		}
-		if (nvlist_exists(props,
-		    zfs_prop_to_name(ZFS_PROP_CREATION))) {
-			dsl_prop_nvlist_add_uint64(out_props,
-			    ZFS_PROP_CREATION, bmark_phys.zbm_creation_time);
-		}
-		if (nvlist_exists(props, "redact_snaps")) {
-			redaction_list_t *rl;
-			int err = dsl_redaction_list_hold_obj(dp,
-			    bmark_phys.zbm_redaction_obj, FTAG, &rl);
-			if (err == 0) {
-				nvlist_t *nvl;
-				nvl = fnvlist_alloc();
-				fnvlist_add_uint64_array(nvl, ZPROP_VALUE,
-				    rl->rl_phys->rlp_snaps,
-				    rl->rl_phys->rlp_num_snaps);
-				fnvlist_add_nvlist(out_props, "redact_snaps",
-				    nvl);
-				nvlist_free(nvl);
-				dsl_redaction_list_rele(rl, FTAG);
-			}
-		}
+
+		dsl_bookmark_fetch_props(dp, &bmark_phys, props, out_props);
 
 		fnvlist_add_nvlist(outnvl, bmark_name, out_props);
 		fnvlist_free(out_props);
@@ -499,13 +516,7 @@ dsl_get_bookmark_props(const char *dsname, const char *bmname, nvlist_t *props)
 	if (err != 0)
 		goto out;
 
-	dsl_prop_nvlist_add_uint64(props, ZFS_PROP_GUID,
-	    bmark_phys.zbm_guid);
-	dsl_prop_nvlist_add_uint64(props, ZFS_PROP_CREATETXG,
-	    bmark_phys.zbm_creation_txg);
-	dsl_prop_nvlist_add_uint64(props, ZFS_PROP_CREATION,
-	    bmark_phys.zbm_creation_time);
-
+	dsl_bookmark_fetch_props(dp, &bmark_phys, NULL, props);
 out:
 	dsl_dataset_rele(ds, FTAG);
 	dsl_pool_rele(dp, FTAG);

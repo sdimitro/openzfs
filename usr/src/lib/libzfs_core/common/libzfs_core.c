@@ -802,7 +802,15 @@ lzc_get_bookmarks(const char *fsname, nvlist_t *props, nvlist_t **bmarks)
  *
  * Given a bookmark's full name, retrieve all properties for the bookmark.
  *
- * The format of the returned property list is identical to lzc_get_bookmarks.
+ * The format of the returned property list is as follows:
+ * {
+ *     <name of property> -> {
+ *         "value" -> uint64
+ *     }
+ *     ...
+ *     "redact_snaps" -> {
+ *         "value" -> uint64 array
+ * }
  */
 int
 lzc_get_bookmark_props(const char *bookmark, nvlist_t **props)

@@ -61,10 +61,20 @@ mapping_exists()
 	return $?
 }
 
+#
+# This function returns true if the argument is a partially qualified
+# domain name, false otherwise.
+#
+partially_qualified_domain_name()
+{
+	echo "$1" | grep -q "\."
+	return $?
+}
+
 add_loopback_mapping()
 {
 	new=$1
-
+	loopback_mapping=$2
 	if ! mapping_exists $new; then
 		tmp_hosts=/tmp/hosts.$$
 
@@ -79,7 +89,7 @@ add_loopback_mapping()
 		rm -f $tmp_hosts
 	fi
 
-	save_loopback_mapping $new
+	save_loopback_mapping $loopback_mapping
 	return $?
 }
 
@@ -87,6 +97,7 @@ update_loopback_mapping()
 {
 	old=$1
 	new=$2
+	loopback_mapping=$3
 	tmp_hosts=/tmp/hosts.$$
 
 	if ! mapping_exists $new; then
@@ -103,7 +114,7 @@ update_loopback_mapping()
 		rm -f $tmp_hosts
 	fi
 
-	save_loopback_mapping $new
+	save_loopback_mapping $loopback_mapping
 	return $?
 }
 
@@ -161,20 +172,37 @@ fi
 #
 enable_mapping=$(/usr/bin/svcprop -p config/enable_mapping $SMF_FMRI)
 if writable_root && [[ "$enable_mapping" = "true" ]]; then
-	mapping=$(/usr/bin/svcprop -p config/loopback $SMF_FMRI)
-	if [[ "$mapping" = '""' ]]; then
+	oldmapping=$(/usr/bin/svcprop -p config/loopback $SMF_FMRI)
+	newmapping="$hostname"
+	#
+	# sendmail requires a partially qualified domain name (PQDN).
+	# Hence, if the hostname is not a PQDN, convert it into one
+	# and add it to /etc/inet/hosts. If the hostname changes, we
+	# would need to remove the previous PQDN and hence need to
+	# process the older hostname as well.
+	#
+	if ! partially_qualified_domain_name "$newmapping"; then
+		newmapping="$hostname\ $hostname.local"
+	fi
+	if [[ "$oldmapping" != '""' ]]; then
+		if ! partially_qualified_domain_name "$oldmapping"; then
+			oldmapping="$oldmapping\ $oldmapping.local"
+		fi
+	fi
+	if [[ "$oldmapping" = '""' ]]; then
 		#
 		# During the first boot after installation, there is no
 		# existing /etc/hosts mapping.
 		#
-		add_loopback_mapping $hostname || exit $SMF_ERR_FATAL
-	elif [[ "$mapping" != "$hostname" ]]; then
+		add_loopback_mapping "$newmapping" "$hostname" \
+			|| exit $SMF_ERR_FATAL
+	elif [[ "$oldmapping" != "$newmapping" ]]; then
 		#
 		# The hostname has changed since this service was last enabled
 		# or refreshed.  We need to update the /etc/hosts mapping.
 		#
-		update_loopback_mapping $mapping $hostname || \
-		    exit $SMF_ERR_FATAL
+		update_loopback_mapping "$oldmapping" "$newmapping" "$hostname" \
+			|| exit $SMF_ERR_FATAL
 	fi
 fi
 

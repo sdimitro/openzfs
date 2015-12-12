@@ -4141,8 +4141,8 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 	    spa_version(dp->dp_spa) < SPA_VERSION_SA)
 		return (SET_ERROR(ENOTSUP));
 
-	if ((drba->drba_cookie->drc_resumable || (featureflags &
-	    DMU_BACKUP_FEATURE_REDACTED)) && !spa_feature_is_enabled(dp->dp_spa,
+	if (drba->drba_cookie->drc_resumable &&
+	    !spa_feature_is_enabled(dp->dp_spa,
 	    SPA_FEATURE_EXTENSIBLE_DATASET))
 		return (SET_ERROR(ENOTSUP));
 
@@ -4166,6 +4166,13 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 	 */
 	if ((featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS) &&
 	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_LARGE_BLOCKS))
+		return (SET_ERROR(ENOTSUP));
+
+	if ((featureflags & DMU_BACKUP_FEATURE_REDACTED) &&
+	    (!spa_feature_is_enabled(dp->dp_spa,
+	    SPA_FEATURE_REDACTED_DATASETS) ||
+	    !spa_feature_is_enabled(dp->dp_spa,
+	    SPA_FEATURE_EXTENSIBLE_DATASET)))
 		return (SET_ERROR(ENOTSUP));
 
 	error = dsl_dataset_hold(dp, tofs, FTAG, &ds);

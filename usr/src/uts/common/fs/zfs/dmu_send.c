@@ -1821,6 +1821,8 @@ redact_merge_thread(void *arg)
 		}
 		avl_remove(&start_tree, &redact_nodes[i]);
 		avl_remove(&end_tree, &redact_nodes[i]);
+		kmem_free(redact_nodes[i].record,
+		    sizeof (struct send_redact_record));
 	}
 
 	avl_destroy(&start_tree);
@@ -3009,6 +3011,11 @@ dmu_send_impl(struct dmu_send_params *dspp)
 		ASSERT3P(from_rl, ==, NULL);
 		fnvlist_add_uint64_array(nvl, BEGINNV_REDACT_FROM_SNAPS,
 		    dspp->fromredactsnaps, dspp->numfromredactsnaps);
+		if (dspp->numfromredactsnaps > 0) {
+			kmem_free(dspp->fromredactsnaps,
+			    dspp->numfromredactsnaps * sizeof (uint64_t));
+			dspp->fromredactsnaps = NULL;
+		}
 	}
 
 	if (resuming) {
@@ -3488,12 +3495,19 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 			dsl_pool_rele(dspp.dp, FTAG);
 			return (err);
 		}
+		/* See dmu_send for the reasons behind this. */
+		uint64_t *fromredact;
 
 		if (!dsl_dataset_get_uint64_array_feature(dspp.from_ds,
 		    SPA_FEATURE_REDACTED_DATASETS,
 		    &dspp.numfromredactsnaps,
-		    &dspp.fromredactsnaps)) {
+		    &fromredact)) {
 			dspp.numfromredactsnaps = UINT64_MAX;
+		} else if (dspp.numfromredactsnaps > 0) {
+			uint64_t size = dspp.numfromredactsnaps *
+			    sizeof (uint64_t);
+			dspp.fromredactsnaps = kmem_zalloc(size, KM_SLEEP);
+			bcopy(fromredact, dspp.fromredactsnaps, size);
 		}
 
 		if (dsl_dataset_is_before(dspp.to_ds, dspp.from_ds, 0)) {
@@ -3633,11 +3647,25 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 			if (err != 0) {
 				ASSERT3P(dspp.from_ds, ==, NULL);
 			} else {
+				/*
+				 * We need to make a deep copy of the redact
+				 * snapshots of the from snapshot, because the
+				 * array will be freed when we evict from_ds.
+				 */
+				uint64_t *fromredact;
 				if (!dsl_dataset_get_uint64_array_feature(
 				    dspp.from_ds, SPA_FEATURE_REDACTED_DATASETS,
 				    &dspp.numfromredactsnaps,
-				    &dspp.fromredactsnaps)) {
+				    &fromredact)) {
 					dspp.numfromredactsnaps = UINT64_MAX;
+				} else if (dspp.numfromredactsnaps > 0) {
+					uint64_t size =
+					    dspp.numfromredactsnaps *
+					    sizeof (uint64_t);
+					dspp.fromredactsnaps = kmem_zalloc(size,
+					    KM_SLEEP);
+					bcopy(fromredact, dspp.fromredactsnaps,
+					    size);
 				}
 				if (dsl_dataset_is_before(dspp.to_ds,
 				    dspp.from_ds, 0)) {

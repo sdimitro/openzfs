@@ -83,6 +83,7 @@ static void dsl_dataset_set_remap_deadlist_object(dsl_dataset_t *ds,
     uint64_t obj, dmu_tx_t *tx);
 static void dsl_dataset_unset_remap_deadlist_object(dsl_dataset_t *ds,
     dmu_tx_t *tx);
+static void unload_zfeature(dsl_dataset_t *ds, spa_feature_t f);
 
 /*
  * Figure out how much of this delta should be propagated to the dsl_dir
@@ -314,6 +315,72 @@ dsl_dataset_block_freeable(dsl_dataset_t *ds, const blkptr_t *bp,
 	return (B_TRUE);
 }
 
+struct feature_type_uint64_array_arg {
+	uint64_t length;
+	uint64_t *array;
+};
+
+static void
+unload_zfeature(dsl_dataset_t *ds, spa_feature_t f)
+{
+	switch (spa_feature_table[f].fi_type) {
+	case ZFEATURE_TYPE_BOOLEAN:
+		break;
+	case ZFEATURE_TYPE_UINT64_ARRAY:
+	{
+		struct feature_type_uint64_array_arg *ftuaa = ds->ds_feature[f];
+		kmem_free(ftuaa->array, ftuaa->length * sizeof (uint64_t));
+		kmem_free(ftuaa, sizeof (*ftuaa));
+		break;
+	}
+	default:
+		panic("Invalid zfeature type!");
+	}
+}
+
+static int
+load_zfeature(objset_t *mos, dsl_dataset_t *ds, spa_feature_t f)
+{
+	int err = 0;
+	switch (spa_feature_table[f].fi_type) {
+	case ZFEATURE_TYPE_BOOLEAN:
+		err = zap_contains(mos, ds->ds_object,
+		    spa_feature_table[f].fi_guid);
+		if (err == 0) {
+			ds->ds_feature[f] = (void *)B_TRUE;
+		} else {
+			ASSERT3U(err, ==, ENOENT);
+			err = 0;
+		}
+		break;
+	case ZFEATURE_TYPE_UINT64_ARRAY:
+	{
+		uint64_t int_size, num_int;
+		uint64_t *data;
+		err = zap_length(mos, ds->ds_object,
+		    spa_feature_table[f].fi_guid, &int_size, &num_int);
+		if (err != 0) {
+			ASSERT3U(err, ==, ENOENT);
+			err = 0;
+			break;
+		}
+		ASSERT3U(int_size, ==, sizeof (uint64_t));
+		data = kmem_alloc(int_size * num_int, KM_SLEEP);
+		VERIFY0(zap_lookup(mos, ds->ds_object,
+		    spa_feature_table[f].fi_guid, int_size, num_int, data));
+		struct feature_type_uint64_array_arg *ftuaa =
+		    kmem_alloc(sizeof (*ftuaa), KM_SLEEP);
+		ftuaa->length = num_int;
+		ftuaa->array = data;
+		ds->ds_feature[f] = ftuaa;
+		break;
+	}
+	default:
+		panic("Invalid zfeature type!");
+	}
+	return (err);
+}
+
 static void
 dsl_dataset_evict(void *dbu)
 {
@@ -342,6 +409,11 @@ dsl_dataset_evict(void *dbu)
 		dsl_dir_async_rele(ds->ds_dir, ds);
 
 	ASSERT(!list_link_active(&ds->ds_synced_link));
+
+	for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
+		if (dsl_dataset_feature_is_active(ds, f))
+			unload_zfeature(ds, f);
+	}
 
 	list_destroy(&ds->ds_prop_cbs);
 	mutex_destroy(&ds->ds_lock);
@@ -441,54 +513,6 @@ dsl_dataset_try_add_ref(dsl_pool_t *dp, dsl_dataset_t *ds, void *tag)
 	}
 
 	return (result);
-}
-
-struct feature_type_uint64_array_arg {
-	uint64_t length;
-	uint64_t *array;
-};
-
-static int
-load_zfeature(objset_t *mos, dsl_dataset_t *ds, spa_feature_t f)
-{
-	int err = 0;
-	switch (spa_feature_table[f].fi_type) {
-	case ZFEATURE_TYPE_BOOLEAN:
-		err = zap_contains(mos, ds->ds_object,
-		    spa_feature_table[f].fi_guid);
-		if (err == 0) {
-			ds->ds_feature[f] = (void *)B_TRUE;
-		} else {
-			ASSERT3U(err, ==, ENOENT);
-			err = 0;
-		}
-		break;
-	case ZFEATURE_TYPE_UINT64_ARRAY:
-	{
-		uint64_t int_size, num_int;
-		uint64_t *data;
-		err = zap_length(mos, ds->ds_object,
-		    spa_feature_table[f].fi_guid, &int_size, &num_int);
-		if (err != 0) {
-			ASSERT3U(err, ==, ENOENT);
-			err = 0;
-			break;
-		}
-		ASSERT3U(int_size, ==, sizeof (uint64_t));
-		data = kmem_alloc(int_size * num_int, KM_SLEEP);
-		VERIFY0(zap_lookup(mos, ds->ds_object,
-		    spa_feature_table[f].fi_guid, int_size, num_int, data));
-		struct feature_type_uint64_array_arg *ftuaa =
-		    kmem_alloc(sizeof (*ftuaa), KM_SLEEP);
-		ftuaa->length = num_int;
-		ftuaa->array = data;
-		ds->ds_feature[f] = ftuaa;
-		break;
-	}
-	default:
-		panic("Invalid zfeature type!");
-	}
-	return (err);
 }
 
 int
@@ -959,18 +983,8 @@ dsl_dataset_deactivate_feature_impl(dsl_dataset_t *ds, spa_feature_t f,
 void
 dsl_dataset_deactivate_feature(dsl_dataset_t *ds, spa_feature_t f, dmu_tx_t *tx)
 {
-	void *feature = ds->ds_feature[f];
+	unload_zfeature(ds, f);
 	dsl_dataset_deactivate_feature_impl(ds, f, tx);
-	switch (spa_feature_table[f].fi_type) {
-	case ZFEATURE_TYPE_BOOLEAN:
-		return;
-	case ZFEATURE_TYPE_UINT64_ARRAY:
-		kmem_free(feature,
-		    sizeof (struct feature_type_uint64_array_arg));
-		break;
-	default:
-		panic("Invalid zfeature type!");
-	}
 }
 
 uint64_t

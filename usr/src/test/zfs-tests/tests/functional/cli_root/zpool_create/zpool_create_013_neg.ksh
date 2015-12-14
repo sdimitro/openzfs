@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -97,6 +97,7 @@ fi
 
 log_must $METAINIT $md_name 1 1 $md_dev
 log_must $SWAP -a $MD_DSK
+unset NOINUSE_CHECK
 for opt in "-n" "" "-f"; do
 	log_mustnot $ZPOOL create $opt $TESTPOOL $MD_DSK
 done

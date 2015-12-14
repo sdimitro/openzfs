@@ -17,6 +17,7 @@
 #
 
 export PATH="/usr/bin:/sbin:/usr/sbin:/opt/zfs-tests/bin"
+export NOINUSE_CHECK=1
 export STF_SUITE="/opt/zfs-tests"
 export STF_TOOLS="/opt/test-runner/stf"
 runner="/opt/test-runner/bin/run"

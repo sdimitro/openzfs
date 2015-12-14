@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -92,6 +92,7 @@ log_must $METADB -a -f -c 3 $FS_SIDE1
 log_note "Configure d99 with $FS_SIDE0"
 log_must $METAINIT d99 1 1 $FS_SIDE0
 
+unset NOINUSE_CHECK
 log_note "Attempt to zpool the device in use by SVM"
 log_mustnot $ZPOOL create $TESTPOOL1 $FS_SIDE0
 log_mustnot poolexists $TESTPOOL1

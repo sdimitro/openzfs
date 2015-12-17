@@ -12,6 +12,7 @@
 #
 # Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 # Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
+# Copyright 2015, Nexenta Systems Inc. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/test/zfstest@$(PKGVERS)
@@ -102,6 +103,7 @@ dir path=opt/zfs-tests/tests/functional/interop
 dir path=opt/zfs-tests/tests/functional/inuse
 dir path=opt/zfs-tests/tests/functional/large_files
 dir path=opt/zfs-tests/tests/functional/largest_pool
+dir path=opt/zfs-tests/tests/functional/libzfs
 dir path=opt/zfs-tests/tests/functional/link_count
 dir path=opt/zfs-tests/tests/functional/mdb
 dir path=opt/zfs-tests/tests/functional/migration
@@ -315,7 +317,7 @@ file path=opt/zfs-tests/tests/functional/bootfs/bootfs_003_pos mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_004_neg mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_005_neg mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_006_pos mode=0555
-file path=opt/zfs-tests/tests/functional/bootfs/bootfs_007_neg mode=0555
+file path=opt/zfs-tests/tests/functional/bootfs/bootfs_007_pos mode=0555
 file path=opt/zfs-tests/tests/functional/bootfs/bootfs_008_neg mode=0555
 file path=opt/zfs-tests/tests/functional/cache/cache.cfg mode=0555
 file path=opt/zfs-tests/tests/functional/cache/cache.kshlib mode=0555
@@ -1836,6 +1838,7 @@ file path=opt/zfs-tests/tests/functional/largest_pool/largest_pool.cfg \
     mode=0555
 file path=opt/zfs-tests/tests/functional/largest_pool/largest_pool_001_pos \
     mode=0555
+file path=opt/zfs-tests/tests/functional/libzfs/many_fds mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/link_count_001 mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/setup mode=0555

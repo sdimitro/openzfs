@@ -24,6 +24,8 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright 2015 Nexenta Systems, Inc.
+#
 
 #
 # Copyright (c) 2012, 2015 by Delphix. All rights reserved.
@@ -34,10 +36,10 @@
 #
 # DESCRIPTION:
 #
-# Valid datasets are accepted as bootfs property values
+# Valid datasets and snapshots are accepted as bootfs property values
 #
 # STRATEGY:
-# 1. Create a set of datasets in a test pool
+# 1. Create a set of datasets and snapshots in a test pool
 # 2. Try setting them as boot filesystems
 #
 
@@ -72,6 +74,7 @@ log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap
 log_must $ZFS clone $TESTPOOL/$TESTFS@snap $TESTPOOL/clone
 
 log_must $ZPOOL set bootfs=$TESTPOOL/$TESTFS $TESTPOOL
+log_must $ZPOOL set bootfs=$TESTPOOL/$TESTFS@snap $TESTPOOL
 log_must $ZPOOL set bootfs=$TESTPOOL/clone $TESTPOOL
 
 log_must $ZFS promote $TESTPOOL/clone

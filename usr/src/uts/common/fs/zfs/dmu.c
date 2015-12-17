@@ -1873,16 +1873,15 @@ dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp,
 	 *	 3. all other level 0 blocks
 	 */
 	if (ismd) {
-		/*
-		 * XXX -- we should design a compression algorithm
-		 * that specializes in arrays of bps.
-		 */
 		if (zfs_mdcomp_disable) {
 			compress = ZIO_COMPRESS_EMPTY;
-		} else if (lz4_ac) {
-			compress = ZIO_COMPRESS_LZ4;
 		} else {
-			compress = ZIO_COMPRESS_LZJB;
+			/*
+			 * XXX -- we should design a compression algorithm
+			 * that specializes in arrays of bps.
+			 */
+			compress = zio_compress_select(os->os_spa,
+			    ZIO_COMPRESS_ON, ZIO_COMPRESS_ON);
 		}
 
 		/*
@@ -1917,7 +1916,8 @@ dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp,
 		compress = ZIO_COMPRESS_OFF;
 		checksum = ZIO_CHECKSUM_NOPARITY;
 	} else {
-		compress = zio_compress_select(dn->dn_compress, compress);
+		compress = zio_compress_select(os->os_spa, dn->dn_compress,
+		    compress);
 
 		checksum = (dedup_checksum == ZIO_CHECKSUM_OFF) ?
 		    zio_checksum_select(dn->dn_checksum, checksum) :
@@ -1996,7 +1996,7 @@ dmu_offset_next(objset_t *os, uint64_t object, boolean_t hole, uint64_t *off)
 }
 
 /*
- * Give the ZFS object, if it contains any dirty nodes
+ * Given the ZFS object, if it contains any dirty nodes
  * this function flushes all dirty blocks to disk. This
  * ensures the DMU object info is updated. A more efficient
  * future version might just find the TXG with the maximum

@@ -56,6 +56,13 @@
  */
 int zfs_nopwrite_enabled = 1;
 
+/*
+ * This can be used for testing, to ensure that certain actions happen
+ * while in the middle of a remap (which might otherwise complete too
+ * quickly).
+ */
+int zfs_object_remap_one_indirect_delay_ticks = 0;
+
 const dmu_object_type_info_t dmu_ot[DMU_OT_NUMTYPES] = {
 	{	DMU_BSWAP_UINT8,	TRUE,	"unallocated"		},
 	{	DMU_BSWAP_ZAP,		TRUE,	"object directory"	},
@@ -904,6 +911,8 @@ dmu_object_remap_one_indirect(objset_t *os, dnode_t *dn,
 	}
 
 	dbuf_rele(dbuf, FTAG);
+
+	delay(zfs_object_remap_one_indirect_delay_ticks);
 
 	return (err);
 }

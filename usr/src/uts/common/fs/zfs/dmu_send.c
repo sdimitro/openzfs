@@ -106,16 +106,39 @@ const char *recv_clone_name = "%recv";
 #define	BEGINNV_RESUME_OBJECT		"resume_object"
 #define	BEGINNV_RESUME_OFFSET		"resume_offset"
 
+static inline boolean_t
+overflow_multiply(uint64_t a, uint64_t b, uint64_t *c)
+{
+	uint64_t temp = a * b;
+	if (b != 0 && temp / b != a)
+		return (B_FALSE);
+	*c = temp;
+	return (B_TRUE);
+}
+
+/*
+ * Note that this calculation cannot overflow with the current maximum indirect
+ * block size (128k).  If that maximum is increased to 1M, however, this
+ * calculation can overflow, and handling would need to be added to ensure
+ * continued correctness.
+ */
 static inline uint64_t
 bp_span_in_blocks(uint8_t indblkshift, uint64_t level)
 {
-	return (((uint64_t)1) << (level * (indblkshift - SPA_BLKPTRSHIFT)));
+	unsigned int shift = level * (indblkshift - SPA_BLKPTRSHIFT);
+	ASSERT3U(shift, <, 64);
+	return (1ULL << shift);
 }
 
-static inline uint64_t
-bp_span(uint32_t datablksz, uint8_t indblkshift, uint64_t level)
+/*
+ * Return B_TRUE and modifies *out to the span if the span is less than 2^64,
+ * returns B_FALSE otherwise.
+ */
+static inline boolean_t
+bp_span(uint32_t datablksz, uint8_t indblkshift, uint64_t level, uint64_t *out)
 {
-	return (bp_span_in_blocks(indblkshift, level) * datablksz);
+	uint64_t spanb = bp_span_in_blocks(indblkshift, level);
+	return (overflow_multiply(spanb, datablksz, out));
 }
 
 
@@ -369,19 +392,15 @@ dump_free(dmu_send_cookie_t *dscp, uint64_t object, uint64_t offset,
 
 	if (dscp->dsc_pending_op == PENDING_FREE) {
 		/*
-		 * There should never be a PENDING_FREE if length is -1
-		 * (because dump_dnode is the only place where this
-		 * function is called with a -1, and only after flushing
-		 * any pending record).
-		 */
-		ASSERT(length != -1ULL);
-		/*
 		 * Check to see whether this free block can be aggregated
 		 * with pending one.
 		 */
 		if (drrf->drr_object == object && drrf->drr_offset +
 		    drrf->drr_length == offset) {
-			drrf->drr_length += length;
+			if (length == UINT64_MAX)
+				drrf->drr_length = UINT64_MAX;
+			else
+				drrf->drr_length += length;
 			return (0);
 		} else {
 			/* not a continuation.  Push out pending record */
@@ -612,6 +631,9 @@ dump_freeobjects(dmu_send_cookie_t *dscp, uint64_t firstobj, uint64_t numobjs)
 			return (SET_ERROR(EINTR));
 		dscp->dsc_pending_op = PENDING_NONE;
 	}
+	if (numobjs == 0)
+		numobjs = UINT64_MAX - firstobj;
+
 	if (dscp->dsc_pending_op == PENDING_FREEOBJECTS) {
 		/*
 		 * See whether this free object array can be aggregated
@@ -757,25 +779,77 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 	} else if (BP_IS_HOLE(bp) &&
 	    zb->zb_object == DMU_META_DNODE_OBJECT) {
 		ASSERT(!data->redact_marker);
-		uint64_t span = bp_span(data->datablksz, indblkshift,
-		    zb->zb_level);
+		uint64_t span = 0;
+		/*
+		 * If the block covers a range larger than 2^64 bytes, and it's
+		 * not the zeroth block, then the first byte it addresses is
+		 * beyond the valid size of the meta-dnode.  Such a block will
+		 * always be a hole on both systems, so it's safe to simply not
+		 * send it.
+		 */
+		if (!bp_span(data->datablksz, indblkshift, zb->zb_level,
+		    &span) && zb->zb_blkid > 0) {
+			return (0);
+		}
 		uint64_t dnobj = (zb->zb_blkid * span) >> DNODE_SHIFT;
 		err = dump_freeobjects(dscp, dnobj, span >> DNODE_SHIFT);
 	} else if (BP_IS_HOLE(bp)) {
-		uint64_t span = bp_span(data->datablksz, indblkshift,
-		    zb->zb_level);
-		uint64_t offset = zb->zb_blkid * span;
+		uint64_t span = UINT64_MAX;
+		/*
+		 * See comment in previous case.
+		 */
+		if (!bp_span(data->datablksz, indblkshift,
+		    zb->zb_level, &span) && zb->zb_blkid > 0) {
+			return (0);
+		}
+		uint64_t offset = 0;
+
+		/*
+		 * If this multiply overflows, we don't need to send this block.
+		 * Even if it has a birth time, it can never not be a hole, so
+		 * we don't need to send records for it.
+		 */
+		if (!overflow_multiply(zb->zb_blkid, span, &offset))
+			return (0);
+
 		if (data->redact_marker)
 			err = dump_redact(dscp, zb->zb_object, offset, span);
 		else
 			err = dump_free(dscp, zb->zb_object, offset, span);
+ 	} else if (zb->zb_level > 0) {
+		uint64_t span = 0;
+		ASSERT(!BP_IS_REDACTED(bp));
+		if (!bp_span(data->datablksz, indblkshift,
+		    zb->zb_level, &span) && zb->zb_blkid > 0) {
+			/*
+			 * In this case, we have a block which is not a hole,
+			 * whose span is greater than 2^64.  In addition, it
+			 * isn't the first block on that level.  This means that
+			 * the first block is already adressing all 2^64 bytes,
+			 * and this one claims to be address data despite the
+			 * fact that the first byte of data it could address is
+			 * out of bounds.
+			 */
+			zfs_panic_recover("bp_span overflowed");
+		}
+		uint64_t offset = 0;
+		boolean_t overflow = overflow_multiply(zb->zb_blkid, span,
+		    &offset);
+		/*
+		 * We're considering an indirect block that isn't a hole.
+		 * Assert that its l0 equivalent's offset is < 2^64.
+		 */
+		ASSERT(!overflow && span + offset > offset);
+		return (0);
 	} else if (BP_IS_REDACTED(bp)) {
-		ASSERT0(zb->zb_level);
-		uint64_t span = bp_span(data->datablksz, indblkshift,
-		    zb->zb_level);
-		uint64_t offset = zb->zb_blkid * span;
+		uint64_t span = UINT64_MAX;
+		ASSERT(bp_span(data->datablksz, indblkshift, zb->zb_level, &span));
+		uint64_t offset = 0;
+		boolean_t overflow = overflow_multiply(zb->zb_blkid, span,
+		    &offset);
+		ASSERT(!overflow && span + offset > offset);
 		err = dump_redact(dscp, zb->zb_object, offset, span);
-	} else if (zb->zb_level > 0 || type == DMU_OT_OBJSET) {
+	} else if (type == DMU_OT_OBJSET) {
 		return (0);
 	} else if (type == DMU_OT_DNODE) {
 		int blksz = BP_GET_LSIZE(bp);
@@ -1055,14 +1129,24 @@ enqueue_holes(struct send_thread_arg *sta, const zbookmark_phys_t *zb,
     const blkptr_t *bp, uint8_t indblkshift, uint32_t datablksz)
 {
 	objset_t *to_os = sta->to_os;
-	uint64_t span = bp_span(datablksz, indblkshift, zb->zb_level);
+	uint64_t span = 0;
 	uint64_t blkid = zb->zb_blkid;
 	int err = 0;
-	if (zb->zb_object == DMU_META_DNODE_OBJECT && BP_IS_HOLE(bp)) {
+	if (!BP_IS_HOLE(bp))
+		return (0);
+
+	if (!bp_span(datablksz, indblkshift, zb->zb_level, &span) &&
+	    zb->zb_blkid != 0)
+		return (0);
+
+	if (zb->zb_object == DMU_META_DNODE_OBJECT) {
+		boolean_t entire_object = B_FALSE;
+		if (span == 0)
+			entire_object = B_TRUE;
 		int epb = span >> DNODE_SHIFT; /* entries per block */
 
 		for (uint64_t obj = blkid * epb;
-		    err == 0 && obj < (blkid + 1) * epb;
+		    err == 0 && (entire_object || obj < (blkid + 1) * epb);
 		    err = dmu_object_next(to_os, &obj, B_FALSE, 0)) {
 			/*
 			 * Object 0 is invalid (used to specify
@@ -1081,7 +1165,7 @@ enqueue_holes(struct send_thread_arg *sta, const zbookmark_phys_t *zb,
 
 		if (err == ESRCH)
 			err = 0;
-	} else if (BP_IS_HOLE(bp) && zb->zb_level > 0) {
+	} else if (zb->zb_level > 0) {
 		err = enqueue_block_range(sta, zb->zb_object, span * blkid,
 		    span);
 		if (err == ENOENT)

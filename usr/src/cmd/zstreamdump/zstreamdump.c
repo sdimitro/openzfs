@@ -25,7 +25,7 @@
  */
 
 /*
- * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
  */
 
 #include <ctype.h>
@@ -213,6 +213,7 @@ main(int argc, char *argv[])
 	struct drr_spill *drrs = &thedrr.drr_u.drr_spill;
 	struct drr_write_embedded *drrwe = &thedrr.drr_u.drr_write_embedded;
 	struct drr_checksum *drrc = &thedrr.drr_u.drr_checksum;
+	struct drr_redact *drrr = &thedrr.drr_u.drr_redact;
 	char c;
 	boolean_t verbose = B_FALSE;
 	boolean_t very_verbose = B_FALSE;
@@ -597,6 +598,20 @@ main(int argc, char *argv[])
 			}
 			(void) ssread(buf,
 			    P2ROUNDUP(drrwe->drr_psize, 8), &zc);
+			break;
+		case DRR_REDACT:
+			if (do_byteswap) {
+				drrr->drr_object = BSWAP_64(drrr->drr_object);
+				drrr->drr_offset = BSWAP_64(drrr->drr_offset);
+				drrr->drr_length = BSWAP_64(drrr->drr_length);
+			}
+			if (verbose) {
+				(void) printf("REDACT object = %llu "
+				    "offset = %llu length = %lld\n",
+				    (u_longlong_t)drrr->drr_object,
+				    (u_longlong_t)drrr->drr_offset,
+				    (longlong_t)drrr->drr_length);
+			}
 			break;
 		}
 		if (drr->drr_type != DRR_BEGIN && very_verbose) {

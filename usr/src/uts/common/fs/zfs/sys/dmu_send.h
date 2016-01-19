@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -100,7 +100,7 @@ typedef struct redact_block_phys {
 	uint64_t	rbp_padding;
 } redact_block_phys_t;
 
-#define	REDACT_BLOCK_MAX_COUNT ((1ULL << 48) - 1)
+#define	REDACT_BLOCK_MAX_COUNT (1ULL << 48)
 
 inline uint64_t
 redact_block_get_size(redact_block_phys_t *rbp)

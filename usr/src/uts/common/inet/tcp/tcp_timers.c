@@ -23,7 +23,7 @@
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2011 Joyent, Inc.  All rights reserved.
- * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -1023,9 +1023,7 @@ tcp_timer(void *arg)
 
 timer_rexmit:
 	tcp->tcp_timer_backoff++;
-	if ((ms = (tcp->tcp_rtt_sa >> 3) + tcp->tcp_rtt_sd +
-	    tcps->tcps_rexmit_interval_extra + (tcp->tcp_rtt_sa >> 5)) <
-	    tcp->tcp_rto_min) {
+	if ((ms = tcp_calculate_rto(tcp, tcps)) < tcp->tcp_rto_min) {
 		/*
 		 * This means the original RTO is tcp_rexmit_interval_min.
 		 * So we will use tcp_rexmit_interval_min as the RTO value

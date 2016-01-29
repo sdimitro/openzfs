@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -880,10 +881,7 @@ tcp_opt_set(conn_t *connp, uint_t optset_context, int level, int name,
 
 			tcp->tcp_rtt_sa = tcp->tcp_rto_initial << 2;
 			tcp->tcp_rtt_sd = tcp->tcp_rto_initial >> 1;
-			rto = (tcp->tcp_rtt_sa >> 3) + tcp->tcp_rtt_sd +
-			    tcps->tcps_rexmit_interval_extra +
-			    (tcp->tcp_rtt_sa >> 5) +
-			    tcps->tcps_conn_grace_period;
+			rto = tcp_calculate_rto(tcp, tcps);
 			TCP_SET_RTO(tcp, rto);
 			break;
 		}

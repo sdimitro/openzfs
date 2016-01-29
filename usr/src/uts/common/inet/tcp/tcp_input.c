@@ -23,7 +23,7 @@
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2011 Joyent, Inc. All rights reserved.
- * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 /* This file contains all TCP input processing functions. */
@@ -4868,7 +4868,7 @@ xmit_check:
 				tcp->tcp_csuna = tcp->tcp_snxt;
 				TCPS_BUMP_MIB(tcps, tcpRetransSegs);
 				TCPS_UPDATE_MIB(tcps, tcpRetransBytes,
-					snd_size);
+				    snd_size);
 				tcp->tcp_cs.tcp_out_retrans_segs++;
 				tcp->tcp_cs.tcp_out_retrans_bytes += snd_size;
 				tcp_send_data(tcp, mp1);
@@ -5326,7 +5326,7 @@ tcp_set_rto(tcp_t *tcp, clock_t rtt)
 	 * deviation of RTO to accomodate burstiness of 1/4 of
 	 * window size.
 	 */
-	rto = (sa >> 3) + sv + tcps->tcps_rexmit_interval_extra + (sa >> 5);
+	rto = tcp_calculate_rto(tcp, tcps);
 
 	TCP_SET_RTO(tcp, rto);
 

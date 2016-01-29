@@ -22,7 +22,7 @@
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
  * Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved.
- * Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_INET_TCP_IMPL_H
@@ -557,6 +557,7 @@ extern tcp_t	*tcp_acceptor_hash_lookup(t_uscalar_t, tcp_stack_t *);
 extern void	tcp_acceptor_hash_remove(tcp_t *);
 extern mblk_t	*tcp_ack_mp(tcp_t *);
 extern int	tcp_build_hdrs(tcp_t *);
+extern clock_t	tcp_calculate_rto(tcp_t *, tcp_stack_t *);
 extern void	tcp_cleanup(tcp_t *);
 extern int	tcp_clean_death(tcp_t *, int);
 extern void	tcp_clean_death_wrapper(void *, mblk_t *, void *,

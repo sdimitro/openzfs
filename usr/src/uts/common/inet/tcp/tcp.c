@@ -23,7 +23,7 @@
  * Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
  * Copyright (c) 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
  * Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
  */
 /* Copyright (c) 1990 Mentat Inc. */
@@ -576,6 +576,17 @@ tcp_cleanup(tcp_t *tcp)
 	ASSERT(connp->conn_ref == 1);
 }
 
+#pragma inline(tcp_calculate_rto)
+
+clock_t
+tcp_calculate_rto(tcp_t *tcp, tcp_stack_t *tcps)
+{
+	return (tcp->tcp_rtt_sa >> 3) + tcp->tcp_rtt_sd +
+	    tcps->tcps_rexmit_interval_extra +
+	    (tcp->tcp_rtt_sa >> 5) +
+	    tcps->tcps_conn_grace_period;
+}
+
 /*
  * Adapt to the information, such as rtt and rtt_sd, provided from the
  * DCE and IRE maintained by IP.
@@ -644,9 +655,7 @@ tcp_set_destination(tcp_t *tcp)
 
 		tcp->tcp_rtt_sa = uinfo.iulp_rtt;
 		tcp->tcp_rtt_sd = uinfo.iulp_rtt_sd;
-		rto = (tcp->tcp_rtt_sa >> 3) + tcp->tcp_rtt_sd +
-		    tcps->tcps_rexmit_interval_extra +
-		    (tcp->tcp_rtt_sa >> 5);
+		rto = tcp_calculate_rto(tcp, tcps);
 
 		TCP_SET_RTO(tcp, rto);
 	}
@@ -2040,8 +2049,7 @@ tcp_reinit(tcp_t *tcp)
  * structure!
  */
 static void
-tcp_reinit_values(tcp)
-	tcp_t *tcp;
+tcp_reinit_values(tcp_t *tcp)
 {
 	tcp_stack_t	*tcps = tcp->tcp_tcps;
 	conn_t		*connp = tcp->tcp_connp;
@@ -2389,9 +2397,7 @@ tcp_init_values(tcp_t *tcp, tcp_t *parent)
 	 */
 	tcp->tcp_rtt_sa = tcp->tcp_rto_initial << 2;
 	tcp->tcp_rtt_sd = tcp->tcp_rto_initial >> 1;
-	rto = (tcp->tcp_rtt_sa >> 3) + tcp->tcp_rtt_sd +
-	    tcps->tcps_rexmit_interval_extra + (tcp->tcp_rtt_sa >> 5) +
-	    tcps->tcps_conn_grace_period;
+	rto = tcp_calculate_rto(tcp, tcps);
 	TCP_SET_RTO(tcp, rto);
 
 	tcp->tcp_timer_backoff = 0;

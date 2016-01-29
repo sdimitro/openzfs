@@ -602,7 +602,7 @@ dsl_bookmark_destroy_check(void *arg, dmu_tx_t *tx)
 					error = 0;
 				} else if (error == 0 &&
 				    dsl_redaction_list_long_held(rl)) {
-					error = EINVAL;
+					error = EBUSY;
 				}
 				if (rl != NULL) {
 					dsl_redaction_list_rele(rl, FTAG);

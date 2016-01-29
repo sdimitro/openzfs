@@ -22,6 +22,7 @@
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
 # This file provides exceptions to the usual rules applied to ELF objects by
@@ -100,6 +101,10 @@ UNUSED_DEPS	^usr/lib/libp	# profile libc makes libm an unused dep of libc
 # libm.so.2 dependency
 UNUSED_OBJ	unused object=.*MACH(libm)/libm_hwcap1\.so\.2
 
+# libnetsnmphelpers.so is empty in some net-snmp versions
+UNUSED_OBJ	unused object=.*/libnetsnmphelpers\.so\..*
+UNREF_OBJ	unreferenced object=.*/libnetsnmphelpers\.so\..*
+
 # Unused runpaths due to dlopen() use
 UNUSED_RPATH	/usr/lib/fs/autofs.*\ from\ .automountd
 UNUSED_RPATH	/etc/ppp/plugins.*\ from\ .*pppd
@@ -128,7 +133,7 @@ UNUSED_RPATH	/usr/X11/lib.*\ from\ .*libgobject-2\.0\.so\.0
 UNUSED_RPATH	/usr/sfw/lib.*\ from\ .*libgthread-2\.0\.so\.0
 UNUSED_RPATH	/usr/X11/lib.*\ from\ .*libgthread-2\.0\.so\.0
 UNUSED_RPATH	/usr/sfw/lib.*\ from\ .*libcrypto\.so\.0\.9\.8
-UNUSED_RPATH	/usr/sfw/lib.*\ from\ .*libnetsnmp\.so\.15
+UNUSED_RPATH	/usr/sfw/lib.*\ from\ .*libnetsnmp\.so\..*
 UNUSED_RPATH	/usr/sfw/lib.*\ from\ .*libgcc_s\.so\.1
 UNUSED_RPATH	/usr/ccs/lib.*\ from\ .*libgcc_s\.so\.1
 UNUSED_RPATH	/usr/lib.*\ from\ .*libgcc_s\.so\.1
@@ -154,10 +159,10 @@ UNREF_OBJ	/lib.*\ of\ .*libglib-2.0\.so\.0
 UNREF_OBJ	/lib.*\ of\ .*libgobject-2.0\.so\.0
 UNREF_OBJ	/lib.*\ of\ .*libgthread-2\.0\.so\.0
 UNREF_OBJ	/lib.*\ of\ .*libjvm\.so
-UNREF_OBJ	/lib.*\ of\ .*libnetsnmp\.so\.30
-UNREF_OBJ	/lib.*\ of\ .*libnetsnmpagent\.so\.30
-UNREF_OBJ	/lib.*\ of\ .*libnetsnmpmibs\.so\.30
-UNREF_OBJ	/lib.*\ of\ .*libnetsnmphelpers\.so\.30
+UNREF_OBJ	/lib.*\ of\ .*libnetsnmp\.so\..*
+UNREF_OBJ	/lib.*\ of\ .*libnetsnmpagent\.so\..*
+UNREF_OBJ	/lib.*\ of\ .*libnetsnmpmibs\.so\..*
+UNREF_OBJ	/lib.*\ of\ .*libnetsnmphelpers\.so\..*
 UNREF_OBJ	/lib.*\ of\ .*libnspr4\.so
 UNREF_OBJ	/lib.*\ of\ .*libpq\.so\.5
 UNREF_OBJ	/lib.*\ of\ .*libsoftokn3\.so
@@ -176,6 +181,7 @@ UNREF_OBJ	/libgcc_s.*\ of\ .*libgmodule-2\.0\.so\.0
 # Unreferenced object of objects we can't change for other reasons
 UNREF_OBJ	/libmapmalloc\.so\.1;\ unused\ dependency\ of	# interposer
 UNREF_OBJ	/libstdc\+\+\.so\.6;\ unused\ dependency\ of	# gcc build
+UNREF_OBJ	/libgcc_s\.so\.1.*\ of\ .*libstdc\+\+\.so\.6	# omnios gcc mix
 UNREF_OBJ	/libm\.so\.2.*\ of\ .*libstdc\+\+\.so\.6	# gcc build
 UNREF_OBJ	/libgcc_s\.so\.1.*\ of\ .*libstdc\+\+\.so\.6    # omnios gcc mix
 UNREF_OBJ	/lib.*\ of\ .*/lib/picl/plugins/		# picl

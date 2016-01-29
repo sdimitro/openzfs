@@ -546,12 +546,17 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 }
 
 /*
- * If from is NULL, a full (non-incremental) stream will be estimated. from can
- * be either a bookmark or snapshot. If from is a snapshot, lzc_send_space uses
- * the deadlists attached to each snapshot to efficiently estimate the stream
- * size. If from is a bookmark, the indirect blocks in the destination snapshot
- * are traversed looking for blocks with a birth time since the creation TXG of
- * the snapshot this bookmark was created from. This will result in
+ * "from" can be NULL, a snapshot, or a bookmark.
+ *
+ * If from is NULL, a full (non-incremental) stream will be estimated.  This
+ * is calculated very efficiently.
+ *
+ * If from is a snapshot, lzc_send_space uses the deadlists attached to
+ * each snapshot to efficiently estimate the stream size.
+ *
+ * If from is a bookmark, the indirect blocks in the destination snapshot
+ * are traversed, looking for blocks with a birth time since the creation TXG of
+ * the snapshot this bookmark was created from.  This will result in
  * significantly more I/O and be less efficient than a send space estimation on
  * an equivalent snapshot.
  */

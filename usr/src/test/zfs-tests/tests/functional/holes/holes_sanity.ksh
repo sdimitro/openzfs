@@ -34,7 +34,7 @@ verify_runnable "both"
 testfile="$TESTDIR/testfile"
 
 for bs in 512 1024 2048 4096 8192 16384 32768 65536 131072; do
-	log_must zfs set recsize=$bs $TESTPOOL/$TESTFS
+	log_must $ZFS set recsize=$bs $TESTPOOL/$TESTFS
 
 	#
 	# Create combinations of holes and data to verify holes ending files

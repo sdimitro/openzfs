@@ -22,12 +22,11 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Portions Copyright 2011 Martin Matuska
- * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
- * Copyright (c) 2014, Nexenta Systems, Inc. All rights reserved.
  */
 
 /*
@@ -5207,6 +5206,7 @@ zfs_ioc_smb_acl(zfs_cmd_t *zc)
 static int
 zfs_ioc_hold(const char *pool, nvlist_t *args, nvlist_t *errlist)
 {
+	nvpair_t *pair;
 	nvlist_t *holds;
 	int cleanup_fd = -1;
 	int error;
@@ -5215,6 +5215,19 @@ zfs_ioc_hold(const char *pool, nvlist_t *args, nvlist_t *errlist)
 	error = nvlist_lookup_nvlist(args, "holds", &holds);
 	if (error != 0)
 		return (SET_ERROR(EINVAL));
+
+	/* make sure the user didn't pass us any invalid (empty) tags */
+	for (pair = nvlist_next_nvpair(holds, NULL); pair != NULL;
+	    pair = nvlist_next_nvpair(holds, pair)) {
+		char *htag;
+
+		error = nvpair_value_string(pair, &htag);
+		if (error != 0)
+			return (SET_ERROR(error));
+
+		if (strlen(htag) == 0)
+			return (SET_ERROR(EINVAL));
+	}
 
 	if (nvlist_lookup_int32(args, "cleanup_fd", &cleanup_fd) == 0) {
 		error = zfs_onexit_fd_hold(cleanup_fd, &minor);
@@ -5329,11 +5342,19 @@ zfs_ioc_space_snaps(const char *lastsnap, nvlist_t *innvl, nvlist_t *outnvl)
 		return (error);
 
 	error = dsl_dataset_hold(dp, lastsnap, FTAG, &new);
+	if (error == 0 && !new->ds_is_snapshot) {
+		dsl_dataset_rele(new, FTAG);
+		error = SET_ERROR(EINVAL);
+	}
 	if (error != 0) {
 		dsl_pool_rele(dp, FTAG);
 		return (error);
 	}
 	error = dsl_dataset_hold(dp, firstsnap, FTAG, &old);
+	if (error == 0 && !old->ds_is_snapshot) {
+		dsl_dataset_rele(old, FTAG);
+		error = SET_ERROR(EINVAL);
+	}
 	if (error != 0) {
 		dsl_dataset_rele(new, FTAG);
 		dsl_pool_rele(dp, FTAG);
@@ -5465,7 +5486,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 
 	error = nvlist_lookup_string(innvl, "from", &fromname);
 	if (error == 0) {
-		if (strchr(fromname, '@')) {
+		if (strchr(fromname, '@') != NULL) {
 			/*
 			 * If from is a snapshot, hold it and use the more
 			 * efficient dmu_send_estimate to estimate send space
@@ -5474,9 +5495,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 			dsl_dataset_t *fromsnap;
 			error = dsl_dataset_hold(dp, fromname, FTAG, &fromsnap);
 			if (error != 0) {
-				dsl_dataset_rele(tosnap, FTAG);
-				dsl_pool_rele(dp, FTAG);
-				return (error);
+				goto out;
 			}
 			error = dmu_send_estimate(tosnap, fromsnap, compressok,
 			    &space);
@@ -5492,9 +5511,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 			error = dsl_bookmark_lookup(dp, fromname, tosnap,
 			    &frombm);
 			if (error != 0) {
-				dsl_dataset_rele(tosnap, FTAG);
-				dsl_pool_rele(dp, FTAG);
-				return (error);
+				goto out;
 			}
 			error = dmu_send_estimate_from_txg(tosnap,
 			    frombm.zbm_creation_txg, compressok, &space);
@@ -5503,7 +5520,8 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 			 * from is not properly formatted as a snapshot or
 			 * bookmark
 			 */
-			return (SET_ERROR(EINVAL));
+			error = SET_ERROR(EINVAL);
+			goto out;
 		}
 	} else {
 		// If estimating the size of a full send, use dmu_send_estimate
@@ -5512,6 +5530,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 
 	fnvlist_add_uint64(outnvl, "space", space);
 
+out:
 	dsl_dataset_rele(tosnap, FTAG);
 	dsl_pool_rele(dp, FTAG);
 	return (error);

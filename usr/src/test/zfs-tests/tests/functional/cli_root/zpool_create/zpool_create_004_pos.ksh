@@ -74,7 +74,7 @@ else
 fi
 
 log_must $MKFILE 32m $TESTDIR/broken_file
-vdevs_list="$vdevs_list $TESTDIR/broken_file"
+vdevs_list="$vdevs_list ${TESTDIR}/broken_file"
 log_mustnot $ZPOOL create -f $TESTPOOL1 $vdevs_list
 
 log_pass "Storage pools with many file based vdevs can be created."

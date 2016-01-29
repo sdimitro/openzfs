@@ -625,7 +625,7 @@ zfs_do_clone(int argc, char **argv)
 	while ((c = getopt(argc, argv, "o:p")) != -1) {
 		switch (c) {
 		case 'o':
-			if (parseprop(props, optarg))
+			if (parseprop(props, optarg) != 0)
 				return (1);
 			break;
 		case 'p':
@@ -3549,7 +3549,7 @@ zfs_do_set(int argc, char **argv)
 			goto error;
 	}
 
-	ret = zfs_for_each(argc - ds_start, argv + ds_start, NULL,
+	ret = zfs_for_each(argc - ds_start, argv + ds_start, 0,
 	    ZFS_TYPE_DATASET, NULL, NULL, 0, set_callback, props);
 
 error:

@@ -1570,7 +1570,7 @@ zfs_prop_set_list(zfs_handle_t *zhp, nvlist_t *props)
 	}
 	/*
 	 * Check how many properties we're setting and allocate an array to
-	 * store changelist pointers to perform postfix on later.
+	 * store changelist pointers for postfix().
 	 */
 	nvl_len = 0;
 	for (nvpair_t *elem = nvlist_next_nvpair(nvl, NULL);
@@ -1593,10 +1593,8 @@ zfs_prop_set_list(zfs_handle_t *zhp, nvlist_t *props)
 		 * its canmount property to 'on' or 'noauto'.  We only use
 		 * the changelist logic to unmount when setting canmount=off.
 		 */
-		if (prop == ZFS_PROP_CANMOUNT &&
-		    fnvpair_value_uint64(elem) != ZFS_CANMOUNT_OFF) {
-			cls[cl_idx] = NULL;
-		} else {
+		if (!(prop == ZFS_PROP_CANMOUNT &&
+		    fnvpair_value_uint64(elem) != ZFS_CANMOUNT_OFF)) {
 			cls[cl_idx] = changelist_gather(zhp, prop, 0, 0);
 			if (cls[cl_idx] == NULL)
 				goto error;
@@ -1663,8 +1661,11 @@ zfs_prop_set_list(zfs_handle_t *zhp, nvlist_t *props)
 		}
 	} else {
 		for (cl_idx = 0; cl_idx < nvl_len; cl_idx++) {
-			if (cls[cl_idx] != NULL)
-				ret = changelist_postfix(cls[cl_idx]);
+			if (cls[cl_idx] != NULL) {
+				int clp_err = changelist_postfix(cls[cl_idx]);
+				if (clp_err != 0)
+					ret = clp_err;
+			}
 		}
 
 		/*
@@ -4240,7 +4241,7 @@ zfs_smb_acl_mgmt(libzfs_handle_t *hdl, char *dataset, char *path,
 	if (cmd == ZFS_SMB_ACL_RENAME) {
 		if (nvlist_alloc(&nvlist, NV_UNIQUE_NAME, 0) != 0) {
 			(void) no_memory(hdl);
-			return (NULL);
+			return (0);
 		}
 	}
 

@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 1983, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  */
 /* Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T */
 /* All Rights Reserved */
@@ -257,6 +258,10 @@ svc_rdma_kcreate(char *netid, SVC_CALLOUT_TABLE *sct, int id,
 		mutex_init(&xprt->xp_thread_lock, NULL, MUTEX_DEFAULT, NULL);
 		xprt->xp_req_head = (mblk_t *)0;
 		xprt->xp_req_tail = (mblk_t *)0;
+		xprt->xp_full = FALSE;
+		xprt->xp_enable = FALSE;
+		xprt->xp_reqs = 0;
+		xprt->xp_size = 0;
 		xprt->xp_threads = 0;
 		xprt->xp_detached_threads = 0;
 
@@ -1172,7 +1177,7 @@ struct dupreq *rdmadrmru;
  */
 static int
 svc_rdma_kdup(struct svc_req *req, caddr_t res, int size, struct dupreq **drpp,
-	bool_t *dupcachedp)
+    bool_t *dupcachedp)
 {
 	struct dupreq *dr;
 	uint32_t xid;
@@ -1296,7 +1301,7 @@ svc_rdma_kdup(struct svc_req *req, caddr_t res, int size, struct dupreq **drpp,
  */
 static void
 svc_rdma_kdupdone(struct dupreq *dr, caddr_t res, void (*dis_resfree)(),
-	int size, int status)
+    int size, int status)
 {
 	ASSERT(dr->dr_resfree == NULL);
 	if (status == DUP_DONE) {

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -1028,7 +1028,7 @@ smbadm_group_show(int argc, char **argv)
 
 	if ((status != SMB_LGRP_NO_MORE) || smb_lgrp_itererror(&gi)) {
 		if (status != SMB_LGRP_NO_MORE)
-			syslog(LOG_ERR, "smb_lgrp_iterate: %s",
+			smb_syslog(LOG_ERR, "smb_lgrp_iterate: %s",
 			    smb_lgrp_strerror(status));
 
 		(void) fprintf(stderr,
@@ -1467,16 +1467,10 @@ main(int argc, char **argv)
 
 	progname = basename(argv[0]);
 
-	if (getzoneid() != GLOBAL_ZONEID) {
-		(void) fprintf(stderr,
-		    gettext("cannot execute in non-global zone\n"));
-		return (0);
-	}
-
 	if (is_system_labeled()) {
 		(void) fprintf(stderr,
 		    gettext("Trusted Extensions not supported\n"));
-		return (0);
+		return (1);
 	}
 
 	if (argc < 2) {

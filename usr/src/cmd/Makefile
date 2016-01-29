@@ -75,7 +75,6 @@ COMMON_SUBDIRS=		\
 	bc		\
 	bdiff		\
 	beadm		\
-	bfs		\
 	bnu		\
 	boot		\
 	busstat		\
@@ -219,7 +218,6 @@ COMMON_SUBDIRS=		\
 	iscsitsvc	\
 	isns		\
 	itadm		\
-	java		\
 	kbd		\
 	keyserv		\
 	killall		\
@@ -451,7 +449,6 @@ COMMON_SUBDIRS=		\
 	whodo		\
 	wracct		\
 	write		\
-	wusbadm		\
 	xargs		\
 	xstr		\
 	yes		\
@@ -729,7 +726,6 @@ MSGSUBDIRS=		\
 	whodo		\
 	wracct		\
 	write		\
-	wusbadm		\
 	xargs		\
 	yppasswd	\
 	zdump		\

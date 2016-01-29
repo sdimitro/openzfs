@@ -21,8 +21,8 @@
 
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -450,7 +450,7 @@ nfs_alistcat(char *str1, char *str2, char sep)
 
 static int
 add_security_prop(struct securities *sec, char *name, char *value,
-			int persist, int iszfs)
+    int persist, int iszfs)
 {
 	sa_property_t prop;
 	int ret = SA_OK;
@@ -1329,7 +1329,7 @@ count_security(sa_optionset_t opts)
 
 static int
 nfs_sprint_option(char **rbuff, size_t *rbuffsize, size_t incr,
-			sa_property_t prop, int sep)
+    sa_property_t prop, int sep)
 {
 	char *name;
 	char *value;
@@ -1558,8 +1558,7 @@ err:
  * Append an entry to the nfslogtab file
  */
 static int
-nfslogtab_add(dir, buffer, tag)
-	char *dir, *buffer, *tag;
+nfslogtab_add(char *dir, char *buffer, char *tag)
 {
 	FILE *f;
 	struct logtab_ent lep;
@@ -1641,8 +1640,7 @@ out:
  * Deactivate an entry from the nfslogtab file
  */
 static int
-nfslogtab_deactivate(path)
-	char *path;
+nfslogtab_deactivate(char *path)
 {
 	FILE *f;
 	int error = 0;
@@ -1898,10 +1896,10 @@ nfs_enable_share(sa_share_t share)
 	}
 	/*
 	 * when we get here, we can do the exportfs system call and
-	 * initiate things. We probably want to enable the nfs.server
-	 * service first if it isn't running within SMF.
+	 * initiate things. We probably want to enable the
+	 * svc:/network/nfs/server service first if it isn't running.
 	 */
-	/* check nfs.server status and start if needed */
+	/* check svc:/network/nfs/server status and start if needed */
 	/* now add the share to the internal tables */
 	printarg(path, &export);
 	/*

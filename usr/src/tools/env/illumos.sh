@@ -238,6 +238,10 @@ export __GNUC=""
 export CW_NO_SHADOW=1
 export ONNV_BUILDNUM=151014
 
+# Comment this out to disable support for IPP printing, i.e. if you
+# don't want to bother providing the Apache headers this needs.
+#export ENABLE_IPP_PRINTING=
+
 # If your distro uses certain versions of Perl, make sure either Makefile.master
 # contains your new defaults OR your .env file sets them.
 # These are how you would override for building on OmniOS r151012, for example.

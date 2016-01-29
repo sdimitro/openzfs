@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -205,7 +205,7 @@ smb_tree_connect(smb_request_t *sr)
 	}
 
 	tree = smb_tree_connect_core(sr);
-	smb_threshold_exit(&sv->sv_tcon_ct, sv);
+	smb_threshold_exit(&sv->sv_tcon_ct);
 	return (tree);
 }
 
@@ -237,14 +237,15 @@ smb_tree_connect_core(smb_request_t *sr)
 		return (NULL);
 	}
 
-	if ((si = smb_kshare_lookup(name)) == NULL) {
+	si = smb_kshare_lookup(sr->sr_server, name);
+	if (si == NULL) {
 		smb_tree_log(sr, name, "share not found");
 		smbsr_error(sr, 0, ERRSRV, ERRinvnetname);
 		return (NULL);
 	}
 
 	if (!strcasecmp(SMB_SHARE_PRINT, name)) {
-		smb_kshare_release(si);
+		smb_kshare_release(sr->sr_server, si);
 		smb_tree_log(sr, name, "access not permitted");
 		smbsr_error(sr, NT_STATUS_ACCESS_DENIED, ERRSRV, ERRaccess);
 		return (NULL);
@@ -268,8 +269,7 @@ smb_tree_connect_core(smb_request_t *sr)
 		break;
 	}
 
-	smb_kshare_release(si);
-
+	smb_kshare_release(sr->sr_server, si);
 	return (tree);
 }
 
@@ -315,7 +315,7 @@ smb_tree_disconnect(smb_tree_t *tree, boolean_t do_exec)
 	    (tree->t_execflags & SMB_EXEC_UNMAP)) {
 
 		smb_tree_set_execinfo(tree, &execinfo, SMB_EXEC_UNMAP);
-		(void) smb_kshare_exec(&execinfo);
+		(void) smb_kshare_exec(tree->t_server, &execinfo);
 	}
 }
 
@@ -538,12 +538,12 @@ smb_tree_acl_access(smb_request_t *sr, const smb_kshare_t *si, vnode_t *pathvp)
 
 	size = sizeof (SHARES_DIR) + strlen(si->shr_name) + 1;
 	sharepath = smb_srm_alloc(sr, size);
-	(void) sprintf(sharepath, "%s%s", SHARES_DIR, si->shr_name);
+	(void) snprintf(sharepath, size, "%s%s", SHARES_DIR, si->shr_name);
 
 	pn_alloc(&pnp);
 	(void) pn_set(&pnp, sharepath);
 	rc = lookuppnvp(&pnp, NULL, NO_FOLLOW, NULL, &sharevp, rootdir, root,
-	    kcred);
+	    zone_kcred());
 	pn_free(&pnp);
 
 	/*
@@ -600,7 +600,7 @@ smb_tree_chkaccess(smb_request_t *sr, smb_kshare_t *shr, vnode_t *vp)
 		return (0);
 	}
 
-	host_access = smb_kshare_hostaccess(shr, &sr->session->ipaddr);
+	host_access = smb_kshare_hostaccess(shr, sr->session);
 	if ((host_access & ACE_ALL_PERMS) == 0) {
 		smb_tree_log(sr, sharename, "access denied: host access");
 		return (0);
@@ -721,7 +721,7 @@ smb_tree_connect_disk(smb_request_t *sr, const char *sharename)
 		if (tree->t_execflags & SMB_EXEC_MAP) {
 			smb_tree_set_execinfo(tree, &execinfo, SMB_EXEC_MAP);
 
-			rc = smb_kshare_exec(&execinfo);
+			rc = smb_kshare_exec(tree->t_server, &execinfo);
 
 			if ((rc != 0) && (tree->t_execflags & SMB_EXEC_TERM)) {
 				smb_tree_disconnect(tree, B_FALSE);
@@ -869,7 +869,7 @@ smb_tree_alloc(smb_request_t *sr, const smb_kshare_t *si,
 	if (smb_idpool_alloc(&session->s_tid_pool, &tid))
 		return (NULL);
 
-	tree = kmem_cache_alloc(session->s_server->si_cache_tree, KM_SLEEP);
+	tree = kmem_cache_alloc(smb_cache_tree, KM_SLEEP);
 	bzero(tree, sizeof (smb_tree_t));
 
 	tree->t_session = session;
@@ -882,21 +882,21 @@ smb_tree_alloc(smb_request_t *sr, const smb_kshare_t *si,
 	if (STYPE_ISDSK(stype) || STYPE_ISPRN(stype)) {
 		if (smb_tree_getattr(si, snode, tree) != 0) {
 			smb_idpool_free(&session->s_tid_pool, tid);
-			kmem_cache_free(session->s_server->si_cache_tree, tree);
+			kmem_cache_free(smb_cache_tree, tree);
 			return (NULL);
 		}
 	}
 
 	if (smb_idpool_constructor(&tree->t_fid_pool)) {
 		smb_idpool_free(&session->s_tid_pool, tid);
-		kmem_cache_free(session->s_server->si_cache_tree, tree);
+		kmem_cache_free(smb_cache_tree, tree);
 		return (NULL);
 	}
 
 	if (smb_idpool_constructor(&tree->t_odid_pool)) {
 		smb_idpool_destructor(&tree->t_fid_pool);
 		smb_idpool_free(&session->s_tid_pool, tid);
-		kmem_cache_free(session->s_server->si_cache_tree, tree);
+		kmem_cache_free(smb_cache_tree, tree);
 		return (NULL);
 	}
 
@@ -981,7 +981,7 @@ smb_tree_dealloc(void *arg)
 	SMB_USER_VALID(tree->t_owner);
 	smb_user_release(tree->t_owner);
 
-	kmem_cache_free(tree->t_server->si_cache_tree, tree);
+	kmem_cache_free(smb_cache_tree, tree);
 }
 
 /*
@@ -1094,7 +1094,7 @@ smb_tree_get_volname(vfs_t *vfsp, smb_tree_t *tree)
 
 	vfs_mntpoint = vfs_getmntpoint(vfsp);
 
-	s = vfs_mntpoint->rs_string;
+	s = refstr_value(vfs_mntpoint);
 	s += strspn(s, "/");
 	(void) strlcpy(tree->t_volume, s, SMB_VOLNAMELEN);
 
@@ -1115,6 +1115,7 @@ static void
 smb_tree_get_flags(const smb_kshare_t *si, vfs_t *vfsp, smb_tree_t *tree)
 {
 	smb_session_t *ssn = tree->t_session;
+	struct vfssw	*vswp;
 
 	typedef struct smb_mtype {
 		char		*mt_name;
@@ -1162,7 +1163,13 @@ smb_tree_get_flags(const smb_kshare_t *si, vfs_t *vfsp, smb_tree_t *tree)
 	if (vfsp->vfs_flag & VFS_XATTR)
 		flags |= SMB_TREE_STREAMS;
 
-	name = vfssw[vfsp->vfs_fstype].vsw_name;
+	vswp = vfs_getvfsswbyvfsops(vfs_getops(vfsp));
+	if (vswp != NULL) {
+		name = vswp->vsw_name;
+		vfs_unrefvfssw(vswp);
+	} else {
+		name = "?";
+	}
 
 	for (i = 0; i < sizeof (smb_mtype) / sizeof (smb_mtype[0]); ++i) {
 		mtype = &smb_mtype[i];

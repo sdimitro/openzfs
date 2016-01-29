@@ -1345,6 +1345,7 @@ mac_client_open(mac_handle_t mh, mac_client_handle_t *mchp, char *name,
 	mcip->mci_p_unicast_list = NULL;
 	mcip->mci_direct_rx_fn = NULL;
 	mcip->mci_direct_rx_arg = NULL;
+	mcip->mci_vidcache = MCIP_VIDCACHE_INVALID;
 
 	mcip->mci_unicast_list = NULL;
 
@@ -4801,6 +4802,8 @@ mac_client_add_to_flow_list(mac_client_impl_t *mcip, flow_entry_t *flent)
 	 */
 	rw_enter(&mcip->mci_rw_lock, RW_WRITER);
 
+	mcip->mci_vidcache = MCIP_VIDCACHE_INVALID;
+
 	/* Add it to the head */
 	flent->fe_client_next = mcip->mci_flent_list;
 	mcip->mci_flent_list = flent;
@@ -4831,6 +4834,8 @@ mac_client_remove_flow_from_list(mac_client_impl_t *mcip, flow_entry_t *flent)
 	 * using mci_rw_lock
 	 */
 	rw_enter(&mcip->mci_rw_lock, RW_WRITER);
+	mcip->mci_vidcache = MCIP_VIDCACHE_INVALID;
+
 	while ((fe != NULL) && (fe != flent)) {
 		prev_fe = fe;
 		fe = fe->fe_client_next;
@@ -4859,6 +4864,14 @@ mac_client_check_flow_vid(mac_client_impl_t *mcip, uint16_t vid)
 {
 	flow_entry_t	*flent;
 	uint16_t	mci_vid;
+	uint32_t	cache = mcip->mci_vidcache;
+
+	/*
+	 * In hopes of not having to touch the mci_rw_lock, check to see if
+	 * this vid matches our cached result.
+	 */
+	if (MCIP_VIDCACHE_ISVALID(cache) && MCIP_VIDCACHE_VID(cache) == vid)
+		return (MCIP_VIDCACHE_BOOL(cache) ? B_TRUE : B_FALSE);
 
 	/* The mci_flent_list is protected by mci_rw_lock */
 	rw_enter(&mcip->mci_rw_lock, RW_WRITER);
@@ -4866,10 +4879,13 @@ mac_client_check_flow_vid(mac_client_impl_t *mcip, uint16_t vid)
 	    flent = flent->fe_client_next) {
 		mci_vid = i_mac_flow_vid(flent);
 		if (vid == mci_vid) {
+			mcip->mci_vidcache = MCIP_VIDCACHE_CACHE(vid, B_TRUE);
 			rw_exit(&mcip->mci_rw_lock);
 			return (B_TRUE);
 		}
 	}
+
+	mcip->mci_vidcache = MCIP_VIDCACHE_CACHE(vid, B_FALSE);
 	rw_exit(&mcip->mci_rw_lock);
 	return (B_FALSE);
 }

@@ -24,10 +24,12 @@
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  */
 
+#include <sys/sunddi.h>
+#include <sys/nbmlock.h>
+
 #include <smbsrv/smb_kproto.h>
 #include <smbsrv/smb_fsops.h>
 #include <smbsrv/smbinfo.h>
-#include <sys/nbmlock.h>
 
 static int smb_delete_check_path(smb_request_t *);
 static int smb_delete_single_file(smb_request_t *, smb_error_t *);
@@ -413,7 +415,7 @@ smb_delete_check_dosattr(smb_request_t *sr, smb_error_t *err)
 
 	bzero(&attr, sizeof (attr));
 	attr.sa_mask = SMB_AT_DOSATTR;
-	if (smb_node_getattr(sr, node, kcred, NULL, &attr) != 0) {
+	if (smb_node_getattr(sr, node, zone_kcred(), NULL, &attr) != 0) {
 		smb_delete_error(err, NT_STATUS_INTERNAL_ERROR,
 		    ERRDOS, ERROR_INTERNAL_ERROR);
 		return (-1);

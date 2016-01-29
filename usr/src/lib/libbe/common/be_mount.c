@@ -23,6 +23,7 @@
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright 2015 EveryCity Ltd.
  */
 
 /*
@@ -191,7 +192,6 @@ be_unmount(nvlist_t *be_attrs)
 	if (be_name[0] == '/') {
 		if ((ds = be_get_ds_from_dir(be_name)) != NULL) {
 			if ((be_name_mnt = strrchr(ds, '/')) != NULL) {
-				free(be_name);
 				be_name = be_name_mnt + 1;
 			}
 		} else {

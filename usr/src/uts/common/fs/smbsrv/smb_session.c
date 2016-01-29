@@ -20,23 +20,28 @@
  */
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  */
+
 #include <sys/atomic.h>
-#include <sys/strsubr.h>
 #include <sys/synch.h>
 #include <sys/types.h>
-#include <sys/socketvar.h>
 #include <sys/sdt.h>
 #include <sys/random.h>
 #include <smbsrv/netbios.h>
 #include <smbsrv/smb_kproto.h>
 #include <smbsrv/string.h>
-#include <inet/tcp.h>
+#include <netinet/tcp.h>
+
+#define	SMB_NEW_KID()	atomic_inc_64_nv(&smb_kids)
 
 static volatile uint64_t smb_kids;
 
-uint32_t smb_keep_alive = SSN_KEEP_ALIVE_TIMEOUT;
+/*
+ * We track the keepalive in minutes, but this constant
+ * specifies it in seconds, so convert to minutes.
+ */
+uint32_t smb_keep_alive = SMB_PI_KEEP_ALIVE_MIN / 60;
 
 static void smb_session_cancel(smb_session_t *);
 static int smb_session_message(smb_session_t *);
@@ -74,6 +79,12 @@ void
 smb_session_correct_keep_alive_values(smb_llist_t *ll, uint32_t new_keep_alive)
 {
 	smb_session_t		*sn;
+
+	/*
+	 * Caller specifies seconds, but we track in minutes, so
+	 * convert to minutes (rounded up).
+	 */
+	new_keep_alive = (new_keep_alive + 59) / 60;
 
 	if (new_keep_alive == smb_keep_alive)
 		return;
@@ -415,7 +426,7 @@ smb_request_cancel(smb_request_t *sr)
 void
 smb_session_receiver(smb_session_t *session)
 {
-	int	rc;
+	int	rc = 0;
 
 	SMB_SESSION_VALID(session);
 
@@ -470,8 +481,6 @@ smb_session_disconnect(smb_session_t *session)
 	case SMB_SESSION_STATE_ESTABLISHED:
 	case SMB_SESSION_STATE_NEGOTIATED:
 	case SMB_SESSION_STATE_OPLOCK_BREAKING:
-	case SMB_SESSION_STATE_WRITE_RAW_ACTIVE:
-	case SMB_SESSION_STATE_READ_RAW_ACTIVE:
 		smb_soshutdown(session->sock);
 		session->s_state = SMB_SESSION_STATE_DISCONNECTED;
 		_NOTE(FALLTHRU)
@@ -493,7 +502,6 @@ smb_session_disconnect(smb_session_t *session)
  *	4	Unable to read SMB header
  *	5	Invalid SMB header (bad magic number)
  *	6	Unable to read SMB data
- *	2x	Write raw failed
  */
 static int
 smb_session_message(smb_session_t *session)
@@ -576,16 +584,6 @@ smb_session_message(smb_session_t *session)
 
 		DTRACE_PROBE1(session__receive__smb, smb_request_t *, sr);
 
-		/*
-		 * If this is a raw write, hand off the request.  The handler
-		 * will retrieve the remaining raw data and process the request.
-		 */
-		if (SMB_IS_WRITERAW(sr)) {
-			rc = smb_handle_write_raw(session, sr);
-			if (rc == 0)
-				continue;
-			return (rc);
-		}
 		if (sr->session->signing.flags & SMB_SIGNING_ENABLED) {
 			if (SMB_IS_NT_CANCEL(sr)) {
 				sr->session->signing.seqnum++;
@@ -618,16 +616,16 @@ smb_session_create(ksocket_t new_so, uint16_t port, smb_server_t *sv,
 	smb_session_t		*session;
 	int64_t			now;
 
-	session = kmem_cache_alloc(sv->si_cache_session, KM_SLEEP);
+	session = kmem_cache_alloc(smb_cache_session, KM_SLEEP);
 	bzero(session, sizeof (smb_session_t));
 
 	if (smb_idpool_constructor(&session->s_uid_pool)) {
-		kmem_cache_free(sv->si_cache_session, session);
+		kmem_cache_free(smb_cache_session, session);
 		return (NULL);
 	}
 	if (smb_idpool_constructor(&session->s_tid_pool)) {
 		smb_idpool_destructor(&session->s_uid_pool);
-		kmem_cache_free(sv->si_cache_session, session);
+		kmem_cache_free(smb_cache_session, session);
 		return (NULL);
 	}
 
@@ -653,9 +651,6 @@ smb_session_create(ksocket_t new_so, uint16_t port, smb_server_t *sv,
 
 	smb_llist_constructor(&session->s_xa_list, sizeof (smb_xa_t),
 	    offsetof(smb_xa_t, xa_lnd));
-
-	list_create(&session->s_oplock_brkreqs, sizeof (mbuf_chain_t),
-	    offsetof(mbuf_chain_t, mbc_lnd));
 
 	smb_net_txl_constructor(&session->s_txlst);
 
@@ -702,8 +697,6 @@ smb_session_create(ksocket_t new_so, uint16_t port, smb_server_t *sv,
 	smb_server_get_cfg(sv, &session->s_cfg);
 	session->s_srqueue = &sv->sv_srqueue;
 
-	session->s_cache_request = sv->si_cache_request;
-	session->s_cache = sv->si_cache_session;
 	session->s_magic = SMB_SESSION_MAGIC;
 	return (session);
 }
@@ -711,21 +704,16 @@ smb_session_create(ksocket_t new_so, uint16_t port, smb_server_t *sv,
 void
 smb_session_delete(smb_session_t *session)
 {
-	mbuf_chain_t	*mbc;
 
 	ASSERT(session->s_magic == SMB_SESSION_MAGIC);
 
 	session->s_magic = 0;
 
+	if (session->sign_fini != NULL)
+		session->sign_fini(session);
+
 	smb_rwx_destroy(&session->s_lock);
 	smb_net_txl_destructor(&session->s_txlst);
-
-	while ((mbc = list_head(&session->s_oplock_brkreqs)) != NULL) {
-		SMB_MBC_VALID(mbc);
-		list_remove(&session->s_oplock_brkreqs, mbc);
-		smb_mbc_free(mbc);
-	}
-	list_destroy(&session->s_oplock_brkreqs);
 
 	smb_slist_destructor(&session->s_req_list);
 	smb_llist_destructor(&session->s_tree_list);
@@ -745,7 +733,7 @@ smb_session_delete(smb_session_t *session)
 			smb_server_dec_tcp_sess(session->s_server);
 		smb_sodestroy(session->sock);
 	}
-	kmem_cache_free(session->s_cache, session);
+	kmem_cache_free(smb_cache_session, session);
 }
 
 static void
@@ -1330,7 +1318,7 @@ smb_request_alloc(smb_session_t *session, int req_length)
 
 	ASSERT(session->s_magic == SMB_SESSION_MAGIC);
 
-	sr = kmem_cache_alloc(session->s_cache_request, KM_SLEEP);
+	sr = kmem_cache_alloc(smb_cache_request, KM_SLEEP);
 
 	/*
 	 * Future:  Use constructor to pre-initialize some fields.  For now
@@ -1345,7 +1333,6 @@ smb_request_alloc(smb_session_t *session, int req_length)
 	sr->session = session;
 	sr->sr_server = session->s_server;
 	sr->sr_gmtoff = session->s_server->si_gmtoff;
-	sr->sr_cache = session->s_server->si_cache_request;
 	sr->sr_cfg = &session->s_cfg;
 	sr->command.max_bytes = req_length;
 	sr->reply.max_bytes = smb_maxbufsize;
@@ -1400,7 +1387,7 @@ smb_request_free(smb_request_t *sr)
 	sr->sr_magic = 0;
 	cv_destroy(&sr->sr_ncr.nc_cv);
 	mutex_destroy(&sr->sr_mutex);
-	kmem_cache_free(sr->sr_cache, sr);
+	kmem_cache_free(smb_cache_request, sr);
 }
 
 void
@@ -1459,14 +1446,9 @@ smb_session_oplock_break(smb_session_t *session,
 	switch (session->s_state) {
 	case SMB_SESSION_STATE_NEGOTIATED:
 	case SMB_SESSION_STATE_OPLOCK_BREAKING:
-	case SMB_SESSION_STATE_WRITE_RAW_ACTIVE:
 		session->s_state = SMB_SESSION_STATE_OPLOCK_BREAKING;
 		(void) smb_session_send(session, 0, mbc);
 		smb_mbc_free(mbc);
-		break;
-
-	case SMB_SESSION_STATE_READ_RAW_ACTIVE:
-		list_insert_tail(&session->s_oplock_brkreqs, mbc);
 		break;
 
 	case SMB_SESSION_STATE_DISCONNECTED:

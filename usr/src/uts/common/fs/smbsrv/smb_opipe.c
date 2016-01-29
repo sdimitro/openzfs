@@ -40,6 +40,7 @@
 	((OPIPE)->p_hdr.dh_fid))
 
 extern volatile uint32_t smb_fids;
+#define	SMB_UNIQ_FID()	atomic_inc_32_nv(&smb_fids)
 
 static int smb_opipe_do_open(smb_request_t *, smb_opipe_t *);
 static char *smb_opipe_lookup(const char *);
@@ -48,21 +49,13 @@ static int smb_opipe_exec(smb_opipe_t *);
 static void smb_opipe_enter(smb_opipe_t *);
 static void smb_opipe_exit(smb_opipe_t *);
 
-static door_handle_t smb_opipe_door_hd = NULL;
-static int smb_opipe_door_id = -1;
-static uint64_t smb_opipe_door_ncall = 0;
-static kmutex_t smb_opipe_door_mutex;
-static kcondvar_t smb_opipe_door_cv;
-
-static int smb_opipe_door_call(smb_opipe_t *);
-static int smb_opipe_door_upcall(smb_opipe_t *);
 
 smb_opipe_t *
 smb_opipe_alloc(smb_server_t *sv)
 {
 	smb_opipe_t	*opipe;
 
-	opipe = kmem_cache_alloc(sv->si_cache_opipe, KM_SLEEP);
+	opipe = kmem_cache_alloc(smb_cache_opipe, KM_SLEEP);
 
 	bzero(opipe, sizeof (smb_opipe_t));
 	mutex_init(&opipe->p_mutex, NULL, MUTEX_DEFAULT, NULL);
@@ -95,7 +88,7 @@ smb_opipe_dealloc(smb_opipe_t *opipe)
 	cv_destroy(&opipe->p_cv);
 	mutex_destroy(&opipe->p_mutex);
 
-	kmem_cache_free(sv->si_cache_opipe, opipe);
+	kmem_cache_free(smb_cache_opipe, opipe);
 }
 
 /*
@@ -239,11 +232,12 @@ smb_opipe_do_open(smb_request_t *sr, smb_opipe_t *opipe)
 {
 	smb_netuserinfo_t *userinfo = &opipe->p_user;
 	smb_user_t *user = sr->uid_user;
+	smb_server_t *sv = sr->sr_server;
 	uint8_t *buf = opipe->p_doorbuf;
 	uint32_t buflen = SMB_OPIPE_DOOR_BUFSIZE;
 	uint32_t len;
 
-	if ((opipe->p_event = smb_event_create(SMB_EVENT_TIMEOUT)) == NULL)
+	if ((opipe->p_event = smb_event_create(sv, SMB_EVENT_TIMEOUT)) == NULL)
 		return (-1);
 
 	smb_user_netinfo_init(user, userinfo);
@@ -283,7 +277,7 @@ smb_opipe_close(smb_ofile_t *of)
 	opipe = of->f_pipe;
 	SMB_OPIPE_VALID(opipe);
 
-	(void) smb_server_cancel_event(opipe->p_hdr.dh_fid);
+	(void) smb_server_cancel_event(of->f_server, opipe->p_hdr.dh_fid);
 	smb_opipe_enter(opipe);
 
 	if (SMB_OPIPE_ISOPEN(opipe)) {
@@ -545,145 +539,4 @@ smb_opipe_exit(smb_opipe_t *opipe)
 	opipe->p_busy = 0;
 	cv_signal(&opipe->p_cv);
 	mutex_exit(&opipe->p_mutex);
-}
-
-/*
- * opipe door client (to user space door server).
- */
-void
-smb_opipe_door_init(void)
-{
-	mutex_init(&smb_opipe_door_mutex, NULL, MUTEX_DEFAULT, NULL);
-	cv_init(&smb_opipe_door_cv, NULL, CV_DEFAULT, NULL);
-}
-
-void
-smb_opipe_door_fini(void)
-{
-	smb_opipe_door_close();
-	cv_destroy(&smb_opipe_door_cv);
-	mutex_destroy(&smb_opipe_door_mutex);
-}
-
-/*
- * Open the (user space) door.  If the door is already open,
- * close it first because the door-id has probably changed.
- */
-int
-smb_opipe_door_open(int door_id)
-{
-	smb_opipe_door_close();
-
-	mutex_enter(&smb_opipe_door_mutex);
-	smb_opipe_door_ncall = 0;
-
-	if (smb_opipe_door_hd == NULL) {
-		smb_opipe_door_id = door_id;
-		smb_opipe_door_hd = door_ki_lookup(door_id);
-	}
-
-	mutex_exit(&smb_opipe_door_mutex);
-	return ((smb_opipe_door_hd == NULL)  ? -1 : 0);
-}
-
-/*
- * Close the (user space) door.
- */
-void
-smb_opipe_door_close(void)
-{
-	mutex_enter(&smb_opipe_door_mutex);
-
-	if (smb_opipe_door_hd != NULL) {
-		while (smb_opipe_door_ncall > 0)
-			cv_wait(&smb_opipe_door_cv, &smb_opipe_door_mutex);
-
-		door_ki_rele(smb_opipe_door_hd);
-		smb_opipe_door_hd = NULL;
-	}
-
-	mutex_exit(&smb_opipe_door_mutex);
-}
-
-/*
- * opipe door call interface.
- * Door serialization and call reference accounting is handled here.
- */
-static int
-smb_opipe_door_call(smb_opipe_t *opipe)
-{
-	int rc;
-
-	mutex_enter(&smb_opipe_door_mutex);
-
-	if (smb_opipe_door_hd == NULL) {
-		mutex_exit(&smb_opipe_door_mutex);
-
-		if (smb_opipe_door_open(smb_opipe_door_id) != 0)
-			return (-1);
-
-		mutex_enter(&smb_opipe_door_mutex);
-	}
-
-	++smb_opipe_door_ncall;
-	mutex_exit(&smb_opipe_door_mutex);
-
-	rc = smb_opipe_door_upcall(opipe);
-
-	mutex_enter(&smb_opipe_door_mutex);
-	if ((--smb_opipe_door_ncall) == 0)
-		cv_signal(&smb_opipe_door_cv);
-	mutex_exit(&smb_opipe_door_mutex);
-	return (rc);
-}
-
-/*
- * Door upcall wrapper - handles data marshalling.
- * This function should only be called by smb_opipe_door_call.
- */
-static int
-smb_opipe_door_upcall(smb_opipe_t *opipe)
-{
-	door_arg_t da;
-	smb_doorhdr_t hdr;
-	int i;
-	int rc;
-
-	da.data_ptr = (char *)opipe->p_doorbuf;
-	da.data_size = SMB_OPIPE_DOOR_BUFSIZE;
-	da.desc_ptr = NULL;
-	da.desc_num = 0;
-	da.rbuf = (char *)opipe->p_doorbuf;
-	da.rsize = SMB_OPIPE_DOOR_BUFSIZE;
-
-	for (i = 0; i < 3; ++i) {
-		if (smb_server_is_stopping())
-			return (-1);
-
-		if ((rc = door_ki_upcall_limited(smb_opipe_door_hd, &da,
-		    NULL, SIZE_MAX, 0)) == 0)
-			break;
-
-		if (rc != EAGAIN && rc != EINTR)
-			return (-1);
-	}
-
-	/* Check for door_return(NULL, 0, NULL, 0) */
-	if (rc != 0 || da.data_size == 0 || da.rsize == 0)
-		return (-1);
-
-	if (smb_doorhdr_decode(&hdr, (uint8_t *)da.data_ptr, da.rsize) == -1)
-		return (-1);
-
-	if ((hdr.dh_magic != SMB_OPIPE_HDR_MAGIC) ||
-	    (hdr.dh_fid != opipe->p_hdr.dh_fid) ||
-	    (hdr.dh_op != opipe->p_hdr.dh_op) ||
-	    (hdr.dh_door_rc != 0) ||
-	    (hdr.dh_datalen > SMB_OPIPE_DOOR_BUFSIZE)) {
-		return (-1);
-	}
-
-	opipe->p_hdr.dh_datalen = hdr.dh_datalen;
-	opipe->p_hdr.dh_resid = hdr.dh_resid;
-	return (0);
 }

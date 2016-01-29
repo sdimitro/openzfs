@@ -621,6 +621,13 @@ main(int argc, char *argv[])
 			    (longlong_t)drrc->drr_checksum.zc_word[2],
 			    (longlong_t)drrc->drr_checksum.zc_word[3]);
 		}
+		if (drr->drr_type != DRR_BEGIN && very_verbose) {
+			(void) printf("    checksum = %llx/%llx/%llx/%llx\n",
+			    (longlong_t)drrc->drr_checksum.zc_word[0],
+			    (longlong_t)drrc->drr_checksum.zc_word[1],
+			    (longlong_t)drrc->drr_checksum.zc_word[2],
+			    (longlong_t)drrc->drr_checksum.zc_word[3]);
+		}
 		pcksum = zc;
 	}
 	free(buf);

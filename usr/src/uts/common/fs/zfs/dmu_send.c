@@ -844,7 +844,8 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 		 * We're considering an indirect block that isn't a hole.
 		 * Assert that its l0 equivalent's offset is < 2^64.
 		 */
-		ASSERT(overflow && span + offset > offset);
+		ASSERT(overflow);
+		ASSERT3U(span + offset, >, offset);
 		return (0);
 	} else if (BP_IS_REDACTED(bp)) {
 		uint64_t span = UINT64_MAX;
@@ -853,7 +854,8 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 		uint64_t offset = 0;
 		boolean_t overflow = overflow_multiply(zb->zb_blkid, span,
 		    &offset);
-		ASSERT(overflow && span + offset > offset);
+		ASSERT(overflow);
+		ASSERT3U(span + offset, >, offset);
 		err = dump_redact(dscp, zb->zb_object, offset, span);
 	} else if (type == DMU_OT_OBJSET) {
 		return (0);

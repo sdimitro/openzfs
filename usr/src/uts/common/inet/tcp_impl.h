@@ -269,17 +269,6 @@ typedef struct tcp_squeue_priv_s {
 	}
 
 /*
- * Set tcp_rto with boundary checking.
- */
-#define	TCP_SET_RTO(tcp, rto) \
-	if ((rto) < (tcp)->tcp_rto_min)			\
-		(tcp)->tcp_rto = (tcp)->tcp_rto_min;	\
-	else if ((rto) > (tcp)->tcp_rto_max)		\
-		(tcp)->tcp_rto = (tcp)->tcp_rto_max;	\
-	else						\
-		(tcp)->tcp_rto = (rto);
-
-/*
  * TCP options struct returned from tcp_parse_options.
  */
 typedef struct tcp_opt_s {

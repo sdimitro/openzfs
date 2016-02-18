@@ -13,7 +13,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -112,11 +112,34 @@ usage(int code)
 	    "option is of the form:\n"
 	    "    <attr>=<value>,[<attr>=<value>,...]\n"));
 	(void) fprintf(stderr, gettext("  Filter attributes:\n"));
-	(void) fprintf(stderr, gettext("  laddr  Local address\n"
+	(void) fprintf(stderr, gettext(
+	    "  laddr  Local IP address\n"
 	    "  lport  Local port\n"
-	    "  raddr  Remote address\n"
+	    "  raddr  Remote IP address\n"
 	    "  rport  Remote port\n"));
 
+	(void) fprintf(stderr, gettext("\nFields:\n"));
+	(void) fprintf(stderr, gettext(
+	    "  laddr           Local IP address\n"
+	    "  raddr           Remote IP address\n"
+	    "  lport           Local port\n"
+	    "  rport           Remote port\n"
+	    "  inbytes         Total bytes received\n"
+	    "  insegs          Total segments received\n"
+	    "  inunorderbytes  Bytes received out of order\n"
+	    "  inunordersegs   Segments received out of order\n"
+	    "  outbytes        Total bytes sent\n"
+	    "  outsegs         Total segments sent\n"
+	    "  retransbytes    Bytes retransmitted\n"
+	    "  retranssegs     Segments retransmitted\n"
+	    "  suna            Current unacknowledged bytes sent\n"
+	    "  swnd            Send window size (peer's receive window)\n"
+	    "  cwnd            Congestion window size\n"
+	    "  rwnd            Receive window size\n"
+	    "  mss             Maximum segment size\n"
+	    "  rto             Retransmission timeout (ms)\n"
+	    "  rtt             Smoothed round-trip time (us)\n"
+	    "  state           Connection state\n"));
 	exit(code);
 }
 

@@ -22,7 +22,7 @@
  */
 /*
  * Copyright (c) 1990 Mentat Inc.
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_INET_MIB2_H
@@ -1383,7 +1383,7 @@ typedef struct mib2_tcpConnEntry {
 		Gauge		ce_rack;
 				/* currenct receive window size */
 		Gauge		ce_rwnd;
-				/* round-trip time smoothed average (ms) */
+				/* round-trip time smoothed average (us) */
 		Gauge		ce_rtt_sa;
 				/* current rto (retransmit timeout) */
 		Gauge		ce_rto;

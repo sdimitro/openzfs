@@ -266,8 +266,6 @@ typedef struct tcpt_s {
 /*
  * Functions called directly via squeue having a prototype of edesc_t.
  */
-void		tcp_input_listener(void *arg, mblk_t *mp, void *arg2,
-    ip_recv_attr_t *ira);
 void		tcp_input_data(void *arg, mblk_t *mp, void *arg2,
     ip_recv_attr_t *ira);
 static void	tcp_linger_interrupted(void *arg, mblk_t *mp, void *arg2,
@@ -578,13 +576,32 @@ tcp_cleanup(tcp_t *tcp)
 
 #pragma inline(tcp_calculate_rto)
 
+/*
+ * RTO = average estimates (sa / 8) + 4 * deviation estimates (sd)
+ *
+ * Add tcp_rexmit_interval extra in case of extreme environment where the
+ * algorithm fails to work.  The default value of tcp_rexmit_interval_extra
+ * should be 0.
+ *
+ * As we use a finer grained clock than BSD and update RTO for every ACKs, add
+ * in another .25 of RTT to the deviation of RTO to accommodate burstiness of
+ * 1/4 of window size.
+ */
 clock_t
 tcp_calculate_rto(tcp_t *tcp, tcp_stack_t *tcps)
 {
-	return (tcp->tcp_rtt_sa >> 3) + tcp->tcp_rtt_sd +
-	    tcps->tcps_rexmit_interval_extra +
-	    (tcp->tcp_rtt_sa >> 5) +
+	clock_t rto;
+
+	rto = NSEC2MSEC((tcp->tcp_rtt_sa >> 3) + (tcp->tcp_rtt_sa >> 5) +
+	    tcp->tcp_rtt_sd) + tcps->tcps_rexmit_interval_extra +
 	    tcps->tcps_conn_grace_period;
+
+	if (rto < tcp->tcp_rto_min)
+		rto = tcp->tcp_rto_min;
+	else if (rto > tcp->tcp_rto_max)
+		rto = tcp->tcp_rto_max;
+
+	return (rto);
 }
 
 /*
@@ -651,13 +668,9 @@ tcp_set_destination(tcp_t *tcp)
 	tcp->tcp_localnet = uinfo.iulp_localnet;
 
 	if (uinfo.iulp_rtt != 0) {
-		clock_t	rto;
-
-		tcp->tcp_rtt_sa = uinfo.iulp_rtt;
-		tcp->tcp_rtt_sd = uinfo.iulp_rtt_sd;
-		rto = tcp_calculate_rto(tcp, tcps);
-
-		TCP_SET_RTO(tcp, rto);
+		tcp->tcp_rtt_sa = MSEC2NSEC(uinfo.iulp_rtt);
+		tcp->tcp_rtt_sd = MSEC2NSEC(uinfo.iulp_rtt_sd);
+		tcp->tcp_rto = tcp_calculate_rto(tcp, tcps);
 	}
 	if (uinfo.iulp_ssthresh != 0)
 		tcp->tcp_cwnd_ssthresh = uinfo.iulp_ssthresh;
@@ -2326,7 +2339,6 @@ tcp_init_values(tcp_t *tcp, tcp_t *parent)
 {
 	tcp_stack_t	*tcps = tcp->tcp_tcps;
 	conn_t		*connp = tcp->tcp_connp;
-	clock_t		rto;
 
 	ASSERT((connp->conn_family == AF_INET &&
 	    connp->conn_ipversion == IPV4_VERSION) ||
@@ -2395,10 +2407,9 @@ tcp_init_values(tcp_t *tcp, tcp_t *parent)
 	 * during first few transmissions of a connection as seen in slow
 	 * links.
 	 */
-	tcp->tcp_rtt_sa = tcp->tcp_rto_initial << 2;
-	tcp->tcp_rtt_sd = tcp->tcp_rto_initial >> 1;
-	rto = tcp_calculate_rto(tcp, tcps);
-	TCP_SET_RTO(tcp, rto);
+	tcp->tcp_rtt_sa = MSEC2NSEC(tcp->tcp_rto_initial) << 2;
+	tcp->tcp_rtt_sd = MSEC2NSEC(tcp->tcp_rto_initial) >> 1;
+	tcp->tcp_rto = tcp_calculate_rto(tcp, tcps);
 
 	tcp->tcp_timer_backoff = 0;
 	tcp->tcp_ms_we_have_waited = 0;

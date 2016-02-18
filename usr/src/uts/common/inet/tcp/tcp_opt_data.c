@@ -847,9 +847,7 @@ tcp_opt_set(conn_t *connp, uint_t optset_context, int level, int name,
 				tcp->tcp_cork = onoff;
 			}
 			break;
-		case TCP_RTO_INITIAL: {
-			clock_t rto;
-
+		case TCP_RTO_INITIAL:
 			if (checkonly || val == 0)
 				break;
 
@@ -879,12 +877,10 @@ tcp_opt_set(conn_t *connp, uint_t optset_context, int level, int name,
 			if (tcp->tcp_state >= TCPS_SYN_SENT)
 				break;
 
-			tcp->tcp_rtt_sa = tcp->tcp_rto_initial << 2;
-			tcp->tcp_rtt_sd = tcp->tcp_rto_initial >> 1;
-			rto = tcp_calculate_rto(tcp, tcps);
-			TCP_SET_RTO(tcp, rto);
+			tcp->tcp_rtt_sa = MSEC2NSEC(tcp->tcp_rto_initial) << 2;
+			tcp->tcp_rtt_sd = MSEC2NSEC(tcp->tcp_rto_initial) >> 1;
+			tcp->tcp_rto = tcp_calculate_rto(tcp, tcps);
 			break;
-		}
 		case TCP_RTO_MIN:
 			if (checkonly || val == 0)
 				break;

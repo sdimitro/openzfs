@@ -13,7 +13,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_CONNSTAT_TCP_H
@@ -30,7 +30,7 @@ extern connstat_getfieldsfunc_t tcp_get_fields;
 extern connstat_walkfunc_t tcp_walk_ipv4, tcp_walk_ipv6;
 
 #define	TCP_DEFAULT_FIELDS	"laddr,lport,raddr,rport,inbytes,outbytes," \
-	"retransbytes,suna,swnd,cwnd,rwnd"
+	"retransbytes,suna,swnd,cwnd,rwnd,rtt"
 
 #define	CONNSTAT_TCP_PROTO \
 	{ "tcp", TCP_DEFAULT_FIELDS, MIB2_TCP, MIB2_TCP_CONN, MIB2_TCP6_CONN, \

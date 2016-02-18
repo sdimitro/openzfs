@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 /* This file contains all TCP output processing functions. */
@@ -63,7 +63,7 @@ static void	tcp_xmit_early_reset(char *, mblk_t *, uint32_t, uint32_t,
 		    int, ip_recv_attr_t *, ip_stack_t *, conn_t *);
 static boolean_t	tcp_send_rst_chk(tcp_stack_t *);
 static void	tcp_process_shrunk_swnd(tcp_t *, uint32_t);
-static void	tcp_fill_header(tcp_t *, uchar_t *, clock_t, int);
+static void	tcp_fill_header(tcp_t *, uchar_t *, int);
 
 /*
  * Functions called directly via squeue having a prototype of edesc_t.
@@ -453,7 +453,11 @@ data_null:
 		}
 	}
 
+#ifdef KERNEL_32
 	local_time = (mblk_t *)now;
+#else
+	local_time = (mblk_t *)(intptr_t)gethrtime();
+#endif
 
 	/*
 	 * "Our" Nagle Algorithm.  This is not the same as in the old
@@ -1253,7 +1257,11 @@ tcp_output(void *arg, mblk_t *mp, void *arg2, ip_recv_attr_t *dummy)
 
 	if ((mp1 = dupb(mp)) == 0)
 		goto no_memory;
+#ifdef KERNEL_32
 	mp->b_prev = (mblk_t *)(uintptr_t)now;
+#else
+	mp->b_prev = (mblk_t *)(intptr_t)gethrtime();
+#endif
 	mp->b_next = (mblk_t *)(uintptr_t)snxt;
 
 	/* adjust tcp header information */
@@ -1310,12 +1318,10 @@ tcp_output(void *arg, mblk_t *mp, void *arg2, ip_recv_attr_t *dummy)
 
 	/* Fill in the timestamp option. */
 	if (tcp->tcp_snd_ts_ok) {
-		uint32_t llbolt = (uint32_t)LBOLT_FASTPATH;
-
-		U32_TO_BE32(llbolt,
-		    (char *)tcpha + TCP_MIN_HEADER_LENGTH+4);
+		U32_TO_BE32(now,
+		    (char *)tcpha + TCP_MIN_HEADER_LENGTH + 4);
 		U32_TO_BE32(tcp->tcp_ts_recent,
-		    (char *)tcpha + TCP_MIN_HEADER_LENGTH+8);
+		    (char *)tcpha + TCP_MIN_HEADER_LENGTH + 8);
 	} else {
 		ASSERT(connp->conn_ht_ulp_len == TCP_MIN_HEADER_LENGTH);
 	}
@@ -2070,7 +2076,7 @@ tcp_send(tcp_t *tcp, const int mss, const int total_hdr_len,
 		 * Fill in the header using the template header, and add
 		 * options such as time-stamp, ECN and/or SACK, as needed.
 		 */
-		tcp_fill_header(tcp, rptr, (clock_t)local_time, num_sack_blk);
+		tcp_fill_header(tcp, rptr, num_sack_blk);
 
 		mp->b_rptr = rptr;
 
@@ -2289,8 +2295,8 @@ tcp_xmit_end(tcp_t *tcp)
 	 * So don't do any update.
 	 */
 	bzero(&uinfo, sizeof (uinfo));
-	uinfo.iulp_rtt = tcp->tcp_rtt_sa;
-	uinfo.iulp_rtt_sd = tcp->tcp_rtt_sd;
+	uinfo.iulp_rtt = NSEC2MSEC(tcp->tcp_rtt_sa);
+	uinfo.iulp_rtt_sd = NSEC2MSEC(tcp->tcp_rtt_sd);
 
 	/*
 	 * Note that uinfo is kept for conn_faddr in the DCE. Could update even
@@ -3394,7 +3400,11 @@ tcp_sack_rexmit(tcp_t *tcp, uint_t *flags)
 		/*
 		 * Update the send timestamp to avoid false retransmission.
 		 */
+#ifdef KERNEL_32
 		snxt_mp->b_prev = (mblk_t *)ddi_get_lbolt();
+#else
+		snxt_mp->b_prev = (mblk_t *)(intptr_t)gethrtime();
+#endif
 
 		TCPS_BUMP_MIB(tcps, tcpRetransSegs);
 		TCPS_UPDATE_MIB(tcps, tcpRetransBytes, seg_len);
@@ -3468,7 +3478,11 @@ tcp_ss_rexmit(tcp_t *tcp)
 			 * Update the send timestamp to avoid false
 			 * retransmission.
 			 */
+#ifdef KERNEL_32
 			old_snxt_mp->b_prev = (mblk_t *)ddi_get_lbolt();
+#else
+			old_snxt_mp->b_prev = (mblk_t *)(intptr_t)gethrtime();
+#endif
 			TCPS_BUMP_MIB(tcps, tcpRetransSegs);
 			TCPS_UPDATE_MIB(tcps, tcpRetransBytes, cnt);
 			tcp->tcp_cs.tcp_out_retrans_segs++;
@@ -3630,7 +3644,7 @@ tcp_process_shrunk_swnd(tcp_t *tcp, uint32_t shrunk_count)
  * ECN and/or SACK.
  */
 static void
-tcp_fill_header(tcp_t *tcp, uchar_t *rptr, clock_t now, int num_sack_blk)
+tcp_fill_header(tcp_t *tcp, uchar_t *rptr, int num_sack_blk)
 {
 	tcpha_t *tcp_tmpl, *tcpha;
 	uint32_t *dst, *src;
@@ -3652,7 +3666,7 @@ tcp_fill_header(tcp_t *tcp, uchar_t *rptr, clock_t now, int num_sack_blk)
 
 	/* Fill time-stamp option if needed */
 	if (tcp->tcp_snd_ts_ok) {
-		U32_TO_BE32((uint32_t)now,
+		U32_TO_BE32(LBOLT_FASTPATH,
 		    (char *)tcp_tmpl + TCP_MIN_HEADER_LENGTH + 4);
 		U32_TO_BE32(tcp->tcp_ts_recent,
 		    (char *)tcp_tmpl + TCP_MIN_HEADER_LENGTH + 8);

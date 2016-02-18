@@ -13,7 +13,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -27,6 +27,7 @@
 #include <inet/tcp.h>
 #include <arpa/inet.h>
 #include <ofmt.h>
+#include <sys/time.h>
 #include "connstat_mib.h"
 #include "connstat_tcp.h"
 
@@ -47,7 +48,10 @@ typedef struct tcp_fields_buf_s {
 	uint32_t t_swnd;
 	uint32_t t_cwnd;
 	uint32_t t_rwnd;
+	uint32_t t_mss;
+	uint32_t t_rto;
 	int t_state;
+	uint64_t t_rtt;
 } tcp_fields_buf_t;
 
 static boolean_t print_tcp_state(ofmt_arg_t *, char *, uint_t);
@@ -85,6 +89,12 @@ static ofmt_field_t tcp_fields[] = {
 		offsetof(tcp_fields_buf_t, t_cwnd),	print_uint32 },
 	{ "RWND",	11,
 		offsetof(tcp_fields_buf_t, t_rwnd),	print_uint32 },
+	{ "MSS",	6,
+		offsetof(tcp_fields_buf_t, t_mss),	print_uint32 },
+	{ "RTO",	8,
+		offsetof(tcp_fields_buf_t, t_rto),	print_uint32 },
+	{ "RTT",	8,
+		offsetof(tcp_fields_buf_t, t_rtt),	print_uint64 },
 	{ "STATE",	12,
 		offsetof(tcp_fields_buf_t, t_state),	print_tcp_state },
 	{ NULL, 0, 0, NULL}
@@ -119,6 +129,9 @@ tcp_ci2buf(struct tcpConnEntryInfo_s *ci)
 	fields_buf.t_swnd = ci->ce_swnd;
 	fields_buf.t_cwnd = ci->ce_cwnd;
 	fields_buf.t_rwnd = ci->ce_rwnd;
+	fields_buf.t_mss = ci->ce_mss;
+	fields_buf.t_rto = ci->ce_rto;
+	fields_buf.t_rtt = ci->ce_rtt_sa;
 	fields_buf.t_state = ci->ce_state;
 }
 

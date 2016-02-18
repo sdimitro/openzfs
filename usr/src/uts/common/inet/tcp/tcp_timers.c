@@ -751,15 +751,19 @@ tcp_timer(void *arg)
 	case TCPS_LAST_ACK:
 		/* If we have data to rexmit */
 		if (tcp->tcp_suna != tcp->tcp_snxt) {
-			clock_t	time_to_wait;
+			clock_t time_to_wait;
 
 			TCPS_BUMP_MIB(tcps, tcpTimRetrans);
 			if (!tcp->tcp_xmit_head)
 				break;
-			time_to_wait = ddi_get_lbolt() -
-			    (clock_t)tcp->tcp_xmit_head->b_prev;
-			time_to_wait = tcp->tcp_rto -
-			    TICK_TO_MSEC(time_to_wait);
+#ifdef KERNEL_32
+			time_to_wait = TICK_TO_MSEC(ddi_get_lbolt() -
+			    (clock_t)tcp->tcp_xmit_head->b_prev);
+#else
+			time_to_wait = NSEC2MSEC(gethrtime() -
+			    (hrtime_t)(intptr_t)tcp->tcp_xmit_head->b_prev);
+#endif
+			time_to_wait = tcp->tcp_rto - time_to_wait;
 			/*
 			 * If the timer fires too early, 1 clock tick earlier,
 			 * restart the timer.
@@ -1013,8 +1017,8 @@ tcp_timer(void *arg)
 		 * window probe.
 		 */
 		if (tcp->tcp_rtt_sa != 0 && tcp->tcp_zero_win_probe == 0) {
-			tcp->tcp_rtt_sd += (tcp->tcp_rtt_sa >> 3) +
-			    (tcp->tcp_rtt_sa >> 5);
+			tcp->tcp_rtt_sd += tcp->tcp_rtt_sa >> 3 +
+			    tcp->tcp_rtt_sa >> 5;
 			tcp->tcp_rtt_sa = 0;
 			tcp_ip_notify(tcp);
 			tcp->tcp_rtt_update = 0;
@@ -1058,8 +1062,13 @@ timer_rexmit:
 	if (mss > tcp->tcp_swnd && tcp->tcp_swnd != 0)
 		mss = tcp->tcp_swnd;
 
-	if ((mp = tcp->tcp_xmit_head) != NULL)
+	if ((mp = tcp->tcp_xmit_head) != NULL) {
+#ifdef KERNEL_32
 		mp->b_prev = (mblk_t *)ddi_get_lbolt();
+#else
+		mp->b_prev = (mblk_t *)(intptr_t)gethrtime();
+#endif
+	}
 	mp = tcp_xmit_mp(tcp, mp, mss, NULL, NULL, tcp->tcp_suna, B_TRUE, &mss,
 	    B_TRUE);
 

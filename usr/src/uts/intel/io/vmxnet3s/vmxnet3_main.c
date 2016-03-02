@@ -1,5 +1,5 @@
 /*********************************************************
- * Copyright (C) 2007 VMware, Inc. All rights reserved.
+ * Copyright (C) 2007-2014 VMware, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of the Common
  * Development and Distribution License (the "License") version 1.0
@@ -20,11 +20,10 @@
 #include <vmxnet3_solaris.h>
 
 /*
- * This driver is based on VMware's version 261024, and contains additional
+ * This driver is based on VMware's version 3227872, and contains additional
  * enhancements (see README.txt).
  */
-#define	BUILD_NUMBER_NUMERIC		261024
-#define	BUILD_NUMBER_NUMERIC_STRING	"261024-dx1"
+#define	BUILD_NUMBER_NUMERIC		3227872
 
 /*
  * TODO:
@@ -45,10 +44,21 @@ static void      vmxnet3_ioctl(void *arg, queue_t *wq, mblk_t *mp);
 static int       vmxnet3_multicst(void *, boolean_t, const uint8_t *);
 static int       vmxnet3_unicst(void *, const uint8_t *);
 static boolean_t vmxnet3_getcapab(void *, mac_capab_t, void *);
-static int       vmxnet3_setmacprop(void *, const char *, mac_prop_id_t, uint_t,
-                                 const void *);
-static void      vmxnet3_macpropinfo(void *, const char *, mac_prop_id_t,
-                                  mac_prop_info_handle_t);
+
+static int       vmxnet3_get_prop(void *,
+				const char *,
+				mac_prop_id_t,
+				uint_t,
+				void *);
+static int       vmxnet3_set_prop(void *,
+				const char *,
+				mac_prop_id_t,
+				uint_t,
+				const void *);
+static void      vmxnet3_prop_info(void *,
+				const char *,
+				mac_prop_id_t,
+				mac_prop_info_handle_t);
 
 int vmxnet3_debug_level;
 
@@ -64,8 +74,9 @@ static mac_callbacks_t vmxnet3_mac_callbacks = {
    .mc_tx = vmxnet3_tx,
    .mc_ioctl = vmxnet3_ioctl,
    .mc_getcapab = vmxnet3_getcapab,
-   .mc_setprop = vmxnet3_setmacprop,
-   .mc_propinfo = vmxnet3_macpropinfo
+   .mc_getprop = vmxnet3_get_prop,
+   .mc_setprop = vmxnet3_set_prop,
+   .mc_propinfo = vmxnet3_prop_info
 };
 
 /* Tx DMA engine description */
@@ -986,6 +997,10 @@ vmxnet3_change_mtu(vmxnet3_softc_t *dp, uint32_t new_mtu)
       VMXNET3_WARN(dp, "New MTU not in valid range [%d, %d].\n",
                    VMXNET3_MIN_MTU, VMXNET3_MAX_MTU);
       return EINVAL;
+   } else if (new_mtu > ETHERMTU && !dp->allow_jumbo) {
+      VMXNET3_WARN(dp, "MTU cannot be greater than %d because accept-jumbo "
+	           "is not enabled.\n", ETHERMTU);
+      return EINVAL;
    }
 
    dp->cur_mtu = new_mtu;
@@ -996,6 +1011,78 @@ vmxnet3_change_mtu(vmxnet3_softc_t *dp, uint32_t new_mtu)
    return ret;
 }
 
+/* ARGSUSED */
+static int
+vmxnet3_get_prop(void *data,
+		const char *prop_name,
+		mac_prop_id_t prop_id,
+		uint_t prop_val_size,
+		void *prop_val)
+{
+   vmxnet3_softc_t *dp = data;
+   int ret = 0;
+
+   switch (prop_id) {
+      case MAC_PROP_MTU: {
+         ASSERT(prop_val_size >= sizeof (uint32_t));
+         bcopy(&dp->cur_mtu, prop_val, sizeof (uint32_t));
+         break;
+      }
+      default: {
+         VMXNET3_WARN(dp, "vmxnet3_get_prop property %d not supported", prop_id);
+         ret = ENOTSUP;
+      }
+   }
+   return ret;
+}
+
+/* ARGSUSED */
+static int
+vmxnet3_set_prop(void *data,
+		const char *prop_name,
+		mac_prop_id_t prop_id,
+		uint_t prop_val_size,
+		const void *prop_val)
+{
+   vmxnet3_softc_t *dp = data;
+   int ret;
+
+   switch (prop_id) {
+      case MAC_PROP_MTU: {
+         uint32_t new_mtu;
+         ASSERT(prop_val_size >= sizeof (uint32_t));
+         bcopy(prop_val, &new_mtu, sizeof (new_mtu));
+         ret = vmxnet3_change_mtu(dp, new_mtu);
+         break;
+      }
+      default: {
+         VMXNET3_WARN(dp, "vmxnet3_set_prop property %d not supported", prop_id);
+         ret = ENOTSUP;
+      }
+   }
+
+   return ret;
+}
+
+/* ARGSUSED */
+static void
+vmxnet3_prop_info(void *data,
+		const char *prop_name,
+		mac_prop_id_t prop_id,
+		mac_prop_info_handle_t prop_handle)
+{
+   vmxnet3_softc_t *dp = data;
+
+   switch (prop_id) {
+      case MAC_PROP_MTU: {
+         mac_prop_info_set_range_uint32(prop_handle, VMXNET3_MIN_MTU, VMXNET3_MAX_MTU);
+         break;
+      }
+      default: {
+         VMXNET3_WARN(dp, "vmxnet3_prop_info: property %d not supported", prop_id);
+      }
+   }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1077,8 +1164,10 @@ vmxnet3_ioctl(void *arg, queue_t *wq, mblk_t *mp)
       if (strcmp("accept-jumbo", param) == 0) {
          if (data == 1) {
             VMXNET3_DEBUG(dp, 2, "Accepting jumbo frames\n");
+            dp->allow_jumbo = 1;
             ret = vmxnet3_change_mtu(dp, VMXNET3_MAX_MTU);
          } else if (data == 0) {
+            dp->allow_jumbo = 0;
             VMXNET3_DEBUG(dp, 2, "Rejecting jumbo frames\n");
             ret = vmxnet3_change_mtu(dp, ETHERMTU);
          } else {
@@ -1148,71 +1237,6 @@ vmxnet3_getcapab(void *data, mac_capab_t capab, void *arg)
    VMXNET3_DEBUG(dp, 2, "getcapab(0x%x) -> %s\n", capab, ret ? "yes" : "no");
 
    return ret;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * vmxnet3_setmacprop --
- *
- *    Set a MAC property.
- *
- * Results:
- *    0 on success, errno otherwise.
- *
- * Side effects:
- *    None.
- *
- *---------------------------------------------------------------------------
- */
-/* ARGSUSED */
-static int
-vmxnet3_setmacprop(void *data, const char *pr_name, mac_prop_id_t pr_num,
-                   uint_t pr_valsize, const void *pr_val)
-{
-   vmxnet3_softc_t *dp = data;
-   int ret = 0;
-   uint32_t newmtu;
-
-   switch (pr_num) {
-      case MAC_PROP_MTU:
-         (void) memcpy(&newmtu, pr_val, sizeof (newmtu));
-         ret = vmxnet3_change_mtu(dp, newmtu);
-         break;
-      default:
-         ret = ENOTSUP;
-   }
-
-   return ret;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * vmxnet3_macpropinfo --
- *
- *    Get MAC property information.
- *
- * Results:
- *    None.
- *
- * Side effects:
- *    None.
- *
- *---------------------------------------------------------------------------
- */
-/* ARGSUSED */
-static void
-vmxnet3_macpropinfo(void *data, const char *pr_name, mac_prop_id_t pr_num,
-                    mac_prop_info_handle_t prh)
-{
-   switch (pr_num) {
-      case MAC_PROP_MTU:
-         mac_prop_info_set_range_uint32(prh, VMXNET3_MIN_MTU, VMXNET3_MAX_MTU);
-         break;
-      default:
-         break;
-   }
 }
 
 /*
@@ -1449,6 +1473,7 @@ vmxnet3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
    dp->dip = dip;
    dp->instance = ddi_get_instance(dip);
    dp->cur_mtu = ETHERMTU;
+   dp->allow_jumbo = 1;
 
    VMXNET3_DEBUG(dp, 1, "attach()\n");
 
@@ -1756,7 +1781,7 @@ vmxnet3_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
  * Structures used by the Solaris module loader
  */
 
-#define VMXNET3_IDENT "VMware Ethernet v3 b" BUILD_NUMBER_NUMERIC_STRING
+#define VMXNET3_IDENT "VMware Ethernet v3 " VMXNET3_DRIVER_VERSION_STRING
 
 DDI_DEFINE_STREAM_OPS(vmxnet3_dev_ops,
                       nulldev,

@@ -18,21 +18,19 @@
 #
 # CDDL HEADER END
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 The vmxnet3s driver is a paravirtualized GLDv3 NIC driver designed to
 be used on VMware virtual machines version 7 and later.  This version
-of the driver is based on the "stable-8.6.x" branch of the VMware
+of the driver is based on the "stable-10.0.x" branch of the VMware
 open-vm-tools which can be obtained from:
 
-http://open-vm-tools.sourceforge.net/
+https://github.com/vmware/open-vm-tools
 
-Changes from stable-8.6.x include:
+Changes from stable-10.0.x include:
 
-* add support for dladm mtu property
 * add support for VLANs
-* LSO fix contributed by Michael Tsymbalyuk <mtzaurus@gmail.com>
 * enable building in the illumos gate
 * enable building with the Sun Studio compiler
 * lint cleanup: the driver is lint clean with two categorical

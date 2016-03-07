@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -387,6 +387,7 @@ struct zio {
 
 	/* Callback info */
 	zio_done_func_t	*io_ready;
+	zio_done_func_t	*io_children_ready;
 	zio_done_func_t	*io_physdone;
 	zio_done_func_t	*io_done;
 	void		*io_private;
@@ -416,7 +417,6 @@ struct zio {
 	zio_alloc_list_t	io_alloc_list;
 
 	/* Internal pipeline state */
-	enum zio_flag	io_debug_flags;
 	enum zio_flag	io_flags;
 	enum zio_stage	io_stage;
 	enum zio_stage	io_pipeline;
@@ -460,7 +460,8 @@ extern zio_t *zio_read(zio_t *pio, spa_t *spa, const blkptr_t *bp, void *data,
 
 extern zio_t *zio_write(zio_t *pio, spa_t *spa, uint64_t txg, blkptr_t *bp,
     void *data, uint64_t size, uint64_t psize, const zio_prop_t *zp,
-    zio_done_func_t *ready, zio_done_func_t *physdone, zio_done_func_t *done,
+    zio_done_func_t *ready, zio_done_func_t *children_ready,
+    zio_done_func_t *physdone, zio_done_func_t *done,
     void *private, zio_priority_t priority, enum zio_flag flags,
     const zbookmark_phys_t *zb);
 

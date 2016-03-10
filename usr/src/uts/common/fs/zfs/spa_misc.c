@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright 2013 Saso Kiselkov. All rights reserved.
@@ -352,6 +352,34 @@ int spa_asize_inflation = SPA_DVAS_PER_BP + 1;
  */
 int spa_slop_shift = 5;
 uint64_t spa_min_slop = 128 * 1024 * 1024;
+
+/*PRINTFLIKE2*/
+void
+spa_load_failed(spa_t *spa, const char *fmt, ...)
+{
+	va_list adx;
+	char buf[256];
+
+	va_start(adx, fmt);
+	(void) vsnprintf(buf, sizeof (buf), fmt, adx);
+	va_end(adx);
+
+	zfs_dbgmsg("spa_load(%s): FAILED: %s", spa->spa_name, buf);
+}
+
+/*PRINTFLIKE2*/
+void
+spa_load_note(spa_t *spa, const char *fmt, ...)
+{
+	va_list adx;
+	char buf[256];
+
+	va_start(adx, fmt);
+	(void) vsnprintf(buf, sizeof (buf), fmt, adx);
+	va_end(adx);
+
+	zfs_dbgmsg("spa_load(%s): %s", spa->spa_name, buf);
+}
 
 /*
  * ==========================================================================

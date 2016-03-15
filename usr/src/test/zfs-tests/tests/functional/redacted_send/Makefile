@@ -22,6 +22,7 @@ PROGS = cleanup \
 	redacted_compressed \
 	redacted_contents  \
 	redacted_disabled_feature \
+	redacted_deleted \
 	redacted_embedded \
 	redacted_holes \
 	redacted_incrementals \

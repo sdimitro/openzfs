@@ -1939,6 +1939,8 @@ file path=opt/zfs-tests/tests/functional/redacted_send/redacted_compressed \
     mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted_contents \
     mode=0555
+file path=opt/zfs-tests/tests/functional/redacted_send/redacted_deleted \
+    mode=0555
 file \
     path=opt/zfs-tests/tests/functional/redacted_send/redacted_disabled_feature \
     mode=0555

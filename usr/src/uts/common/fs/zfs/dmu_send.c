@@ -3063,12 +3063,6 @@ dmu_send_impl(struct dmu_send_params *dspp)
 		    sizeof (to_arg), KM_SLEEP);
 	}
 
-	dsl_dataset_long_hold(to_ds, FTAG);
-	if (from_ds != NULL)
-		dsl_dataset_long_hold(from_ds, FTAG);
-	for (int i = 0; i < dspp->numredactsnaps; i++)
-		dsl_dataset_long_hold(dspp->redactsnaparr[i], FTAG);
-
 	if (dspp->redactbook != NULL) {
 		char *c;
 		int n;
@@ -3112,12 +3106,22 @@ dmu_send_impl(struct dmu_send_params *dspp)
 		err = dsl_redaction_list_hold_obj(dp,
 		    ancestor_zb->zbm_redaction_obj, FTAG, &from_rl);
 		if (err != 0) {
+			if (new_rl != NULL) {
+				dsl_redaction_list_long_rele(new_rl, FTAG);
+				dsl_redaction_list_rele(new_rl, FTAG);
+			}
 			kmem_free(drr, sizeof (dmu_replay_record_t));
 			dsl_pool_rele(dp, tag);
 			return (SET_ERROR(EINVAL));
 		}
 		dsl_redaction_list_long_hold(dp, from_rl, FTAG);
 	}
+
+	dsl_dataset_long_hold(to_ds, FTAG);
+	if (from_ds != NULL)
+		dsl_dataset_long_hold(from_ds, FTAG);
+	for (int i = 0; i < dspp->numredactsnaps; i++)
+		dsl_dataset_long_hold(dspp->redactsnaparr[i], FTAG);
 
 	dssp = kmem_zalloc(sizeof (dmu_sendstatus_t), KM_SLEEP);
 	dssp->dss_outfd = dspp->outfd;

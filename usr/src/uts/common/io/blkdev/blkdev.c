@@ -455,9 +455,7 @@ bd_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	}
 	mutex_exit(&bd->d_statemutex);
 
-	if (cmlb_validate(bd->d_cmlbh, 0, 0) != 0) {
-		return (DDI_FAILURE);
-	}
+	(void) cmlb_validate(bd->d_cmlbh, 0, 0);
 
 	if (bd->d_ops.o_devid_init != NULL) {
 		rv = bd->d_ops.o_devid_init(bd->d_private, dip, &bd->d_devid);

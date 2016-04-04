@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 .PARALLEL: $(SUBDIRS)
@@ -21,6 +21,7 @@ SUBDIRS = acl \
 	bootfs \
 	cache \
 	cachefile \
+	channel_program \
 	checksum \
 	clean_mirror \
 	cli_root \

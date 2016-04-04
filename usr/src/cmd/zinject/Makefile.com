@@ -22,6 +22,8 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 
 PROG:sh=	cd ..; basename `pwd`
 OBJS= $(PROG).o translate.o
@@ -31,6 +33,7 @@ include ../../Makefile.cmd
 
 INCS +=	-I../../../lib/libzpool/common
 INCS +=	-I../../../uts/common/fs/zfs
+INCS +=	-I../../../uts/common/fs/zfs/lua
 
 LDLIBS += -lzpool -lzfs -lnvpair
 

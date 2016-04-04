@@ -25,6 +25,7 @@
 # Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
 # Copyright 2013 Saso Kiselkov. All rights reserved.
+# Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -330,6 +331,10 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/vscan/%.c
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/common/fs/zfs/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
+$(OBJS_DIR)/%.o:		$(UTSBASE)/common/fs/zfs/lua/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
@@ -1843,6 +1848,9 @@ $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/vscan/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/zfs/%.c
+	@($(LHEAD) $(LINT.c) $< $(LTAIL))
+
+$(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/zfs/lua/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/zut/%.c

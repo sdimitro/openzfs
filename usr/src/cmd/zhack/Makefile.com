@@ -25,7 +25,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 PROG= zhack
@@ -35,8 +35,9 @@ OBJS= $(PROG).o
 include ../../Makefile.cmd
 include ../../Makefile.ctf
 
-INCS += -I../../../lib/libzpool/common
+INCS +=	-I../../../lib/libzpool/common
 INCS +=	-I../../../uts/common/fs/zfs
+INCS +=	-I../../../uts/common/fs/zfs/lua
 INCS +=	-I../../../common/zfs
 
 LDLIBS += -lzpool -lumem -lnvpair -lzfs

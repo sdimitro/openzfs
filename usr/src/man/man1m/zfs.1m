@@ -290,6 +290,11 @@ zfs \- configures ZFS file systems
 \fBzfs\fR \fBmooch\fR \fB-f\fR \fIclone_file\fR=\fIorigin_file\fR ... \fIclone_directory\fR
 .fi
 
+.LP
+.nf
+\fBzfs\fR \fBprogram\fR [\fB-t \fItimeout\fR\fR] [\fB-m \fImemory-limit\fR\fR] \fIpool\fR \fIscript\fR [\fIarg1\fR, ...]
+.fi
+
 .SH DESCRIPTION
 .LP
 The \fBzfs\fR command configures \fBZFS\fR datasets within a \fBZFS\fR storage
@@ -3873,6 +3878,8 @@ Recursively releases a hold with the given tag on the snapshots of all
 descendent file systems.
 .RE
 
+.RE
+
 .sp
 .ne 2
 .na
@@ -3935,6 +3942,51 @@ Give more parsable tab-separated output, without header lines and without arrows
 .sp .6
 .RS 4n
 Display the path's inode change time as the first column of output.
+.RE
+
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBzfs program\fR [\fB-t \fItimeout\fR\fR] [\fB-m \fImemory-limit\fR\fR] \fIpool\fR \fIscript\fR [\fIarg1\fR, ...]
+.ad
+.sp .6
+.RS 4n
+Executes \fIscript\fR as a ZFS channel program on \fIpool\fR. The ZFS channel
+program interface allows ZFS administrative operations to be run
+programmatically via a Lua script. The entire script is executed atomically,
+with no other administrative operations taking effect concurrently. A library
+of ZFS calls is made available to channel program scripts. Channel programs may
+only be run with root privileges.
+.sp
+For full documentation of the ZFS channel program interface, see the manual
+page for \fBzfs-channel\fR(1m).
+.sp
+.ne 2
+.na
+\fB-t \fItimeout\fR
+.ad
+.sp .6
+.RS 4n
+Execution time limit, in milliseconds. If a channel program executes for longer
+than the provided timeout, it will be stopped and an error will be returned.
+The default timeout is 1000 ms, and can be set to a maximum of 10000 ms.
+.RE
+.sp
+.ne 2
+.na
+\fB-m \fImemory-limit\fR
+.ad
+.sp .6
+.RS 4n
+Memory limit, in bytes. If a channel program attempts to allocate more memory
+than the given limit, it will be stopped and an error returned. The default
+memory limit is 10 MB, and can be set to a maximum of 100 MB.
+.RE
+.sp
+All remaining argument strings are passed directly to the channel program as
+arguments. See \fBzfs-channel\fR(1m) for more information.
 .RE
 
 .SH EXAMPLES

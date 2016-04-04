@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 include $(SRC)/Makefile.master
@@ -23,6 +23,7 @@ PROGS = cleanup \
 	zdb_001_neg \
 	zfs_001_neg \
 	zfs_allow_001_neg \
+	zfs_channel_001_neg \
 	zfs_clone_001_neg \
 	zfs_create_001_neg \
 	zfs_destroy_001_neg \

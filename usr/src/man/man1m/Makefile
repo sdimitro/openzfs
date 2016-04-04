@@ -14,7 +14,7 @@
 # Copyright (c) 2012, Joyent, Inc.  All rights reserved.
 # Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2012 Joyent, Inc. All rights reserved.
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 include		$(SRC)//Makefile.master
@@ -580,6 +580,7 @@ _MANFILES=	6to4relay.1m		\
 		zdb.1m			\
 		zdump.1m		\
 		zfs.1m			\
+		zfs-program.1m		\
 		zic.1m			\
 		zoneadm.1m		\
 		zoneadmd.1m		\

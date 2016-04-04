@@ -1329,6 +1329,35 @@ NOTIFY_OBJS += md_notify.o
 
 TRANS_OBJS += mdtrans.o trans_ioctl.o trans_log.o
 
+LUA_OBJS +=			\
+	ldo.o			\
+	lvm.o			\
+	lbitlib.o		\
+	lopcodes.o		\
+	lstring.o		\
+	ltable.o		\
+	ltm.o			\
+	lcorolib.o		\
+	lauxlib.o		\
+	ldebug.o		\
+	lstate.o		\
+	lgc.o			\
+	lmem.o			\
+	lctype.o		\
+	lfunc.o			\
+	ldump.o			\
+	lundump.o		\
+	lstrlib.o		\
+	ltablib.o		\
+	lapi.o			\
+	lobject.o		\
+	lbaselib.o		\
+	lcompat.o		\
+	lzio.o			\
+	lcode.o			\
+	llex.o			\
+	lparser.o
+
 ZFS_COMMON_OBJS +=		\
 	arc.o			\
 	blkptr.o		\
@@ -1401,6 +1430,10 @@ ZFS_COMMON_OBJS +=		\
 	zap.o			\
 	zap_leaf.o		\
 	zap_micro.o		\
+	zcp.o			\
+	zcp_global.o		\
+	zcp_iter.o		\
+	zcp_synctask.o		\
 	zfs_byteswap.o		\
 	zfs_debug.o		\
 	zfs_fm.o		\
@@ -1948,7 +1981,7 @@ E1000API_OBJS += e1000_80003es2lan.o e1000_82540.o e1000_82541.o e1000_82542.o \
 E1000G_OBJS +=	e1000g_debug.o e1000g_main.o e1000g_alloc.o \
 		e1000g_tx.o e1000g_rx.o e1000g_stat.o \
 		e1000g_osdep.o e1000g_workarounds.o
-		
+
 
 #
 #	Intel 82575 1G NIC driver module

@@ -164,16 +164,15 @@ static int vioif_attach(dev_info_t *, ddi_attach_cmd_t);
 static int vioif_detach(dev_info_t *, ddi_detach_cmd_t);
 
 DDI_DEFINE_STREAM_OPS(vioif_ops,
-	nulldev,		/* identify */
-	nulldev,		/* probe */
-	vioif_attach,		/* attach */
-	vioif_detach,		/* detach */
-	nodev,			/* reset */
-	NULL,			/* cb_ops */
-	D_MP,			/* bus_ops */
-	NULL,			/* power */
-	vioif_quiesce		/* quiesce */
-);
+    nulldev,		/* identify */
+    nulldev,		/* probe */
+    vioif_attach,	/* attach */
+    vioif_detach,	/* detach */
+    nodev,		/* reset */
+    NULL,		/* cb_ops */
+    D_MP,		/* bus_ops */
+    NULL,		/* power */
+    vioif_quiesce	/* quiesce */);
 
 static char vioif_ident[] = "VirtIO ethernet driver";
 

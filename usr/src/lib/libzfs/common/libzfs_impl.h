@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_LIBZFS_IMPL_H
@@ -131,6 +131,8 @@ typedef enum {
 	SHARED_NFS = 0x2,
 	SHARED_SMB = 0x4
 } zfs_share_type_t;
+
+#define	CONFIG_BUF_MINSIZE	65536
 
 int zfs_error(libzfs_handle_t *, int, const char *);
 int zfs_error_fmt(libzfs_handle_t *, int, const char *, ...);

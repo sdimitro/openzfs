@@ -62,6 +62,7 @@ SYMBOL_VERSION ILLUMOS_0.1 {
 	lzc_send_redacted;
 	lzc_send_resume_redacted;
 	lzc_send_space;
+	lzc_send_space_resume_redacted;
 	lzc_snaprange_space;
 	lzc_snapshot;
 

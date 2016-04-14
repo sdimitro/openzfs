@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  */
@@ -1579,10 +1579,9 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 
 	if (flags->verbose) {
 		uint64_t size = 0;
-		error = lzc_send_space(zhp->zfs_name, fromname,
-		    lzc_flags, &size);
-		if (error == 0)
-			size = MAX(0, (int64_t)(size - bytes));
+		error = lzc_send_space_resume_redacted(zhp->zfs_name, fromname,
+		    lzc_flags, resumeobj, resumeoff, bytes, redact_snaps, -1,
+		    &size);
 		send_print_verbose(stderr, zhp->zfs_name, fromname,
 		    size, flags->parsable);
 	}

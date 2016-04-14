@@ -248,7 +248,7 @@ typedef enum {
 
 typedef struct dmu_send_cookie {
 	dmu_replay_record_t *dsc_drr;
-	vnode_t *dsc_vp;
+	dmu_send_outparams_t *dsc_dso;
 	offset_t *dsc_off;
 	objset_t *dsc_os;
 	zio_cksum_t dsc_zc;
@@ -279,37 +279,6 @@ struct redact_node {
 	uint32_t			thread_num;
 };
 
-static int
-dump_bytes(dmu_send_cookie_t *dscp, void *buf, int len)
-{
-	dsl_dataset_t *ds = dmu_objset_ds(dscp->dsc_os);
-	ssize_t resid; /* have to get resid to get detailed errno */
-
-	/*
-	 * The code does not rely on this (len being a multiple of 8).  We keep
-	 * this assertion because of the corresponding assertion in
-	 * receive_read().  Keeping this assertion ensures that we do not
-	 * inadvertently break backwards compatibility (causing the assertion
-	 * in receive_read() to trigger on old software).
-	 *
-	 * Removing the assertions could be rolled into a new feature that uses
-	 * data that isn't 8-byte aligned; if the assertions were removed, a
-	 * feature flag would have to be added.
-	 */
-
-	ASSERT0(len % 8);
-
-	dscp->dsc_err = vn_rdwr(UIO_WRITE, dscp->dsc_vp,
-	    (caddr_t)buf, len,
-	    0, UIO_SYSSPACE, FAPPEND, RLIM64_INFINITY, CRED(), &resid);
-
-	mutex_enter(&ds->ds_sendstream_lock);
-	*dscp->dsc_off += len;
-	mutex_exit(&ds->ds_sendstream_lock);
-
-	return (dscp->dsc_err);
-}
-
 /*
  * For all record types except BEGIN, fill in the checksum (overlaid in
  * drr_u.drr_checksum.drr_checksum).  The checksum verifies everything
@@ -318,6 +287,7 @@ dump_bytes(dmu_send_cookie_t *dscp, void *buf, int len)
 static int
 dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 {
+	dmu_send_outparams_t *dso = dscp->dsc_dso;
 	ASSERT3U(offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
 	    ==, sizeof (dmu_replay_record_t) - sizeof (zio_cksum_t));
 	fletcher_4_incremental_native(dscp->dsc_drr,
@@ -336,12 +306,21 @@ dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 	fletcher_4_incremental_native(&dscp->dsc_drr->
 	    drr_u.drr_checksum.drr_checksum,
 	    sizeof (zio_cksum_t), &dscp->dsc_zc);
-	if (dump_bytes(dscp, dscp->dsc_drr, sizeof (dmu_replay_record_t)) != 0)
+	*dscp->dsc_off += sizeof (dmu_replay_record_t);
+	if (dso->dso_outfunc(dscp->dsc_drr, sizeof (dmu_replay_record_t),
+	    dso->dso_arg) != 0)
 		return (SET_ERROR(EINTR));
 	if (payload_len != 0) {
-		fletcher_4_incremental_native(payload, payload_len,
-		    &dscp->dsc_zc);
-		if (dump_bytes(dscp, payload, payload_len) != 0)
+		*dscp->dsc_off += payload_len;
+		/*
+		 * payload is null when dso->ryrun == B_TRUE (i.e. when we're
+		 * doing a send size calculation)
+		 */
+		if (payload != NULL) {
+			fletcher_4_incremental_native(payload, payload_len,
+			    &dscp->dsc_zc);
+		}
+		if (dso->dso_outfunc(payload, payload_len, dso->dso_arg) != 0)
 			return (SET_ERROR(EINTR));
 	}
 	return (0);
@@ -969,14 +948,14 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 			    zb->zb_blkid * data->datablksz, FTAG, &origin_db,
 			    0);
 			ASSERT3U(data->datablksz, ==, origin_db->db_size);
-			if (err == 0) {
+			if (err == 0 && !dscp->dsc_dso->dso_dryrun) {
 				abuf = arc_alloc_buf(spa, &abuf, ARC_BUFC_DATA,
 				    origin_db->db_size);
 				mooch_byteswap_reconstruct(origin_db,
 				    abuf->b_data, bp);
 				dmu_buf_rele(origin_db, FTAG);
 			}
-		} else {
+		} else if (!dscp->dsc_dso->dso_dryrun) {
 			enum zio_flag zioflags = ZIO_FLAG_CANFAIL;
 
 			ASSERT3U(data->datablksz, ==, BP_GET_LSIZE(bp));
@@ -988,7 +967,8 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 			    ZIO_PRIORITY_ASYNC_READ, zioflags, &aflags, zb);
 		}
 		if (err != 0) {
-			if (zfs_send_corrupt_data) {
+			if (zfs_send_corrupt_data &&
+			    !dscp->dsc_dso->dso_dryrun) {
 				/* Send a block filled with 0x"zfs badd bloc" */
 				abuf = arc_alloc_buf(spa, &abuf, ARC_BUFC_DATA,
 				    data->datablksz);
@@ -1018,11 +998,25 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 				data->datablksz -= n;
 			}
 		} else {
+			int psize;
+			if (abuf != NULL) {
+				psize = arc_buf_size(abuf);
+				if (arc_get_compression(abuf) !=
+				    ZIO_COMPRESS_OFF) {
+					ASSERT3S(psize, ==, BP_GET_PSIZE(bp));
+				}
+			} else if (!(dscp->dsc_featureflags &
+			    DMU_BACKUP_FEATURE_COMPRESSED)) {
+				psize = data->datablksz;
+			} else {
+				psize = BP_GET_PSIZE(bp);
+			}
 			err = dump_write(dscp, type, zb->zb_object, offset,
-			    data->datablksz, arc_buf_size(abuf), bp,
-			    abuf->b_data);
+			    data->datablksz, psize, bp, (abuf == NULL ? NULL :
+			    abuf->b_data));
 		}
-		arc_buf_destroy(abuf, &abuf);
+		if (abuf != NULL)
+			arc_buf_destroy(abuf, &abuf);
 	}
 
 	ASSERT(err == 0 || err == EINTR);
@@ -2637,6 +2631,7 @@ struct send_prefetch_thread_arg {
 	struct send_merge_thread_arg *smta;
 	bqueue_t q;
 	boolean_t cancel;
+	boolean_t issue_prefetches;
 	int error;
 };
 
@@ -2778,7 +2773,7 @@ send_prefetch_thread(void *arg)
 		}
 
 		if (!data->redact_marker && !BP_IS_HOLE(&data->bp) &&
-		    !BP_IS_REDACTED(&data->bp)) {
+		    !BP_IS_REDACTED(&data->bp) && spta->issue_prefetches) {
 			arc_flags_t aflags = ARC_FLAG_NOWAIT |
 			    ARC_FLAG_PREFETCH;
 			(void) arc_read(NULL, os->os_spa, &data->bp, NULL, NULL,
@@ -2838,7 +2833,9 @@ struct dmu_send_params {
 	uint32_t numredactsnaps;
 	const char *redactbook;
 	/* Stream output params */
-	vnode_t *vp;
+	dmu_send_outparams_t *dso;
+
+	/* Stream progress params */
 	offset_t *off;
 	int outfd;
 };
@@ -3209,7 +3206,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	mutex_exit(&to_ds->ds_sendstream_lock);
 
 	dsc.dsc_drr = drr;
-	dsc.dsc_vp = dspp->vp;
+	dsc.dsc_dso = dspp->dso;
 	dsc.dsc_os = os;
 	dsc.dsc_off = dspp->off;
 	dsc.dsc_toguid = dsl_dataset_phys(to_ds)->ds_guid;
@@ -3242,7 +3239,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 			    dsl_dataset_phys(dspp->redactsnaparr[i])->ds_guid;
 		}
 
-		if (!resuming) {
+		if (!resuming && !dspp->dso->dso_dryrun) {
 			err = dsl_bookmark_create_redacted(newredactbook,
 			    dspp->tosnap, dspp->numredactsnaps, guids, FTAG,
 			    &new_rl);
@@ -3430,7 +3427,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 		(void) thread_create(NULL, 0, redact_traverse_thread, arg, 0,
 		    curproc, TS_RUN, minclsyspri);
 	}
-	if (new_rl != NULL) {
+	if (dspp->redactbook != NULL) {
 		rmt_arg.cancel = B_FALSE;
 		rmt_arg.num_threads = dspp->numredactsnaps;
 		rmt_arg.send_objset = os->os_dsl_dataset->ds_object;
@@ -3449,7 +3446,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	smt_arg.error = 0;
 	smt_arg.from_arg = &from_arg;
 	smt_arg.to_arg = &to_arg;
-	if (new_rl != NULL) {
+	if (dspp->redactbook != NULL) {
 		smt_arg.redact_arg = &rmt_arg;
 		smt_arg.rbi.rbi_redaction_list = new_rl;
 		smt_arg.rbi.rbi_latest_synctask_txg = 0;
@@ -3467,6 +3464,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	VERIFY0(bqueue_init(&spt_arg.q, zfs_send_queue_ff,
 	    zfs_send_queue_length, offsetof(struct send_block_record, ln)));
 	spt_arg.smta = &smt_arg;
+	spt_arg.issue_prefetches = !dspp->dso->dso_dryrun;
 	(void) thread_create(NULL, 0, send_prefetch_thread, &spt_arg, 0,
 	    curproc, TS_RUN, minclsyspri);
 
@@ -3729,7 +3727,7 @@ fini:
 int
 dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
     boolean_t embedok, boolean_t large_block_ok, boolean_t compressok,
-    int outfd, vnode_t *vp, offset_t *off)
+    int outfd, offset_t *off, dmu_send_outparams_t *dsop)
 {
 	int err;
 	struct dmu_send_params dspp = {0};
@@ -3737,8 +3735,8 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 	dspp.large_block_ok = large_block_ok;
 	dspp.compressok = compressok;
 	dspp.outfd = outfd;
-	dspp.vp = vp;
 	dspp.off = off;
+	dspp.dso = dsop;
 	dspp.tag = FTAG;
 
 	err = dsl_pool_hold(pool, FTAG, &dspp.dp);
@@ -3805,9 +3803,9 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 
 int
 dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
-    boolean_t large_block_ok, boolean_t compressok, int outfd,
-    uint64_t resumeobj, uint64_t resumeoff,
-    nvlist_t *redactsnaps, const char *redactbook, vnode_t *vp, offset_t *off)
+    boolean_t large_block_ok, boolean_t compressok, uint64_t resumeobj,
+    uint64_t resumeoff, nvlist_t *redactsnaps, const char *redactbook,
+    int outfd, offset_t *off, dmu_send_outparams_t *dsop)
 {
 	int err = 0;
 	boolean_t owned = B_FALSE;
@@ -3817,8 +3815,8 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 	dspp.large_block_ok = large_block_ok;
 	dspp.compressok = compressok;
 	dspp.outfd = outfd;
-	dspp.vp = vp;
 	dspp.off = off;
+	dspp.dso = dsop;
 	dspp.tag = FTAG;
 	dspp.redactbook = redactbook;
 	dspp.resumeobj = resumeobj;
@@ -4044,7 +4042,7 @@ dmu_adjust_send_estimate_for_indirects(dsl_dataset_t *ds, uint64_t uncompressed,
 }
 
 int
-dmu_send_estimate(dsl_dataset_t *ds, dsl_dataset_t *fromds,
+dmu_send_estimate_fast(dsl_dataset_t *ds, dsl_dataset_t *fromds,
     boolean_t stream_compressed, uint64_t *sizep)
 {
 	dsl_pool_t *dp = ds->ds_dir->dd_pool;
@@ -4089,72 +4087,6 @@ struct calculate_send_arg {
 	uint64_t uncompressed;
 	uint64_t compressed;
 };
-
-/*
- * Simple callback used to traverse the blocks of a snapshot and sum their
- * uncompressed and compressed sizes.
- */
-/* ARGSUSED */
-static int
-dmu_calculate_send_traversal(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
-    const zbookmark_phys_t *zb, const dnode_phys_t *dnp, void *arg)
-{
-	struct calculate_send_arg *space = arg;
-	if (bp != NULL && !BP_IS_HOLE(bp)) {
-		space->uncompressed += BP_GET_UCSIZE(bp);
-		space->compressed += BP_GET_PSIZE(bp);
-	}
-
-	if (issig(JUSTLOOKING) && issig(FORREAL))
-		return (SET_ERROR(EINTR));
-	return (0);
-}
-
-/*
- * Given a desination snapshot and a TXG, calculate the approximate size of a
- * send stream sent from that TXG. from_txg may be zero, indicating that the
- * whole snapshot will be sent.  The pool that ds is part of must be held with
- * the specified tag on entry, and the pool will be released and reacquired.
- */
-int
-dmu_send_estimate_from_txg(dsl_dataset_t *ds, uint64_t from_txg,
-    boolean_t stream_compressed, void *tag, uint64_t *sizep)
-{
-	dsl_pool_t *dp = ds->ds_dir->dd_pool;
-	char pool_name[ZFS_MAX_DATASET_NAME_LEN];
-	int err;
-	struct calculate_send_arg size = { 0 };
-
-	ASSERT(dsl_pool_config_held(dp));
-	(void) strcpy(pool_name, spa_name(dp->dp_spa));
-
-	/* tosnap must be a snapshot */
-	if (!ds->ds_is_snapshot)
-		return (SET_ERROR(EINVAL));
-
-	/* verify that from_txg is before the provided snapshot was taken */
-	if (from_txg >= dsl_dataset_phys(ds)->ds_creation_txg) {
-		return (SET_ERROR(EXDEV));
-	}
-	dsl_dataset_long_hold(ds, FTAG);
-	dsl_pool_rele(dp, tag);
-
-	/*
-	 * traverse the blocks of the snapshot with birth times after
-	 * from_txg, summing their uncompressed size
-	 */
-	err = traverse_dataset(ds, from_txg, TRAVERSE_POST |
-	    TRAVERSE_PREFETCH_METADATA, dmu_calculate_send_traversal, &size);
-	VERIFY0(dsl_pool_hold(pool_name, tag, &dp));
-	dsl_dataset_long_rele(ds, FTAG);
-
-	if (err)
-		return (err);
-
-	err = dmu_adjust_send_estimate_for_indirects(ds, size.uncompressed,
-	    size.compressed, stream_compressed, sizep);
-	return (err);
-}
 
 static int receive_read_payload_and_next_header(dmu_recv_cookie_t *ra, int len,
     void *buf);

@@ -898,7 +898,7 @@ do_dump(dmu_send_cookie_t *dscp, struct send_block_record *data)
 		    zb->zb_blkid * data->datablksz >= dscp->dsc_resume_offset));
 		/* it's a level-0 block of a regular object */
 		arc_flags_t aflags = ARC_FLAG_WAIT;
-		arc_buf_t *abuf;
+		arc_buf_t *abuf = NULL;
 		uint64_t offset;
 
 		/*

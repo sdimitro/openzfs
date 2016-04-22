@@ -307,8 +307,9 @@ dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 	    drr_u.drr_checksum.drr_checksum,
 	    sizeof (zio_cksum_t), &dscp->dsc_zc);
 	*dscp->dsc_off += sizeof (dmu_replay_record_t);
-	if (dso->dso_outfunc(dscp->dsc_drr, sizeof (dmu_replay_record_t),
-	    dso->dso_arg) != 0)
+	dscp->dsc_err = dso->dso_outfunc(dscp->dsc_drr,
+	    sizeof (dmu_replay_record_t), dso->dso_arg);
+	if (dscp->dsc_err != 0)
 		return (SET_ERROR(EINTR));
 	if (payload_len != 0) {
 		*dscp->dsc_off += payload_len;
@@ -320,7 +321,9 @@ dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 			fletcher_4_incremental_native(payload, payload_len,
 			    &dscp->dsc_zc);
 		}
-		if (dso->dso_outfunc(payload, payload_len, dso->dso_arg) != 0)
+		dscp->dsc_err = dso->dso_outfunc(payload, payload_len,
+		    dso->dso_arg);
+		if (dscp->dsc_err != 0)
 			return (SET_ERROR(EINTR));
 	}
 	return (0);

@@ -2277,20 +2277,22 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag, boolean_t compressed)
 
 	/*
 	 * If the hdr's data can be shared (no byteswapping, hdr compression
-	 * matches the requested buf compression) then we share the data buffer
-	 * and set the appropriate bit in the hdr's b_flags to indicate
-	 * the hdr is sharing it's b_pdata with the arc_buf_t. Otherwise, we
-	 * allocate a new buffer to store the buf's data.
+	 * matches the requested buf compression, hdr's data is not currently
+	 * being used in an L2ARC write) then we share the data buffer and set
+	 * the appropriate bit in the hdr's b_flags to indicate the hdr is
+	 * sharing it's b_pdata with the arc_buf_t. Otherwise, we allocate a new
+	 * buffer to store the buf's data.
 	 */
 	if (hdr->b_l1hdr.b_byteswap == DMU_BSWAP_NUMFUNCS && compressed &&
-	    HDR_GET_COMPRESS(hdr) != ZIO_COMPRESS_OFF) {
+	    HDR_GET_COMPRESS(hdr) != ZIO_COMPRESS_OFF && !HDR_L2_WRITING(hdr)) {
 		ASSERT(!HDR_SHARED_DATA(hdr));
 		buf->b_data = hdr->b_l1hdr.b_pdata;
 		buf->b_prop_flags =
 		    ARC_BUF_FLAG_SHARED | ARC_BUF_FLAG_COMPRESSED;
 		arc_hdr_set_flags(hdr, ARC_FLAG_SHARED_DATA);
 	} else if (hdr->b_l1hdr.b_byteswap == DMU_BSWAP_NUMFUNCS &&
-	    !compressed && HDR_GET_COMPRESS(hdr) == ZIO_COMPRESS_OFF) {
+	    !compressed && HDR_GET_COMPRESS(hdr) == ZIO_COMPRESS_OFF &&
+	    !HDR_L2_WRITING(hdr)) {
 		ASSERT(!HDR_SHARED_DATA(hdr));
 		ASSERT(ARC_BUF_LAST(buf));
 		buf->b_data = hdr->b_l1hdr.b_pdata;
@@ -2400,11 +2402,23 @@ arc_loan_inuse_buf(arc_buf_t *buf, void *tag)
 }
 
 static void
+l2arc_free_data_on_write(void *data, size_t size, arc_buf_contents_t type)
+{
+	l2arc_data_free_t *df = kmem_alloc(sizeof (*df), KM_SLEEP);
+
+	df->l2df_data = data;
+	df->l2df_size = size;
+	df->l2df_type = type;
+	mutex_enter(&l2arc_free_on_write_mtx);
+	list_insert_head(l2arc_free_on_write, df);
+	mutex_exit(&l2arc_free_on_write_mtx);
+}
+
+static void
 arc_hdr_free_on_write(arc_buf_hdr_t *hdr)
 {
 	arc_state_t *state = hdr->b_l1hdr.b_state;
 	arc_buf_contents_t type = arc_buf_type(hdr);
-	l2arc_data_free_t *df;
 	uint64_t size = arc_hdr_size(hdr);
 
 	/* protected by hash lock, if in the hash table */
@@ -2417,13 +2431,7 @@ arc_hdr_free_on_write(arc_buf_hdr_t *hdr)
 	}
 	(void) refcount_remove_many(&state->arcs_size, size, hdr);
 
-	df = kmem_alloc(sizeof (*df), KM_SLEEP);
-	df->l2df_data = hdr->b_l1hdr.b_pdata;
-	df->l2df_size = size;
-	df->l2df_type = type;
-	mutex_enter(&l2arc_free_on_write_mtx);
-	list_insert_head(l2arc_free_on_write, df);
-	mutex_exit(&l2arc_free_on_write_mtx);
+	l2arc_free_data_on_write(hdr->b_l1hdr.b_pdata, size, type);
 }
 
 /*
@@ -4179,8 +4187,7 @@ arc_get_data_buf(arc_buf_hdr_t *hdr, uint64_t size, void *tag)
 }
 
 /*
- * Free the arc data buffer.  If it is an l2arc write in progress,
- * the buffer is placed on l2arc_free_on_write to be freed later.
+ * Free the arc data buffer.
  */
 static void
 arc_free_data_buf(arc_buf_hdr_t *hdr, void *data, uint64_t size, void *tag)
@@ -6715,8 +6722,32 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz)
 
 			(void) refcount_add_many(&dev->l2ad_alloc, size, hdr);
 
+			/*
+			 * Normally the L2ARC can use the hdr's data, but if
+			 * we're sharing data between the hdr and one of its
+			 * bufs, L2ARC needs its own copy of the data so that
+			 * the ZIO below can't race with the buf consumer. To
+			 * ensure that this copy will be available for the
+			 * lifetime of the ZIO and be cleaned up afterwards, we
+			 * add it to the l2arc_free_on_write queue.
+			 */
+			void *to_write;
+			if (!HDR_SHARED_DATA(hdr)) {
+				to_write = hdr->b_l1hdr.b_pdata;
+			} else {
+				arc_buf_contents_t type = arc_buf_type(hdr);
+				if (type == ARC_BUFC_METADATA) {
+					to_write = zio_buf_alloc(size);
+				} else {
+					ASSERT3U(type, ==, ARC_BUFC_DATA);
+					to_write = zio_data_buf_alloc(size);
+				}
+
+				bcopy(hdr->b_l1hdr.b_pdata, to_write, size);
+				l2arc_free_data_on_write(to_write, size, type);
+			}
 			wzio = zio_write_phys(pio, dev->l2ad_vdev,
-			    hdr->b_l2hdr.b_daddr, size, hdr->b_l1hdr.b_pdata,
+			    hdr->b_l2hdr.b_daddr, size, to_write,
 			    ZIO_CHECKSUM_OFF, NULL, hdr,
 			    ZIO_PRIORITY_ASYNC_WRITE,
 			    ZIO_FLAG_CANFAIL, B_FALSE);

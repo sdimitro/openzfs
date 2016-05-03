@@ -14,8 +14,6 @@
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-verify_runnable "global"
-
 . $STF_SUITE/tests/functional/channel_program/channel_common.kshlib
 
 #
@@ -23,8 +21,10 @@ verify_runnable "global"
 #	run C program which tests passing different nvlists to lua
 #
 
+verify_runnable "global"
+
 log_assert "nvlist arguments can be passed to LUA."
 
-log_must $ZCP_ROOT/lua_core/nvlist_to_lua.exe $TESTPOOL
+log_must nvlist_to_lua $TESTPOOL
 
 log_pass "nvlist arguments can be passed to LUA."

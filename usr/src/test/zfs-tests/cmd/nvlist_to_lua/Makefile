@@ -10,12 +10,13 @@
 #
 
 #
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-include $(SRC)/Makefile.master
+PROG = nvlist_to_lua
 
-ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TARGETDIR = $(ROOTOPTPKG)/tests/functional/online_offline
+include $(SRC)/cmd/Makefile.cmd
 
-include $(SRC)/test/zfs-tests/Makefile.com
+LDLIBS += -lzfs_core -lnvpair
+
+include ../Makefile.subdirs

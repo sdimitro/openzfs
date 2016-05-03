@@ -16,43 +16,6 @@
 include $(SRC)/Makefile.master
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TESTDIR = $(ROOTOPTPKG)/tests/functional/redacted_send
+TARGETDIR = $(ROOTOPTPKG)/tests/functional/redacted_send
 
-PROGS = cleanup \
-	redacted_compressed \
-	redacted_contents  \
-	redacted_disabled_feature \
-	redacted_deleted \
-	redacted_embedded \
-	redacted_holes \
-	redacted_incrementals \
-	redacted_largeblocks \
-	redacted_many_clones \
-	redacted_mixed_recsize \
-	redacted_mounts \
-	redacted_negative \
-	redacted_origin \
-	redacted_resume \
-	redacted_volume \
-	setup
-
-FILES = redacted.cfg \
-	redacted.kshlib
-
-CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
-$(CMDS) := FILEMODE = 0555
-
-all lint clean clobber:
-
-install: $(CMDS)
-
-$(CMDS): $(TESTDIR)
-
-$(TESTDIR):
-	$(INS.dir)
-
-$(TESTDIR)/%: %.ksh
-	$(INS.rename)
-
-$(TESTDIR)/%: %
-	$(INS.file)
+include $(SRC)/test/zfs-tests/Makefile.com

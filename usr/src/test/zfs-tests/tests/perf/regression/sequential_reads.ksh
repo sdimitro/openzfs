@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -69,9 +69,9 @@ log_must $FIO $FIO_SCRIPTS/mkfiles.fio
 # Set up the scripts and output files that will log performance data.
 lun_list=$(pool_to_lun_list $PERFPOOL)
 log_note "Collecting backend IO stats with lun list $lun_list"
-export collect_scripts=("$PERF_SCRIPTS/io.d $PERFPOOL $lun_list 1" "io"
-    "$PERF_SCRIPTS/prefetch_io.d $PERFPOOL 1" "prefetch" "$VMSTAT 1" "vmstat"
-    "$MPSTAT 1" "mpstat" "$IOSTAT -xcnz 1" "iostat")
+export collect_scripts=("dtrace -s $PERF_SCRIPTS/io.d $PERFPOOL $lun_list 1"
+    "io" "dtrace -Cs $PERF_SCRIPTS/prefetch_io.d $PERFPOOL 1" "prefetch"
+    "$VMSTAT 1" "vmstat" "$MPSTAT 1" "mpstat" "$IOSTAT -xcnz 1" "iostat")
 
 log_note "Sequential reads with $PERF_RUNTYPE settings"
 do_fio_run sequential_reads.fio $FALSE $TRUE

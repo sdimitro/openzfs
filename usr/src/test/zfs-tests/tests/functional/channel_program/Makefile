@@ -13,30 +13,10 @@
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
-
 include $(SRC)/Makefile.master
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TESTDIR = $(ROOTOPTPKG)/tests/functional/channel_program
+TARGETDIR = $(ROOTOPTPKG)/tests/functional/channel_program
 
-PROGS = channel_common.kshlib
-
-CMDS = $(PROGS:%=$(TESTDIR)/%)
-$(CMDS) := FILEMODE = 0555
-
-all lint clean clobber:
-
-install: $(CMDS)
-
-$(CMDS): $(TESTDIR)
-
-$(TESTDIR):
-	$(INS.dir)
-
-$(TESTDIR)/%: %
-	$(INS.file)
-
-SUBDIRS = lua_core synctask_core
-
+include $(SRC)/test/zfs-tests/Makefile.com
 include $(SRC)/test/Makefile.com

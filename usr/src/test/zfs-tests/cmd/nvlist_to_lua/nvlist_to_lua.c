@@ -287,7 +287,7 @@ run_tests(void)
 int
 main(int argc, const char *argv[])
 {
-	libzfs_core_init();
+	(void) libzfs_core_init();
 
 	if (argc != 2) {
 		(void) printf("usage: %s <pool>\n",

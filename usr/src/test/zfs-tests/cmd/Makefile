@@ -13,26 +13,5 @@
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
-.PARALLEL: $(SUBDIRS)
-
-SUBDIRS = chg_usr_exec \
-	devname2devid \
-	dir_rd_update \
-	file_check \
-	file_trunc \
-	file_write \
-	get_diff \
-	getholes \
-	largest_file \
-	mkbusy \
-	mkfiles \
-	mkholes \
-	mktree \
-	mmapwrite \
-	randfree_file \
-	readmmap \
-	rename_dir \
-	rm_lnkcnt_zero_file \
-	scripts
-
+include $(SRC)/test/zfs-tests/Makefile.com
 include $(SRC)/test/Makefile.com

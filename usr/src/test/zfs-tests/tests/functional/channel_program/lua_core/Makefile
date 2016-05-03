@@ -13,56 +13,9 @@
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-include $(SRC)/cmd/Makefile.cmd
+include $(SRC)/Makefile.master
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TESTDIR = $(ROOTOPTPKG)/tests/functional/channel_program/lua_core
+TARGETDIR = $(ROOTOPTPKG)/tests/functional/channel_program/lua_core
 
-KSHFILES :sh= ls *.ksh
-KSHPROGS = $(KSHFILES:%.ksh=%)
-SRCS :sh= ls *.c
-CPROGS = $(SRCS:%.c=%.exe)
-PROGS = $(KSHPROGS) $(CPROGS)
-FILES :sh= ls *.zcp *.out *.err
-LDLIBS =	$(LDLIBS.cmd)
-LDLIBS += -lzfs_core -lnvpair
-C99MODE = -xc99=%all
-
-INSTPROGS = $(PROGS:%=$(TESTDIR)/%)
-INSTFILES = $(FILES:%=$(TESTDIR)/%)
-
-OBJS = $(SRCS:%.c=%.o)
-
-$(INSTPROGS) := FILEMODE = 0555
-$(INSTFILES) := FILEMODE = 0444
-
-all lint: $(CPROGS)
-	echo SRCS: $(SRCS)
-	echo PROGS: $(PROGS)
-
-install: $(INSTPROGS) $(INSTFILES)
-
-$(INSTPROGS): $(TESTDIR)
-$(INSTFILES): $(TESTDIR)
-
-$(TESTDIR):
-	$(INS.dir)
-
-$(TESTDIR)/%: %.ksh
-	$(INS.rename)
-
-$(TESTDIR)/%: %
-	$(INS.file)
-
-%.o: ../%.c
-	$(COMPILE.c) $<
-
-%.exe: %.o
-	$(LINK.c) $< -o $@ $(LDLIBS)
-	$(POST_PROCESS)
-
-clobber: clean
-	-$(RM) $(PROGS)
-
-clean:
-	-$(RM) $(OBJS)
+include $(SRC)/test/zfs-tests/Makefile.com

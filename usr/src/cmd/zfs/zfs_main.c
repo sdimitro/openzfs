@@ -3845,6 +3845,7 @@ zfs_do_send(int argc, char **argv)
 			(void) fprintf(stderr, gettext("too many arguments\n"));
 			usage(B_FALSE);
 		}
+		redactbook = argv[0];
 	} else if (redactnv != NULL) {
 		if (argc < 2) {
 			(void) fprintf(stderr,
@@ -3868,6 +3869,18 @@ zfs_do_send(int argc, char **argv)
 		}
 	}
 
+	if (redactbook != NULL) {
+		char *off = strrchr(redactbook, '#');
+		if ((off != NULL && off != redactbook) ||
+		    strchr(redactbook, '@') != NULL) {
+			(void) fprintf(stderr,
+			    gettext("invalid redaction bookmark name"));
+			usage(B_FALSE);
+		}
+		if (off != NULL && off == redactbook)
+			redactbook++;
+	}
+
 	if (flags.rebase && fromname == NULL) {
 		(void) fprintf(stderr,
 		    gettext("Error: Specified rebase without specifying an \n"
@@ -3884,7 +3897,7 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		return (zfs_send_resume(g_zfs, &flags, STDOUT_FILENO,
-		    resume_token, argv[0]));
+		    resume_token, redactbook));
 	}
 
 	/*
@@ -7278,7 +7291,7 @@ zfs_do_channel_program(int argc, char **argv)
 	 * Any remaining arguments are passed as arguments to the lua script as
 	 * a string array:
 	 * {
-	 *     "argv" -> [ "arg 1", ... "arg n" ],
+	 *	"argv" -> [ "arg 1", ... "arg n" ],
 	 * }
 	 */
 	nvlist_t *argnvl = fnvlist_alloc();

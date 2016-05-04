@@ -653,6 +653,8 @@ main(int argc, char *argv[])
 	    (u_longlong_t)drr_record_count[DRR_FREE]);
 	(void) printf("\tTotal DRR_SPILL records = %lld\n",
 	    (u_longlong_t)drr_record_count[DRR_SPILL]);
+	(void) printf("\tTotal DRR_REDACT records = %lld\n",
+	    (u_longlong_t)drr_record_count[DRR_REDACT]);
 	(void) printf("\tTotal records = %lld\n",
 	    (u_longlong_t)total_records);
 	(void) printf("\tTotal write size = %lld (0x%llx)\n",

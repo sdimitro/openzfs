@@ -130,10 +130,8 @@ static nvlist_t *
 spa_nvlist_lookup_by_guid(nvlist_t **nvpp, int count, uint64_t target_guid)
 {
 	for (int i = 0; i < count; i++) {
-		uint64_t guid;
-
-		VERIFY(nvlist_lookup_uint64(nvpp[i], ZPOOL_CONFIG_GUID,
-		    &guid) == 0);
+		uint64_t guid =
+		    fnvlist_lookup_uint64(nvpp[i], ZPOOL_CONFIG_GUID);
 
 		if (guid == target_guid)
 			return (nvpp[i]);
@@ -319,11 +317,14 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 	 */
 	vdev_config_dirty(vd);
 
-	zfs_dbgmsg("starting removal thread for vdev %lu (%p) in %lu "
-	    "im_obj=%lu", vd->vdev_id, vd,
+	zfs_dbgmsg("starting removal thread for vdev %llu (%p) in %llu "
+	    "im_obj=%llu", vd->vdev_id, vd,
 	    dmu_tx_get_txg(tx),
 	    vic->vic_mapping_object);
 
+	spa_history_log_internal(spa, "vdev remove started", tx,
+	    "%s vdev %llu %s", spa_name(spa), vd->vdev_id,
+	    (vd->vdev_path != NULL) ? vd->vdev_path : "-");
 	/*
 	 * Setting spa_vdev_removal causes subsequent frees to call
 	 * free_from_removing_vdev().  Note that we don't need any locking
@@ -826,6 +827,9 @@ vdev_remove_complete_sync(void *arg, dmu_tx_t *tx)
 	vd->vdev_leaf_zap = 0;
 
 	spa_finish_removal(dmu_tx_pool(tx)->dp_spa, DSS_FINISHED, tx);
+	/* vd->vdev_path is not available here */
+	spa_history_log_internal(spa, "vdev remove completed",  tx,
+	    "%s vdev %llu", spa_name(spa), vd->vdev_id);
 }
 
 static void
@@ -915,7 +919,7 @@ vdev_remove_complete(vdev_t *vd)
 	txg_wait_synced(spa->spa_dsl_pool, 0);
 
 	txg = spa_vdev_enter(spa);
-	zfs_dbgmsg("finishing device removal for vdev %lu in %llu",
+	zfs_dbgmsg("finishing device removal for vdev %llu in %llu",
 	    vd->vdev_id, txg);
 
 	/*
@@ -1363,8 +1367,11 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 	vd->vdev_removing = B_FALSE;
 	vdev_config_dirty(vd);
 
-	zfs_dbgmsg("canceled device removal for vdev %lu in %llu",
+	zfs_dbgmsg("canceled device removal for vdev %llu in %llu",
 	    vd->vdev_id, dmu_tx_get_txg(tx));
+	spa_history_log_internal(spa, "vdev remove canceled", tx,
+	    "%s vdev %llu %s", spa_name(spa),
+	    vd->vdev_id, (vd->vdev_path != NULL) ? vd->vdev_path : "-");
 }
 
 int
@@ -1496,6 +1503,11 @@ spa_vdev_remove_log(vdev_t *vd, uint64_t *txg)
 
 	vdev_dirty_leaves(vd, VDD_DTL, *txg);
 	vdev_config_dirty(vd);
+
+	spa_history_log_internal(spa, "vdev remove", NULL,
+	    "%s vdev %llu (log) %s", spa_name(spa), vd->vdev_id,
+	    (vd->vdev_path != NULL) ? vd->vdev_path : "-");
+
 	spa_vdev_config_exit(spa, NULL, *txg, 0, FTAG);
 
 	*txg = spa_vdev_config_enter(spa);
@@ -1716,6 +1728,12 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 		 * in this pool.
 		 */
 		if (vd == NULL || unspare) {
+			char *nvstr = fnvlist_lookup_string(nv,
+			    ZPOOL_CONFIG_PATH);
+			spa_history_log_internal(spa, "vdev remove", NULL,
+			    "%s vdev (%s) %s", spa_name(spa),
+			    VDEV_TYPE_SPARE, nvstr);
+
 			spa_vdev_remove_aux(spa->spa_spares.sav_config,
 			    ZPOOL_CONFIG_SPARES, spares, nspares, nv);
 			spa_load_spares(spa);
@@ -1727,6 +1745,9 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 	    nvlist_lookup_nvlist_array(spa->spa_l2cache.sav_config,
 	    ZPOOL_CONFIG_L2CACHE, &l2cache, &nl2cache) == 0 &&
 	    (nv = spa_nvlist_lookup_by_guid(l2cache, nl2cache, guid)) != NULL) {
+		char *nvstr = fnvlist_lookup_string(nv, ZPOOL_CONFIG_PATH);
+		spa_history_log_internal(spa, "vdev remove", NULL,
+		    "%s vdev (%s) %s", spa_name(spa), VDEV_TYPE_L2CACHE, nvstr);
 		/*
 		 * Cache devices can always be removed.
 		 */

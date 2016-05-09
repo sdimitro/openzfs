@@ -447,7 +447,7 @@ zcp_load_list_lib(lua_State *state)
 			 * function.
 			 */
 			(void) luaL_newmetatable(state, info->name);
-			lua_pushstring(state, "__gc");
+			(void) lua_pushstring(state, "__gc");
 			lua_pushcfunction(state, info->gc);
 			lua_settable(state, -3);
 			lua_pop(state, 1);

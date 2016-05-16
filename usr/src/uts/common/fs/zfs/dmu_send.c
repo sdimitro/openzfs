@@ -161,6 +161,7 @@ struct send_thread_arg {
 	boolean_t	cancel;
 	zbookmark_phys_t resume;
 	objlist_t	*deleted_objs;
+	uint64_t	*num_blocks_visited;
 };
 
 struct redact_merge_thread_arg {
@@ -1220,6 +1221,7 @@ send_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 
 	if (sta->cancel)
 		return (SET_ERROR(EINTR));
+	atomic_inc_64(sta->num_blocks_visited);
 
 	if (sta->ignore_object != 0 && zb->zb_object == sta->ignore_object)
 		return (0);
@@ -1362,7 +1364,7 @@ redact_block_zb_compare(redact_block_phys_t *first,
  */
 static int
 redaction_list_traverse(bqueue_t *q, objset_t *os, redaction_list_t *rl,
-    zbookmark_phys_t *resume, boolean_t *cancel)
+    zbookmark_phys_t *resume, boolean_t *cancel, uint64_t *num_blocks_visited)
 {
 	objset_t *mos = spa_meta_objset(dmu_objset_spa(os));
 	redact_block_phys_t *buf;
@@ -1465,6 +1467,7 @@ redaction_list_traverse(bqueue_t *q, objset_t *os, redaction_list_t *rl,
 		}
 
 		for (uint64_t i = 0; i < redact_block_get_count(rb); i++)  {
+			atomic_inc_64(num_blocks_visited);
 			struct send_block_record *data;
 			data = kmem_zalloc(sizeof (*data), KM_SLEEP);
 			SET_BOOKMARK(&data->zb, 0,
@@ -1503,7 +1506,8 @@ send_traverse_thread(void *arg)
 		    st_arg->flags, send_cb, st_arg);
 	} else if (st_arg->redaction_list != NULL) {
 		err = redaction_list_traverse(&st_arg->q, st_arg->to_os,
-		    st_arg->redaction_list, &st_arg->resume, &st_arg->cancel);
+		    st_arg->redaction_list, &st_arg->resume, &st_arg->cancel,
+		    st_arg->num_blocks_visited);
 	}
 
 	if (err != EINTR)
@@ -1589,6 +1593,7 @@ redact_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,
 
 	if (sta->cancel)
 		return (SET_ERROR(EINTR));
+	atomic_inc_64(sta->num_blocks_visited);
 
 	/*
 	 * If we're visiting a dnode, we need to handle the case where the
@@ -3393,6 +3398,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	to_arg.flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA;
 	to_arg.to_os = NULL;
 	to_arg.redaction_list = NULL;
+	to_arg.num_blocks_visited = &dssp->dss_blocks;
 	(void) thread_create(NULL, 0, send_traverse_thread, &to_arg, 0,
 	    curproc, TS_RUN, minclsyspri);
 
@@ -3407,6 +3413,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	from_arg.flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA;
 	from_arg.to_os = os;
 	from_arg.redaction_list = from_rl;
+	from_arg.num_blocks_visited = &dssp->dss_blocks;
 
 	/*
 	 * If from_ds is null, send_traverse_thread just returns success and
@@ -3426,6 +3433,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 		arg->fromtxg = dsl_dataset_phys(to_ds)->ds_creation_txg;
 		arg->flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA;
 		arg->to_os = os;
+		arg->num_blocks_visited = &dssp->dss_blocks;
 
 		(void) thread_create(NULL, 0, redact_traverse_thread, arg, 0,
 		    curproc, TS_RUN, minclsyspri);
@@ -3753,7 +3761,6 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 	}
 
 	if (fromsnap != 0) {
-
 		err = dsl_dataset_hold_obj(dspp.dp, fromsnap, FTAG,
 		    &dspp.from_ds);
 		if (err != 0) {

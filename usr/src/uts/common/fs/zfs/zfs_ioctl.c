@@ -4526,11 +4526,12 @@ zfs_ioc_send(zfs_cmd_t *zc)
 
 /*
  * inputs:
- * zc_name	name of snapshot on which to report progress
- * zc_cookie	file descriptor of send stream
+ * zc_name		name of snapshot on which to report progress
+ * zc_cookie		file descriptor of send stream
  *
  * outputs:
- * zc_cookie	number of bytes written in send stream thus far
+ * zc_cookie		number of bytes written in send stream thus far
+ * zc_objset_type	logical size of data traversed by send thus far
  */
 static int
 zfs_ioc_send_progress(zfs_cmd_t *zc)
@@ -4565,10 +4566,14 @@ zfs_ioc_send_progress(zfs_cmd_t *zc)
 			break;
 	}
 
-	if (dsp != NULL)
-		zc->zc_cookie = *(dsp->dss_off);
-	else
+	if (dsp != NULL) {
+		zc->zc_cookie = atomic_cas_64((volatile uint64_t *)dsp->dss_off,
+		    0, 0);
+		/* This is the closest thing we have to atomic_read_64. */
+		zc->zc_objset_type = atomic_cas_64(&dsp->dss_blocks, 0, 0);
+	} else {
 		error = SET_ERROR(ENOENT);
+	}
 
 	mutex_exit(&ds->ds_sendstream_lock);
 	dsl_dataset_rele(ds, FTAG);
@@ -5609,7 +5614,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 
 	if (full_estimate) {
 		dmu_send_outparams_t out = {0};
-		offset_t off;
+		offset_t off = 0;
 		const char *book = (redactnvl == NULL ? NULL : "%dummy");
 		out.dso_outfunc = send_space_sum;
 		out.dso_arg = &space;

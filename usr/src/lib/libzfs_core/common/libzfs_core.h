@@ -74,6 +74,7 @@ int lzc_send_space(const char *, const char *, enum lzc_send_flags, uint64_t *);
 int lzc_send_space_resume_redacted(const char *, const char *,
     enum lzc_send_flags, uint64_t, uint64_t, uint64_t, nvlist_t *, int,
     uint64_t *);
+uint64_t lzc_send_progress(int);
 
 boolean_t lzc_exists(const char *);
 

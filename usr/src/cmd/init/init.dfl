@@ -1,7 +1,7 @@
 #
 # Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2011, 2016 by Delphix. All rights reserved.
 #
 # CDDL HEADER START
 #
@@ -31,5 +31,5 @@
 # be enclosed in double quotes (") or single quotes (').
 #
 TZ=UTC
-LANG=C
+LANG=en_US.UTF-8
 CMASK=022

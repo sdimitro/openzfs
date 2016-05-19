@@ -131,7 +131,7 @@ tcp_ci2buf(struct tcpConnEntryInfo_s *ci)
 	fields_buf.t_rwnd = ci->ce_rwnd;
 	fields_buf.t_mss = ci->ce_mss;
 	fields_buf.t_rto = ci->ce_rto;
-	fields_buf.t_rtt = ci->ce_rtt_sa;
+	fields_buf.t_rtt = (ci->ce_out_data_segs == 0 ? 0 : ci->ce_rtt_sa);
 	fields_buf.t_state = ci->ce_state;
 }
 

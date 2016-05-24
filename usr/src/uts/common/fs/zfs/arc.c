@@ -2448,7 +2448,7 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag, boolean_t compressed,
 	 * hdr. To ensure we notice it if this behavior changes, we assert this
 	 * here the best we can.
 	 */
-	IMPLY(compressed, !HDR_SHARED_DATA(hdr));
+	IMPLY(ARC_BUF_COMPRESSED(buf), !HDR_SHARED_DATA(hdr));
 
 	/*
 	 * If the hdr's data can be shared then we share the data buffer and

@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -64,7 +64,8 @@ done
 log_must $ZFS remap $TESTPOOL/$TESTFS
 remaptxg_before=$($ZFS get -H -o value remaptxg $TESTPOOL/$TESTFS)
 (( $? == 0 )) || log_fail "Could not get remaptxg."
-(( remaptxg_before == 0 )) || log_fail "remaptxg nonzero before a removal"
+[[ $remaptxg_before == "-" ]] || \
+    log_fail "remaptxg ($remaptxg_before) had value before a removal"
 
 log_must $ZPOOL remove $TESTPOOL $REMOVEDISK
 log_must wait_for_removal $TESTPOOL
@@ -75,7 +76,8 @@ log_mustnot vdevs_in_pool $TESTPOOL $REMOVEDISK
 #
 remaptxg_before=$($ZFS get -H -o value remaptxg $TESTPOOL/$TESTFS)
 (( $? == 0 )) || log_fail "Could not get remaptxg."
-(( remaptxg_before == 0 )) || log_fail "remaptxg nonzero before a remap"
+[[ $remaptxg_before == "-" ]] || \
+    log_fail "remaptxg ($remaptxg_before) had value before a removal"
 
 mapping_size_before=$(indirect_vdev_mapping_size $TESTPOOL)
 log_must $ZFS remap $TESTPOOL/$TESTFS

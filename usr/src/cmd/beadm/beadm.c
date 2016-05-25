@@ -24,6 +24,7 @@
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2015 by Delphix. All rights reserved.
  * Copyright 2015 Toomas Soome <tsoome@me.com>
+ * Copyright 2015 Gary Mills
  */
 
 /*
@@ -1176,8 +1177,16 @@ be_do_list(int argc, char **argv)
 		if (order == BE_SORT_UNSPECIFIED)
 			order = BE_SORT_DATE;
 
-		if (order != BE_SORT_DATE)
-			be_sort(&be_nodes, order);
+		if (order != BE_SORT_DATE) {
+			err = be_sort(&be_nodes, order);
+			if (err != BE_SUCCESS) {
+				(void) fprintf(stderr, _("Unable to sort Boot "
+				    "Environment\n"));
+				(void) fprintf(stderr, "%s\n",
+				    be_err_to_str(err));
+				break;
+			}
+		}
 
 		print_nodes(be_name, dsets, snaps, parsable, be_nodes);
 		break;

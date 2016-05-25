@@ -1677,7 +1677,9 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 	 * (if they were partially freed) -- they must be dirtied, even if
 	 * they do not exist on disk yet.  The interior blocks will
 	 * be freed by free_children(), so they will not actually be written.
-	 * However, dirtying them serves two purposes:
+	 *
+	 * Even though these interior blocks will not be written, we
+	 * dirty them for two reasons:
 	 *
 	 *  - It ensures that the indirect blocks remain in memory until
 	 *    syncing context.  (They have already been prefetched by

@@ -4577,9 +4577,6 @@ spa_import(const char *pool, nvlist_t *config, nvlist_t *props, uint64_t flags)
 		spa_write_cachefile(spa, B_FALSE, B_TRUE);
 		zfs_dbgmsg("spa_import: verbatim import of %s", pool);
 		mutex_exit(&spa_namespace_lock);
-
-		spa_event_notify(spa, NULL, ESC_ZFS_POOL_IMPORT);
-
 		return (0);
 	}
 
@@ -4712,8 +4709,6 @@ spa_import(const char *pool, nvlist_t *config, nvlist_t *props, uint64_t flags)
 
 	mutex_exit(&spa_namespace_lock);
 	spa_history_log_version(spa, "import");
-
-	spa_event_notify(spa, NULL, ESC_ZFS_POOL_IMPORT);
 
 	return (0);
 }
@@ -5078,8 +5073,6 @@ spa_vdev_add(spa_t *spa, nvlist_t *nvroot)
 	spa_config_update(spa, SPA_CONFIG_UPDATE_POOL);
 	mutex_exit(&spa_namespace_lock);
 
-	spa_event_notify(spa, vd, ESC_ZFS_VDEV_ADD);
-
 	return (0);
 }
 
@@ -5293,8 +5286,6 @@ spa_vdev_attach(spa_t *spa, uint64_t guid, nvlist_t *nvroot, int replacing)
 
 	if (spa->spa_bootfs)
 		spa_event_notify(spa, newvd, ESC_ZFS_BOOTFS_VDEV_ATTACH);
-
-	spa_event_notify(spa, newvd, ESC_ZFS_VDEV_ATTACH);
 
 	return (0);
 }

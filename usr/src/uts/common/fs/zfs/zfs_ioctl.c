@@ -5456,6 +5456,9 @@ zfs_ioc_space_snaps(const char *lastsnap, nvlist_t *innvl, nvlist_t *outnvl)
  *         if present, generate a redaction bookmark
  *     (optional) "redactsnaps" -> (nvlist, values ignored)
  *         if present, generate a redacted send stream
+ *     (optional) "redactlist_book" -> (string)
+ *         if present, use this bookmark's redaction list to generate a redacted
+ *         send stream
  * }
  *
  * outnvl is unused
@@ -5475,6 +5478,7 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	uint64_t resumeoff = 0;
 	nvlist_t *redactnvl = NULL;
 	char *redactbook = NULL;
+	char *redactlist_book = NULL;
 
 	error = nvlist_lookup_int32(innvl, "fd", &fd);
 	if (error != 0)
@@ -5491,10 +5495,14 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 
 	(void) nvlist_lookup_nvlist(innvl, "redactsnaps", &redactnvl);
 	(void) nvlist_lookup_string(innvl, "redactbook", &redactbook);
+	(void) nvlist_lookup_string(innvl, "redactlist_book", &redactlist_book);
 
 	file_t *fp = getf(fd);
 	if (fp == NULL)
 		return (SET_ERROR(EBADF));
+
+	if ((redactbook == NULL) != (redactnvl == NULL))
+		return (SET_ERROR(EINVAL));
 
 	off = fp->f_offset;
 	dmu_send_outparams_t out = {0};
@@ -5502,7 +5510,8 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	out.dso_arg = fp->f_vnode;
 	out.dso_dryrun = B_FALSE;
 	error = dmu_send(snapname, fromname, embedok, largeblockok, compressok,
-	    resumeobj, resumeoff, redactnvl, redactbook, fd, &off, &out);
+	    resumeobj, resumeoff, redactnvl, redactbook, redactlist_book, fd,
+	    &off, &out);
 
 	if (VOP_SEEK(fp->f_vnode, fp->f_offset, &off, NULL) == 0)
 		fp->f_offset = off;
@@ -5548,6 +5557,8 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	dsl_dataset_t *fromsnap = NULL;
 	int error;
 	char *fromname = NULL;
+	char *redactbook = NULL;
+	char *redactlist_book = NULL;
 	/* LINTED E_FUNC_SET_NOT_USED */
 	boolean_t largeblockok;
 	/* LINTED E_FUNC_SET_NOT_USED */
@@ -5578,13 +5589,22 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	boolean_t from = (nvlist_lookup_string(innvl, "from", &fromname) == 0);
 	boolean_t redact = (nvlist_lookup_nvlist(innvl, "redact_snaps",
 	    &redactnvl) == 0);
+	boolean_t book = (nvlist_lookup_string(innvl, "redactbook",
+	    &redactbook) == 0);
+	boolean_t altbook = (nvlist_lookup_string(innvl, "redactlist_book",
+	    &redactlist_book) == 0);
 
+	if (book && !redact) {
+		dsl_dataset_rele(tosnap, FTAG);
+		dsl_pool_rele(dp, FTAG);
+		return (SET_ERROR(EINVAL));
+	}
 
 	(void) nvlist_lookup_uint64(innvl, "resume_object", &resumeobj);
 	(void) nvlist_lookup_uint64(innvl, "resume_offset", &resumeoff);
 	(void) nvlist_lookup_uint64(innvl, "bytes", &resume_bytes);
 
-	if (redact || embedok) {
+	if (redact || embedok || altbook) {
 		full_estimate = B_TRUE;
 	} else if (from) {
 		if (strchr(fromname, '#')) {
@@ -5615,7 +5635,6 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	if (full_estimate) {
 		dmu_send_outparams_t out = {0};
 		offset_t off = 0;
-		const char *book = (redactnvl == NULL ? NULL : "%dummy");
 		out.dso_outfunc = send_space_sum;
 		out.dso_arg = &space;
 		out.dso_dryrun = B_TRUE;
@@ -5626,8 +5645,8 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 		dsl_dataset_rele(tosnap, FTAG);
 		dsl_pool_rele(dp, FTAG);
 		error = dmu_send(snapname, fromname, embedok, largeblockok,
-		    compressok, resumeobj, resumeoff, redactnvl, book, fd,
-		    &off, &out);
+		    compressok, resumeobj, resumeoff, redactnvl, redactbook,
+		    redactlist_book, fd, &off, &out);
 	} else {
 		error = dmu_send_estimate_fast(tosnap, fromsnap, compressok,
 		    &space);

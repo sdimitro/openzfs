@@ -40,6 +40,7 @@ log_onexit redacted_cleanup $sendfs
 
 log_must eval "zfs send -nvP --redact '' $sendfs@snap book | \
     grep '^size' | awk '{print \$2}' >$size"
+log_must zfs destroy ${sendfs}#book
 log_must eval "zfs send --redact '' $sendfs@snap book | wc --bytes \
     >$size2"
 bytes1=$(cat $size | tr -d '[[:space:]]')

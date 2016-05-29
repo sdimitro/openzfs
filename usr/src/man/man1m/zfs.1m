@@ -172,9 +172,9 @@
 .Ar snapshot
 .Nm
 .Cm send
-.Op Fl Lce
+.Op Fl DLPcenpv
 .Oo Oo Fl b Oc
-.Fl i Ar snapshot
+.Fl i Ar snapshot Ns
 .No | Ns Ar bookmark
 .Oc
 .Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot
@@ -182,10 +182,16 @@
 .Cm send
 .Fl -redact
 .Qo Qc Ns | Ns Ar snapshot Ns Oo , Ns Ar snapshot Oc Ns ...
-.Op Fl LPce
-.Op Fl i Ar redaction_bookmark
+.Op Fl DLPcenpv
+.Op Fl i Ar snapshot Ns | Ns Ar bookmark
 .Ar snapshot
 .Ar redaction_bookmark_name
+.Nm
+.Cm send
+.Fl -redact-bookmark Ar redaction_bookmark
+.Op Fl DLPcenpv
+.Op Fl i Ar snapshot Ns | Ns Ar bookmark
+.Ar snapshot
 .Nm
 .Cm send
 .Op Fl Penv
@@ -2731,7 +2737,7 @@ origin, etc.
 .No ...
 .Op Fl LPce
 .br
-.Op Fl i Ar redaction_bookmark
+.Op Fl i Ar snapshot Ns | Ns Ar bookmark
 .Ar snapshot
 .Ar redaction_bookmark_name
 .Xc
@@ -2807,6 +2813,19 @@ These restrictions are detected and enforced by \fBzfs receive\fR; a
 redacted send stream will contain the list of snapshots that the stream is
 redacted with respsect to. These are stored with the redacted snapshot, and
 are used to detect and correctly handle the cases above.
+.It Xo
+.Nm
+.Cm send
+.Fl -redact-bookmark Ar redaction_bookmark
+.Op Fl DLPcenpv
+.Op Fl i Ar snapshot Ns | Ns Ar bookmark
+.Ar snapshot
+.Xc
+Similar to sends with --redact; however, instead of using a list of redaction
+snapshots to calculate the blocks to be redacted, we use the list of blocks in
+the redaction bookmark.  This redaction bookmark must have been created by doing
+a redacted send of the snapshot we're sending, or by doing a size estimate of
+such a send.
 .It Xo
 .Nm
 .Cm send

@@ -413,19 +413,32 @@ dsl_bookmark_fetch_props(dsl_pool_t *dp, zfs_bookmark_phys_t *bmark_phys,
 		dsl_prop_nvlist_add_uint64(out_props,
 		    ZFS_PROP_CREATION, bmark_phys->zbm_creation_time);
 	}
-	if (props == NULL || nvlist_exists(props, "redact_snaps")) {
+	if (props == NULL || nvlist_exists(props, "redact_snaps") ||
+	    nvlist_exists(props, "redact_complete")) {
 		redaction_list_t *rl;
 		int err = dsl_redaction_list_hold_obj(dp,
 		    bmark_phys->zbm_redaction_obj, FTAG, &rl);
 		if (err == 0) {
-			nvlist_t *nvl;
-			nvl = fnvlist_alloc();
-			fnvlist_add_uint64_array(nvl, ZPROP_VALUE,
-			    rl->rl_phys->rlp_snaps,
-			    rl->rl_phys->rlp_num_snaps);
-			fnvlist_add_nvlist(out_props, "redact_snaps",
-			    nvl);
-			nvlist_free(nvl);
+			if (nvlist_exists(props, "redact_snaps")) {
+				nvlist_t *nvl;
+				nvl = fnvlist_alloc();
+				fnvlist_add_uint64_array(nvl, ZPROP_VALUE,
+				    rl->rl_phys->rlp_snaps,
+				    rl->rl_phys->rlp_num_snaps);
+				fnvlist_add_nvlist(out_props, "redact_snaps",
+				    nvl);
+				nvlist_free(nvl);
+			}
+			if (nvlist_exists(props, "redact_complete")) {
+				nvlist_t *nvl;
+				nvl = fnvlist_alloc();
+				fnvlist_add_boolean_value(nvl, ZPROP_VALUE,
+				    rl->rl_phys->rlp_last_blkid == UINT64_MAX &&
+				    rl->rl_phys->rlp_last_object == UINT64_MAX);
+				fnvlist_add_nvlist(out_props, "redact_complete",
+				    nvl);
+				nvlist_free(nvl);
+			}
 			dsl_redaction_list_rele(rl, FTAG);
 		}
 	}
@@ -740,6 +753,7 @@ dsl_redaction_list_hold_obj(dsl_pool_t *dp, uint64_t rlobj, void *tag,
 		rl->rl_dbuf = dbuf;
 		rl->rl_object = rlobj;
 		rl->rl_phys = dbuf->db_data;
+		rl->rl_mos = dp->dp_meta_objset;
 		refcount_create(&rl->rl_longholds);
 		dmu_buf_init_user(&rl->rl_dbu, redaction_list_evict,
 		    &rl->rl_dbuf);
@@ -751,4 +765,182 @@ dsl_redaction_list_hold_obj(dsl_pool_t *dp, uint64_t rlobj, void *tag,
 	}
 	*rlp = rl;
 	return (0);
+}
+
+static inline unsigned int
+redact_block_buf_num_entries(unsigned int size)
+{
+	return (size / sizeof (redact_block_phys_t));
+}
+
+/*
+ * This function calculates the offset of the last entry in the array of
+ * redact_block_phys_t.  If we're reading the redaction list into buffers of
+ * size bufsize, then for all but the last buffer, the last valid entry in the
+ * array will be the last entry in the array.  However, for the last buffer, any
+ * amount of it may be filled.  Thus, we check to see if we're looking at the
+ * last buffer in the redaction list, and if so, we return the total number of
+ * entries modulo the number of entries per buffer.  Otherwise, we return the
+ * number of entries per buffer minus one.
+ */
+static inline unsigned int
+last_entry(redaction_list_t *rl, unsigned int bufsize, uint64_t bufid)
+{
+	if (bufid == (rl->rl_phys->rlp_num_entries - 1) /
+	    redact_block_buf_num_entries(bufsize)) {
+		return ((rl->rl_phys->rlp_num_entries - 1) %
+		    redact_block_buf_num_entries(bufsize));
+	}
+	return (redact_block_buf_num_entries(bufsize) - 1);
+}
+
+/*
+ * Compare the redact_block_phys_t to the bookmark. If the last block in the
+ * redact_block_phys_t is before the bookmark, return -1.  If the first block in
+ * the redact_block_phys_t is after the bookmark, return 1.  Otherwise, the
+ * bookmark is inside the range of the redact_block_phys_t, and we return 0.
+ */
+static int
+redact_block_zb_compare(redact_block_phys_t *first,
+    zbookmark_phys_t *second)
+{
+	/*
+	 * If the block_phys is for a previous object, or the last block in the
+	 * block_phys is strictly before the block in the bookmark, the
+	 * block_phys is earlier.
+	 */
+	if (first->rbp_object < second->zb_object ||
+	    (first->rbp_object == second->zb_object &&
+	    first->rbp_blkid + (redact_block_get_count(first) - 1) <
+	    second->zb_blkid))
+		return (-1);
+
+	/*
+	 * If the bookmark is for a previous object, or the block in the
+	 * bookmark is strictly before the first block in the block_phys, the
+	 * bookmark is earlier.
+	 */
+	if (first->rbp_object > second->zb_object ||
+	    (first->rbp_object == second->zb_object &&
+	    first->rbp_blkid > second->zb_blkid))
+		return (1);
+
+	return (0);
+}
+
+/*
+ * Traverse the redaction list in the provided object, and call the callback for
+ * each entry we find. Don't call the callback for any records before resume.
+ */
+int
+dsl_redaction_list_traverse(redaction_list_t *rl, zbookmark_phys_t *resume,
+    rl_traverse_callback_t cb, void *arg)
+{
+	objset_t *mos = rl->rl_mos;
+	redact_block_phys_t *buf;
+	unsigned int bufsize = SPA_OLD_MAXBLOCKSIZE;
+	int err = 0;
+
+	if (rl->rl_phys->rlp_last_object != UINT64_MAX ||
+	    rl->rl_phys->rlp_last_blkid != UINT64_MAX) {
+		/*
+		 * When we finish a send, we update the last object and offset
+		 * to UINT64_MAX.  If a send fails partway through, the last
+		 * object and offset will have some other value, indicating how
+		 * far the send got. The redaction list must be complete before
+		 * it can be traversed, so return EINVAL if the last object and
+		 * blkid are not set to UINT64_MAX.
+		 */
+		return (EINVAL);
+	}
+
+	/*
+	 * Binary search for the point to resume from.  The goal is to minimize
+	 * the number of disk reads we have to perform.
+	 */
+	buf = kmem_alloc(bufsize, KM_SLEEP);
+	uint64_t maxbufid = (rl->rl_phys->rlp_num_entries - 1) /
+	    redact_block_buf_num_entries(bufsize);
+	uint64_t minbufid = 0;
+	while (resume != NULL && maxbufid - minbufid >= 1) {
+		ASSERT3U(maxbufid, >, minbufid);
+		uint64_t midbufid = minbufid + ((maxbufid - minbufid) / 2);
+		err = dmu_read(mos, rl->rl_object, midbufid * bufsize, bufsize,
+		    buf, DMU_READ_NO_PREFETCH);
+		if (err != 0)
+			break;
+
+		int cmp0 = redact_block_zb_compare(&buf[0], resume);
+		int cmpn = redact_block_zb_compare(
+		    &buf[last_entry(rl, bufsize, maxbufid)], resume);
+
+		/*
+		 * If the first block is before or equal to the resume point,
+		 * and the last one is equal or after, then the resume point is
+		 * in this buf, and we should start here.
+		 */
+		if (cmp0 <= 0 && cmpn >= 0)
+			break;
+
+		if (cmp0 > 0)
+			maxbufid = midbufid - 1;
+		else if (cmpn < 0)
+			minbufid = midbufid + 1;
+		else
+			panic("No progress in binary search for resume point");
+	}
+
+	for (uint64_t curidx = minbufid * redact_block_buf_num_entries(bufsize);
+	    err == 0 && curidx < rl->rl_phys->rlp_num_entries;
+	    curidx++) {
+		/*
+		 * We read in the redaction list one block at a time.  Once we
+		 * finish with all the entries in a given block, we read in a
+		 * new one.  The predictive prefetcher will take care of any
+		 * prefetching, and this code shouldn't be the bottleneck, so we
+		 * don't need to do manual prefetching.
+		 */
+		if (curidx % redact_block_buf_num_entries(bufsize) == 0) {
+			err = dmu_read(mos, rl->rl_object, curidx *
+			    sizeof (*buf), bufsize, buf,
+			    DMU_READ_PREFETCH);
+			if (err != 0)
+				break;
+		}
+		redact_block_phys_t *rb = &buf[curidx %
+		    redact_block_buf_num_entries(bufsize)];
+		/*
+		 * If resume is non-null, we should either not send the data, or
+		 * null out resume so we don't have to keep doing these
+		 * comparisons.
+		 */
+		if (resume != NULL) {
+			if (redact_block_zb_compare(rb, resume) < 0) {
+				continue;
+			} else {
+				/*
+				 * If the place to resume is in the middle of
+				 * the range described by this
+				 * redact_block_phys, then modify the
+				 * redact_block_phys in memory so we generate
+				 * the right records.
+				 */
+				if (resume->zb_object == rb->rbp_object &&
+				    resume->zb_blkid > rb->rbp_blkid) {
+					uint64_t diff = resume->zb_blkid -
+					    rb->rbp_blkid;
+					rb->rbp_blkid = resume->zb_blkid;
+					redact_block_set_count(rb,
+					    redact_block_get_count(rb) - diff);
+				}
+				resume = NULL;
+			}
+		}
+
+		if (cb(rb, arg) != 0)
+			break;
+	}
+
+	kmem_free(buf, bufsize);
+	return (err);
 }

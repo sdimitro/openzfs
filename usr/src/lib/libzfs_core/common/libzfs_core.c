@@ -487,15 +487,15 @@ lzc_send(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags)
 {
 	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0,
-	    NULL, NULL));
+	    NULL));
 }
 
 int
 lzc_send_redacted(const char *snapname, const char *from, int fd,
-    enum lzc_send_flags flags, nvlist_t *redactnv, const char *redactbook)
+    enum lzc_send_flags flags, lzc_redact_params_t *lrpp)
 {
 	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0,
-	    redactnv, redactbook));
+	    lrpp));
 }
 
 int
@@ -503,7 +503,7 @@ lzc_send_resume(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff)
 {
 	return (lzc_send_resume_redacted(snapname, from, fd, flags, resumeobj,
-	    resumeoff, NULL, NULL));
+	    resumeoff, NULL));
 }
 
 /*
@@ -521,13 +521,10 @@ lzc_send_resume(const char *snapname, const char *from, int fd,
 int
 lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
-    nvlist_t *redactnv, const char *redactbook)
+    lzc_redact_params_t *lrpp)
 {
 	nvlist_t *args;
 	int err;
-	EQUIV(redactnv, redactbook);
-	ASSERT(!((resumeobj == 0 && resumeoff == 0) &&
-	    (redactnv == NULL && redactbook == NULL)));
 
 	args = fnvlist_alloc();
 	fnvlist_add_int32(args, "fd", fd);
@@ -543,9 +540,16 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 		fnvlist_add_uint64(args, "resume_object", resumeobj);
 		fnvlist_add_uint64(args, "resume_offset", resumeoff);
 	}
-	if (redactnv != NULL) {
-		fnvlist_add_nvlist(args, "redactsnaps", redactnv);
-		fnvlist_add_string(args, "redactbook", redactbook);
+	if (lrpp != NULL) {
+		if (lrpp->lrp_type == LRP_LIST) {
+			fnvlist_add_nvlist(args, "redactsnaps",
+			    lrpp->lrp_u.lro_list.lrol_redactsnaps);
+			fnvlist_add_string(args, "redactbook",
+			    lrpp->lrp_u.lro_list.lrol_book_to_create);
+		} else if (lrpp->lrp_type == LRP_BOOKMARK) {
+			fnvlist_add_string(args, "redactlist_book",
+			    lrpp->lrp_u.lro_bookmark.lrob_book_to_redact_with);
+		}
 	}
 
 	err = lzc_ioctl(ZFS_IOC_SEND_NEW, snapname, args, NULL);
@@ -572,7 +576,7 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 int
 lzc_send_space_resume_redacted(const char *snapname, const char *from,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
-    uint64_t resume_bytes, nvlist_t *redact_snaps, int fd, uint64_t *spacep)
+    uint64_t resume_bytes, lzc_redact_params_t *lrpp, int fd, uint64_t *spacep)
 {
 	nvlist_t *args;
 	nvlist_t *result;
@@ -587,15 +591,25 @@ lzc_send_space_resume_redacted(const char *snapname, const char *from,
 		fnvlist_add_boolean(args, "embedok");
 	if (flags & LZC_SEND_FLAG_COMPRESS)
 		fnvlist_add_boolean(args, "compressok");
-	if (redact_snaps != NULL)
-		fnvlist_add_nvlist(args, "redact_snaps", redact_snaps);
 	if (resumeobj != 0 || resumeoff != 0) {
 		fnvlist_add_uint64(args, "resume_object", resumeobj);
 		fnvlist_add_uint64(args, "resume_offset", resumeoff);
 		fnvlist_add_uint64(args, "bytes", resume_bytes);
 	}
+	if (lrpp != NULL) {
+		if (lrpp->lrp_type == LRP_LIST) {
+			fnvlist_add_nvlist(args, "redact_snaps",
+			    lrpp->lrp_u.lro_list.lrol_redactsnaps);
+			fnvlist_add_string(args, "redactbook",
+			    lrpp->lrp_u.lro_list.lrol_book_to_create);
+		} else if (lrpp->lrp_type == LRP_BOOKMARK) {
+			fnvlist_add_string(args, "redactlist_book",
+			    lrpp->lrp_u.lro_bookmark.lrob_book_to_redact_with);
+		}
+	}
 	if (fd != -1)
 		fnvlist_add_int32(args, "fd", fd);
+
 	err = lzc_ioctl(ZFS_IOC_SEND_SPACE, snapname, args, &result);
 	nvlist_free(args);
 	if (err == 0)
@@ -800,9 +814,9 @@ lzc_bookmark(nvlist_t *bookmarks, nvlist_t **errlist)
  * parameter is an nvlist of property names (with no values) that will be
  * returned for each bookmark.
  *
- * The following are valid properties on bookmarks, all of which are numbers
+ * The following are valid properties on bookmarks, most of which are numbers
  * (represented as uint64 in the nvlist), except redact_snaps, which is a
- * uint64 array.
+ * uint64 array, and redact_complete, which is a boolean
  *
  * "guid" - globally unique identifier of the snapshot it refers to
  * "createtxg" - txg when the snapshot it refers to was created
@@ -811,6 +825,8 @@ lzc_bookmark(nvlist_t *bookmarks, nvlist_t **errlist)
  *     bookmark.  If the bookmark is not a redaction bookmark, the nvlist will
  *     not contain an entry for this value.  If it is redacted with respect to
  *     no snapshots, it will contain value -> NULL uint64 array
+ * "redact_complete" - boolean value; true if the redaction bookmark is
+ *     complete, false otherwise.
  *
  * The format of the returned nvlist as follows:
  * <short name of bookmark> -> {
@@ -820,6 +836,9 @@ lzc_bookmark(nvlist_t *bookmarks, nvlist_t **errlist)
  *     ...
  *     "redact_snaps" -> {
  *         "value" -> uint64 array
+ *     }
+ *     "redact_complete" -> {
+ *         "value" -> boolean value
  *     }
  *  }
  */

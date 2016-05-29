@@ -32,6 +32,7 @@
 #include <sys/inttypes.h>
 #include <sys/spa.h>
 #include <sys/objlist.h>
+#include <sys/dsl_bookmark.h>
 
 struct vnode;
 struct dsl_dataset;
@@ -45,7 +46,7 @@ extern const char *recv_clone_name;
 int dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
     boolean_t large_block_ok, boolean_t compressok,
     uint64_t resumeobj, uint64_t resumeoff,
-    nvlist_t *redactsnaps, const char *redactbook,
+    nvlist_t *redactsnaps, const char *redactbook, const char *redactlist_book,
     int outfd, offset_t *off, struct dmu_send_outparams *dso);
 int dmu_send_estimate_fast(struct dsl_dataset *ds, struct dsl_dataset *fromds,
     boolean_t stream_compressed, uint64_t *sizep);
@@ -93,19 +94,6 @@ typedef struct dmu_send_outparams {
 	void			*dso_arg;
 	boolean_t		dso_dryrun;
 } dmu_send_outparams_t;
-
-typedef struct redact_block_phys {
-	uint64_t	rbp_object;
-	uint64_t	rbp_blkid;
-	/*
-	 * The top 16 bits of this field represent the block size in sectors of
-	 * the blocks in question; the bottom 48 bits are used to store the
-	 * number of consecutive blocks that are in the redaction list.  They
-	 * should be accessed using the inline functions below.
-	 */
-	uint64_t	rbp_size_count;
-	uint64_t	rbp_padding;
-} redact_block_phys_t;
 
 #define	REDACT_BLOCK_MAX_COUNT (1ULL << 48)
 

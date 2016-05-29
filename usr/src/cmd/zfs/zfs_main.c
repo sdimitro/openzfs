@@ -273,10 +273,12 @@ get_usage(zfs_help_t idx)
 	case HELP_SEND:
 		return (gettext("\tsend [-DnPpRbvLec] [-[iI] snapshot] "
 		    "<snapshot>\n"
-		    "\tsend [-Le] [-i snapshot|bookmark] "
+		    "\tsend [-nvLe] [-i snapshot|bookmark] "
 		    "<filesystem|volume|snapshot>\n"
-		    "\tsend --redact snapshot[,...] [-PLe] "
+		    "\tsend --redact snapshot[,...] [-DnPpbvLec] "
 		    "[-i bookmark] <snapshot> <bookmark_name>\n"
+		    "\tsend [-DnPpbvLec] [-i bookmark|snapshot] "
+		    "--redact-bookmark <bookmark> <snapshot>\n"
 		    "\tsend [-nvPe] -t <receive_resume_token> [bookmark_name]"
 		    "\n"));
 	case HELP_SET:
@@ -3725,7 +3727,7 @@ parsesnaps(char *snaps)
 }
 
 #define	REDACT_OPT	1024
-
+#define	REDACTB_OPT	1025
 /*
  * Send a backup stream to stdout.
  */
@@ -3736,17 +3738,17 @@ zfs_do_send(int argc, char **argv)
 	char *toname = NULL;
 	char *resume_token = NULL;
 	char *cp;
-	char *redactbook = NULL;
 	zfs_handle_t *zhp;
 	sendflags_t flags = { 0 };
 	int c, err;
 	nvlist_t *dbgnv = NULL;
-	nvlist_t *redactnv = NULL;
+	lzc_redact_params_t lrp = {0};
 
 	struct option long_options[] = {
 		{"rebase",	no_argument,		NULL, 'b'},
 		{"replicate",	no_argument,		NULL, 'R'},
 		{"redact",	required_argument,	NULL, REDACT_OPT},
+		{"redact-bookmark",	required_argument, NULL, REDACTB_OPT},
 		{"props",	no_argument,		NULL, 'p'},
 		{"parsable",	no_argument,		NULL, 'P'},
 		{"dedup",	no_argument,		NULL, 'D'},
@@ -3781,9 +3783,16 @@ zfs_do_send(int argc, char **argv)
 			flags.replicate = B_TRUE;
 			break;
 		case REDACT_OPT:
-			redactnv = parsesnaps(optarg);
-			if (redactnv == NULL)
+			lrp.lrp_type = LRP_LIST;
+			lrp.lrp_u.lro_list.lrol_redactsnaps =
+			    parsesnaps(optarg);
+			if (lrp.lrp_u.lro_list.lrol_redactsnaps == NULL)
 				usage(B_FALSE);
+			break;
+		case REDACTB_OPT:
+			lrp.lrp_type = LRP_BOOKMARK;
+			lrp.lrp_u.lro_bookmark.lrob_book_to_redact_with =
+			    optarg;
 			break;
 		case 'p':
 			flags.props = B_TRUE;
@@ -3835,7 +3844,7 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		if (fromname != NULL || flags.replicate || flags.props ||
-		    flags.dedup || redactnv != NULL) {
+		    flags.dedup || lrp.lrp_type != LRP_UNDEFINED) {
 			(void) fprintf(stderr,
 			    gettext("invalid flags combined with -t\n"));
 			usage(B_FALSE);
@@ -3844,8 +3853,7 @@ zfs_do_send(int argc, char **argv)
 			(void) fprintf(stderr, gettext("too many arguments\n"));
 			usage(B_FALSE);
 		}
-		redactbook = argv[0];
-	} else if (redactnv != NULL) {
+	} else if (lrp.lrp_type == LRP_LIST) {
 		if (argc < 2) {
 			(void) fprintf(stderr,
 			    gettext("missing bookmark argument\n"));
@@ -3855,7 +3863,7 @@ zfs_do_send(int argc, char **argv)
 			(void) fprintf(stderr, gettext("too many arguments\n"));
 			usage(B_FALSE);
 		}
-		redactbook = argv[1];
+		lrp.lrp_u.lro_list.lrol_book_to_create = argv[1];
 	} else {
 		if (argc < 1) {
 			(void) fprintf(stderr,
@@ -3868,7 +3876,8 @@ zfs_do_send(int argc, char **argv)
 		}
 	}
 
-	if (redactbook != NULL) {
+	if (lrp.lrp_type == LRP_LIST) {
+		const char *redactbook = lrp.lrp_u.lro_list.lrol_book_to_create;
 		char *off = strrchr(redactbook, '#');
 		if ((off != NULL && off != redactbook) ||
 		    strchr(redactbook, '@') != NULL) {
@@ -3877,7 +3886,7 @@ zfs_do_send(int argc, char **argv)
 			usage(B_FALSE);
 		}
 		if (off != NULL && off == redactbook)
-			redactbook++;
+			lrp.lrp_u.lro_list.lrol_book_to_create++;
 	}
 
 	if (flags.rebase && fromname == NULL) {
@@ -3896,7 +3905,7 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		return (zfs_send_resume(g_zfs, &flags, STDOUT_FILENO,
-		    resume_token, redactbook));
+		    resume_token, argv[0]));
 	}
 
 	/*
@@ -3911,7 +3920,7 @@ zfs_do_send(int argc, char **argv)
 			return (1);
 		}
 
-		if (redactnv != NULL) {
+		if (lrp.lrp_type != LRP_UNDEFINED) {
 			if (strchr(argv[0], '@') == NULL) {
 				(void) fprintf(stderr, gettext("Error: Cannot "
 				    "do a redacted send to a filesystem.\n"));
@@ -3952,7 +3961,7 @@ zfs_do_send(int argc, char **argv)
 			fromname = frombuf;
 		}
 		err = zfs_send_one(zhp, fromname, STDOUT_FILENO, &flags,
-		    redactnv, redactbook);
+		    (lrp.lrp_type != LRP_UNDEFINED ? &lrp : NULL));
 		zfs_close(zhp);
 		return (err != 0);
 	}
@@ -3963,7 +3972,7 @@ zfs_do_send(int argc, char **argv)
 		    "sent from a bookmark.\n"));
 		return (1);
 	}
-	if (flags.rebase || redactnv != NULL) {
+	if (flags.rebase || lrp.lrp_type != LRP_UNDEFINED) {
 		(void) fprintf(stderr,
 		    gettext("Error: multiple snapshots cannot be sent redacted "
 		    "or rebased.\n"));

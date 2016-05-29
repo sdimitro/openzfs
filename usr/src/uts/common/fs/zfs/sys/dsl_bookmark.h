@@ -13,20 +13,20 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_SYS_DSL_BOOKMARK_H
 #define	_SYS_DSL_BOOKMARK_H
 
 #include <sys/zfs_context.h>
+#include <sys/refcount.h>
+#include <sys/dsl_dataset.h>
+#include <sys/dsl_pool.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
-struct dsl_pool;
-struct dsl_dataset;
 
 /*
  * On disk zap object.
@@ -52,7 +52,23 @@ typedef struct redaction_list {
 	dmu_buf_t		*rl_dbuf;
 	uint64_t		rl_object;
 	refcount_t		rl_longholds;
+	objset_t		*rl_mos;
 } redaction_list_t;
+
+typedef struct redact_block_phys {
+	uint64_t	rbp_object;
+	uint64_t	rbp_blkid;
+	/*
+	 * The top 16 bits of this field represent the block size in sectors of
+	 * the blocks in question; the bottom 48 bits are used to store the
+	 * number of consecutive blocks that are in the redaction list.  They
+	 * should be accessed using the inline functions below.
+	 */
+	uint64_t	rbp_size_count;
+	uint64_t	rbp_padding;
+} redact_block_phys_t;
+
+typedef int (*rl_traverse_callback_t)(redact_block_phys_t *, void *);
 
 int dsl_bookmark_create(nvlist_t *, nvlist_t *);
 int dsl_bookmark_create_redacted(const char *, const char *, uint64_t,
@@ -69,6 +85,8 @@ void dsl_redaction_list_rele(redaction_list_t *, void *);
 void dsl_redaction_list_long_hold(dsl_pool_t *, redaction_list_t *, void *);
 void dsl_redaction_list_long_rele(redaction_list_t *, void *);
 boolean_t dsl_redaction_list_long_held(redaction_list_t *);
+int dsl_redaction_list_traverse(redaction_list_t *, zbookmark_phys_t *,
+    rl_traverse_callback_t, void *);
 
 #ifdef	__cplusplus
 }

@@ -1358,6 +1358,7 @@ LUA_OBJS +=			\
 	lparser.o
 
 ZFS_COMMON_OBJS +=		\
+	abd.o			\
 	arc.o			\
 	blkptr.o		\
 	bplist.o		\

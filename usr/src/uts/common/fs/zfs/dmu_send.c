@@ -294,7 +294,7 @@ dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 	dmu_send_outparams_t *dso = dscp->dsc_dso;
 	ASSERT3U(offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
 	    ==, sizeof (dmu_replay_record_t) - sizeof (zio_cksum_t));
-	fletcher_4_incremental_native(dscp->dsc_drr,
+	(void) fletcher_4_incremental_native(dscp->dsc_drr,
 	    offsetof(dmu_replay_record_t, drr_u.drr_checksum.drr_checksum),
 	    &dscp->dsc_zc);
 	if (dscp->dsc_drr->drr_type == DRR_BEGIN) {
@@ -307,7 +307,7 @@ dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 	if (dscp->dsc_drr->drr_type == DRR_END) {
 		dscp->dsc_sent_end = B_TRUE;
 	}
-	fletcher_4_incremental_native(&dscp->dsc_drr->
+	(void) fletcher_4_incremental_native(&dscp->dsc_drr->
 	    drr_u.drr_checksum.drr_checksum,
 	    sizeof (zio_cksum_t), &dscp->dsc_zc);
 	*dscp->dsc_off += sizeof (dmu_replay_record_t);
@@ -322,8 +322,8 @@ dump_record(dmu_send_cookie_t *dscp, void *payload, int payload_len)
 		 * doing a send size calculation)
 		 */
 		if (payload != NULL) {
-			fletcher_4_incremental_native(payload, payload_len,
-			    &dscp->dsc_zc);
+			(void) fletcher_4_incremental_native(
+			    payload, payload_len, &dscp->dsc_zc);
 		}
 		dscp->dsc_err = dso->dso_outfunc(payload, payload_len,
 		    dso->dso_arg);
@@ -4857,11 +4857,11 @@ dmu_recv_begin(char *tofs, char *tosnap, dmu_replay_record_t *drr_begin,
 
 	if (drc->drc_drrb->drr_magic == BSWAP_64(DMU_BACKUP_MAGIC)) {
 		drc->drc_byteswap = B_TRUE;
-		fletcher_4_incremental_byteswap(drr_begin,
+		(void) fletcher_4_incremental_byteswap(drr_begin,
 		    sizeof (dmu_replay_record_t), &drc->drc_cksum);
 		byteswap_record(drr_begin);
 	} else if (drc->drc_drrb->drr_magic == DMU_BACKUP_MAGIC) {
-		fletcher_4_incremental_native(drr_begin,
+		(void) fletcher_4_incremental_native(drr_begin,
 		    sizeof (dmu_replay_record_t), &drc->drc_cksum);
 	} else {
 		return (SET_ERROR(EINVAL));
@@ -5500,9 +5500,10 @@ static void
 receive_cksum(dmu_recv_cookie_t *drc, int len, void *buf)
 {
 	if (drc->drc_byteswap) {
-		fletcher_4_incremental_byteswap(buf, len, &drc->drc_cksum);
+		(void) fletcher_4_incremental_byteswap(buf, len,
+		    &drc->drc_cksum);
 	} else {
-		fletcher_4_incremental_native(buf, len, &drc->drc_cksum);
+		(void) fletcher_4_incremental_native(buf, len, &drc->drc_cksum);
 	}
 }
 

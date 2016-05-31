@@ -30,6 +30,7 @@
 #include <sys/dmu_tx.h>
 #include <sys/dsl_synctask.h>
 #include <sys/zap.h>
+#include <sys/abd.h>
 
 /*
  * An indirect vdev corresponds to a vdev that has been removed.  Since
@@ -887,6 +888,8 @@ vdev_indirect_child_io_done(zio_t *zio)
 	mutex_enter(&pio->io_lock);
 	pio->io_error = zio_worst_error(pio->io_error, zio->io_error);
 	mutex_exit(&pio->io_lock);
+
+	abd_put(zio->io_abd);
 }
 
 static void
@@ -894,9 +897,7 @@ vdev_indirect_io_start_cb(uint64_t split_offset, vdev_t *vd, uint64_t offset,
     uint64_t size, void *arg)
 {
 	zio_t *zio = arg;
-	char *data = zio->io_data;
 
-	ASSERT3P(data, !=, NULL);
 	ASSERT3P(vd, !=, NULL);
 
 	/*
@@ -905,7 +906,8 @@ vdev_indirect_io_start_cb(uint64_t split_offset, vdev_t *vd, uint64_t offset,
 	 * this to another thread.
 	 */
 	zio_nowait(zio_vdev_child_io(zio, NULL, vd, offset,
-	    &data[split_offset], size, zio->io_type, zio->io_priority,
+	    abd_get_offset(zio->io_abd, split_offset),
+	    size, zio->io_type, zio->io_priority,
 	    ZIO_FLAG_DISPATCH, vdev_indirect_child_io_done, zio));
 }
 

@@ -44,6 +44,7 @@
 #include <sys/vdev_indirect_births.h>
 #include <sys/vdev_indirect_mapping.h>
 #include <sys/vdev_initialize.h>
+#include <sys/abd.h>
 
 /*
  * This file contains the necessary logic to remove vdevs from a
@@ -709,7 +710,7 @@ spa_vdev_copy_segment_write_done(zio_t *zio)
 	vdev_copy_seg_arg_t *vcsa = zio->io_private;
 	vdev_copy_arg_t *vca = vcsa->vcsa_copy_arg;
 	spa_config_exit(zio->io_spa, SCL_STATE, zio->io_spa);
-	zio_data_buf_free(zio->io_data, zio->io_size);
+	abd_free(zio->io_abd);
 
 	mutex_enter(&vca->vca_lock);
 	vca->vca_outstanding_bytes -= zio->io_size;
@@ -734,7 +735,7 @@ spa_vdev_copy_segment_read_done(zio_t *zio)
 
 	zio_nowait(zio_write_phys(spa->spa_txg_zio[txg & TXG_MASK], dest_vd,
 	    DVA_GET_OFFSET(dest_dva) + VDEV_LABEL_START_SIZE,
-	    zio->io_size, zio->io_data,
+	    zio->io_size, zio->io_abd,
 	    ZIO_CHECKSUM_OFF, spa_vdev_copy_segment_write_done,
 	    vcsa, ZIO_PRIORITY_REMOVAL, 0, B_FALSE));
 }
@@ -786,8 +787,8 @@ spa_vdev_copy_segment(vdev_t *vd, uint64_t start, uint64_t size, uint64_t txg,
 
 	zio_nowait(zio_read_phys(spa->spa_txg_zio[txg & TXG_MASK],
 	    vd, start + VDEV_LABEL_START_SIZE,
-	    size, zio_data_buf_alloc(size), ZIO_CHECKSUM_OFF,
-	    spa_vdev_copy_segment_read_done, private,
+	    size, abd_alloc_for_io(size, B_FALSE),
+	    ZIO_CHECKSUM_OFF, spa_vdev_copy_segment_read_done, private,
 	    ZIO_PRIORITY_REMOVAL, 0, B_FALSE));
 
 	list_insert_tail(&svr->svr_new_segments[txg & TXG_MASK], entry);

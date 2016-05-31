@@ -267,6 +267,15 @@ tests = ['zpool_import_001_pos', 'zpool_import_002_pos',
     'zpool_import_missing_002_pos', 'zpool_import_missing_003_pos',
     'zpool_import_rename_001_pos']
 
+[/opt/zfs-tests/tests/functional/cli_root/zpool_initialize]
+tests = ['zpool_initialize_001_pos', 'zpool_initialize_002_neg',
+    'zpool_initialize_003_pos', 'zpool_initialize_004_pos',
+    'zpool_initialize_005_pos', 'zpool_initialize_006_pos',
+    'zpool_initialize_007_pos', 'zpool_initialize_008_neg',
+    'zpool_initialize_009_pos', 'zpool_initialize_010_pos',
+    'zpool_initialize_011_pos', 'zpool_initialize_012_pos']
+pre =
+
 [/opt/zfs-tests/tests/functional/cli_root/zpool_offline]
 tests = ['zpool_offline_001_pos', 'zpool_offline_002_neg']
 

@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -937,6 +937,7 @@ vdev_ops_t vdev_indirect_ops = {
 	NULL,
 	NULL,
 	vdev_indirect_remap,
+	NULL,
 	VDEV_TYPE_INDIRECT,	/* name of this vdev type */
 	B_FALSE			/* leaf vdev */
 };

@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -148,6 +148,8 @@ uint32_t zfs_vdev_scrub_min_active = 1;
 uint32_t zfs_vdev_scrub_max_active = 2;
 uint32_t zfs_vdev_removal_min_active = 1;
 uint32_t zfs_vdev_removal_max_active = 2;
+uint32_t zfs_vdev_initializing_min_active = 1;
+uint32_t zfs_vdev_initializing_max_active = 1;
 
 /*
  * When the pool has less than zfs_vdev_async_write_active_min_dirty_percent
@@ -396,6 +398,8 @@ vdev_queue_class_min_active(zio_priority_t p)
 		return (zfs_vdev_scrub_min_active);
 	case ZIO_PRIORITY_REMOVAL:
 		return (zfs_vdev_removal_min_active);
+	case ZIO_PRIORITY_INITIALIZING:
+		return (zfs_vdev_initializing_min_active);
 	default:
 		panic("invalid priority %u", p);
 		return (0);
@@ -457,6 +461,8 @@ vdev_queue_class_max_active(spa_t *spa, zio_priority_t p)
 		return (zfs_vdev_scrub_max_active);
 	case ZIO_PRIORITY_REMOVAL:
 		return (zfs_vdev_removal_max_active);
+	case ZIO_PRIORITY_INITIALIZING:
+		return (zfs_vdev_initializing_max_active);
 	default:
 		panic("invalid priority %u", p);
 		return (0);
@@ -668,8 +674,8 @@ again:
 	}
 
 	/*
-	 * For LBA-ordered queues (async / scrub), issue the i/o which follows
-	 * the most recently issued i/o in LBA (offset) order.
+	 * For LBA-ordered queues (async / scrub / initializing), issue the
+	 * i/o which follows the most recently issued i/o in LBA (offset) order.
 	 *
 	 * For FIFO queues (sync), issue the i/o with the lowest timestamp.
 	 */
@@ -725,13 +731,15 @@ vdev_queue_io(zio_t *zio)
 		if (zio->io_priority != ZIO_PRIORITY_SYNC_READ &&
 		    zio->io_priority != ZIO_PRIORITY_ASYNC_READ &&
 		    zio->io_priority != ZIO_PRIORITY_SCRUB &&
-		    zio->io_priority != ZIO_PRIORITY_REMOVAL)
+		    zio->io_priority != ZIO_PRIORITY_REMOVAL &&
+		    zio->io_priority != ZIO_PRIORITY_INITIALIZING)
 			zio->io_priority = ZIO_PRIORITY_ASYNC_READ;
 	} else {
 		ASSERT(zio->io_type == ZIO_TYPE_WRITE);
 		if (zio->io_priority != ZIO_PRIORITY_SYNC_WRITE &&
 		    zio->io_priority != ZIO_PRIORITY_ASYNC_WRITE &&
-		    zio->io_priority != ZIO_PRIORITY_REMOVAL)
+		    zio->io_priority != ZIO_PRIORITY_REMOVAL &&
+		    zio->io_priority != ZIO_PRIORITY_INITIALIZING)
 			zio->io_priority = ZIO_PRIORITY_ASYNC_WRITE;
 	}
 

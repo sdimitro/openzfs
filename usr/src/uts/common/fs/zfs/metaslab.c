@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  */
 
@@ -665,6 +665,8 @@ metaslab_group_create(metaslab_class_t *mc, vdev_t *vd)
 
 	mg = kmem_zalloc(sizeof (metaslab_group_t), KM_SLEEP);
 	mutex_init(&mg->mg_lock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&mg->mg_ms_initialize_lock, NULL, MUTEX_DEFAULT, NULL);
+	cv_init(&mg->mg_ms_initialize_cv, NULL, CV_DEFAULT, NULL);
 	avl_create(&mg->mg_metaslab_tree, metaslab_compare,
 	    sizeof (metaslab_t), offsetof(struct metaslab, ms_group_node));
 	mg->mg_vd = vd;
@@ -696,6 +698,8 @@ metaslab_group_destroy(metaslab_group_t *mg)
 	taskq_destroy(mg->mg_taskq);
 	avl_destroy(&mg->mg_metaslab_tree);
 	mutex_destroy(&mg->mg_lock);
+	mutex_destroy(&mg->mg_ms_initialize_lock);
+	cv_destroy(&mg->mg_ms_initialize_cv);
 	refcount_destroy(&mg->mg_loaded_metaslabs);
 	refcount_destroy(&mg->mg_alloc_queue_depth);
 	kmem_free(mg, sizeof (metaslab_group_t));
@@ -1540,9 +1544,16 @@ metaslab_load(metaslab_t *msp)
 		(void) refcount_add(&msp->ms_group->mg_loaded_metaslabs, msp);
 		mutex_exit(&msp->ms_group->mg_lock);
 
-		for (int t = 0; t < TXG_DEFER_SIZE; t++) {
-			range_tree_walk(msp->ms_defertree[t],
-			    range_tree_remove, msp->ms_tree);
+		/*
+		 * If the metaslab already has a spacemap, then we need to
+		 * remove all segments from the defer tree; otherwise, the
+		 * metaslab is completely empty and we can skip this.
+		 */
+		if (msp->ms_sm != NULL) {
+			for (int t = 0; t < TXG_DEFER_SIZE; t++) {
+				range_tree_walk(msp->ms_defertree[t],
+				    range_tree_remove, msp->ms_tree);
+			}
 		}
 		msp->ms_max_size = metaslab_block_maxsize(msp);
 	}
@@ -1585,6 +1596,7 @@ metaslab_init(metaslab_group_t *mg, uint64_t id, uint64_t object, uint64_t txg,
 	mutex_init(&ms->ms_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&ms->ms_sync_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&ms->ms_load_cv, NULL, CV_DEFAULT, NULL);
+
 	ms->ms_id = id;
 	ms->ms_start = id << vd->vdev_ms_shift;
 	ms->ms_size = 1ULL << vd->vdev_ms_shift;
@@ -2713,6 +2725,7 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 	 * from it in 'metaslab_unload_delay' txgs, then unload it.
 	 */
 	if (msp->ms_loaded &&
+	    msp->ms_initializing == 0 &&
 	    msp->ms_selected_txg + metaslab_unload_delay < txg) {
 		for (int t = 1; t < TXG_CONCURRENT_STATES; t++) {
 			VERIFY0(range_tree_space(
@@ -2938,6 +2951,7 @@ metaslab_block_alloc(metaslab_t *msp, uint64_t size,
 	metaslab_class_t *mc = msp->ms_group->mg_class;
 
 	VERIFY(!msp->ms_condensing);
+	VERIFY0(msp->ms_initializing);
 
 	if (strategy == METASLAB_ALLOC_OPTIMAL) {
 		start = mc->mc_ops->msop_alloc(msp, size);
@@ -2997,7 +3011,7 @@ metaslab_alloc_holefill(metaslab_t *msp, uint64_t asize, uint64_t txg,
 	}
 	msp->ms_selected_txg = txg;
 
-	if (msp->ms_condensing) {
+	if (msp->ms_condensing || msp->ms_initializing > 0) {
 		return (-1ULL);
 	}
 
@@ -3173,9 +3187,10 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			}
 
 			/*
-			 * If the selected metaslab is condensing, skip it.
+			 * If the selected metaslab is condensing or being
+			 * initialized, skip it.
 			 */
-			if (msp->ms_condensing)
+			if (msp->ms_condensing || msp->ms_initializing > 0)
 				continue;
 
 			was_active = msp->ms_weight & METASLAB_ACTIVE_MASK;
@@ -3248,11 +3263,18 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 		/*
 		 * If this metaslab is currently condensing then pick again as
 		 * we can't manipulate this metaslab until it's committed
-		 * to disk.
+		 * to disk. If this metaslab is being initialized, we shouldn't
+		 * allocate from it since the allocated region might be
+		 * overwritten after allocation.
 		 */
 		if (msp->ms_condensing) {
 			metaslab_trace_add(zal, mg, msp, asize, d,
 			    METASLAB_ALLOC_OPTIMAL, TRACE_CONDENSING);
+			mutex_exit(&msp->ms_lock);
+			continue;
+		} else if (msp->ms_initializing > 0) {
+			metaslab_trace_add(zal, mg, msp, asize, d,
+			    METASLAB_ALLOC_OPTIMAL, TRACE_INITIALIZING);
 			mutex_exit(&msp->ms_lock);
 			continue;
 		}

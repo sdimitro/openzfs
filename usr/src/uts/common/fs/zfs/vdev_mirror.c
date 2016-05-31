@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -463,6 +463,7 @@ vdev_ops_t vdev_mirror_ops = {
 	NULL,
 	NULL,
 	NULL,
+	vdev_default_xlate,
 	VDEV_TYPE_MIRROR,	/* name of this vdev type */
 	B_FALSE			/* not a leaf vdev */
 };
@@ -477,6 +478,7 @@ vdev_ops_t vdev_replacing_ops = {
 	NULL,
 	NULL,
 	NULL,
+	vdev_default_xlate,
 	VDEV_TYPE_REPLACING,	/* name of this vdev type */
 	B_FALSE			/* not a leaf vdev */
 };
@@ -491,6 +493,7 @@ vdev_ops_t vdev_spare_ops = {
 	NULL,
 	NULL,
 	NULL,
+	vdev_default_xlate,
 	VDEV_TYPE_SPARE,	/* name of this vdev type */
 	B_FALSE			/* not a leaf vdev */
 };

@@ -1,7 +1,7 @@
 '\" te
 .\" Copyright (c) 2007, Sun Microsystems, Inc. All Rights Reserved.
 .\" Copyright 2011, Nexenta Systems, Inc. All Rights Reserved.
-.\" Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+.\" Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 .\" The contents of this file are subject to the terms of the Common Development
 .\" and Distribution License (the "License"). You may not use this file except
 .\" in compliance with the License. You can obtain a copy of the license at
@@ -14,7 +14,7 @@
 .\" CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your
 .\" own identifying information:
 .\" Portions Copyright [yyyy] [name of copyright owner]
-.TH ZPOOL 1M "Mar 6, 2014"
+.TH ZPOOL 1M "May 22, 2016"
 .SH NAME
 zpool \- configures ZFS storage pools
 .SH SYNOPSIS
@@ -84,6 +84,11 @@ zpool \- configures ZFS storage pools
 .nf
 \fBzpool import\fR [\fB-o \fImntopts\fR\fR] [\fB-o\fR \fIproperty=value\fR] ... [\fB-d\fR \fIdir\fR | \fB-c\fR \fIcachefile\fR]
      [\fB-D\fR] [\fB-f\fR] [\fB-m\fR] [\fB-R\fR \fIroot\fR] [\fB-F\fR [\fB-n\fR]] \fIpool\fR |\fIid\fR [\fInewpool\fR]
+.fi
+
+.LP
+.nf
+\fBzpool initialize\fR [\fB-cs\fR] \fIpool\fR [\fIdevice\fR ...]
 .fi
 
 .LP
@@ -162,7 +167,6 @@ zpool \- configures ZFS storage pools
 .fi
 
 .SH DESCRIPTION
-.sp
 .LP
 The \fBzpool\fR command configures \fBZFS\fR storage pools. A storage pool is a
 collection of devices that provides physical storage and data replication for
@@ -172,7 +176,6 @@ collection of devices that provides physical storage and data replication for
 All datasets within a storage pool share the same space. See \fBzfs\fR(1M) for
 information on managing datasets.
 .SS "Virtual Devices (\fBvdev\fRs)"
-.sp
 .LP
 A "virtual device" describes a single device or a collection of devices
 organized according to certain performance and fault characteristics. The
@@ -313,7 +316,6 @@ vdevs, each a mirror of two disks:
 .sp
 
 .SS "Device Failure and Recovery"
-.sp
 .LP
 \fBZFS\fR supports a rich set of mechanisms for handling device failure and
 data corruption. All metadata and data is checksummed, and \fBZFS\fR
@@ -443,7 +445,6 @@ If a device is removed and later re-attached to the system, \fBZFS\fR attempts
 to put the device online automatically. Device attach detection is
 hardware-dependent and might not be supported on all platforms.
 .SS "Hot Spares"
-.sp
 .LP
 \fBZFS\fR allows devices to be associated with pools as "hot spares". These
 devices are not actively used in the pool, but when an active device fails, it
@@ -479,7 +480,6 @@ pools.
 .LP
 Spares cannot replace log devices.
 .SS "Intent Log"
-.sp
 .LP
 The \fBZFS\fR Intent Log (\fBZIL\fR) satisfies \fBPOSIX\fR requirements for
 synchronous transactions. For instance, databases often require their
@@ -506,7 +506,6 @@ Log devices can be added, replaced, attached, detached, and imported and
 exported as part of the larger pool. Mirrored log devices can be removed by
 specifying the top-level mirror for the log.
 .SS "Cache Devices"
-.sp
 .LP
 Devices can be added to a storage pool as "cache devices." These devices
 provide an additional layer of caching between main memory and disk. For
@@ -538,7 +537,6 @@ the original storage pool device, which might be part of a mirrored or
 The content of the cache devices is considered volatile, as is the case with
 other system caches.
 .SS "Properties"
-.sp
 .LP
 Each pool has several properties associated with it. Some properties are
 read-only statistics while others are configurable and change the behavior of
@@ -882,7 +880,6 @@ pool this property will no longer have a value.
 .RE
 
 .SS "Subcommands"
-.sp
 .LP
 All subcommands that modify state are logged persistently to the pool in their
 original form.
@@ -1572,6 +1569,44 @@ can be lost because the log device will be discarded.
 
 .RE
 
+.sp
+.ne 2
+.na
+\fBzpool initialize\fR [\fB-cs\fR] \fIpool\fR [\fIdevice\fR ...]
+.ad
+.sp .6
+.RS 4n
+Begins initializing by writing to all unallocated regions on the specified
+devices, or all eligible devices in the pool if no individual devices are
+specified. Only leaf data or log devices may be initialized.
+
+.sp
+.ne 2
+.na
+\fB\fB-c\fR, \fB--cancel\fR\fR
+.ad
+.RS 14n
+Cancel initializing on the specified devices, or all eligible devices if none
+are specified. If one or more target devices are invalid or are not currently
+being initialized, the command will fail and no cancellation will occur on any
+device.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fB-s\fR, \fB--suspend\fR\fR
+.ad
+.RS 14n
+Suspend initializing on the specified devices, or all eligible devices if none
+are specified. If one or more target devices are invalid or are not currently
+being initialized, the command will fail and no suspension will occur on any
+device.
+Initializing can then be resumed by running \fb\fbzpool initialize\fR\fR with no
+flags on the relevant target devices.
+.RE
+
+.RE
 .sp
 .ne 2
 .na
@@ -2311,7 +2346,6 @@ data        23.9G  14.6G  9.30G    48%         -    61%  1.00x  ONLINE  -
 .in -2
 
 .SH EXIT STATUS
-.sp
 .LP
 The following exit values are returned:
 .sp
@@ -2342,7 +2376,6 @@ Invalid command line options were specified.
 .RE
 
 .SH ATTRIBUTES
-.sp
 .LP
 See \fBattributes\fR(5) for descriptions of the following attributes:
 .sp
@@ -2358,6 +2391,5 @@ Interface Stability	Evolving
 .TE
 
 .SH SEE ALSO
-.sp
 .LP
 \fBzfs\fR(1M), \fBzpool-features\fR(5), \fBattributes\fR(5)

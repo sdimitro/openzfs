@@ -45,7 +45,7 @@
 function cleanup
 {
         if datasetexists $TESTPOOL; then
-                log_must zpool destroy -f $TESTPOOL
+                log_must $ZPOOL destroy -f $TESTPOOL
         fi
         if [[ -d $TESTDIR ]]; then
                 log_must rm -rf $TESTDIR
@@ -61,14 +61,14 @@ for n in {0..2}; do
 done
 FDISKS+=("${DISKS%% *}")
 
-log_must zpool create $TESTPOOL mirror ${FDISKS[0]} ${FDISKS[1]} \
+log_must $ZPOOL create $TESTPOOL mirror ${FDISKS[0]} ${FDISKS[1]} \
         spare ${FDISKS[2]} cache ${FDISKS[3]}
 
-log_must zpool offline $TESTPOOL ${FDISKS[1]}
+log_must $ZPOOL offline $TESTPOOL ${FDISKS[1]}
 
-log_mustnot zpool initialize $TESTPOOL mirror-0
+log_mustnot $ZPOOL initialize $TESTPOOL mirror-0
 for n in {1..3}; do
-        log_mustnot zpool initialize $TESTPOOL ${FDISKS[$n]}
+        log_mustnot $ZPOOL initialize $TESTPOOL ${FDISKS[$n]}
 done
 
 log_pass "Attempting to initialize failed on unsupported devices"

@@ -268,12 +268,17 @@ tests = ['zpool_import_001_pos', 'zpool_import_002_pos',
     'zpool_import_rename_001_pos']
 
 [/opt/zfs-tests/tests/functional/cli_root/zpool_initialize]
-tests = ['zpool_initialize_001_pos', 'zpool_initialize_002_neg',
-    'zpool_initialize_003_pos', 'zpool_initialize_004_pos',
-    'zpool_initialize_005_pos', 'zpool_initialize_006_pos',
-    'zpool_initialize_007_pos', 'zpool_initialize_008_neg',
-    'zpool_initialize_009_pos', 'zpool_initialize_010_pos',
-    'zpool_initialize_011_pos', 'zpool_initialize_012_pos']
+tests = ['zpool_initialize_attach_detach_add_remove',
+    'zpool_initialize_import_export',
+    'zpool_initialize_offline_export_import_online',
+    'zpool_initialize_online_offline',
+    'zpool_initialize_split',
+    'zpool_initialize_start_and_cancel_neg',
+    'zpool_initialize_start_and_cancel_pos',
+    'zpool_initialize_suspend_resume',
+    'zpool_initialize_unsupported_vdevs',
+    'zpool_initialize_verify_checksums',
+    'zpool_initialize_verify_initialized']
 pre =
 
 [/opt/zfs-tests/tests/functional/cli_root/zpool_offline]

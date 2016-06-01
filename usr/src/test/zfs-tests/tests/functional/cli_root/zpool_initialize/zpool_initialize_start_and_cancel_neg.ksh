@@ -42,18 +42,19 @@ DISK1=${DISKS%% *}
 DISK2="$(echo $DISKS | cut -d' ' -f2)"
 DISK3="$(echo $DISKS | cut -d' ' -f3)"
 
-log_must zpool create -f $TESTPOOL $DISK1 $DISK2 $DISK3
-log_must zpool initialize $TESTPOOL $DISK1
+log_must $ZPOOL list -v
+log_must $ZPOOL create -f $TESTPOOL $DISK1 $DISK2 $DISK3
+log_must $ZPOOL initialize $TESTPOOL $DISK1
 
 [[ -z "$(initialize_progress $TESTPOOL $DISK1)" ]] && \
     log_fail "Initialize did not start"
 
-log_mustnot zpool initialize -c $TESTPOOL $DISK2
-log_mustnot zpool initialize -c $TESTPOOL $DISK2 $DISK3
+log_mustnot $ZPOOL initialize -c $TESTPOOL $DISK2
+log_mustnot $ZPOOL initialize -c $TESTPOOL $DISK2 $DISK3
 
-log_mustnot zpool initialize -s $TESTPOOL $DISK2
-log_mustnot zpool initialize -s $TESTPOOL $DISK2 $DISK3
+log_mustnot $ZPOOL initialize -s $TESTPOOL $DISK2
+log_mustnot $ZPOOL initialize -s $TESTPOOL $DISK2 $DISK3
 
-log_mustnot zpool initialize $TESTPOOL $DISK1
+log_mustnot $ZPOOL initialize $TESTPOOL $DISK1
 
 log_pass "Nonsensical initialize operations fail"

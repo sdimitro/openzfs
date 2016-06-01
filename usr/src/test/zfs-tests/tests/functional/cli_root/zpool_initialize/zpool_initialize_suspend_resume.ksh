@@ -41,14 +41,14 @@
 
 DISK1=${DISKS%% *}
 
-log_must zpool create -f $TESTPOOL $DISK1
-log_must zpool initialize $TESTPOOL
+log_must $ZPOOL create -f $TESTPOOL $DISK1
+log_must $ZPOOL initialize $TESTPOOL
 
 [[ -z "$(initialize_progress $TESTPOOL $DISK1)" ]] && \
     log_fail "Initializing did not start"
 
 sleep 5
-log_must zpool initialize -s $TESTPOOL
+log_must $ZPOOL initialize -s $TESTPOOL
 log_must eval "initialize_prog_line $TESTPOOL $DISK1 | grep suspended"
 progress="$(initialize_progress $TESTPOOL $DISK1)"
 
@@ -56,7 +56,7 @@ sleep 3
 [[ "$progress" -eq "$(initialize_progress $TESTPOOL $DISK1)" ]] || \
         log_fail "Initializing progress advanced while suspended"
 
-log_must zpool initialize $TESTPOOL $DISK1
+log_must $ZPOOL initialize $TESTPOOL $DISK1
 [[ "$progress" -le "$(initialize_progress $TESTPOOL $DISK1)" ]] ||
         log_fail "Initializing progress regressed after resuming"
 

@@ -38,13 +38,13 @@
 
 DISK1=${DISKS%% *}
 
-log_must zpool create -f $TESTPOOL $DISK1
-log_must zpool initialize $TESTPOOL
+log_must $ZPOOL create -f $TESTPOOL $DISK1
+log_must $ZPOOL initialize $TESTPOOL
 
-[[ -z "$(intialize_progress $TESTPOOL $DISK1)" ]] && \
+[[ -z "$(initialize_progress $TESTPOOL $DISK1)" ]] && \
     log_fail "Initialize did not start"
 
-log_must zpool initialize -c $TESTPOOL
+log_must $ZPOOL initialize -c $TESTPOOL
 
 [[ -z "$(initialize_progress $TESTPOOL $DISK1)" ]] || \
     log_fail "Initialize did not stop"

@@ -40,11 +40,11 @@
 
 DISK1=${DISKS%% *}
 
-log_must zpool create -f $TESTPOOL $DISK1
+log_must $ZPOOL create -f $TESTPOOL $DISK1
 log_must /usr/bin/dd if=/dev/urandom of=/$TESTPOOL/file1 bs=1M count=30
 log_must sync
 
-log_must zpool initialize $TESTPOOL
+log_must $ZPOOL initialize $TESTPOOL
 
 log_must zdb -cc $TESTPOOL
 

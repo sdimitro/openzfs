@@ -39,11 +39,11 @@
 
 function cleanup
 {
-        echo "zfs_initialize_value/Z 0" | mdb -kw
-        zpool import -d $TESTDIR $TESTPOOL
+        mdb -kwe "zfs_initialize_value/Z 0"
+        $ZPOOL import -d $TESTDIR $TESTPOOL
 
         if datasetexists $TESTPOOL ; then
-                zpool destroy -f $TESTPOOL
+                $ZPOOL destroy -f $TESTPOOL
         fi
         if [[ -d "$TESTDIR" ]]; then
                 rm -rf "$TESTDIR"
@@ -53,18 +53,18 @@ log_onexit cleanup
 PATTERN="deadbeefdeadbeef"
 SMALLFILE="$TESTDIR/smallfile"
 
-log_must echo "zfs_initialize_value/Z $PATTERN" | mdb -kw
+log_must mdb -kwe "zfs_initialize_value/Z $PATTERN"
 
 log_must mkdir "$TESTDIR"
 log_must mkfile 64m "$SMALLFILE"
-log_must zpool create $TESTPOOL "$SMALLFILE"
-log_must zpool initialize $TESTPOOL
+log_must $ZPOOL create $TESTPOOL "$SMALLFILE"
+log_must $ZPOOL initialize $TESTPOOL
 
 while [[ "$(initialize_progress $TESTPOOL $SMALLFILE)" -lt "100" ]]; do
         sleep 0.5
 done
 
-log_must zpool export $TESTPOOL
+log_must $ZPOOL export $TESTPOOL
 
 bs=512
 while read -r sm; do

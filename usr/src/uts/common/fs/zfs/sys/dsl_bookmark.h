@@ -36,7 +36,19 @@ typedef struct zfs_bookmark_phys {
 	uint64_t zbm_creation_txg;	/* birth transaction group */
 	uint64_t zbm_creation_time;	/* bookmark creation time */
 	uint64_t zbm_redaction_obj;	/* redaction list object */
+	uint64_t zbm_flags;		/* ZBM_FLAG_* */
+	uint64_t zbm_referenced_bytes_refd;
+	uint64_t zbm_compressed_bytes_refd;
+	uint64_t zbm_uncompressed_bytes_refd;
+	uint64_t zbm_referenced_freed_before_next_snap;
+	uint64_t zbm_compressed_freed_before_next_snap;
+	uint64_t zbm_uncompressed_freed_before_next_snap;
 } zfs_bookmark_phys_t;
+
+typedef enum zbm_flags {
+	ZBM_FLAG_HAS_FBN = (1 << 0),
+	ZBM_FLAG_SNAPSHOT_EXISTS = (1 << 1),
+} zbm_flags_t;
 
 typedef struct redaction_list_phys {
 	uint64_t rlp_last_object;
@@ -54,6 +66,15 @@ typedef struct redaction_list {
 	refcount_t		rl_longholds;
 	objset_t		*rl_mos;
 } redaction_list_t;
+
+/* node in ds_bookmarks */
+typedef struct dsl_bookmark_node {
+	char *dbn_name; /* free with strfree() */
+	kmutex_t dbn_lock; /* protects dirty/phys in block_killed */
+	boolean_t dbn_dirty; /* in currently syncing txg */
+	zfs_bookmark_phys_t dbn_phys;
+	avl_node_t dbn_node;
+} dsl_bookmark_node_t;
 
 typedef struct redact_block_phys {
 	uint64_t	rbp_object;
@@ -79,12 +100,24 @@ int dsl_get_bookmark_props(const char *, const char *, nvlist_t *);
 int dsl_bookmark_destroy(nvlist_t *, nvlist_t *);
 int dsl_bookmark_lookup(struct dsl_pool *, const char *,
     struct dsl_dataset *, zfs_bookmark_phys_t *);
-int dsl_redaction_list_hold_obj(dsl_pool_t *, uint64_t, void *,
+int dsl_bookmark_lookup_impl(dsl_dataset_t *, const char *,
+    zfs_bookmark_phys_t *);
+int dsl_redaction_list_hold_obj(struct dsl_pool *, uint64_t, void *,
     redaction_list_t **);
 void dsl_redaction_list_rele(redaction_list_t *, void *);
-void dsl_redaction_list_long_hold(dsl_pool_t *, redaction_list_t *, void *);
+void dsl_redaction_list_long_hold(struct dsl_pool *, redaction_list_t *,
+    void *);
 void dsl_redaction_list_long_rele(redaction_list_t *, void *);
 boolean_t dsl_redaction_list_long_held(redaction_list_t *);
+int dsl_bookmark_init_ds(dsl_dataset_t *);
+void dsl_bookmark_fini_ds(dsl_dataset_t *);
+boolean_t dsl_bookmark_ds_destroyed(dsl_dataset_t *, dmu_tx_t *);
+void dsl_bookmark_snapshotted(dsl_dataset_t *, dmu_tx_t *);
+void dsl_bookmark_block_killed(dsl_dataset_t *, const blkptr_t *, dmu_tx_t *);
+void dsl_bookmark_sync_done(dsl_dataset_t *, dmu_tx_t *);
+void dsl_bookmark_set_phys(zfs_bookmark_phys_t *, dsl_dataset_t *);
+void dsl_bookmark_node_add(dsl_dataset_t *, dsl_bookmark_node_t *, dmu_tx_t *);
+uint64_t dsl_bookmark_latest_txg(dsl_dataset_t *);
 int dsl_redaction_list_traverse(redaction_list_t *, zbookmark_phys_t *,
     rl_traverse_callback_t, void *);
 

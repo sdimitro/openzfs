@@ -4048,39 +4048,40 @@ dmu_adjust_send_estimate_for_indirects(dsl_dataset_t *ds, uint64_t uncompressed,
 
 int
 dmu_send_estimate_fast(dsl_dataset_t *ds, dsl_dataset_t *fromds,
-    boolean_t stream_compressed, uint64_t *sizep)
+    zfs_bookmark_phys_t *frombook, boolean_t stream_compressed, uint64_t *sizep)
 {
 	dsl_pool_t *dp = ds->ds_dir->dd_pool;
 	int err;
 	uint64_t uncomp, comp;
 
 	ASSERT(dsl_pool_config_held(dp));
+	ASSERT(fromds == NULL || frombook == NULL);
 
 	/* tosnap must be a snapshot */
 	if (!ds->ds_is_snapshot)
 		return (SET_ERROR(EINVAL));
 
-	/* fromsnap, if provided, must be a snapshot */
-	if (fromds != NULL && !fromds->ds_is_snapshot)
-		return (SET_ERROR(EINVAL));
-
-	/*
-	 * fromsnap must be an earlier snapshot from the same fs as tosnap,
-	 * or the origin's fs.
-	 */
-	if (fromds != NULL && !dsl_dataset_is_before(ds, fromds, 0))
-		return (SET_ERROR(EXDEV));
-
-	/* Get compressed and uncompressed size estimates of changed data. */
-	if (fromds == NULL) {
-		uncomp = dsl_dataset_phys(ds)->ds_uncompressed_bytes;
-		comp = dsl_dataset_phys(ds)->ds_compressed_bytes;
-	} else {
+	if (fromds != NULL) {
 		uint64_t used;
-		err = dsl_dataset_space_written(fromds, ds,
-		    &used, &comp, &uncomp);
+		if (!fromds->ds_is_snapshot)
+			return (SET_ERROR(EINVAL));
+
+		if (!dsl_dataset_is_before(ds, fromds, 0))
+			return (SET_ERROR(EXDEV));
+
+		err = dsl_dataset_space_written(fromds, ds, &used, &comp,
+		    &uncomp);
 		if (err != 0)
 			return (err);
+	} else if (frombook != NULL) {
+		uint64_t used;
+		err = dsl_dataset_space_written_bookmark(frombook, ds, &used,
+		    &comp, &uncomp);
+		if (err != 0)
+			return (err);
+	} else {
+		uncomp = dsl_dataset_phys(ds)->ds_uncompressed_bytes;
+		comp = dsl_dataset_phys(ds)->ds_compressed_bytes;
 	}
 
 	err = dmu_adjust_send_estimate_for_indirects(ds, uncomp, comp,

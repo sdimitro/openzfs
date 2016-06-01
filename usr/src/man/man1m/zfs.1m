@@ -793,18 +793,36 @@ space written to this dataset since the specified snapshot. This is the space
 that is referenced by this dataset but was not referenced by the specified
 snapshot.
 .Pp
-The
+See the
+.Sy written Ns # Ns Em bookmark
+section below for exactly how the
 .Em snapshot
-may be specified as a short snapshot name
+may be specified.
+.It Sy written Ns # Ns Em bookmark
+The amount of
+.Sy referenced
+space written to this dataset since the time point represented by the bookmark
+.Po which is the creation time of the snapshot that the bookmark was created from
+.Pc .
+This is the space
+that is referenced by this dataset but was not referenced at the time
+represented by the bookmark.
+.Pp
+The
+.Em bookmark
+or
+.Em snapshot
+may be specified as a short name
 .Po just the part after the
+.Sy #
+or
 .Sy @
 .Pc ,
-in which case it will be interpreted as a snapshot in the same filesystem as
-this dataset. The
-.Em snapshot
-may be a full snapshot name
-.No Po Em filesystem Ns @ Ns Em snapshot Pc ,
-which for clones may be a snapshot in the origin's filesystem
+in which case it will be interpreted as a bookmark or snapshot in the same
+filesystem as this dataset. The
+.Em bookmark No or Em snapshot No may be a full bookmark or snapshot name
+.No Po e.g. Em filesystem Ns # Ns Em bookmark Pc ,
+which for clones may be a bookmark or snapshot in the origin's filesystem
 .Pq or the origin of the origin's filesystem, etc.
 .El
 .Pp

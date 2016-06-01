@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 RackTop Systems.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
@@ -267,6 +267,9 @@ dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,
 			    DD_USED_HEAD, DD_USED_SNAP, tx);
 		}
 	}
+
+	dsl_bookmark_block_killed(ds, bp, tx);
+
 	mutex_enter(&ds->ds_lock);
 	ASSERT3U(dsl_dataset_phys(ds)->ds_referenced_bytes, >=, used);
 	dsl_dataset_phys(ds)->ds_referenced_bytes -= used;
@@ -399,6 +402,8 @@ dsl_dataset_evict(void *dbu)
 		dsl_dataset_rele(ds->ds_prev, ds);
 		ds->ds_prev = NULL;
 	}
+
+	dsl_bookmark_fini_ds(ds);
 
 	bplist_destroy(&ds->ds_pending_deadlist);
 	if (dsl_deadlist_is_open(&ds->ds_deadlist))
@@ -585,14 +590,7 @@ dsl_dataset_hold_obj(dsl_pool_t *dp, uint64_t dsobj, void *tag,
 				    dsl_dataset_phys(ds)->ds_prev_snap_obj,
 				    ds, &ds->ds_prev);
 			}
-			if (doi.doi_type == DMU_OTN_ZAP_METADATA) {
-				int zaperr = zap_lookup(mos, ds->ds_object,
-				    DS_FIELD_BOOKMARK_NAMES,
-				    sizeof (ds->ds_bookmarks), 1,
-				    &ds->ds_bookmarks);
-				if (zaperr != ENOENT)
-					VERIFY0(zaperr);
-			}
+			err = dsl_bookmark_init_ds(ds);
 		} else {
 			if (zfs_flags & ZFS_DEBUG_SNAPNAMES)
 				err = dsl_dataset_get_snapname(ds);
@@ -1622,6 +1620,7 @@ dsl_dataset_snapshot_sync_impl(dsl_dataset_t *ds, const char *snapname,
 	    dsl_dataset_phys(ds)->ds_deadlist_obj);
 	dsl_deadlist_add_key(&ds->ds_deadlist,
 	    dsl_dataset_phys(ds)->ds_prev_snap_txg, tx);
+	dsl_bookmark_snapshotted(ds, tx);
 
 	if (dsl_dataset_remap_deadlist_exists(ds)) {
 		uint64_t remap_deadlist_obj =
@@ -1856,7 +1855,6 @@ dsl_dataset_snapshot_tmp(const char *fsname, const char *snapname,
 	return (error);
 }
 
-
 void
 dsl_dataset_sync(dsl_dataset_t *ds, zio_t *zio, dmu_tx_t *tx)
 {
@@ -1898,6 +1896,30 @@ dsl_dataset_sync(dsl_dataset_t *ds, zio_t *zio, dmu_tx_t *tx)
 		}
 	}
 }
+
+static int
+deadlist_enqueue_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
+{
+	dsl_deadlist_t *dl = arg;
+	dsl_deadlist_insert(dl, bp, tx);
+	return (0);
+}
+
+void
+dsl_dataset_sync_done(dsl_dataset_t *ds, dmu_tx_t *tx)
+{
+	objset_t *os = ds->ds_objset;
+
+	bplist_iterate(&ds->ds_pending_deadlist,
+	    deadlist_enqueue_cb, &ds->ds_deadlist, tx);
+
+	dsl_bookmark_sync_done(ds, tx);
+
+	ASSERT(!dmu_objset_is_dirty(os, dmu_tx_get_txg(tx)));
+
+	dmu_buf_rele(ds->ds_dbuf, ds);
+}
+
 
 static void
 get_clones_stat(dsl_dataset_t *ds, nvlist_t *nv)
@@ -2440,26 +2462,11 @@ dsl_dataset_rollback_check(void *arg, dmu_tx_t *tx)
 	}
 
 	/* must not have any bookmarks after the most recent snapshot */
-	nvlist_t *proprequest = fnvlist_alloc();
-	fnvlist_add_boolean(proprequest, zfs_prop_to_name(ZFS_PROP_CREATETXG));
-	nvlist_t *bookmarks = fnvlist_alloc();
-	error = dsl_get_bookmarks_impl(ds, proprequest, bookmarks);
-	fnvlist_free(proprequest);
-	if (error != 0)
-		return (error);
-	for (nvpair_t *pair = nvlist_next_nvpair(bookmarks, NULL);
-	    pair != NULL; pair = nvlist_next_nvpair(bookmarks, pair)) {
-		nvlist_t *valuenv =
-		    fnvlist_lookup_nvlist(fnvpair_value_nvlist(pair),
-		    zfs_prop_to_name(ZFS_PROP_CREATETXG));
-		uint64_t createtxg = fnvlist_lookup_uint64(valuenv, "value");
-		if (createtxg > dsl_dataset_phys(ds)->ds_prev_snap_txg) {
-			fnvlist_free(bookmarks);
-			dsl_dataset_rele(ds, FTAG);
-			return (SET_ERROR(EEXIST));
-		}
+	if (dsl_bookmark_latest_txg(ds) >
+	    dsl_dataset_phys(ds)->ds_prev_snap_txg) {
+		dsl_dataset_rele(ds, FTAG);
+		return (SET_ERROR(EEXIST));
 	}
-	fnvlist_free(bookmarks);
 
 	error = dsl_dataset_handoff_check(ds, ddra->ddra_owner, tx);
 	if (error != 0) {
@@ -2580,7 +2587,7 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 	dsl_pool_t *dp = dmu_tx_pool(tx);
 	dsl_dataset_t *hds;
 	struct promotenode *snap;
-	dsl_dataset_t *origin_ds;
+	dsl_dataset_t *origin_ds, *origin_head;
 	int err;
 	uint64_t unused;
 	uint64_t ss_mv_cnt;
@@ -2594,6 +2601,9 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 	snap = list_head(&ddpa->shared_snaps);
 	origin_ds = snap->ds;
 	max_snap_len = MAXNAMELEN - strlen(ddpa->ddpa_clonename) - 1;
+
+	snap = list_head(&ddpa->origin_snaps);
+	origin_head = snap->ds;
 
 	if (dsl_dataset_phys(hds)->ds_flags & DS_FLAG_NOPROMOTE) {
 		promote_rele(ddpa, FTAG);
@@ -2686,6 +2696,32 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 		ddpa->used += dlused;
 		ddpa->comp += dlcomp;
 		ddpa->uncomp += dluncomp;
+	}
+
+	/*
+	 * Check that bookmarks that are being transferred don't have
+	 * name conflicts.
+	 */
+	for (dsl_bookmark_node_t *dbn = avl_first(&origin_head->ds_bookmarks);
+	    dbn != NULL && dbn->dbn_phys.zbm_creation_txg <=
+	    dsl_dataset_phys(origin_ds)->ds_creation_txg;
+	    dbn = AVL_NEXT(&origin_head->ds_bookmarks, dbn)) {
+		if (strlen(dbn->dbn_name) >= max_snap_len) {
+			err = SET_ERROR(ENAMETOOLONG);
+			goto out;
+		}
+		zfs_bookmark_phys_t bm;
+		err = dsl_bookmark_lookup_impl(ddpa->ddpa_clone,
+		    dbn->dbn_name, &bm);
+		if (err == 0) {
+			(void) strcpy(ddpa->err_ds, dbn->dbn_name);
+			err = SET_ERROR(EEXIST);
+			goto out;
+		}
+		if (err == ESRCH)
+			err = 0;
+		if (err != 0)
+			goto out;
 	}
 
 	/*
@@ -2828,6 +2864,48 @@ dsl_dataset_promote_sync(void *arg, dmu_tx_t *tx)
 		}
 		VERIFY0(zap_add_int(dp->dp_meta_objset,
 		    dsl_dir_phys(dd)->dd_clones, origin_head->ds_object, tx));
+	}
+
+	/*
+	 * Move bookmarks to this dir.
+	 */
+	dsl_bookmark_node_t *dbn_next;
+	for (dsl_bookmark_node_t *dbn = avl_first(&origin_head->ds_bookmarks);
+	    dbn != NULL && dbn->dbn_phys.zbm_creation_txg <=
+	    dsl_dataset_phys(origin_ds)->ds_creation_txg;
+	    dbn = dbn_next) {
+		dbn_next = AVL_NEXT(&origin_head->ds_bookmarks, dbn);
+
+		avl_remove(&origin_head->ds_bookmarks, dbn);
+		VERIFY0(zap_remove(dp->dp_meta_objset,
+		    origin_head->ds_bookmarks_obj, dbn->dbn_name, tx));
+
+		if ((dbn->dbn_phys.zbm_flags & ZBM_FLAG_HAS_FBN) &&
+		    dbn->dbn_phys.zbm_creation_txg ==
+		    dsl_dataset_phys(origin_ds)->ds_creation_txg) {
+			/*
+			 * Bookmark is at the origin, therefore its
+			 * "next dataset" is changing, so we need
+			 * to reset its FBN by recomputing it in
+			 * dsl_bookmark_set_phys().
+			 */
+			ASSERT3U(dbn->dbn_phys.zbm_guid, ==,
+			    dsl_dataset_phys(origin_ds)->ds_guid);
+			ASSERT3U(dbn->dbn_phys.zbm_referenced_bytes_refd, ==,
+			    dsl_dataset_phys(origin_ds)->ds_referenced_bytes);
+			ASSERT(dbn->dbn_phys.zbm_flags &
+			    ZBM_FLAG_SNAPSHOT_EXISTS);
+			/*
+			 * Save and restore the zbm_redaction_obj, which
+			 * is zeroed by dsl_bookmark_set_phys().
+			 */
+			uint64_t redaction_obj =
+			    dbn->dbn_phys.zbm_redaction_obj;
+			dsl_bookmark_set_phys(&dbn->dbn_phys, origin_ds);
+			dbn->dbn_phys.zbm_redaction_obj = redaction_obj;
+		}
+
+		dsl_bookmark_node_add(hds, dbn, tx);
 	}
 
 	/* move snapshots to this dir */
@@ -3668,93 +3746,143 @@ dsl_dataset_set_refreservation(const char *dsname, zprop_source_t source,
 }
 
 /*
- * Return (in *usedp) the amount of space written in new that is not
- * present in oldsnap.  New may be a snapshot or the head.  Old must be
- * a snapshot before new, in new's filesystem (or its origin).  If not then
- * fail and return EINVAL.
+ * Return (in *usedp) the amount of space referenced by "new" that was not
+ * referenced at the time the bookmark corresponds to.  "New" may be a
+ * snapshot or a head.  The bookmark must be before new, in
+ * new's filesystem (or its origin) -- caller verifies this.
  *
  * The written space is calculated by considering two components:  First, we
  * ignore any freed space, and calculate the written as new's used space
  * minus old's used space.  Next, we add in the amount of space that was freed
- * between the two snapshots, thus reducing new's used space relative to old's.
- * Specifically, this is the space that was born before old->ds_creation_txg,
- * and freed before new (ie. on new's deadlist or a previous deadlist).
+ * between the two time points, thus reducing new's used space relative to
+ * old's. Specifically, this is the space that was born before
+ * zbm_creation_txg, and freed before new (ie. on new's deadlist or a
+ * previous deadlist).
  *
  * space freed                         [---------------------]
  * snapshots                       ---O-------O--------O-------O------
- *                                         oldsnap            new
+ *                                         bookmark           new
+ *
+ * Note, the bookmark's zbm_*_bytes_refd must be valid, but if the HAS_FBN
+ * flag is not set, we will calculate the freed_before_next based on the
+ * next snapshot's deadlist, rather than using zbm_*_freed_before_next_snap.
+ */
+static int
+dsl_dataset_space_written_impl(zfs_bookmark_phys_t *bmp,
+    dsl_dataset_t *new, uint64_t *usedp, uint64_t *compp, uint64_t *uncompp)
+{
+	int err = 0;
+	dsl_pool_t *dp = new->ds_dir->dd_pool;
+
+	ASSERT(dsl_pool_config_held(dp));
+	if (dsl_dataset_is_snapshot(new)) {
+		ASSERT3U(bmp->zbm_creation_txg, <,
+		    dsl_dataset_phys(new)->ds_creation_txg);
+	}
+
+	*usedp = 0;
+	*usedp += dsl_dataset_phys(new)->ds_referenced_bytes;
+	*usedp -= bmp->zbm_referenced_bytes_refd;
+
+	*compp = 0;
+	*compp += dsl_dataset_phys(new)->ds_compressed_bytes;
+	*compp -= bmp->zbm_compressed_bytes_refd;
+
+	*uncompp = 0;
+	*uncompp += dsl_dataset_phys(new)->ds_uncompressed_bytes;
+	*uncompp -= bmp->zbm_uncompressed_bytes_refd;
+
+	dsl_dataset_t *snap = new;
+
+	while (dsl_dataset_phys(snap)->ds_prev_snap_txg >
+	    bmp->zbm_creation_txg) {
+		uint64_t used, comp, uncomp;
+
+		dsl_deadlist_space_range(&snap->ds_deadlist,
+		    0, bmp->zbm_creation_txg,
+		    &used, &comp, &uncomp);
+		*usedp += used;
+		*compp += comp;
+		*uncompp += uncomp;
+
+		uint64_t snapobj = dsl_dataset_phys(snap)->ds_prev_snap_obj;
+		if (snap != new)
+			dsl_dataset_rele(snap, FTAG);
+		err = dsl_dataset_hold_obj(dp, snapobj, FTAG, &snap);
+		if (err != 0)
+			break;
+	}
+
+	/*
+	 * We might not have the FBN if we are calculating written from
+	 * a snapshot (because we didn't know the correct "next" snapshot
+	 * until now).
+	 */
+	if (bmp->zbm_flags & ZBM_FLAG_HAS_FBN) {
+		*usedp += bmp->zbm_referenced_freed_before_next_snap;
+		*compp += bmp->zbm_compressed_freed_before_next_snap;
+		*uncompp += bmp->zbm_uncompressed_freed_before_next_snap;
+	} else {
+		ASSERT3U(dsl_dataset_phys(snap)->ds_prev_snap_txg, ==,
+		    bmp->zbm_creation_txg);
+		uint64_t used, comp, uncomp;
+		dsl_deadlist_space(&snap->ds_deadlist, &used, &comp, &uncomp);
+		*usedp += used;
+		*compp += comp;
+		*uncompp += uncomp;
+	}
+	if (snap != new)
+		dsl_dataset_rele(snap, FTAG);
+	return (err);
+}
+
+/*
+ * Return (in *usedp) the amount of space written in new that was not
+ * present at the time the bookmark corresponds to.  New may be a
+ * snapshot or the head.  Old must be a bookmark before new, in
+ * new's filesystem (or its origin) -- caller verifies this.
+ */
+int
+dsl_dataset_space_written_bookmark(zfs_bookmark_phys_t *bmp,
+    dsl_dataset_t *new, uint64_t *usedp, uint64_t *compp, uint64_t *uncompp)
+{
+	if (!(bmp->zbm_flags & ZBM_FLAG_HAS_FBN))
+		return (ENOTSUP);
+	return (dsl_dataset_space_written_impl(bmp, new,
+	    usedp, compp, uncompp));
+}
+
+/*
+ * Return (in *usedp) the amount of space written in new that is not
+ * present in oldsnap.  New may be a snapshot or the head.  Old must be
+ * a snapshot before new, in new's filesystem (or its origin).  If not then
+ * fail and return EINVAL.
  */
 int
 dsl_dataset_space_written(dsl_dataset_t *oldsnap, dsl_dataset_t *new,
     uint64_t *usedp, uint64_t *compp, uint64_t *uncompp)
 {
-	int err = 0;
-	uint64_t snapobj;
-	dsl_pool_t *dp = new->ds_dir->dd_pool;
+	if (!dsl_dataset_is_before(new, oldsnap, 0))
+		return (SET_ERROR(EINVAL));
 
-	ASSERT(dsl_pool_config_held(dp));
+	zfs_bookmark_phys_t zbm = { 0 };
+	dsl_dataset_phys_t *dsp = dsl_dataset_phys(oldsnap);
+	zbm.zbm_guid = dsp->ds_guid;
+	zbm.zbm_creation_txg = dsp->ds_creation_txg;
+	zbm.zbm_creation_time = dsp->ds_creation_time;
+	zbm.zbm_referenced_bytes_refd = dsp->ds_referenced_bytes;
+	zbm.zbm_compressed_bytes_refd = dsp->ds_compressed_bytes;
+	zbm.zbm_uncompressed_bytes_refd = dsp->ds_uncompressed_bytes;
 
-	*usedp = 0;
-	*usedp += dsl_dataset_phys(new)->ds_referenced_bytes;
-	*usedp -= dsl_dataset_phys(oldsnap)->ds_referenced_bytes;
-
-	*compp = 0;
-	*compp += dsl_dataset_phys(new)->ds_compressed_bytes;
-	*compp -= dsl_dataset_phys(oldsnap)->ds_compressed_bytes;
-
-	*uncompp = 0;
-	*uncompp += dsl_dataset_phys(new)->ds_uncompressed_bytes;
-	*uncompp -= dsl_dataset_phys(oldsnap)->ds_uncompressed_bytes;
-
-	snapobj = new->ds_object;
-	while (snapobj != oldsnap->ds_object) {
-		dsl_dataset_t *snap;
-		uint64_t used, comp, uncomp;
-
-		if (snapobj == new->ds_object) {
-			snap = new;
-		} else {
-			err = dsl_dataset_hold_obj(dp, snapobj, FTAG, &snap);
-			if (err != 0)
-				break;
-		}
-
-		if (dsl_dataset_phys(snap)->ds_prev_snap_txg ==
-		    dsl_dataset_phys(oldsnap)->ds_creation_txg) {
-			/*
-			 * The blocks in the deadlist can not be born after
-			 * ds_prev_snap_txg, so get the whole deadlist space,
-			 * which is more efficient (especially for old-format
-			 * deadlists).  Unfortunately the deadlist code
-			 * doesn't have enough information to make this
-			 * optimization itself.
-			 */
-			dsl_deadlist_space(&snap->ds_deadlist,
-			    &used, &comp, &uncomp);
-		} else {
-			dsl_deadlist_space_range(&snap->ds_deadlist,
-			    0, dsl_dataset_phys(oldsnap)->ds_creation_txg,
-			    &used, &comp, &uncomp);
-		}
-		*usedp += used;
-		*compp += comp;
-		*uncompp += uncomp;
-
-		/*
-		 * If we get to the beginning of the chain of snapshots
-		 * (ds_prev_snap_obj == 0) before oldsnap, then oldsnap
-		 * was not a snapshot of/before new.
-		 */
-		snapobj = dsl_dataset_phys(snap)->ds_prev_snap_obj;
-		if (snap != new)
-			dsl_dataset_rele(snap, FTAG);
-		if (snapobj == 0) {
-			err = SET_ERROR(EINVAL);
-			break;
-		}
-
-	}
-	return (err);
+	/*
+	 * If oldsnap is the origin (or origin's origin, ...) of new,
+	 * we can't easily calculate the effective FBN.  Therefore,
+	 * we do not set ZBM_FLAG_HAS_FBN, so that the _impl will calculate
+	 * it relative to the correct "next": the next snapshot towards "new",
+	 * rather than the next snapshot in oldsnap's dsl_dir.
+	 */
+	return (dsl_dataset_space_written_impl(&zbm, new,
+	    usedp, compp, uncompp));
 }
 
 /*
@@ -3901,7 +4029,14 @@ dsl_dataset_is_before(dsl_dataset_t *later, dsl_dataset_t *earlier,
 
 	if (later->ds_dir == earlier->ds_dir)
 		return (B_TRUE);
-	if (!dsl_dir_is_clone(later->ds_dir))
+
+	/*
+	 * We check dd_origin_obj explicitly here rather than using
+	 * dsl_dir_is_clone() so that we will return TRUE if "earlier"
+	 * is $ORIGIN@$ORIGIN.  dsl_dataset_space_written() depends on
+	 * this behavior.
+	 */
+	if (dsl_dir_phys(later->ds_dir)->dd_origin_obj == 0)
 		return (B_FALSE);
 
 	dsl_dataset_t *origin;

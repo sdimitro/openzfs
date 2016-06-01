@@ -4572,8 +4572,8 @@ zfs_ioc_send(zfs_cmd_t *zc)
 			}
 		}
 
-		error = dmu_send_estimate_fast(tosnap, fromsnap, compressok,
-		    &zc->zc_objset_type);
+		error = dmu_send_estimate_fast(tosnap, fromsnap, NULL,
+		    compressok, &zc->zc_objset_type);
 
 		if (fromsnap != NULL)
 			dsl_dataset_rele(fromsnap, FTAG);
@@ -5421,8 +5421,8 @@ zfs_ioc_release(const char *pool, nvlist_t *holds, nvlist_t *errlist)
 
 /*
  * inputs:
- * zc_name		name of new filesystem or snapshot
- * zc_value		full name of old snapshot
+ * zc_name		name of later filesystem or snapshot
+ * zc_value		full name of old snapshot or bookmark
  *
  * outputs:
  * zc_cookie		space in bytes
@@ -5434,7 +5434,7 @@ zfs_ioc_space_written(zfs_cmd_t *zc)
 {
 	int error;
 	dsl_pool_t *dp;
-	dsl_dataset_t *new, *old;
+	dsl_dataset_t *new;
 
 	error = dsl_pool_hold(zc->zc_name, FTAG, &dp);
 	if (error != 0)
@@ -5444,16 +5444,27 @@ zfs_ioc_space_written(zfs_cmd_t *zc)
 		dsl_pool_rele(dp, FTAG);
 		return (error);
 	}
-	error = dsl_dataset_hold(dp, zc->zc_value, FTAG, &old);
-	if (error != 0) {
-		dsl_dataset_rele(new, FTAG);
-		dsl_pool_rele(dp, FTAG);
-		return (error);
-	}
 
-	error = dsl_dataset_space_written(old, new, &zc->zc_cookie,
-	    &zc->zc_objset_type, &zc->zc_perm_action);
-	dsl_dataset_rele(old, FTAG);
+	if (strchr(zc->zc_value, '#') != NULL) {
+		zfs_bookmark_phys_t bmp;
+		error = dsl_bookmark_lookup(dp, zc->zc_value,
+		    new, &bmp);
+		if (error == 0) {
+			error = dsl_dataset_space_written_bookmark(&bmp, new,
+			    &zc->zc_cookie,
+			    &zc->zc_objset_type, &zc->zc_perm_action);
+		}
+	} else {
+		dsl_dataset_t *old;
+		error = dsl_dataset_hold(dp, zc->zc_value, FTAG, &old);
+
+		if (error == 0) {
+			error = dsl_dataset_space_written(old, new,
+			    &zc->zc_cookie,
+			    &zc->zc_objset_type, &zc->zc_perm_action);
+			dsl_dataset_rele(old, FTAG);
+		}
+	}
 	dsl_dataset_rele(new, FTAG);
 	dsl_pool_rele(dp, FTAG);
 	return (error);
@@ -5647,6 +5658,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	uint64_t resumeoff = 0;
 	uint64_t resume_bytes = 0;
 	int32_t fd = -1;
+	zfs_bookmark_phys_t zbm = {0};
 
 	error = dsl_pool_hold(snapname, FTAG, &dp);
 	if (error != 0)
@@ -5680,11 +5692,36 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	(void) nvlist_lookup_uint64(innvl, "resume_offset", &resumeoff);
 	(void) nvlist_lookup_uint64(innvl, "bytes", &resume_bytes);
 
-	if (redact || embedok || altbook) {
+	if (redact || altbook) {
 		full_estimate = B_TRUE;
 	} else if (from) {
 		if (strchr(fromname, '#')) {
-			full_estimate = B_TRUE;
+			error = dsl_bookmark_lookup(dp, fromname, tosnap, &zbm);
+
+			/*
+			 * dsl_bookmark_lookup() will fail with EXDEV if
+			 * the from-bookmark and tosnap are at the same txg.
+			 * However, it's valid to do a send (and therefore,
+			 * a send estimate) from and to the same time point,
+			 * if the bookmark is redacted (the incremental send
+			 * can change what's redacted on the target).  In
+			 * this case, dsl_bookmark_lookup() fills in zbm
+			 * but returns EXDEV.  Ignore this error.
+			 */
+			if (error == EXDEV && zbm.zbm_redaction_obj != 0 &&
+			    zbm.zbm_guid ==
+			    dsl_dataset_phys(tosnap)->ds_guid)
+				error = 0;
+
+			if (error != 0) {
+				dsl_dataset_rele(tosnap, FTAG);
+				dsl_pool_rele(dp, FTAG);
+				return (error);
+			}
+			if (zbm.zbm_redaction_obj != 0 || !(zbm.zbm_flags &
+			    ZBM_FLAG_HAS_FBN)) {
+				full_estimate = B_TRUE;
+			}
 		} else if (strchr(fromname, '@')) {
 			error = dsl_dataset_hold(dp, fromname, FTAG, &fromsnap);
 			if (error != 0) {
@@ -5724,8 +5761,9 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 		    compressok, resumeobj, resumeoff, redactnvl, redactbook,
 		    redactlist_book, fd, &off, &out);
 	} else {
-		error = dmu_send_estimate_fast(tosnap, fromsnap, compressok,
-		    &space);
+		error = dmu_send_estimate_fast(tosnap, fromsnap,
+		    (from && strchr(fromname, '#') != NULL ? &zbm : NULL),
+		    compressok, &space);
 		space -= resume_bytes;
 		if (fromsnap != NULL)
 			dsl_dataset_rele(fromsnap, FTAG);

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
@@ -49,6 +49,7 @@ extern boolean_t zfs_allow_redacted_dataset_mount;
 struct dsl_dataset;
 struct dsl_dir;
 struct dsl_pool;
+struct zfs_bookmark_phys;
 
 #define	DS_FLAG_INCONSISTENT	(1ULL<<0)
 #define	DS_IS_INCONSISTENT(ds)	\
@@ -174,7 +175,8 @@ typedef struct dsl_dataset {
 
 	/* only used in syncing context, only valid for non-snapshots: */
 	struct dsl_dataset *ds_prev;
-	uint64_t ds_bookmarks;  /* DMU_OTN_ZAP_METADATA */
+	uint64_t ds_bookmarks_obj;  /* DMU_OTN_ZAP_METADATA */
+	avl_tree_t ds_bookmarks; /* dsl_bookmark_node_t */
 
 	/* has internal locking: */
 	dsl_deadlist_t ds_deadlist;
@@ -315,6 +317,7 @@ boolean_t dsl_dataset_modified_since_snap(dsl_dataset_t *ds,
     dsl_dataset_t *snap);
 
 void dsl_dataset_sync(dsl_dataset_t *os, zio_t *zio, dmu_tx_t *tx);
+void dsl_dataset_sync_done(dsl_dataset_t *ds, dmu_tx_t *tx);
 
 void dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp,
     dmu_tx_t *tx);
@@ -335,6 +338,8 @@ void dsl_dataset_space(dsl_dataset_t *ds,
 uint64_t dsl_dataset_fsid_guid(dsl_dataset_t *ds);
 int dsl_dataset_space_written(dsl_dataset_t *oldsnap, dsl_dataset_t *new,
     uint64_t *usedp, uint64_t *compp, uint64_t *uncompp);
+int dsl_dataset_space_written_bookmark(struct zfs_bookmark_phys *bmp,
+    dsl_dataset_t *new, uint64_t *usedp, uint64_t *compp, uint64_t *uncompp);
 int dsl_dataset_space_wouldfree(dsl_dataset_t *firstsnap, dsl_dataset_t *last,
     uint64_t *usedp, uint64_t *compp, uint64_t *uncompp);
 boolean_t dsl_dataset_is_dirty(dsl_dataset_t *ds);

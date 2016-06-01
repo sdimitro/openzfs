@@ -48,6 +48,7 @@ void dsl_destroy_snapshot_sync_impl(struct dsl_dataset *,
 
 int dsl_destroy_snapshot_check(const char *, boolean_t, dmu_tx_t *);
 void dsl_destroy_snapshot_sync(const char *, boolean_t, dmu_tx_t *);
+void dsl_dir_remove_clones_key(dsl_dir_t *, uint64_t, dmu_tx_t *);
 
 typedef struct dsl_destroy_head_arg {
 	const char *ddha_name;

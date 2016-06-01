@@ -77,8 +77,7 @@ typedef enum dmu_objset_type {
 /*
  * Dataset properties are identified by these constants and must be added to
  * the end of this list to ensure that external consumers are not affected
- * by the change. If you make any changes to this list, be sure to update
- * the property table in usr/src/common/zfs/zfs_prop.c.
+ * by the change.  Properties must be registered in zfs_prop_init().
  */
 typedef enum {
 	ZFS_PROP_TYPE,
@@ -107,12 +106,12 @@ typedef enum {
 	ZFS_PROP_SNAPDIR,
 	ZFS_PROP_ACLMODE,
 	ZFS_PROP_ACLINHERIT,
-	ZFS_PROP_CREATETXG,		/* not exposed to the user */
-	ZFS_PROP_NAME,			/* not exposed to the user */
+	ZFS_PROP_CREATETXG,
+	ZFS_PROP_NAME,
 	ZFS_PROP_CANMOUNT,
-	ZFS_PROP_ISCSIOPTIONS,		/* not exposed to the user */
+	ZFS_PROP_ISCSIOPTIONS,
 	ZFS_PROP_XATTR,
-	ZFS_PROP_NUMCLONES,		/* not exposed to the user */
+	ZFS_PROP_NUMCLONES,
 	ZFS_PROP_COPIES,
 	ZFS_PROP_VERSION,
 	ZFS_PROP_UTF8ONLY,
@@ -130,13 +129,13 @@ typedef enum {
 	ZFS_PROP_USEDDS,
 	ZFS_PROP_USEDCHILD,
 	ZFS_PROP_USEDREFRESERV,
-	ZFS_PROP_USERACCOUNTING,	/* not exposed to the user */
-	ZFS_PROP_STMF_SHAREINFO,	/* not exposed to the user */
+	ZFS_PROP_USERACCOUNTING,
+	ZFS_PROP_STMF_SHAREINFO,
 	ZFS_PROP_DEFER_DESTROY,
 	ZFS_PROP_USERREFS,
 	ZFS_PROP_LOGBIAS,
-	ZFS_PROP_UNIQUE,		/* not exposed to the user */
-	ZFS_PROP_OBJSETID,		/* not exposed to the user */
+	ZFS_PROP_UNIQUE,
+	ZFS_PROP_OBJSETID,
 	ZFS_PROP_DEDUP,
 	ZFS_PROP_MLSLABEL,
 	ZFS_PROP_SYNC,
@@ -145,7 +144,7 @@ typedef enum {
 	ZFS_PROP_CLONES,
 	ZFS_PROP_LOGICALUSED,
 	ZFS_PROP_LOGICALREFERENCED,
-	ZFS_PROP_INCONSISTENT,		/* not exposed to the user */
+	ZFS_PROP_INCONSISTENT,
 	ZFS_PROP_FILESYSTEM_LIMIT,
 	ZFS_PROP_SNAPSHOT_LIMIT,
 	ZFS_PROP_FILESYSTEM_COUNT,
@@ -154,7 +153,7 @@ typedef enum {
 	ZFS_PROP_PREV_SNAP,
 	ZFS_PROP_MOOCH_BYTESWAP,
 	ZFS_PROP_RECEIVE_RESUME_TOKEN,
-	ZFS_PROP_REMAPTXG,		/* not exposed to the user */
+	ZFS_PROP_REMAPTXG,
 	ZFS_PROP_REDACTED,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
@@ -172,8 +171,7 @@ extern const char *zfs_userquota_prop_prefixes[ZFS_NUM_USERQUOTA_PROPS];
 /*
  * Pool properties are identified by these constants and must be added to the
  * end of this list to ensure that external consumers are not affected
- * by the change. If you make any changes to this list, be sure to update
- * the property table in usr/src/common/zfs/zpool_prop.c.
+ * by the change.  Properties must be registered in zpool_prop_init().
  */
 typedef enum {
 	ZPOOL_PROP_NAME,

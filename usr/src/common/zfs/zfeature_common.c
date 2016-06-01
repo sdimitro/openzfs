@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014, Nexenta Systems, Inc. All rights reserved.
@@ -300,4 +300,16 @@ zpool_feature_init(void)
 	    "redacted datasets, produced by receiving a redacted zfs send "
 	    "stream.", ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_UINT64_ARRAY,
 	    redact_datasets_deps);
+
+	static const spa_feature_t bookmark_written_deps[] = {
+		SPA_FEATURE_EXTENSIBLE_DATASET,
+		SPA_FEATURE_BOOKMARKS,
+		SPA_FEATURE_NONE
+	};
+	zfeature_register(SPA_FEATURE_BOOKMARK_WRITTEN,
+	    "com.delphix:bookmark_written", "bookmark_written",
+	    "Additional accounting, enabling the written#<bookmark> property"
+	    "(space written since a bookmark), and estimates of send stream "
+	    "sizes for incrementals from bookmarks.",
+	    0, ZFEATURE_TYPE_BOOLEAN, bookmark_written_deps);
 }

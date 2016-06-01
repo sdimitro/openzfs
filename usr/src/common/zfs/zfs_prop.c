@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -356,12 +356,13 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_AVAILABLE, "available", 0, PROP_READONLY,
 	    ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME, "<size>", "AVAIL");
 	zprop_register_number(ZFS_PROP_REFERENCED, "referenced", 0,
-	    PROP_READONLY, ZFS_TYPE_DATASET, "<size>", "REFER");
+	    PROP_READONLY, ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK,
+	    "<size>", "REFER");
 	zprop_register_number(ZFS_PROP_COMPRESSRATIO, "compressratio", 0,
 	    PROP_READONLY, ZFS_TYPE_DATASET,
 	    "<1.00x or higher if compressed>", "RATIO");
 	zprop_register_number(ZFS_PROP_REFRATIO, "refcompressratio", 0,
-	    PROP_READONLY, ZFS_TYPE_DATASET,
+	    PROP_READONLY, ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK,
 	    "<1.00x or higher if compressed>", "REFRATIO");
 	zprop_register_number(ZFS_PROP_VOLBLOCKSIZE, "volblocksize",
 	    ZVOL_DEFAULT_BLOCKSIZE, PROP_ONETIME,
@@ -385,7 +386,8 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_LOGICALUSED, "logicalused", 0,
 	    PROP_READONLY, ZFS_TYPE_DATASET, "<size>", "LUSED");
 	zprop_register_number(ZFS_PROP_LOGICALREFERENCED, "logicalreferenced",
-	    0, PROP_READONLY, ZFS_TYPE_DATASET, "<size>", "LREFER");
+	    0, PROP_READONLY, ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK,
+	    "<size>", "LREFER");
 
 	/* default number properties */
 	zprop_register_number(ZFS_PROP_QUOTA, "quota", 0, PROP_DEFAULT,
@@ -539,8 +541,10 @@ zfs_prop_userquota(const char *name)
 boolean_t
 zfs_prop_written(const char *name)
 {
-	static const char *prefix = "written@";
-	return (strncmp(name, prefix, strlen(prefix)) == 0);
+	static const char *prop_prefix = "written@";
+	static const char *book_prefix = "written#";
+	return (strncmp(name, prop_prefix, strlen(prop_prefix)) == 0 ||
+	    strncmp(name, book_prefix, strlen(book_prefix)) == 0);
 }
 
 /*

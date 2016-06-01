@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
@@ -60,6 +60,7 @@ typedef enum spa_feature {
 	SPA_FEATURE_OBSOLETE_COUNTS,
 	SPA_FEATURE_REDACTION_BOOKMARKS,
 	SPA_FEATURE_REDACTED_DATASETS,
+	SPA_FEATURE_BOOKMARK_WRITTEN,
 	SPA_FEATURES
 } spa_feature_t;
 

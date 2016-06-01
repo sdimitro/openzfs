@@ -1702,7 +1702,7 @@ dump_bookmarks(objset_t *os, const char *osname, int verbosity)
 	if (verbosity < 4)
 		return;
 
-	for (zap_cursor_init(&zc, mos, ds->ds_bookmarks);
+	for (zap_cursor_init(&zc, mos, ds->ds_bookmarks_obj);
 	    zap_cursor_retrieve(&zc, &attr) == 0;
 	    zap_cursor_advance(&zc)) {
 		char buf[ZFS_MAX_DATASET_NAME_LEN];
@@ -2510,7 +2510,9 @@ dump_label(const char *dev)
 }
 
 static uint64_t dataset_feature_count[SPA_FEATURES];
+static uint64_t global_feature_count[SPA_FEATURES];
 static uint64_t remap_deadlist_count = 0;
+
 
 /*ARGSUSED*/
 static int
@@ -2537,6 +2539,15 @@ dump_one_dir(const char *dsname, void *arg)
 		ASSERT(spa_feature_table[f].fi_flags &
 		    ZFEATURE_FLAG_PER_DATASET);
 		dataset_feature_count[f]++;
+	}
+
+	for (dsl_bookmark_node_t *dbn =
+	    avl_first(&dmu_objset_ds(os)->ds_bookmarks); dbn != NULL;
+	    dbn = AVL_NEXT(&dmu_objset_ds(os)->ds_bookmarks, dbn)) {
+		if (dbn->dbn_phys.zbm_redaction_obj != 0)
+			global_feature_count[SPA_FEATURE_REDACTION_BOOKMARKS]++;
+		if (dbn->dbn_phys.zbm_flags & ZBM_FLAG_HAS_FBN)
+			global_feature_count[SPA_FEATURE_BOOKMARK_WRITTEN]++;
 	}
 
 	if (dsl_dataset_remap_deadlist_exists(dmu_objset_ds(os))) {
@@ -3858,26 +3869,42 @@ dump_zpool(spa_t *spa)
 			}
 			dump_dtl(spa->spa_root_vdev, 0);
 		}
+
+		for (spa_feature_t f = 0; f < SPA_FEATURES; f++)
+			global_feature_count[f] = UINT64_MAX;
+		global_feature_count[SPA_FEATURE_REDACTION_BOOKMARKS] = 0;
+		global_feature_count[SPA_FEATURE_BOOKMARK_WRITTEN] = 0;
+
 		(void) dmu_objset_find(spa_name(spa), dump_one_dir,
 		    NULL, DS_FIND_SNAPSHOTS | DS_FIND_CHILDREN);
 
 		for (spa_feature_t f = 0; f < SPA_FEATURES; f++) {
 			uint64_t refcount;
-
+			uint64_t *arr;
 			if (!(spa_feature_table[f].fi_flags &
-			    ZFEATURE_FLAG_PER_DATASET) ||
-			    !spa_feature_is_enabled(spa, f)) {
-				ASSERT0(dataset_feature_count[f]);
-				continue;
+			    ZFEATURE_FLAG_PER_DATASET)) {
+				if (global_feature_count[f] == UINT64_MAX)
+					continue;
+				if (!spa_feature_is_enabled(spa, f)) {
+					ASSERT0(global_feature_count[f]);
+					continue;
+				}
+				arr = global_feature_count;
+			} else {
+				if (!spa_feature_is_enabled(spa, f)) {
+					ASSERT0(dataset_feature_count[f]);
+					continue;
+				}
+				arr = dataset_feature_count;
 			}
+
 			(void) feature_get_refcount(spa,
 			    &spa_feature_table[f], &refcount);
-			if (dataset_feature_count[f] != refcount) {
+			if (arr[f] != refcount) {
 				(void) printf("%s feature refcount mismatch: "
-				    "%lld datasets != %lld refcount\n",
+				    "%lld consumers != %lld refcount\n",
 				    spa_feature_table[f].fi_uname,
-				    (longlong_t)dataset_feature_count[f],
-				    (longlong_t)refcount);
+				    (longlong_t)arr[f], (longlong_t)refcount);
 				rc = 2;
 			} else {
 				(void) printf("Verified %s feature refcount "

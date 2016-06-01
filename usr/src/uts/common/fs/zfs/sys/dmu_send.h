@@ -30,6 +30,7 @@
 #define	_DMU_SEND_H
 
 #include <sys/inttypes.h>
+#include <sys/dsl_bookmark.h>
 #include <sys/spa.h>
 #include <sys/objlist.h>
 #include <sys/dsl_bookmark.h>
@@ -49,7 +50,8 @@ int dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
     nvlist_t *redactsnaps, const char *redactbook, const char *redactlist_book,
     int outfd, offset_t *off, struct dmu_send_outparams *dso);
 int dmu_send_estimate_fast(struct dsl_dataset *ds, struct dsl_dataset *fromds,
-    boolean_t stream_compressed, uint64_t *sizep);
+    zfs_bookmark_phys_t *frombook, boolean_t stream_compressed,
+    uint64_t *sizep);
 int dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
     boolean_t embedok, boolean_t large_block_ok, boolean_t compressok,
     int outfd, offset_t *off, struct dmu_send_outparams *dso);

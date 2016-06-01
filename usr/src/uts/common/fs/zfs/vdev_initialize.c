@@ -189,7 +189,7 @@ vdev_initialize_cb(zio_t *zio)
 
 /* Takes care of physical writing and limiting # of concurrent ZIOs. */
 static int
-vdev_initialize_write(vdev_t *vd, uint64_t start, uint64_t size, void *data)
+vdev_initialize_write(vdev_t *vd, uint64_t start, uint64_t size, abd_t *data)
 {
 	spa_t *spa = vd->vdev_spa;
 
@@ -289,29 +289,43 @@ vdev_xlate(vdev_t *vd, const range_seg_t *logical_rs, range_seg_t *physical_rs)
 	physical_rs->rs_end = intermediate.rs_end;
 }
 
-static void *
+/*
+ * Callback to fill each ABD chunk with zfs_initialize_value. len must be
+ * divisible by sizeof (uint64_t), and buf must be 8-byte aligned. The ABD
+ * allocation will guarantee these for us.
+ */
+/* ARGSUSED */
+static int
+vdev_initialize_block_fill(void *buf, size_t len, void *unused)
+{
+	ASSERT0(len % sizeof (uint64_t));
+	for (uint64_t i = 0; i < len; i += sizeof (uint64_t)) {
+		*(uint64_t *)((char *)(buf) + i) = zfs_initialize_value;
+	}
+	return (0);
+}
+
+static abd_t *
 vdev_initialize_block_alloc()
 {
-	/* Allocate buffer for filler data */
-	void *data = kmem_alloc(zfs_initialize_chunk_size, KM_SLEEP);
+	/* Allocate ABD for filler data */
+	abd_t *data = abd_alloc_for_io(zfs_initialize_chunk_size, B_FALSE);
 
 	ASSERT0(zfs_initialize_chunk_size % sizeof (uint64_t));
-	for (uint64_t i = 0; i < zfs_initialize_chunk_size;
-	    i += sizeof (uint64_t)) {
-		*(uint64_t *)((char *)(data) + i) = zfs_initialize_value;
-	}
+	(void) abd_iterate_func(data, 0, zfs_initialize_chunk_size,
+	    vdev_initialize_block_fill, NULL);
 
 	return (data);
 }
 
 static void
-vdev_initialize_block_free(void *data)
+vdev_initialize_block_free(abd_t *data)
 {
-	kmem_free(data, zfs_initialize_chunk_size);
+	abd_free(data);
 }
 
 static int
-vdev_initialize_ranges(vdev_t *vd, void *data)
+vdev_initialize_ranges(vdev_t *vd, abd_t *data)
 {
 	avl_tree_t *rt = &vd->vdev_initialize_tree->rt_root;
 
@@ -582,7 +596,7 @@ vdev_initialize_thread(void *arg)
 	vd->vdev_initialize_last_offset = 0;
 	vdev_initialize_load(vd);
 
-	void *deadbeef = vdev_initialize_block_alloc();
+	abd_t *deadbeef = vdev_initialize_block_alloc();
 
 	vd->vdev_initialize_tree = range_tree_create(NULL, NULL);
 

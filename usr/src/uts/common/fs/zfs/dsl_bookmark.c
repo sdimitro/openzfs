@@ -1140,13 +1140,24 @@ dsl_bookmark_ds_destroyed(dsl_dataset_t *ds, dmu_tx_t *tx)
 void
 dsl_bookmark_snapshotted(dsl_dataset_t *ds, dmu_tx_t *tx)
 {
+	uint64_t last_key_added = UINT64_MAX;
 	for (dsl_bookmark_node_t *dbn = avl_last(&ds->ds_bookmarks);
 	    dbn != NULL && dbn->dbn_phys.zbm_creation_txg >
 	    dsl_dataset_phys(ds)->ds_prev_snap_txg;
 	    dbn = AVL_PREV(&ds->ds_bookmarks, dbn)) {
-		if (dbn->dbn_phys.zbm_flags & ZBM_FLAG_HAS_FBN) {
+		uint64_t creation_txg = dbn->dbn_phys.zbm_creation_txg;
+		ASSERT3U(creation_txg, <=, last_key_added);
+		/*
+		 * Note, there may be multiple bookmarks at this TXG,
+		 * and we only want to add the key for this TXG once.
+		 * The ds_bookmarks AVL is sorted by TXG, so we will visit
+		 * these bookmarks in sequence.
+		 */
+		if ((dbn->dbn_phys.zbm_flags & ZBM_FLAG_HAS_FBN) &&
+		    creation_txg != last_key_added) {
 			dsl_deadlist_add_key(&ds->ds_deadlist,
-			    dbn->dbn_phys.zbm_creation_txg, tx);
+			    creation_txg, tx);
+			last_key_added = creation_txg;
 		}
 	}
 }

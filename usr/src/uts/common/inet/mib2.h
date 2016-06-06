@@ -1381,7 +1381,9 @@ typedef struct mib2_tcpConnEntry {
 		Gauge		ce_rnxt;
 				/* seq # of last ack'd segment */
 		Gauge		ce_rack;
-				/* currenct receive window size */
+				/* # of unsent bytes in the xmit queue */
+		Gauge		ce_unsent;
+				/* current receive window size */
 		Gauge		ce_rwnd;
 				/* round-trip time smoothed average (us) */
 		Gauge		ce_rtt_sa;

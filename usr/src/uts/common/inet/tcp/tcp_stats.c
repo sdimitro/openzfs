@@ -119,6 +119,7 @@ tcp_set_conninfo(tcp_t *tcp, struct tcpConnEntryInfo_s *tcei, boolean_t ispriv)
 	tcei->ce_out_retrans_segs = tcp->tcp_cs.tcp_out_retrans_segs;
 	tcei->ce_out_zwnd_probes = tcp->tcp_cs.tcp_out_zwnd_probes;
 
+	tcei->ce_unsent = tcp->tcp_unsent;
 	tcei->ce_swnd = tcp->tcp_swnd;
 	tcei->ce_cwnd = tcp->tcp_cwnd;
 	tcei->ce_rwnd = tcp->tcp_rwnd;

@@ -133,6 +133,7 @@ usage(int code)
 	    "  retransbytes    Bytes retransmitted\n"
 	    "  retranssegs     Segments retransmitted\n"
 	    "  suna            Current unacknowledged bytes sent\n"
+	    "  unsent          Unsent bytes on the transmit queue\n"
 	    "  swnd            Send window size (peer's receive window)\n"
 	    "  cwnd            Congestion window size\n"
 	    "  rwnd            Receive window size\n"

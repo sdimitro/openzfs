@@ -45,6 +45,7 @@ typedef struct tcp_fields_buf_s {
 	uint64_t t_retransbytes;
 	uint64_t t_retranssegs;
 	uint32_t t_suna;
+	uint32_t t_unsent;
 	uint32_t t_swnd;
 	uint32_t t_cwnd;
 	uint32_t t_rwnd;
@@ -83,6 +84,8 @@ static ofmt_field_t tcp_fields[] = {
 		offsetof(tcp_fields_buf_t, t_retranssegs),	print_uint64 },
 	{ "SUNA",	11,
 		offsetof(tcp_fields_buf_t, t_suna),	print_uint32 },
+	{ "UNSENT",	11,
+		offsetof(tcp_fields_buf_t, t_unsent),	print_uint32 },
 	{ "SWND",	11,
 		offsetof(tcp_fields_buf_t, t_swnd),	print_uint32 },
 	{ "CWND",	11,
@@ -126,6 +129,7 @@ tcp_ci2buf(struct tcpConnEntryInfo_s *ci)
 	fields_buf.t_retransbytes = ci->ce_out_retrans_bytes;
 	fields_buf.t_retranssegs = ci->ce_out_retrans_segs;
 	fields_buf.t_suna = ci->ce_snxt - ci->ce_suna;
+	fields_buf.t_unsent = ci->ce_unsent;
 	fields_buf.t_swnd = ci->ce_swnd;
 	fields_buf.t_cwnd = ci->ce_cwnd;
 	fields_buf.t_rwnd = ci->ce_rwnd;

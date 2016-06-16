@@ -795,7 +795,7 @@ zfs_do_create(int argc, char **argv)
 				nomem();
 			break;
 		case 'o':
-			if (parseprop(props, optarg))
+			if (parseprop(props, optarg) != 0)
 				goto error;
 			break;
 		case 's':
@@ -3643,7 +3643,7 @@ zfs_do_snapshot(int argc, char **argv)
 	while ((c = getopt(argc, argv, "ro:")) != -1) {
 		switch (c) {
 		case 'o':
-			if (parseprop(props, optarg))
+			if (parseprop(props, optarg) != 0)
 				return (1);
 			break;
 		case 'r':

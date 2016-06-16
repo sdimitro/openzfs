@@ -2473,8 +2473,6 @@ file path=opt/zfs-tests/tests/functional/zvol/zvol_misc/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/zvol/zvol_misc/setup mode=0555
 file path=opt/zfs-tests/tests/functional/zvol/zvol_misc/zvol_misc_001_neg \
     mode=0555
-file path=opt/zfs-tests/tests/functional/zvol/zvol_misc/zvol_misc_002_pos \
-    mode=0555
 file path=opt/zfs-tests/tests/functional/zvol/zvol_misc/zvol_misc_003_neg \
     mode=0555
 file path=opt/zfs-tests/tests/functional/zvol/zvol_misc/zvol_misc_004_pos \

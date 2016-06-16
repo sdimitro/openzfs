@@ -371,7 +371,6 @@ zfs_params(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		"zfs_prefetch_disable",
 		"zfetch_max_streams",
 		"zfetch_min_sec_reap",
-		"zfetch_block_cap",
 		"zfetch_array_rd_sz",
 		"zfs_default_bs",
 		"zfs_default_ibs",

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -43,32 +43,54 @@
 
 function cleanup
 {
-	$RM -f $OUTFILE
+	$RM -f $tmpfile
 }
 
 verify_runnable "global"
 log_onexit cleanup
 
-OUTFILE='/var/tmp/mdb-outfile'
-set -A dcmds "::walk spa" \
-	"::walk spa | ::spa " \
-	"::walk spa | ::spa -c" \
-	"::walk spa | ::spa -v" \
-	"::walk spa | ::spa_config" \
-	"::walk spa | ::spa_space" \
-	"::walk spa | ::spa_space -b" \
-	"::walk spa | ::spa_vdevs" \
-	"::walk spa | ::walk metaslab" \
-	"::walk spa | ::print struct spa spa_root_vdev | ::vdev" \
-	"::walk spa | ::print struct spa spa_root_vdev | ::vdev -re" \
+tmpfile=$($MKTEMP)
+log_must $ZPOOL scrub $TESTPOOL
+
+typeset spa=$($MDB -ke "::spa" | awk "/$TESTPOOL/ {print \$1}")
+typeset off_ub=$($MDB -ke "::offsetof spa_t spa_uberblock | =J")
+typeset off_rbp=$($MDB -ke "::offsetof uberblock_t ub_rootbp | =J")
+typeset bp=$($MDB -ke "$spa + $off_ub + $off_rbp =J")
+
+# dcmds and walkers skipped due to being DEBUG only or difficult to run:
+# ::zfs_params
+# ::refcount
+# ::walk zms_freelist
+
+set -A dcmds "::arc" \
+	"::arc -b" \
+	"$bp ::blkptr" \
+	"$bp ::dva" \
+	"::walk spa" \
+	"::spa" \
+	"$spa ::spa " \
+	"$spa ::spa -c" \
+	"$spa ::spa -v" \
+	"$spa ::spa -h" \
+	"$spa ::spa -Mmh" \
+	"$spa ::spa_config" \
+	"$spa ::spa_space" \
+	"$spa ::spa_space -b" \
+	"$spa ::spa_vdevs" \
+	"$spa ::walk metaslab" \
+	"$spa ::print struct spa spa_root_vdev | ::vdev" \
+	"$spa ::print struct spa spa_root_vdev | ::vdev -re" \
 	"::dbufs" \
 	"::dbufs -n mos -o mdn -l 0 -b 0" \
 	"::dbufs | ::dbuf" \
 	"::dbuf_stats" \
-	"::abuf_find 1 2" \
-        "::walk spa | ::print -a struct spa spa_uberblock.ub_rootbp | ::blkptr" \
-        "::walk spa | ::print -a struct spa spa_dsl_pool->dp_dirty_datasets | ::walk txg_list" \
-        "::walk spa | ::walk zms_freelist"
+	"$spa::print spa_t spa_dsl_pool->dp_dirty_datasets |::walk txg_list" \
+	"$spa ::walk zio_root | ::zio -c" \
+	"$spa ::walk zio_root | ::zio -r" \
+	"dbuf_cache ::walk multilist" \
+	"$spa ::zfs_blkstats -v" \
+	"$spa ::walk metaslab | ::head -1 | ::metaslab_weight" \
+	"$spa ::walk metaslab | ::head -1 | ::metaslab_trace"
 #
 # The commands above were supplied by the ZFS development team. The idea is to
 # do as much checking as possible without the need to hardcode addresses.
@@ -76,30 +98,13 @@ set -A dcmds "::walk spa" \
 
 log_assert "Verify that the ZFS mdb dcmds and walkers are working as expected."
 
-typeset -i RET=0
-
 i=0
-while (( $i < ${#dcmds[*]} )); do
-	log_note "Verifying: '${dcmds[i]}'"
-        $ECHO "${dcmds[i]}" | $MDB -k > $OUTFILE 2>&1
-	RET=$?
-	if (( $RET != 0 )); then
-		log_fail "mdb '${dcmds[i]}' returned error $RET"
-	fi
+while ((i < ${#dcmds[*]})); do
+	log_must eval "$MDB -ke \"${dcmds[i]}\" >$tmpfile 2>&1"
 
-	#
 	# mdb prefixes all errors with "mdb: " so we check the output.
-	#
-	$GREP "mdb:" $OUTFILE > /dev/null 2>&1
-	RET=$?
-	if (( $RET == 0 )); then
-		$ECHO "mdb '${dcmds[i]}' contained 'mdb:'"
-		# Using $TAIL limits the number of lines in the log
-		$TAIL -100 $OUTFILE
-		log_fail "mdb walker or dcmd failed"
-	fi
-
-        ((i = i + 1))
+	log_mustnot $GREP -q "mdb:" $tmpfile
+	((i++))
 done
 
 log_pass "The ZFS mdb dcmds and walkers are working as expected."

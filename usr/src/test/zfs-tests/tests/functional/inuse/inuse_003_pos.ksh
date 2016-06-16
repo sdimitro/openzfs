@@ -26,11 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
-#
-
-#
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -103,12 +99,7 @@ for num in 0 1 2; do
 	eval typeset slice=\${FS_SIDE$num}
 	disk=${slice%s*}
 	slice=${slice##*s}
-	if [[ $WRAPPER == *"smi"* && $disk == ${saved_disk} ]]; then
-		cyl=$(get_endslice $disk ${saved_slice})
-		log_must set_partition $slice "$cyl" $FS_SIZE $disk
-	else
-		log_must set_partition $slice "" $FS_SIZE $disk
-	fi
+	log_must set_partition $slice "" $FS_SIZE $disk
 	saved_disk=$disk
 	saved_slice=$slice
 done
@@ -148,6 +139,7 @@ log_note "$UFSDUMP 0bf 512 $rawdisk0 $disk1"
 $UFSDUMP 0bf 512 $rawdisk0 $disk1 &
 PIDUFSDUMP=$!
 
+unset NOINUSE_CHECK
 log_note "Attempt to zpool the source device in use by ufsdump"
 log_mustnot $ZPOOL create $TESTPOOL1 "$disk1"
 log_mustnot poolexists $TESTPOOL1

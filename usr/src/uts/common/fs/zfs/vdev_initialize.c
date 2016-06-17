@@ -622,8 +622,8 @@ vdev_initialize_thread(void *arg)
 
 		spa_config_exit(spa, SCL_CONFIG, FTAG);
 		error = vdev_initialize_ranges(vd, deadbeef);
-		spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
 		vdev_initialize_ms_unmark(msp);
+		spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
 
 		range_tree_vacate(vd->vdev_initialize_tree, NULL, NULL);
 		if (error != 0)

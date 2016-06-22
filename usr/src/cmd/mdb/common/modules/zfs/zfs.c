@@ -1666,7 +1666,6 @@ typedef struct mdb_metaslab_alloc_trace {
 	uint64_t mat_weight;
 	uint64_t mat_offset;
 	uint32_t mat_dva_id;
-	metaslab_alloc_strategy_t mat_alloc_type;
 } mdb_metaslab_alloc_trace_t;
 
 static void
@@ -1731,7 +1730,7 @@ metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	mdb_metaslab_alloc_trace_t mat;
 	mdb_metaslab_group_t mg = { 0 };
-	char alloc_type[100], result_type[100];
+	char result_type[100];
 
 	if (mdb_ctf_vread(&mat, "metaslab_alloc_trace_t",
 	    "mdb_metaslab_alloc_trace_t", addr, 0) == -1) {
@@ -1756,14 +1755,7 @@ metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		mdb_printf("%4s ", "-");
 	}
 
-	if (enum_lookup("enum metaslab_alloc_strategy", mat.mat_alloc_type,
-	    "METASLAB_ALLOC_", sizeof (alloc_type), alloc_type) == -1) {
-		mdb_warn("Could not find enum for metaslab_alloc_strategy");
-		return (DCMD_ERR);
-	}
-
-	mdb_printf("%2d %6llx %11s ",
-	    mat.mat_dva_id, mat.mat_size, alloc_type);
+	mdb_printf("%2d %6llx ", mat.mat_dva_id, mat.mat_size);
 
 	metaslab_print_weight(mat.mat_weight);
 

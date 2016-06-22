@@ -3053,12 +3053,8 @@ zdb_leak_init_ms(metaslab_t *msp, uint64_t *vim_idxp)
 	} else if (msp->ms_sm != NULL) {
 		VERIFY0(space_map_load(msp->ms_sm, msp->ms_tree, SM_ALLOC));
 	}
-
 	if (!msp->ms_loaded) {
-		mutex_enter(&mg->mg_lock);
-		(void) refcount_add(&mg->mg_loaded_metaslabs, msp);
 		msp->ms_loaded = B_TRUE;
-		mutex_exit(&mg->mg_lock);
 	}
 	mutex_exit(&msp->ms_lock);
 }
@@ -3298,13 +3294,8 @@ zdb_leak_fini(spa_t *spa, zdb_cb_t *zcb)
 					range_tree_vacate(msp->ms_tree,
 					    zdb_leak, vd);
 				}
-
 				if (msp->ms_loaded) {
-					mutex_enter(&mg->mg_lock);
-					(void) refcount_remove(
-					    &mg->mg_loaded_metaslabs, msp);
 					msp->ms_loaded = B_FALSE;
-					mutex_exit(&mg->mg_lock);
 				}
 			}
 		}

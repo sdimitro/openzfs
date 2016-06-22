@@ -51,7 +51,6 @@ typedef struct metaslab_alloc_trace {
 	uint64_t			mat_size;
 	uint64_t			mat_weight;
 	uint32_t			mat_dva_id;
-	metaslab_alloc_strategy_t	mat_alloc_type;
 	uint64_t			mat_offset;
 } metaslab_alloc_trace_t;
 
@@ -204,8 +203,6 @@ struct metaslab_class {
 struct metaslab_group {
 	kmutex_t		mg_lock;
 	avl_tree_t		mg_metaslab_tree;
-	/* metaslabs ordered by number of segments (holes). */
-	metaslab_t		**mg_seg_array;
 	uint64_t		mg_aliquot;
 	boolean_t		mg_allocatable;		/* can we allocate? */
 
@@ -225,7 +222,6 @@ struct metaslab_group {
 	taskq_t			*mg_taskq;
 	metaslab_group_t	*mg_prev;
 	metaslab_group_t	*mg_next;
-	refcount_t		mg_loaded_metaslabs;
 
 	/*
 	 * Each metaslab group can handle mg_max_alloc_queue_depth allocations
@@ -246,10 +242,7 @@ struct metaslab_group {
 	boolean_t		mg_no_free_space;
 
 	uint64_t		mg_allocations;
-	uint64_t		mg_holefills;
 	uint64_t		mg_failed_allocations;
-	uint64_t		mg_failed_holefills;
-	uint64_t		mg_failed_bestfit;
 	uint64_t		mg_fragmentation;
 	uint64_t		mg_histogram[RANGE_TREE_HISTOGRAM_SIZE];
 
@@ -329,7 +322,6 @@ struct metaslab {
 	uint64_t	ms_start;
 	uint64_t	ms_size;
 	uint64_t	ms_fragmentation;
-	uint64_t	ms_num_holes;
 
 	range_tree_t	*ms_alloctree[TXG_SIZE];
 	range_tree_t	*ms_tree;

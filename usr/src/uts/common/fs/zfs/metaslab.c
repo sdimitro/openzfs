@@ -33,7 +33,6 @@
 #include <sys/zio.h>
 #include <sys/spa_impl.h>
 #include <sys/zfeature.h>
-#include <util/qsort.h>
 #include <sys/vdev_indirect_mapping.h>
 
 #define	GANG_ALLOCATION(flags) \
@@ -122,41 +121,6 @@ uint64_t metaslab_df_alloc_threshold = SPA_OLD_MAXBLOCKSIZE;
  * switch to using best-fit allocations.
  */
 int metaslab_df_free_pct = 4;
-
-/*
- * The probability that we will use an hole filling allocation strategy follows
- * a distribution that is a function of the percent of outstanding dirty data
- * allowed by the pool. This distribution is specified by a piece-wise linear
- * function defined by a few adjustable points.
- *
- *         100%|---------o
- *      ^      |         ^\
- *      |      |         | \
- * Probability |         |  \
- * of a hole   |         |   \
- * filling     |         |    \
- * allocation  |         |     \
- *             |         |      \
- *           0%|_________|_______\__________
- *             0%        |       ^         100% of zfs_dirty_data_max
- *                       |       |
- *                       |       `-- zfs_holefill_max_dirty_data_pct
- *                       `---------- zfs_holefill_min_dirty_data_pct
- *
- * When the pool has less than zfs_holefill_min_dirty_data_pct dirty
- * data, force the use of a hole filling allocation strategy. When it has
- * more than zfs_holefill_max_dirty_data_pct dirty data, allow
- * metaslab_df_alloc to determine the correct block allocation strategy.
- * When the value is between min and max, choose the allocation strategy
- * probabilistically according to the above-diagramed function.
- *
- * zfs_holefill_max_dirty_data_pct should be less than
- * zfs_vdev_async_write_active_min_dirty_percent to ensure that zfs never
- * incorrectly allows too many aggressive allocations and then must
- * compensate by allowing more pending async writes.
- */
-int zfs_holefill_min_dirty_data_pct = 0;
-int zfs_holefill_max_dirty_data_pct = 0;
 
 /*
  * A metaslab is considered "free" if it contains a contiguous
@@ -482,51 +446,6 @@ metaslab_compare(const void *x1, const void *x2)
 }
 
 /*
- * Sorts an array of metaslab_t * by the tuple
- * <ms_loaded, avl_numnodes(ms_tree)>
- */
-static int
-metaslab_compare_seg(const void* x1, const void* x2)
-{
-	metaslab_t *const *mp1 = x1;
-	metaslab_t *const *mp2 = x2;
-	const metaslab_t *m1 = *mp1;
-	const metaslab_t *m2 = *mp2;
-
-	ASSERT3P(m1->ms_group, ==, m2->ms_group);
-
-	/*
-	 * Ensure that loaded metaslabs come first.
-	 */
-	if (m1->ms_loaded && !m2->ms_loaded) {
-		return (-1);
-	} else if (m2->ms_loaded && !m1->ms_loaded) {
-		return (1);
-	}
-
-	/*
-	 * The metaslab with the most holes comes first.
-	 */
-	if (m1->ms_num_holes > m2->ms_num_holes) {
-		return (-1);
-	} else if (m1->ms_num_holes < m2->ms_num_holes) {
-		return (1);
-	}
-
-	/*
-	 * If the number of segments is identical, use the offset to force
-	 * uniqueness.
-	 */
-	if (m1->ms_start < m2->ms_start) {
-		return (-1);
-	} else if (m1->ms_start > m2->ms_start) {
-		return (1);
-	}
-
-	return (0);
-}
-
-/*
  * Verify that the space accounting on disk matches the in-core range_trees.
  */
 void
@@ -674,7 +593,6 @@ metaslab_group_create(metaslab_class_t *mc, vdev_t *vd)
 	mg->mg_activation_count = 0;
 	mg->mg_initialized = B_FALSE;
 	mg->mg_no_free_space = B_TRUE;
-	refcount_create(&mg->mg_loaded_metaslabs);
 	refcount_create_tracked(&mg->mg_alloc_queue_depth);
 
 	mg->mg_taskq = taskq_create("metaslab_group_taskq", metaslab_load_pct,
@@ -700,7 +618,6 @@ metaslab_group_destroy(metaslab_group_t *mg)
 	mutex_destroy(&mg->mg_lock);
 	mutex_destroy(&mg->mg_ms_initialize_lock);
 	cv_destroy(&mg->mg_ms_initialize_cv);
-	refcount_destroy(&mg->mg_loaded_metaslabs);
 	refcount_destroy(&mg->mg_alloc_queue_depth);
 	kmem_free(mg, sizeof (metaslab_group_t));
 }
@@ -898,9 +815,6 @@ metaslab_group_add(metaslab_group_t *mg, metaslab_t *msp)
 	msp->ms_group = mg;
 	msp->ms_weight = 0;
 	avl_add(&mg->mg_metaslab_tree, msp);
-
-	ASSERT3P(mg->mg_seg_array[msp->ms_id], ==, NULL);
-	mg->mg_seg_array[msp->ms_id] = msp;
 	mutex_exit(&mg->mg_lock);
 
 	mutex_enter(&msp->ms_lock);
@@ -918,6 +832,7 @@ metaslab_group_remove(metaslab_group_t *mg, metaslab_t *msp)
 	mutex_enter(&mg->mg_lock);
 	ASSERT(msp->ms_group == mg);
 	avl_remove(&mg->mg_metaslab_tree, msp);
+	msp->ms_group = NULL;
 	mutex_exit(&mg->mg_lock);
 }
 
@@ -1252,53 +1167,6 @@ metaslab_block_picker(avl_tree_t *t, uint64_t *cursor, uint64_t size,
 
 /*
  * ==========================================================================
- * Perfect fit block allocator -
- * Select a region in the metaslab that exactly matches the allocation
- * request.
- * ==========================================================================
- */
-static uint64_t
-metaslab_pf_alloc(metaslab_t *msp, uint64_t size)
-{
-	range_seg_t *rs;
-	avl_tree_t *t = &msp->ms_size_tree;
-
-	ASSERT(MUTEX_HELD(&msp->ms_lock));
-
-	rs = metaslab_block_find(t, 0, size);
-	if (rs != NULL && rs->rs_end - rs->rs_start == size) {
-		return (rs->rs_start);
-	} else {
-		return (-1ULL);
-	}
-}
-
-/*
- * ==========================================================================
- * Best fit block allocator -
- * Select a smallest region in the metaslab that can satisfy the allocation
- * request.
- * ==========================================================================
- */
-static uint64_t
-metaslab_bf_alloc(metaslab_t *msp, uint64_t size)
-{
-	uint64_t offset = 0;
-	avl_tree_t *t = &msp->ms_size_tree;
-
-	ASSERT(MUTEX_HELD(&msp->ms_lock));
-
-	return (metaslab_block_picker(t, &offset, size, 1ULL));
-}
-
-static metaslab_ops_t metaslab_bf_ops = {
-	metaslab_bf_alloc,
-	metaslab_bf_alloc,
-	metaslab_pf_alloc
-};
-
-/*
- * ==========================================================================
  * The first-fit block allocator
  * ==========================================================================
  */
@@ -1320,9 +1188,7 @@ metaslab_ff_alloc(metaslab_t *msp, uint64_t size)
 }
 
 static metaslab_ops_t metaslab_ff_ops = {
-	metaslab_ff_alloc,
-	metaslab_bf_alloc,
-	metaslab_pf_alloc
+	metaslab_ff_alloc
 };
 
 /*
@@ -1370,9 +1236,7 @@ metaslab_df_alloc(metaslab_t *msp, uint64_t size)
 }
 
 static metaslab_ops_t metaslab_df_ops = {
-	metaslab_df_alloc,
-	metaslab_bf_alloc,
-	metaslab_pf_alloc
+	metaslab_df_alloc
 };
 
 /*
@@ -1416,9 +1280,7 @@ metaslab_cf_alloc(metaslab_t *msp, uint64_t size)
 }
 
 static metaslab_ops_t metaslab_cf_ops = {
-	metaslab_cf_alloc,
-	metaslab_bf_alloc,
-	metaslab_pf_alloc
+	metaslab_cf_alloc
 };
 
 /*
@@ -1476,9 +1338,7 @@ metaslab_ndf_alloc(metaslab_t *msp, uint64_t size)
 }
 
 static metaslab_ops_t metaslab_ndf_ops = {
-	metaslab_ndf_alloc,
-	metaslab_bf_alloc,
-	metaslab_pf_alloc
+	metaslab_ndf_alloc
 };
 
 metaslab_ops_t *zfs_metaslab_ops = &metaslab_df_ops;
@@ -1538,11 +1398,7 @@ metaslab_load(metaslab_t *msp)
 
 	if (success) {
 		ASSERT3P(msp->ms_group, !=, NULL);
-
-		mutex_enter(&msp->ms_group->mg_lock);
 		msp->ms_loaded = B_TRUE;
-		(void) refcount_add(&msp->ms_group->mg_loaded_metaslabs, msp);
-		mutex_exit(&msp->ms_group->mg_lock);
 
 		/*
 		 * If the metaslab already has a spacemap, then we need to
@@ -1564,23 +1420,11 @@ metaslab_load(metaslab_t *msp)
 void
 metaslab_unload(metaslab_t *msp)
 {
-	metaslab_group_t *mg = msp->ms_group;
-
 	ASSERT(MUTEX_HELD(&msp->ms_lock));
-	ASSERT3P(mg, !=, NULL);
-
-	if (!msp->ms_loaded) {
-		return;
-	}
-
 	range_tree_vacate(msp->ms_tree, NULL, NULL);
-	msp->ms_weight &= ~METASLAB_ACTIVE_MASK;
-
-	mutex_enter(&mg->mg_lock);
-	(void) refcount_remove(&mg->mg_loaded_metaslabs, msp);
 	msp->ms_loaded = B_FALSE;
+	msp->ms_weight &= ~METASLAB_ACTIVE_MASK;
 	msp->ms_max_size = 0;
-	mutex_exit(&mg->mg_lock);
 }
 
 int
@@ -1670,14 +1514,12 @@ metaslab_fini(metaslab_t *msp)
 	metaslab_group_remove(mg, msp);
 
 	mutex_enter(&msp->ms_lock);
-
+	VERIFY(msp->ms_group == NULL);
 	vdev_space_update(mg->mg_vd, -space_map_allocated(msp->ms_sm),
 	    0, -msp->ms_size);
 	space_map_close(msp->ms_sm);
 
 	metaslab_unload(msp);
-	msp->ms_group = NULL;
-
 	range_tree_destroy(msp->ms_tree);
 	range_tree_destroy(msp->ms_freeingtree);
 	range_tree_destroy(msp->ms_freedtree);
@@ -1756,7 +1598,6 @@ metaslab_set_fragmentation(metaslab_t *msp)
 	    SPA_FEATURE_SPACEMAP_HISTOGRAM);
 
 	if (!feature_enabled) {
-		msp->ms_num_holes = 0;
 		msp->ms_fragmentation = ZFS_FRAG_INVALID;
 		return;
 	}
@@ -1766,7 +1607,6 @@ metaslab_set_fragmentation(metaslab_t *msp)
 	 * and thus is not fragmented.
 	 */
 	if (msp->ms_sm == NULL) {
-		msp->ms_num_holes = 1;
 		msp->ms_fragmentation = 0;
 		return;
 	}
@@ -1786,11 +1626,9 @@ metaslab_set_fragmentation(metaslab_t *msp)
 			    "msp %p, vd %p", txg, msp, vd);
 		}
 		msp->ms_fragmentation = ZFS_FRAG_INVALID;
-		msp->ms_num_holes = 0;
 		return;
 	}
 
-	msp->ms_num_holes = 0;
 	for (int i = 0; i < SPACE_MAP_HISTOGRAM_SIZE; i++) {
 		uint64_t space = 0;
 		uint8_t shift = msp->ms_sm->sm_shift;
@@ -1801,7 +1639,6 @@ metaslab_set_fragmentation(metaslab_t *msp)
 		if (msp->ms_sm->sm_phys->smp_histogram[i] == 0)
 			continue;
 
-		msp->ms_num_holes += msp->ms_sm->sm_phys->smp_histogram[i];
 		space = msp->ms_sm->sm_phys->smp_histogram[i] << (i + shift);
 		total += space;
 
@@ -2187,8 +2024,6 @@ metaslab_group_preload(metaslab_group_t *mg)
 	metaslab_t *msp;
 	avl_tree_t *t = &mg->mg_metaslab_tree;
 	int m = 0;
-	uint64_t dirty_data = mg->mg_vd->vdev_spa->spa_dsl_pool->dp_dirty_total;
-	int dirty_data_pct = dirty_data * 100 / zfs_dirty_data_max;
 
 	if (spa_shutting_down(spa) || !metaslab_preload_enabled) {
 		taskq_wait(mg->mg_taskq);
@@ -2216,43 +2051,6 @@ metaslab_group_preload(metaslab_group_t *mg)
 		VERIFY(taskq_dispatch(mg->mg_taskq, metaslab_preload,
 		    msp, TQ_SLEEP) != NULL);
 	}
-
-	/*
-	 * If we're filling holes, ensure that we always have the metaslab
-	 * with the most holes loaded.
-	 */
-	if (dirty_data_pct < zfs_holefill_max_dirty_data_pct &&
-	    refcount_count(&mg->mg_loaded_metaslabs) <
-	    avl_numnodes(&mg->mg_metaslab_tree)) {
-		metaslab_t *worst_loaded_msp = mg->mg_seg_array[0];
-		metaslab_t *worst_unloaded_msp =
-		    mg->mg_seg_array[refcount_count(&mg->mg_loaded_metaslabs)];
-
-		ASSERT3P(worst_unloaded_msp->ms_group, ==, mg);
-		ASSERT3P(worst_loaded_msp->ms_group, ==, mg);
-
-		if (worst_loaded_msp->ms_num_holes <
-		    worst_unloaded_msp->ms_num_holes) {
-			VERIFY(taskq_dispatch(mg->mg_taskq, metaslab_preload,
-			    worst_unloaded_msp, TQ_SLEEP) != NULL);
-		}
-	}
-	mutex_exit(&mg->mg_lock);
-}
-
-/*
- * Sorts mg_seg_array so that we can select metaslabs from which to fill holes.
- *
- * This should only only be called by the sync thread after all allocations
- * have finished.
- */
-void
-metaslab_group_sort_seg_array(metaslab_group_t *mg)
-{
-	ASSERT(dsl_pool_sync_context(spa_get_dsl(mg->mg_vd->vdev_spa)));
-	mutex_enter(&mg->mg_lock);
-	qsort(mg->mg_seg_array, mg->mg_vd->vdev_ms_count,
-	    sizeof (metaslab_t *), metaslab_compare_seg);
 	mutex_exit(&mg->mg_lock);
 }
 
@@ -2577,46 +2375,6 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 	dmu_tx_commit(tx);
 }
 
-static boolean_t
-metaslab_group_should_holefill(metaslab_group_t *mg)
-{
-	uint64_t dirty_data = mg->mg_vd->vdev_spa->spa_dsl_pool->dp_dirty_total;
-	int dirty_data_pct = dirty_data * 100 / zfs_dirty_data_max;
-	int probability;
-	int slope;
-
-#ifndef _KERNEL
-	/*
-	 * When in userland periodically avoid hole-filling.
-	 */
-	if (spa_get_random(3) == 0)
-		return (B_FALSE);
-#endif
-	if (dirty_data_pct >= zfs_holefill_max_dirty_data_pct) {
-		return (B_FALSE);
-	}
-	if (dirty_data_pct < zfs_holefill_min_dirty_data_pct) {
-		return (B_TRUE);
-	}
-
-	/*
-	 * linear interpolation:
-	 * slope = -100 / (zfs_holefill_max_dirty_data_pct -
-	 * 	zfs_holefill_min_dirty_data_pct)
-	 * move right by zfs_holefill_min_dirty_data_pct
-	 * move up by 100
-	 */
-	slope = -100 / (zfs_holefill_max_dirty_data_pct -
-	    zfs_holefill_min_dirty_data_pct);
-	probability = (dirty_data_pct - zfs_holefill_min_dirty_data_pct) *
-	    slope + 100;
-
-	ASSERT3U(probability, >=, 0);
-	ASSERT3U(probability, <=, 100);
-
-	return (spa_get_random(100) < probability);
-}
-
 /*
  * Called after a transaction group has completely synced to mark
  * all of the metaslab's free space as usable.
@@ -2760,7 +2518,6 @@ metaslab_sync_reassess(metaslab_group_t *mg)
 	 * for preloading.
 	 */
 	if (mg->mg_activation_count > 0) {
-		metaslab_group_sort_seg_array(mg);
 		metaslab_group_preload(mg);
 	}
 	spa_config_exit(spa, SCL_ALLOC, FTAG);
@@ -2824,8 +2581,7 @@ metaslab_alloc_trace_fini(void)
  */
 static void
 metaslab_trace_add(zio_alloc_list_t *zal, metaslab_group_t *mg,
-    metaslab_t *msp, uint64_t psize, uint32_t dva_id,
-    metaslab_alloc_strategy_t alloc_type, uint64_t offset)
+    metaslab_t *msp, uint64_t psize, uint32_t dva_id, uint64_t offset)
 {
 	if (!metaslab_trace_enabled)
 		return;
@@ -2856,7 +2612,6 @@ metaslab_trace_add(zio_alloc_list_t *zal, metaslab_group_t *mg,
 	mat->mat_msp = msp;
 	mat->mat_size = psize;
 	mat->mat_dva_id = dva_id;
-	mat->mat_alloc_type = alloc_type;
 	mat->mat_offset = offset;
 	mat->mat_weight = 0;
 
@@ -2943,8 +2698,7 @@ metaslab_group_alloc_verify(spa_t *spa, const blkptr_t *bp, void *tag)
 
 
 static uint64_t
-metaslab_block_alloc(metaslab_t *msp, uint64_t size,
-    metaslab_alloc_strategy_t strategy, uint64_t txg)
+metaslab_block_alloc(metaslab_t *msp, uint64_t size, uint64_t txg)
 {
 	uint64_t start;
 	range_tree_t *rt = msp->ms_tree;
@@ -2953,14 +2707,7 @@ metaslab_block_alloc(metaslab_t *msp, uint64_t size,
 	VERIFY(!msp->ms_condensing);
 	VERIFY0(msp->ms_initializing);
 
-	if (strategy == METASLAB_ALLOC_OPTIMAL) {
-		start = mc->mc_ops->msop_alloc(msp, size);
-	} else if (strategy == METASLAB_ALLOC_BEST_FIT) {
-		start = mc->mc_ops->msop_bf_alloc(msp, size);
-	} else {
-		ASSERT3U(strategy, ==, METASLAB_ALLOC_PERFECT_FIT);
-		start = mc->mc_ops->msop_pf_alloc(msp, size);
-	}
+	start = mc->mc_ops->msop_alloc(msp, size);
 	if (start != -1ULL) {
 		metaslab_group_t *mg = msp->ms_group;
 		vdev_t *vd = mg->mg_vd;
@@ -2986,151 +2733,6 @@ metaslab_block_alloc(metaslab_t *msp, uint64_t size,
 	 */
 	msp->ms_max_size = metaslab_block_maxsize(msp);
 	return (start);
-}
-
-/*
- * Ensures that all preconditions are met, then attempts to allocate a
- * fitting block from the given metaslab and performs any necessary
- * bookkeeping to record the allocation.
- *
- * Returns the offset on success or -1ULL on error.
- */
-static uint64_t
-metaslab_alloc_holefill(metaslab_t *msp, uint64_t asize, uint64_t txg,
-    metaslab_alloc_strategy_t strategy)
-{
-	uint64_t offset;
-
-	ASSERT(MUTEX_HELD(&msp->ms_lock));
-
-	metaslab_load_wait(msp);
-	if (!msp->ms_loaded) {
-		if (metaslab_load(msp) != 0) {
-			return (-1ULL);
-		}
-	}
-	msp->ms_selected_txg = txg;
-
-	if (msp->ms_condensing || msp->ms_initializing > 0) {
-		return (-1ULL);
-	}
-
-	offset = metaslab_block_alloc(msp, asize, strategy, txg);
-	if (offset == -1ULL) {
-		return (-1ULL);
-	}
-	return (offset);
-}
-
-/*
- * Fills a "hole" by allocating a block from the given metaslab group.
- *
- * A hole is a (small) unallocated region a metaslab. We attempt to fill holes
- * to preserve large, contiguously unallocated regions for later contiguous
- * writes.
- *
- * To fill holes, we attempt to perfectly fill a hole in every loaded metaslab
- * in a metaslab group, iterating from the metaslab with the most holes to the
- * metaslab with the least holes. If this fails, we select the smallest
- * fitting region in the metaslab with the most holes.
- *
- * Returns the offset or -1ULL on error.
- */
-static uint64_t
-metaslab_group_alloc_holefill(metaslab_group_t *mg, zio_alloc_list_t *zal,
-    uint64_t asize, uint64_t txg, int d)
-{
-	metaslab_t *msp = NULL;
-	uint64_t offset = -1ULL;
-	size_t i;
-
-	ASSERT(txg <= TXG_INITIAL ||
-	    spa_syncing_txg(mg->mg_vd->vdev_spa) == txg);
-
-	mutex_enter(&mg->mg_lock);
-	mg->mg_holefills++;
-	mutex_exit(&mg->mg_lock);
-
-	/*
-	 * We don't need to hold mg_lock to iterate over the loaded metaslabs
-	 * because this function is only called in called in syncing context,
-	 * and the only place mg_seg_array is modified is after all allocations
-	 * performed in syncing context are finished (in metaslab_sync_done).
-	 */
-	/* First attempt a perfect fit from all loaded metaslabs. */
-	for (i = 0; i < mg->mg_vd->vdev_ms_count &&
-	    mg->mg_seg_array[i]->ms_loaded; i++) {
-		msp = mg->mg_seg_array[i];
-
-		/*
-		 * If the metaslab hasn't been initialized by metaslab_init,
-		 * then it (and no other metaslab in this group) will be
-		 * able to satisfy any allocations until the next sync.
-		 */
-		if (msp == NULL) {
-			break;
-		}
-
-		mutex_enter(&msp->ms_lock);
-		if (!metaslab_should_allocate(msp, asize)) {
-			metaslab_trace_add(zal, mg, msp, asize, d,
-			    METASLAB_ALLOC_PERFECT_FIT, TRACE_TOO_SMALL);
-			mutex_exit(&msp->ms_lock);
-			continue;
-		}
-
-		offset = metaslab_alloc_holefill(msp, asize, txg,
-		    METASLAB_ALLOC_PERFECT_FIT);
-		metaslab_trace_add(zal, mg, msp, asize, d,
-		    METASLAB_ALLOC_PERFECT_FIT, offset);
-		mutex_exit(&msp->ms_lock);
-
-		if (offset != -1ULL) {
-			return (offset);
-		}
-	}
-
-	/*
-	 * If we were unable to find a perfect fit, search for a good fit.
-	 */
-	mutex_enter(&mg->mg_lock);
-	mg->mg_failed_holefills++;
-	mutex_exit(&mg->mg_lock);
-	for (i = 0; i < mg->mg_vd->vdev_ms_count; i++) {
-		msp = mg->mg_seg_array[i];
-
-		/*
-		 * If the metaslab hasn't been initialized by metaslab_init,
-		 * then it (and no other metaslab in this group) will be
-		 * able to satisfy any allocations until the next sync.
-		 */
-		if (msp == NULL) {
-			break;
-		}
-
-		mutex_enter(&msp->ms_lock);
-		if (!metaslab_should_allocate(msp, asize)) {
-			metaslab_trace_add(zal, mg, msp, asize, d,
-			    METASLAB_ALLOC_BEST_FIT, TRACE_TOO_SMALL);
-			mutex_exit(&msp->ms_lock);
-			continue;
-		}
-
-		offset = metaslab_alloc_holefill(msp, asize, txg,
-		    METASLAB_ALLOC_BEST_FIT);
-		metaslab_trace_add(zal, mg, msp, asize, d,
-		    METASLAB_ALLOC_BEST_FIT, offset);
-		mutex_exit(&msp->ms_lock);
-
-		if (offset != -1ULL) {
-			return (offset);
-		}
-	}
-	mutex_enter(&mg->mg_lock);
-	mg->mg_failed_bestfit++;
-	mutex_exit(&mg->mg_lock);
-
-	return (-1ULL);
 }
 
 static uint64_t
@@ -3182,7 +2784,7 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 
 			if (!metaslab_should_allocate(msp, asize)) {
 				metaslab_trace_add(zal, mg, msp, asize, d,
-				    METASLAB_ALLOC_OPTIMAL, TRACE_TOO_SMALL);
+				    TRACE_TOO_SMALL);
 				continue;
 			}
 
@@ -3256,7 +2858,7 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 		if (!metaslab_should_allocate(msp, asize)) {
 			/* Passivate this metaslab and select a new one. */
 			metaslab_trace_add(zal, mg, msp, asize, d,
-			    METASLAB_ALLOC_OPTIMAL, TRACE_TOO_SMALL);
+			    TRACE_TOO_SMALL);
 			goto next;
 		}
 
@@ -3269,20 +2871,18 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 		 */
 		if (msp->ms_condensing) {
 			metaslab_trace_add(zal, mg, msp, asize, d,
-			    METASLAB_ALLOC_OPTIMAL, TRACE_CONDENSING);
+			    TRACE_CONDENSING);
 			mutex_exit(&msp->ms_lock);
 			continue;
 		} else if (msp->ms_initializing > 0) {
 			metaslab_trace_add(zal, mg, msp, asize, d,
-			    METASLAB_ALLOC_OPTIMAL, TRACE_INITIALIZING);
+			    TRACE_INITIALIZING);
 			mutex_exit(&msp->ms_lock);
 			continue;
 		}
 
-		offset = metaslab_block_alloc(msp, asize,
-		    METASLAB_ALLOC_OPTIMAL, txg);
-		metaslab_trace_add(zal, mg, msp, asize, d,
-		    METASLAB_ALLOC_OPTIMAL, offset);
+		offset = metaslab_block_alloc(msp, asize, txg);
+		metaslab_trace_add(zal, mg, msp, asize, d, offset);
 
 		if (offset != -1ULL) {
 			/* Proactively passivate the metaslab, if needed */
@@ -3338,29 +2938,19 @@ next:
 
 static uint64_t
 metaslab_group_alloc(metaslab_group_t *mg, zio_alloc_list_t *zal,
-    uint64_t asize, uint64_t txg, uint64_t min_distance, dva_t *dva, int d,
-    int flags)
+    uint64_t asize, uint64_t txg, uint64_t min_distance, dva_t *dva, int d)
 {
 	uint64_t offset;
-	metaslab_alloc_strategy_t alloc_type;
 	ASSERT(mg->mg_initialized);
 
-	if ((flags & METASLAB_ASYNC_ALLOC) &&
-	    metaslab_group_should_holefill(mg)) {
-		alloc_type = METASLAB_ALLOC_BEST_FIT;
-		offset = metaslab_group_alloc_holefill(mg, zal, asize,
-		    txg, d);
-	} else {
-		alloc_type = METASLAB_ALLOC_OPTIMAL;
-		offset = metaslab_group_alloc_normal(mg, zal, asize, txg,
-		    min_distance, dva, d);
-	}
+	offset = metaslab_group_alloc_normal(mg, zal, asize, txg,
+	    min_distance, dva, d);
 
 	mutex_enter(&mg->mg_lock);
 	if (offset == -1ULL) {
 		mg->mg_failed_allocations++;
 		metaslab_trace_add(zal, mg, NULL, asize, d,
-		    alloc_type, TRACE_GROUP_FAILURE);
+		    TRACE_GROUP_FAILURE);
 		if (asize == SPA_GANGBLOCKSIZE) {
 			/*
 			 * This metaslab group was unable to allocate
@@ -3407,8 +2997,7 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	 * For testing, make some blocks above a certain size be gang blocks.
 	 */
 	if (psize >= metaslab_gang_bang && (ddi_get_lbolt() & 3) == 0) {
-		metaslab_trace_add(zal, NULL, NULL, psize, d,
-		    METASLAB_ALLOC_NONE, TRACE_FORCE_GANG);
+		metaslab_trace_add(zal, NULL, NULL, psize, d, TRACE_FORCE_GANG);
 		return (SET_ERROR(ENOSPC));
 	}
 
@@ -3499,7 +3088,7 @@ top:
 
 		if (!allocatable) {
 			metaslab_trace_add(zal, mg, NULL, psize, d,
-			    METASLAB_ALLOC_NONE, TRACE_NOT_ALLOCATABLE);
+			    TRACE_NOT_ALLOCATABLE);
 			goto next;
 		}
 
@@ -3514,7 +3103,7 @@ top:
 		    vd->vdev_state < VDEV_STATE_HEALTHY) &&
 		    d == 0 && !try_hard && vd->vdev_children == 0) {
 			metaslab_trace_add(zal, mg, NULL, psize, d,
-			    METASLAB_ALLOC_NONE, TRACE_VDEV_ERROR);
+			    TRACE_VDEV_ERROR);
 			goto next;
 		}
 
@@ -3538,7 +3127,7 @@ top:
 		ASSERT(P2PHASE(asize, 1ULL << vd->vdev_ashift) == 0);
 
 		uint64_t offset = metaslab_group_alloc(mg, zal, asize, txg,
-		    distance, dva, d, flags);
+		    distance, dva, d);
 
 		if (offset != -1ULL) {
 			/*
@@ -3601,8 +3190,7 @@ next:
 
 	bzero(&dva[d], sizeof (dva_t));
 
-	metaslab_trace_add(zal, rotor, NULL, psize, d,
-	    METASLAB_ALLOC_NONE, TRACE_ENOSPC);
+	metaslab_trace_add(zal, rotor, NULL, psize, d, TRACE_ENOSPC);
 	return (SET_ERROR(ENOSPC));
 }
 

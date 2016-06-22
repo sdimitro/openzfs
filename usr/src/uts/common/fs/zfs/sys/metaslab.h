@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_METASLAB_H
@@ -36,20 +36,9 @@
 extern "C" {
 #endif
 
-typedef enum metaslab_alloc_strategy {
-	METASLAB_ALLOC_NONE,		/* Used for allocation tracing only */
-	METASLAB_ALLOC_OPTIMAL,
-	METASLAB_ALLOC_BEST_FIT,
-	METASLAB_ALLOC_PERFECT_FIT,
-} metaslab_alloc_strategy_t;
 
 typedef struct metaslab_ops {
-	/* METASLAB_ALLOC_OPTIMAL */
 	uint64_t (*msop_alloc)(metaslab_t *, uint64_t);
-	/* METASLAB_ALLOC_BEST_FIT */
-	uint64_t (*msop_bf_alloc)(metaslab_t *, uint64_t);
-	/* METASLAB_ALLOC_PERFECT_FIT */
-	uint64_t (*msop_pf_alloc)(metaslab_t *, uint64_t);
 } metaslab_ops_t;
 
 
@@ -119,7 +108,6 @@ uint64_t metaslab_group_get_space(metaslab_group_t *);
 void metaslab_group_histogram_verify(metaslab_group_t *);
 uint64_t metaslab_group_fragmentation(metaslab_group_t *);
 void metaslab_group_histogram_remove(metaslab_group_t *, metaslab_t *);
-void metaslab_group_sort_seg_array(metaslab_group_t *);
 void metaslab_group_alloc_decrement(spa_t *, uint64_t, void *, int);
 void metaslab_group_alloc_verify(spa_t *, const blkptr_t *, void *);
 

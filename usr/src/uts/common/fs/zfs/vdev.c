@@ -934,7 +934,6 @@ vdev_metaslab_init(vdev_t *vd, uint64_t txg)
 	uint64_t oldc = vd->vdev_ms_count;
 	uint64_t newc = vd->vdev_asize >> vd->vdev_ms_shift;
 	metaslab_t **mspp;
-	metaslab_t **ms_seg_array;
 	int error;
 
 	ASSERT(txg == 0 || spa_config_held(spa, SCL_ALLOC, RW_WRITER));
@@ -950,21 +949,14 @@ vdev_metaslab_init(vdev_t *vd, uint64_t txg)
 	ASSERT(oldc <= newc);
 
 	mspp = kmem_zalloc(newc * sizeof (*mspp), KM_SLEEP);
-	ms_seg_array = kmem_zalloc(newc * sizeof (*ms_seg_array), KM_SLEEP);
 
 	if (oldc != 0) {
 		bcopy(vd->vdev_ms, mspp, oldc * sizeof (*mspp));
 		kmem_free(vd->vdev_ms, oldc * sizeof (*mspp));
-
-		bcopy(vd->vdev_mg->mg_seg_array, ms_seg_array,
-		    oldc * sizeof (*ms_seg_array));
-		kmem_free(vd->vdev_mg->mg_seg_array,
-		    oldc * sizeof (*ms_seg_array));
 	}
 
 	vd->vdev_ms = mspp;
 	vd->vdev_ms_count = newc;
-	vd->vdev_mg->mg_seg_array = ms_seg_array;
 
 	for (m = oldc; m < newc; m++) {
 		uint64_t object = 0;
@@ -1026,11 +1018,6 @@ vdev_metaslab_fini(vdev_t *vd)
 		}
 		kmem_free(vd->vdev_ms, count * sizeof (metaslab_t *));
 		vd->vdev_ms = NULL;
-
-		kmem_free(vd->vdev_mg->mg_seg_array,
-		    count * sizeof (metaslab_t *));
-		vd->vdev_mg->mg_seg_array = NULL;
-
 		vd->vdev_ms_count = 0;
 	}
 	ASSERT0(vd->vdev_ms_count);

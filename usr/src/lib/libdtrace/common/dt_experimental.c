@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -436,7 +436,7 @@ xd_new_condition1_clause(xd_parse_t *dp)
  */
 static void
 xd_do_entryvar_impl(xd_parse_t *dp, entryvar_t ev,
-	dt_node_t *old, dt_node_t *new)
+    dt_node_t *old, dt_node_t *new)
 {
 	dt_node_t *link = old->dn_link;
 	dt_node_t *list = old->dn_list;
@@ -1093,7 +1093,17 @@ dt_compile_experimental(dtrace_hdl_t *dtp, dt_node_t *clause)
 		if (clause->dn_pred != NULL)
 			condid = xd_new_condition(&dp, clause->dn_pred, condid);
 
-		xd_visit_stmts(&dp, clause->dn_acts, condid);
+		if (clause->dn_acts == NULL) {
+			/*
+			 * xd_visit_stmts() does not emit a clause with
+			 * an empty body (e.g. if there's an empty "if" body),
+			 * but we need the empty body here so that we
+			 * continue to get the default tracing action.
+			 */
+			xd_new_basic_block(&dp, condid, NULL);
+		} else {
+			xd_visit_stmts(&dp, clause->dn_acts, condid);
+		}
 	}
 
 	xd_append_clause(&dp, dp.xp_append_clauses);

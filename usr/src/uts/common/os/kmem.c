@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -2186,11 +2186,10 @@ kmem_depot_ws_zero(kmem_cache_t *cp)
 }
 
 /*
- * Setting it this high (1GB) casues the explicit kpreempt to have
- * very little effect.  Setting it to 1MB causes us to call
- * kpreempt() approximately every 2 milliseconds.
+ * Setting this to 1MB causes us to call kpreempt() approximately
+ * once per 5-500 milliseconds.
  */
-size_t kmem_reap_preempt_bytes = 1024 * 1024 * 1024;
+size_t kmem_reap_preempt_bytes = 1024 * 1024;
 
 /*
  * Reap all magazines that have fallen out of the depot's working set.

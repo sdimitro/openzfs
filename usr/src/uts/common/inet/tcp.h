@@ -275,6 +275,8 @@ typedef struct tcp_s {
 	uint32_t tcp_cwnd_max;
 	uint32_t tcp_csuna;		/* Clear (no rexmits in window) suna */
 
+	hrtime_t tcp_rtt_sum;		/* Round trip sum */
+	uint32_t tcp_rtt_cnt;		/* Round trip count (non_dup ACKs) */
 	hrtime_t tcp_rtt_sa;		/* Round trip smoothed average */
 	hrtime_t tcp_rtt_sd;		/* Round trip smoothed deviation */
 	uint32_t tcp_rtt_update;	/* Round trip update(s) */

@@ -127,6 +127,8 @@ tcp_set_conninfo(tcp_t *tcp, struct tcpConnEntryInfo_s *tcei, boolean_t ispriv)
 	tcei->ce_mss =  tcp->tcp_mss;
 	tcei->ce_state = tcp->tcp_state;
 	tcei->ce_rtt_sa = NSEC2USEC(tcp->tcp_rtt_sa >> 3);
+	tcei->ce_rtt_sum = NSEC2USEC(tcp->tcp_rtt_sum);
+	tcei->ce_rtt_cnt = tcp->tcp_rtt_cnt;
 }
 
 /*

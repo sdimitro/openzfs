@@ -140,6 +140,8 @@ usage(int code)
 	    "  mss             Maximum segment size\n"
 	    "  rto             Retransmission timeout (ms)\n"
 	    "  rtt             Smoothed round-trip time (us)\n"
+	    "  rtts            Sum round-trip time (us)\n"
+	    "  rttc            Count of round-trip times\n"
 	    "  state           Connection state\n"));
 	exit(code);
 }

@@ -1368,6 +1368,7 @@ typedef struct mib2_tcpConnEntry {
 		Counter64	ce_out_retrans_bytes;
 		Counter64	ce_out_retrans_segs;
 		Counter64	ce_out_zwnd_probes;
+		Counter64	ce_rtt_sum;
 
 				/* seq # of next segment to send */
 		Gauge		ce_snxt;
@@ -1389,6 +1390,8 @@ typedef struct mib2_tcpConnEntry {
 		Gauge		ce_rtt_sa;
 				/* current rto (retransmit timeout) */
 		Gauge		ce_rto;
+				/* round-trip time count */
+		Gauge		ce_rtt_cnt;
 				/* current max segment size */
 		Gauge		ce_mss;
 				/* actual internal state */

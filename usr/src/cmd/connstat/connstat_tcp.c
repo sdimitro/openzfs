@@ -51,8 +51,6 @@ typedef struct tcp_fields_buf_s {
 	uint32_t t_rwnd;
 	uint32_t t_mss;
 	uint32_t t_rto;
-	uint32_t t_rtt_cnt;
-	uint64_t t_rtt_sum;
 	int t_state;
 	uint64_t t_rtt;
 } tcp_fields_buf_t;
@@ -100,10 +98,6 @@ static ofmt_field_t tcp_fields[] = {
 		offsetof(tcp_fields_buf_t, t_rto),	print_uint32 },
 	{ "RTT",	8,
 		offsetof(tcp_fields_buf_t, t_rtt),	print_uint64 },
-	{ "RTTS",	8,
-		offsetof(tcp_fields_buf_t, t_rtt_sum),	print_uint64 },
-	{ "RTTC",	11,
-		offsetof(tcp_fields_buf_t, t_rtt_cnt),	print_uint32 },
 	{ "STATE",	12,
 		offsetof(tcp_fields_buf_t, t_state),	print_tcp_state },
 	{ NULL, 0, 0, NULL}
@@ -142,8 +136,6 @@ tcp_ci2buf(struct tcpConnEntryInfo_s *ci)
 	fields_buf.t_mss = ci->ce_mss;
 	fields_buf.t_rto = ci->ce_rto;
 	fields_buf.t_rtt = (ci->ce_out_data_segs == 0 ? 0 : ci->ce_rtt_sa);
-	fields_buf.t_rtt_sum = ci->ce_rtt_sum;
-	fields_buf.t_rtt_cnt = ci->ce_rtt_cnt;
 	fields_buf.t_state = ci->ce_state;
 }
 

@@ -2191,8 +2191,6 @@ tcp_reinit_values(tcp_t *tcp)
 	DONTCARE(tcp->tcp_rtt_sa);		/* Init in tcp_init_values */
 	DONTCARE(tcp->tcp_rtt_sd);		/* Init in tcp_init_values */
 	tcp->tcp_rtt_update = 0;
-	tcp->tcp_rtt_sum = 0;
-	tcp->tcp_rtt_cnt = 0;
 
 	DONTCARE(tcp->tcp_swl1); /* Init in case TCPS_LISTEN/TCPS_SYN_SENT */
 	DONTCARE(tcp->tcp_swl2); /* Init in case TCPS_LISTEN/TCPS_SYN_SENT */

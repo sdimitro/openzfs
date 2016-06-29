@@ -5275,8 +5275,6 @@ tcp_set_rto(tcp_t *tcp, hrtime_t rtt)
 
 	TCPS_BUMP_MIB(tcps, tcpRttUpdate);
 	tcp->tcp_rtt_update++;
-	tcp->tcp_rtt_sum += m;
-	tcp->tcp_rtt_cnt++;
 
 	/* tcp_rtt_sa is not 0 means this is a new sample. */
 	if (sa != 0) {

@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -354,7 +355,8 @@ fs_copyfsops(const fs_operation_def_t *template, vfsops_t *actual,
 }
 
 void
-zfs_boot_init() {
+zfs_boot_init()
+{
 
 	if (strcmp(rootfs.bo_fstype, MNTTYPE_ZFS) == 0)
 		spa_boot_init();
@@ -1103,7 +1105,7 @@ out:
  */
 int
 domount(char *fsname, struct mounta *uap, vnode_t *vp, struct cred *credp,
-	struct vfs **vfspp)
+    struct vfs **vfspp)
 {
 	struct vfssw	*vswp;
 	vfsops_t	*vfsops;
@@ -2786,7 +2788,7 @@ vfs_freeopttbl(mntopts_t *mp)
 /* ARGSUSED */
 static int
 vfs_mntdummyread(vnode_t *vp, uio_t *uio, int ioflag, cred_t *cred,
-	caller_context_t *ct)
+    caller_context_t *ct)
 {
 	return (0);
 }
@@ -2794,7 +2796,7 @@ vfs_mntdummyread(vnode_t *vp, uio_t *uio, int ioflag, cred_t *cred,
 /* ARGSUSED */
 static int
 vfs_mntdummywrite(vnode_t *vp, uio_t *uio, int ioflag, cred_t *cred,
-	caller_context_t *ct)
+    caller_context_t *ct)
 {
 	return (0);
 }
@@ -4035,9 +4037,6 @@ vfs_unrefvfssw(struct vfssw *vswp)
 	mutex_exit(&vswp->vsw_lock);
 }
 
-int sync_timeout = 30;		/* timeout for syncing a page during panic */
-int sync_timeleft;		/* portion of sync_timeout remaining */
-
 static int sync_retries = 20;	/* number of retries when not making progress */
 static int sync_triesleft;	/* portion of sync_retries remaining */
 
@@ -4048,23 +4047,13 @@ static int new_bufcnt, old_bufcnt;
  * Sync all of the mounted filesystems, and then wait for the actual i/o to
  * complete.  We wait by counting the number of dirty pages and buffers,
  * pushing them out using bio_busy() and page_busy(), and then counting again.
- * This routine is used during both the uadmin A_SHUTDOWN code as well as
- * the SYNC phase of the panic code (see comments in panic.c).  It should only
+ * This routine is used during the uadmin A_SHUTDOWN code.  It should only
  * be used after some higher-level mechanism has quiesced the system so that
  * new writes are not being initiated while we are waiting for completion.
  *
- * To ensure finite running time, our algorithm uses two timeout mechanisms:
- * sync_timeleft (a timer implemented by the omnipresent deadman() cyclic), and
- * sync_triesleft (a progress counter used by the vfs_syncall() loop below).
- * Together these ensure that syncing completes if our i/o paths are stuck.
- * The counters are declared above so they can be found easily in the debugger.
- *
- * The sync_timeleft counter is reset by bio_busy() and page_busy() using the
- * vfs_syncprogress() subroutine whenever we make progress through the lists of
- * pages and buffers.  It is decremented and expired by the deadman() cyclic.
- * When vfs_syncall() decides it is done, we disable the deadman() counter by
- * setting sync_timeleft to zero.  This timer guards against vfs_syncall()
- * deadlocking or hanging inside of a broken filesystem or driver routine.
+ * To ensure finite running time, our algorithm uses sync_triesleft (a progress
+ * counter used by the vfs_syncall() loop below). It is declared above so
+ * it can be found easily in the debugger.
  *
  * The sync_triesleft counter is updated by vfs_syncall() itself.  If we make
  * sync_retries consecutive calls to bio_busy() and page_busy() without
@@ -4078,13 +4067,11 @@ void
 vfs_syncall(void)
 {
 	if (rootdir == NULL && !modrootloaded)
-		return; /* panic during boot - no filesystems yet */
+		return; /* no filesystems have been loaded yet */
 
 	printf("syncing file systems...");
-	vfs_syncprogress();
 	sync();
 
-	vfs_syncprogress();
 	sync_triesleft = sync_retries;
 
 	old_bufcnt = new_bufcnt = INT_MAX;
@@ -4096,7 +4083,6 @@ vfs_syncall(void)
 
 		new_bufcnt = bio_busy(B_TRUE);
 		new_pgcnt = page_busy(B_TRUE);
-		vfs_syncprogress();
 
 		if (new_bufcnt == 0 && new_pgcnt == 0)
 			break;
@@ -4119,25 +4105,7 @@ vfs_syncall(void)
 	else
 		printf(" done\n");
 
-	sync_timeleft = 0;
 	delay(hz);
-}
-
-/*
- * If we are in the middle of the sync phase of panic, reset sync_timeleft to
- * sync_timeout to indicate that we are making progress and the deadman()
- * omnipresent cyclic should not yet time us out.  Note that it is safe to
- * store to sync_timeleft here since the deadman() is firing at high-level
- * on top of us.  If we are racing with the deadman(), either the deadman()
- * will decrement the old value and then we will reset it, or we will
- * reset it and then the deadman() will immediately decrement it.  In either
- * case, correct behavior results.
- */
-void
-vfs_syncprogress(void)
-{
-	if (panicstr)
-		sync_timeleft = sync_timeout;
 }
 
 /*

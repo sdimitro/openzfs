@@ -16,7 +16,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 PATH=/usr/ccs/bin:/usr/local/bin:/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin
@@ -36,18 +36,10 @@ function usage
 
 [[ $# != 0 ]] && usage
 
-child_repo=$(basename $(pwd))
-repo_dir=$(dirname $(pwd))
-
 if [[ ! -f illumos.sh ]]; then
 	echo "Updating environment file ... \c"
 	cp usr/src/tools/env/illumos.sh illumos.sh || \
 	    die "failed to copy environment file"
-	escaped_repo_dir=$(echo $repo_dir | /usr/gnu/bin/sed -e 's/\//\\\//g')
-	/usr/gnu/bin/sed -i \
-	    -e 's/testws/'$child_repo'/' \
-	    -e 's/\$HOME\/ws\/$GATE/'"$escaped_repo_dir"'\/\$GATE/' \
-	    illumos.sh || die "failed to update illumos.sh environment file"
 	echo "done."
 fi
 

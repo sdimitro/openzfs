@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -73,35 +73,31 @@ zrl_add_impl(zrlock_t *zrl, const char *zc)
 {
 	uint32_t n = (uint32_t)zrl->zr_refcount;
 
-	while (n != ZRL_LOCKED) {
-		uint32_t cas = atomic_cas_32(
-		    (uint32_t *)&zrl->zr_refcount, n, n + 1);
-		if (cas == n) {
-			ASSERT3S((int32_t)n, >=, 0);
+	for (;;) {
+		if (n == ZRL_LOCKED) {
+			mutex_enter(&zrl->zr_mtx);
+			while (zrl->zr_refcount == ZRL_LOCKED)
+				cv_wait(&zrl->zr_cv, &zrl->zr_mtx);
+			mutex_exit(&zrl->zr_mtx);
+			n = (uint32_t)zrl->zr_refcount;
+		} else {
+			uint32_t cas = atomic_cas_32(
+			    (uint32_t *)&zrl->zr_refcount, n, n + 1);
+			if (cas == n) {
+				ASSERT3S((int32_t)n, >=, 0);
 #ifdef	ZFS_DEBUG
-			if (zrl->zr_owner == curthread) {
-				DTRACE_PROBE2(zrlock__reentry,
-				    zrlock_t *, zrl, uint32_t, n);
+				if (zrl->zr_owner == curthread) {
+					DTRACE_PROBE2(zrlock__reentry,
+					    zrlock_t *, zrl, uint32_t, n);
+				}
+				zrl->zr_owner = curthread;
+				zrl->zr_caller = zc;
+#endif
+				return;
 			}
-			zrl->zr_owner = curthread;
-			zrl->zr_caller = zc;
-#endif
-			return;
+			n = cas;
 		}
-		n = cas;
 	}
-
-	mutex_enter(&zrl->zr_mtx);
-	while (zrl->zr_refcount == ZRL_LOCKED) {
-		cv_wait(&zrl->zr_cv, &zrl->zr_mtx);
-	}
-	ASSERT3S(zrl->zr_refcount, >=, 0);
-	zrl->zr_refcount++;
-#ifdef	ZFS_DEBUG
-	zrl->zr_owner = curthread;
-	zrl->zr_caller = zc;
-#endif
-	mutex_exit(&zrl->zr_mtx);
 }
 
 void
@@ -164,22 +160,6 @@ zrl_refcount(zrlock_t *zrl)
 
 	int n = (int)zrl->zr_refcount;
 	return (n <= 0 ? 0 : n);
-}
-
-int
-zrl_is_zero(zrlock_t *zrl)
-{
-	ASSERT3S(zrl->zr_refcount, >, ZRL_DESTROYED);
-
-	return (zrl->zr_refcount <= 0);
-}
-
-int
-zrl_is_locked(zrlock_t *zrl)
-{
-	ASSERT3S(zrl->zr_refcount, >, ZRL_DESTROYED);
-
-	return (zrl->zr_refcount == ZRL_LOCKED);
 }
 
 #ifdef	ZFS_DEBUG

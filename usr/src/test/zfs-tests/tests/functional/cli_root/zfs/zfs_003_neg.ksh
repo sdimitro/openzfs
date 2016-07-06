@@ -24,6 +24,10 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -40,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "zfs fails with unexpected scenarios."
 
 #verify zfs failed if ZFS_DEV cannot be opened
 ZFS_DEV=/dev/zfs

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -73,9 +73,6 @@ function cleanup
 	fi
 
 }
-
-log_assert "Verify an archive of a file system is identical to " \
-    "an archive of its snapshot."
 
 log_onexit cleanup
 

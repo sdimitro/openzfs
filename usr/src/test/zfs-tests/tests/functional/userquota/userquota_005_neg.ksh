@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,7 +53,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Check the invalid parameter of zfs set user|group quota"
 typeset snap_fs=$QFS@snap
 
 log_must $ZFS snapshot $snap_fs

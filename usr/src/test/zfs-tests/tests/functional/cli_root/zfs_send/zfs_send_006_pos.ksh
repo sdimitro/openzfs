@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -90,7 +90,6 @@ function verify_size_estimates
 	    log_fail "zfs send $options gives wrong size estimates"
 }
 
-log_assert "Verify 'zfs send -nvP' generates valid stream estimates"
 log_onexit cleanup
 typeset -l block_count=0
 typeset -l block_size

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ fi
 
 set -A args "iostat" "iostat $testpool"
 
-log_assert "zpool iostat [pool_name ...] [interval]"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

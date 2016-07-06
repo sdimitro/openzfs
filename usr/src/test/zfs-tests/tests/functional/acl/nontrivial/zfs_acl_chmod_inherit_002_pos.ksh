@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -78,8 +78,6 @@ function cleanup
 	log_must $ZFS set aclmode=discard $TESTPOOL/$TESTFS
 }
 
-log_assert "Verify chmod have correct behaviour to directory and file when " \
-	"filesystem has the different aclinherit setting."
 log_onexit cleanup
 
 # Define inherit flag

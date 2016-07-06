@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -55,7 +55,6 @@ function cleanup
 	restore_root_datasets
 }
 
-log_assert "<user|group> is interpreted as user if possible, then as group."
 log_onexit cleanup
 
 eval set -A dataset $DATASETS

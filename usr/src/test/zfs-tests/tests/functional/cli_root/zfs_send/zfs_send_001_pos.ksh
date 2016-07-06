@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
@@ -69,7 +69,6 @@ function cleanup
 
 }
 
-log_assert "Verify 'zfs send' can create valid send streams as expected."
 log_onexit cleanup
 
 init_snap=$TESTPOOL/$TESTFS@init_snap

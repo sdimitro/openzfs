@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -90,8 +94,6 @@ function test_ctr_share # mntp ctr
 	    log_fail "File system $mntp2 was not shared (set sharenfs)."
 }
 
-log_assert "Verify that a dataset could not be shared, " \
-	"but its sub-filesystems could be shared."
 log_onexit cleanup
 
 typeset mntp=$(get_prop mountpoint $TESTPOOL/$TESTCTR)

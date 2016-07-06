@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,7 +55,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify that a zvol can be used as a swap device"
 
 log_onexit cleanup
 

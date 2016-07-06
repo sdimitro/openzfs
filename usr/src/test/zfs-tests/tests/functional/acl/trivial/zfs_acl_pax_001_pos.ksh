@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -43,8 +47,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify include attribute in pax archive and restore with pax " \
-	"should succeed."
 log_onexit cleanup
 
 for user in root $ZFS_ACL_STAFF1; do

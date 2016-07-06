@@ -39,8 +39,6 @@ set -A args "" \
 	"nil, true, 1, \"test\", {}, {val=true}" \
 	"EINVAL"
 
-log_assert "Returning valid lua constructs works."
-
 typeset -i i=0
 while (( i < ${#args[*]} )); do
 	log_note "running program: return ${args[i]}"

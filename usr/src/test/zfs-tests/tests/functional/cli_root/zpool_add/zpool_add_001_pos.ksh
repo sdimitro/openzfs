@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,8 +52,6 @@ function cleanup
 
 	partition_cleanup
 }
-
-log_assert "'zpool add <pool> <vdev> ...' can add devices to the pool."
 
 log_onexit cleanup
 

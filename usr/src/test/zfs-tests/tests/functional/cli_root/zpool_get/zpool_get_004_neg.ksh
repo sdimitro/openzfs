@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -37,7 +41,6 @@
 # 1. Run several different "zpool get" commands that should fail.
 #
 
-log_assert "Malformed zpool get commands are rejected"
 
 if ! is_global_zone ; then
 	TESTPOOL=${TESTPOOL%%/*}

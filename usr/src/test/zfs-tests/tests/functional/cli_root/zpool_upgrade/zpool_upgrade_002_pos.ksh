@@ -26,6 +26,10 @@
 #
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.kshlib
 
@@ -45,7 +49,6 @@ function cleanup
 	destroy_upgraded_pool $config
 }
 
-log_assert "Import pools of all versions - zpool upgrade on each pools works"
 log_onexit cleanup
 
 # $CONFIGS gets set in the .cfg script

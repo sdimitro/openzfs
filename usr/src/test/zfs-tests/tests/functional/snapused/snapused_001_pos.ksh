@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -54,7 +54,6 @@ function cleanup
 	log_must $ZFS destroy -rR $USEDTEST
 }
 
-log_assert "Verify used is correct."
 log_onexit cleanup
 
 log_must $ZFS create $USEDTEST

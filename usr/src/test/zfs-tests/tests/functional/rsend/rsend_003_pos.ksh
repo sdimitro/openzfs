@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -44,7 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs send -I send all incrementals from dataset@init to clone@snap"
 log_onexit cleanup_pool $POOL2
 
 #

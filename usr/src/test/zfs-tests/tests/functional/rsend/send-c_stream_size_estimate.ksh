@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -50,7 +50,6 @@ function get_estimated_size
 	echo $size
 }
 
-log_assert "Verify the stream size given by -P accounts for compressed send."
 log_onexit cleanup_pool $POOL2
 
 write_compressible $BACKDIR ${megs}m

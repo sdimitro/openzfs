@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,7 +50,6 @@ function cleanup
 	datasetexists $TESTPOOL && log_must $ZPOOL destroy $TESTPOOL
 }
 
-log_assert "'zpool create' with invalid feature names/states fails"
 log_onexit cleanup
 
 for prop in $properties; do

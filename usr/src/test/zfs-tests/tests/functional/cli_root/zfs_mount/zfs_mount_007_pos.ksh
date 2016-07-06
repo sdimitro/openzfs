@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_mount/zfs_mount.kshlib
 
 #
@@ -54,8 +58,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify '-o' will set filesystem property temporarily, " \
-	"without affecting the property that is stored on disk."
 log_onexit cleanup
 
 set -A properties "atime" "devices" "exec" "readonly" "setuid"

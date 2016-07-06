@@ -28,7 +28,6 @@
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/perf/perf.shlib
 
-log_assert "Measure IO stats during sequential write load"
 log_onexit cleanup
 
 function cleanup

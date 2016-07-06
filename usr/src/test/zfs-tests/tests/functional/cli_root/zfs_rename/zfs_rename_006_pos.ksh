@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_rename/zfs_rename.kshlib
@@ -52,7 +52,6 @@ verify_runnable "global"
 #
 log_onexit cleanup
 
-log_assert "'zfs rename' can successfully rename a volume snapshot."
 
 vol=$TESTPOOL/$TESTVOL
 snap=$TESTSNAP

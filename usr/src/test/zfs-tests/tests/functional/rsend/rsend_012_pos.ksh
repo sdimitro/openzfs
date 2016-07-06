@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -120,8 +120,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify zfs send -R will backup all the filesystem properties " \
-	"correctly."
 log_onexit cleanup
 
 log_must edited_prop "get" $POOL

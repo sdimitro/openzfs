@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "Listing zfs children should work correctly."
 
 TESTCHILD=$TESTPOOL/$TESTFS/testchild
 TESTCHILD1=$TESTCHILD-1

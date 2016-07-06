@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "Divide by zero should fail gracefully."
 
 log_mustnot_program $TESTPOOL $ZCP_ROOT/lua_core/tst.divide_by_zero.zcp
 

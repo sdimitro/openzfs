@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -87,7 +92,6 @@ set -A cmd "umount" "unmount"
 set -A options "" "-f"
 set -A dev "$TESTPOOL/$TESTFS2" "$TESTDIR2"
 
-log_assert "Verify the u[n]mount [-f] sub-command."
 
 typeset -i i=0
 typeset -i j=0

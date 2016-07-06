@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -39,7 +43,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs share fails with bad parameters"
 
 fs=$TESTPOOL/$TESTFS
 set -A badargs "A" "-A" "-" "-x" "-?" "=" "-a *" "-a"

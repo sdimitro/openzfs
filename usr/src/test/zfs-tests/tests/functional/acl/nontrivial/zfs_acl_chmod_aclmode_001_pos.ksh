@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 
@@ -61,8 +61,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify chmod have correct behaviour to directory and file when " \
-	"filesystem has the different aclmode setting."
 log_onexit cleanup
 
 # Define aclmode flag

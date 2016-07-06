@@ -24,11 +24,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
-#
-
-#
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -62,7 +58,6 @@ function get_pool_size {
 	echo $returnvalue
 }
 
-log_assert "xattr file sizes count towards normal disk usage"
 log_onexit cleanup
 
 log_must $TOUCH $TESTDIR/myfile.$$

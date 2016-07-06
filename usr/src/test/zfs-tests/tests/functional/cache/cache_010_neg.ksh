@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cache/cache.cfg
@@ -52,7 +52,6 @@ function cleanup_testenv
 	fi
 }
 
-log_assert "Cache device can only be block devices."
 log_onexit cleanup_testenv
 
 TESTVOL=testvol1$$

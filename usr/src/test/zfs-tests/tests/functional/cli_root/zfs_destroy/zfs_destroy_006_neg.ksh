@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -56,7 +56,6 @@ set -A args "" "-r" "-f" "-rf" "-fr" "$TESTPOOL" "-f $TESTPOOL" \
 	"-rf /$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTFS $TESTPOOL/$TESTFS" \
 	"-rRf $TESTPOOL/$TESTFS $TESTPOOL/$TESTFS"
 
-log_assert "'zfs destroy' should return an error with badly-formed parameters."
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

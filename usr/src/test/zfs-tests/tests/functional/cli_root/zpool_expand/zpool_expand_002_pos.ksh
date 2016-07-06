@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -63,8 +63,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "zpool can expand after zpool online -e zvol vdevs on LUN expansion"
 
 for i in 1 2 3; do
 	log_must $ZFS create -V $org_size $VFS/vol$i

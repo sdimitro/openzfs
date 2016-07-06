@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -44,8 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs unallow won't remove those permissions which inherited from " \
-	"its parent dataset."
 log_onexit restore_root_datasets
 
 perm1="atime,devices"; perm2="compression,checksum"

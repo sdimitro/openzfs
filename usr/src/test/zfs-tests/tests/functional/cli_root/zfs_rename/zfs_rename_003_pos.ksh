@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -43,7 +47,6 @@ function cleanup
 	datasetexists $snap && log_must $ZFS destroy $snap
 }
 
-log_assert "'zfs rename' can address the abbreviated snapshot name."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS; snap=$fs@snap

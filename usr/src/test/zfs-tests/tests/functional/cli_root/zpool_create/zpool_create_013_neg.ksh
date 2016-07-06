@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -79,7 +79,6 @@ typeset md_dev=${disk}s${SLICE1}
 typeset md_name=d0
 typeset MD_DSK=/dev/md/dsk/d0
 
-log_assert "'zpool create' should fail with metadevice in swap."
 log_onexit cleanup
 
 #

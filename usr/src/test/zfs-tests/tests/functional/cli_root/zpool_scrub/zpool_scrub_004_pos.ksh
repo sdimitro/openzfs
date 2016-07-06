@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "Resilver prevent scrub from starting until the resilver completes"
 
 log_must $ZPOOL detach $TESTPOOL $DISK2
 log_must $ZPOOL attach $TESTPOOL $DISK1 $DISK2

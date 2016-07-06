@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,7 +50,6 @@ function cleanup
 	$RM -f $TESTDIR/*
 }
 
-log_assert "Changing blocksize doesn't casue system panic with compression settings"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

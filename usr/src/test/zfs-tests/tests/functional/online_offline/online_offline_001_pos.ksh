@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -64,7 +64,6 @@ function cleanup
 	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Turning a disk offline and back online during I/O completes."
 
 $FILE_TRUNC -f $((64 * 1024 * 1024)) -b 8192 -c 0 -r $TESTDIR/$TESTFILE1 &
 typeset killpid="$! "

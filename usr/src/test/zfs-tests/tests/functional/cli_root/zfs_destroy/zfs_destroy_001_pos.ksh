@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -204,8 +204,6 @@ function test_n_check
 	log_note "'$ZFS destroy $opt $dtst' passed."
 }
 
-log_assert "'zfs destroy -r|-R|-f|-rf|-Rf <fs|ctr|vol|snap>' should " \
-	"recursively destroy all children."
 log_onexit cleanup_testenv
 
 typeset dtst=""

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,8 +51,6 @@ function cleanup
 	$RM -rf $TESTDIR/cpio$$.cpio
 	$RM -rf $NONZFS_TESTDIR/$BNAME
 }
-
-log_assert "Migrating test file from ZFS fs to uFS fs using cpio"
 
 log_onexit cleanup
 

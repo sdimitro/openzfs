@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -73,7 +78,6 @@ set -A args "" "-?" "-t fakepool" "-f fakepool" "-ev fakepool" "fakepool" \
 	"$TESTPOOL/$TESTCTR/$TESTFS1 $DISKLIST" "$TESTPOOL/$TESTVOL $DISKLIST" \
 	"$DISKLIST"
 
-log_assert "Executing 'zpool offline' with bad options fails"
 
 if [[ -z $DISKLIST ]]; then
 	log_fail "DISKLIST is empty."

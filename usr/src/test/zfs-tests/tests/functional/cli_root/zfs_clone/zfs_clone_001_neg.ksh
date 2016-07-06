@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -110,8 +110,6 @@ function cleanup_all
 	return 0
 }
 
-log_assert "Badly-formed 'zfs clone' with inapplicable scenarios" \
-	"should return an error."
 log_onexit cleanup_all
 
 setup_all

@@ -24,6 +24,10 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_upgrade/zfs_upgrade.kshlib
 
@@ -53,7 +57,6 @@ log_onexit cleanup
 
 typeset newdataset1="$TESTPOOL/$TESTFS1/$TESTFS/$TESTFS1"
 
-log_assert "'zfs create -p -o version=1' only cause the leaf filesystem to be version=1."
 
 log_must $ZFS create -p -o version=1 $newdataset1
 log_must datasetexists $newdataset1

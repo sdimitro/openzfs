@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/history/history_common.kshlib
@@ -50,7 +50,6 @@ function cleanup
 	datasetexists $root_testfs && log_must $ZFS destroy -rf $root_testfs
 }
 
-log_assert "Verify internal long history information are correct."
 log_onexit cleanup
 
 root_testfs=$TESTPOOL/$TESTFS1

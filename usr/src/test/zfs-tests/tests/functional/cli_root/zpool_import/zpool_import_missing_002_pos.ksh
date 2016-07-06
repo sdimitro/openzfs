@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -105,7 +105,6 @@ function cleanup_all
 
 log_onexit cleanup_all
 
-log_assert "Verify that import could handle moving device."
 
 CWD=$PWD
 

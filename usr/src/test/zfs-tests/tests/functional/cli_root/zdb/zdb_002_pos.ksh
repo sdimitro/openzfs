@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,7 +28,6 @@
 # 3. Repeat for a pool with features disabled.
 #
 
-log_assert "Verify zdb accurately counts feature refcounts."
 log_onexit cleanup
 
 typeset errstr="feature refcount mismatch"

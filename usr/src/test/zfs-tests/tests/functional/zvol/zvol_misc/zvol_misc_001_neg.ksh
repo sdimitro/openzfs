@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -56,7 +56,6 @@ function cleanup
 	zfs set volsize=$volsize $TESTPOOL/$TESTVOL
 }
 
-log_assert "Verify that a ZFS volume can act as dump device."
 log_onexit cleanup
 
 voldev=/dev/zvol/dsk/$TESTPOOL/$TESTVOL

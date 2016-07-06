@@ -29,8 +29,6 @@ set -A args "" \
 	"assert(true)" \
 	"x = 1 + 1"
 
-log_assert "Simple lua scripts pass."
-
 typeset -i i=0
 while (( i < ${#args[*]} )); do
 	log_must_program $TESTPOOL - <<-EOF

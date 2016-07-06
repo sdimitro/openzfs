@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -70,8 +70,6 @@ function cleanup
 
 set -A datasets "$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTCTR/$TESTFS1" \
 	"$TESTPOOL/$TESTCTR" "$TESTPOOL/$TESTVOL" \
-
-log_assert "'zpool destroy -f <pool>' can forcely destroy the specified pool"
 
 log_onexit cleanup
 

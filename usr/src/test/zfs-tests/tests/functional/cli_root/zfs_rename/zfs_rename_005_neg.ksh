@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -64,7 +64,6 @@ set -A src_dataset \
 #
 log_onexit my_cleanup
 
-log_assert "'zfs rename' should fail while datasets are within different pool."
 
 additional_setup
 

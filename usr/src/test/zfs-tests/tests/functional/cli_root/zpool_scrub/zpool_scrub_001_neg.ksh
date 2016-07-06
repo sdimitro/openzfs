@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -46,7 +51,6 @@ set -A args "" "-?" "blah blah" "-%" "--?" "-*" "-=" \
     "-M" "-N" "-O" "-P" "-Q" "-R" "-S" "-T" "-U" "-V" "-W" "-X" "-W" "-Z"
 
 
-log_assert "Execute 'zpool scrub' using invalid parameters."
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

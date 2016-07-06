@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -47,7 +47,6 @@
 #
 
 verify_runnable "global"
-log_assert "system related filesytems can not be renamed or destroyed"
 
 typeset rootpool=$(get_rootpool)
 typeset rootfs=$(get_rootfs)

@@ -25,7 +25,7 @@
 # Use is subject to license terms.
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/history/history_common.kshlib
@@ -54,7 +54,6 @@ function cleanup
 	$RM -rf /history.$$
 }
 
-log_assert "Verify zfs sub-commands which modify state are logged."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS1; newfs=$TESTPOOL/newfs; fsclone=$TESTPOOL/clone

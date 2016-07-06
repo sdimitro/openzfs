@@ -24,10 +24,11 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
 # Copyright (c) 2013 by Paul B. Henson <henson@acm.org>. All rights reserved.
+#
+#
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl.cfg
@@ -66,8 +67,6 @@ set -A argv \
 	"231" "562"	"r-xrw--w-"	"712" "000"	"---------" \
 	"777" "121"	"--x-w---x"	"123" "775"	"rwxrwxr-x"
 
-log_assert " Verify chmod permission settings on files and directories for " \
-    "aclmode=restricted"
 log_onexit cleanup
 
 #

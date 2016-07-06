@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -45,8 +45,6 @@ verify_runnable "both"
 
 set -A args "" "-?" "-f" "-o" \
 	"-o fakeproperty" "-o name,size,fakeproperty"
-
-log_assert "Executing 'zpool list' with bad options fails"
 
 typeset -i i=1
 while [[ $i -lt ${#args[*]} ]]; do

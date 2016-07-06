@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,9 +44,6 @@
 #
 
 verify_runnable "both"
-
-log_assert "Ensure multiple threads performing write appends to the same" \
-	"ZFS file succeed"
 
 #
 # $FILE_SIZE is hardcoded into threadsappend.c and is the expected

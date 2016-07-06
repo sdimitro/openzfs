@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -44,7 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs send -R send replication stream up to the named snap."
 log_onexit cleanup_pool $POOL2
 
 #

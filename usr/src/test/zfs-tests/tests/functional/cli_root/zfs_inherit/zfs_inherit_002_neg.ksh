@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2011 by Delphix. All rights reserved.
+# Copyright (c) 2011, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,8 +50,6 @@ function cleanup
 	fi
 }
 
-log_assert "'zfs inherit' should return an error with bad parameters in \
-one command."
 log_onexit cleanup
 
 set -A badopts "r" "R" "-R" "-rR" "-a" "-" "-?" "-1" "-2" "-v" "-n"

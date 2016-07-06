@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_copies/zfs_copies.kshlib
 
@@ -39,7 +43,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify that copies property cannot be set to any value other than 1,2 or 3"
 
 set -A badval 0 01 02 03 0 -1 -2 -3 10 20 30 4 5 6 ? * blah
 

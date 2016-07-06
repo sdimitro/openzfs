@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -45,7 +45,6 @@
 
 verify_runnable "global"
 
-log_assert "Executing 'zpool upgrade -v' command succeeds."
 
 log_must $ZPOOL upgrade -v
 

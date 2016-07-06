@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -35,7 +35,6 @@ function cleanup
 
 verify_runnable "both"
 
-log_assert "Verify compressed send works with volumes"
 log_onexit cleanup
 
 typeset vol="$POOL/newvol"

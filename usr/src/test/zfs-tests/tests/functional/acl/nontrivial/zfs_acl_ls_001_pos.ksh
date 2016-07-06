@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -49,7 +53,6 @@ function cleanup
 	(( ${#mask} != 0 )) && log_must $UMASK $mask
 }
 
-log_assert "Verify that '$LS' command supports ZFS ACLs."
 
 log_onexit cleanup
 

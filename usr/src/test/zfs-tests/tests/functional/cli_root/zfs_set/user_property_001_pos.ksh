@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -42,8 +46,6 @@
 
 verify_runnable "both"
 
-log_assert "ZFS can set any valid user defined property to the non-readonly " \
-	"dataset."
 log_onexit cleanup_user_prop $TESTPOOL
 
 typeset -i i=0

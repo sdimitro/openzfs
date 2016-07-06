@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -46,7 +46,6 @@ valid_args=("$TESTPOOL/$TESTFS1@snap $TESTPOOL/$TESTFS2@snap \
     $TESTPOOL/$TESTFS3@snap" "$TESTPOOL/$TESTFS1@$($PYTHON -c 'print "x" * 200')\
     $TESTPOOL/$TESTFS2@2 $TESTPOOL/$TESTFS3@s")
 
-log_assert "verify zfs supports multiple consistent snapshots"
 log_onexit cleanup
 typeset -i i=1
 test_data=$STF_SUITE/tests/functional/cli_root/zpool_upgrade/blockfiles

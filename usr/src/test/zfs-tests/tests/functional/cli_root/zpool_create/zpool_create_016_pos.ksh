@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -78,7 +78,6 @@ typeset pool_dev=${disk}s${SLICE0}
 typeset swap_disks=$($SWAP -l | $GREP -v "swapfile" | $AWK '{print $1}')
 typeset dump_device=$($DUMPADM | $GREP "Dump device" | $AWK '{print $3}')
 
-log_assert "'zpool create' should success with no device in swap."
 log_onexit cleanup
 
 for sdisk in $swap_disks; do

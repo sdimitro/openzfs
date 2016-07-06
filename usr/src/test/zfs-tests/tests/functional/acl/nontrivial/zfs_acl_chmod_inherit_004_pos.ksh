@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -56,8 +56,6 @@ if (($? != 0)); then
 	log_unsupported "passthrough-x aclinherit not supported."
 fi
 
-log_assert "Verify aclinherit=passthrough-x will inherit the 'x' bits while" \
-    " mode request."
 log_onexit cleanup
 
 set -A aces \

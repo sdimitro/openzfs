@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -73,7 +73,6 @@ function cleanup
 	log_must cleanup_pool $POOL2
 }
 
-log_assert "Changes made by 'zfs promote' can be properly received."
 log_onexit cleanup
 
 typeset -i i=0

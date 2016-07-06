@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 
@@ -55,9 +55,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "'zfs clone -o property=value volume' can successfully" \
-	   "create a ZFS clone volume with multiple correct properties set."
 
 typeset -i i=0
 typeset opts=""

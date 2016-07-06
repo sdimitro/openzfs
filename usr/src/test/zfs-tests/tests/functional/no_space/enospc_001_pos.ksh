@@ -25,7 +25,7 @@
 # Use is subject to license terms.
 #
 #
-# Copyright (c) 2013, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -54,7 +54,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "ENOSPC is returned when file system is full."
 log_must $ZFS set compression=off $TESTPOOL/$TESTFS
 
 log_note "Writing file: $TESTFILE0 until ENOSPC."

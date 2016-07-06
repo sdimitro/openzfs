@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -49,7 +53,6 @@ function cleanup
 	fi
 }
 
-log_assert "'zfs set mountpoint/sharenfs' fails with invalid scenarios"
 log_onexit cleanup
 
 badpath=/tmp/foo1.$$

@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/atime/atime_common.kshlib
 
 #
@@ -42,7 +46,6 @@
 
 verify_runnable "both"
 
-log_assert "Setting atime=on, the access time for files is updated when read."
 log_onexit cleanup
 
 #

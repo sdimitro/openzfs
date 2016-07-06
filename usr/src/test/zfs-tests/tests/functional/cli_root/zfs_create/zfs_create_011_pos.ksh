@@ -24,6 +24,10 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -53,7 +57,6 @@ log_onexit cleanup
 typeset newdataset1="$TESTPOOL/$TESTFS1/$TESTFS/$TESTFS1"
 typeset newdataset2="$TESTPOOL/$TESTFS1/$TESTFS/$TESTVOL1"
 
-log_assert "'zfs create -p' works as expected."
 
 log_must verify_opt_p_ops "create" "fs" $newdataset1
 

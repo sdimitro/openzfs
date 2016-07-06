@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -62,8 +62,6 @@ function cleanup
 	done
 }
 
-log_assert "Create a pool with same devices twice or create two pools with " \
-	"same devices, 'zpool create' should fail."
 log_onexit cleanup
 
 unset NOINUSE_CHECK

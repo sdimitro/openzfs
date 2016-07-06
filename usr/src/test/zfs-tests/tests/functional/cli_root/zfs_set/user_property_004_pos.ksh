@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -63,7 +67,6 @@ function nonexist_user_prop
 	fi
 }
 
-log_assert "User property has no effect to snapshot until 'Snapshot properties' supported."
 log_onexit cleanup
 
 typeset snap_property=

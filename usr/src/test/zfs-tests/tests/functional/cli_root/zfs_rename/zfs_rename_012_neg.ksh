@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -43,9 +43,6 @@
 #
 
 verify_runnable "both"
-
-log_assert "'zfs rename' should fail with bad option, null target dataset and" \
-		"too long target dataset name."
 
 badopts=( "r" "R" "-R" "-rR" "-Rr" "-P" "-pP" "-Pp" "-r*" "-p*" "-?" "-*" "-"
     "-o")

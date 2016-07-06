@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -44,7 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "chmod A{+|-|=} have the correct behaviour to the ACL list."
 log_onexit cleanup
 
 typeset -i trival_count=3 head=0 mid end

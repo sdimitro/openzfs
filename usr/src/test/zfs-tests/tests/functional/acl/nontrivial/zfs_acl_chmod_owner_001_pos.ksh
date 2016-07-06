@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -56,8 +56,6 @@ function cleanup
 	return 0
 }
 
-log_assert "Verify that the chown/chgrp could take owner/group " \
-	"while permission is granted."
 log_onexit cleanup
 
 #

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -45,7 +45,6 @@
 verify_runnable "global"
 
 assertion="Verify the sum of swaplow and swaplen is less or equal to volsize"
-log_assert $assertion
 
 typeset vol=$TESTPOOL/$TESTVOL
 typeset swapname="/dev/zvol/dsk/$vol"

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -54,7 +54,6 @@ function check_for_export
 
 verify_runnable "global"
 
-log_assert "zpool export returns an error when run as a user"
 
 log_mustnot $ZPOOL export $TESTPOOL.virt
 check_for_export

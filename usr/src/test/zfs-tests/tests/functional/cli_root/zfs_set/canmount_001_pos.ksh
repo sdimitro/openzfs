@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
@@ -75,7 +79,6 @@ function cleanup
 	log_must $ZFS mount -a
 }
 
-log_assert "Setting a valid property of canmount to file system, it must be successful."
 log_onexit cleanup
 
 typeset old_fs_canmount="" old_ctr_canmount=""

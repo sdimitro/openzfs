@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -171,8 +171,6 @@ function reset_privs
 	return 0
 }
 
-log_assert "Verify set/clear BSD'ish attributes will succeed while user has " \
-    "file_flag_set or all privilege"
 log_onexit cleanup
 
 add='S+c'

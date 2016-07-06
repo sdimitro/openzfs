@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -49,7 +53,6 @@ function cleanup
 	fi
 }
 
-log_assert "zfs share fails with shared filesystem"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

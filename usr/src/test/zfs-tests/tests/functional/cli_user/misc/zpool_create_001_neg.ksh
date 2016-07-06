@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -57,8 +57,6 @@ set -A args "create" "create -f" "create -n" \
     "create -n $TESTPOOL $ADD_DISK" \
     "create -fn $TESTPOOL $ADD_DISK" \
     "create -nf $TESTPOOL $ADD_DISK"
-
-log_assert "zpool create [-fn] pool_name vdev"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

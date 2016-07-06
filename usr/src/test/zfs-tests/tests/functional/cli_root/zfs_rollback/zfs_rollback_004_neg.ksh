@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_rollback/zfs_rollback_common.kshlib
 
@@ -53,8 +57,6 @@ function cleanup
 	done
 }
 
-log_assert "'zfs rollback' should fail with bad options,too many arguments," \
-	"non-snapshot datasets or missing datasets."
 log_onexit cleanup
 
 set -A badopts "r" "R" "f" "-F" "-rF" "-RF" "-fF" "-?" "-*" "-blah" "-1" "-2"

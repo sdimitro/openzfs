@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -42,8 +47,6 @@ verify_runnable "both"
 set -A args "" "-?" "-x fakepool" "-v fakepool" "-xv fakepool" "-vx fakepool" \
 	"-x $TESTPOOL/$TESTFS" "-v $TESTPOOL/$TESTFS" "-xv $TESTPOOL/$TESTFS" \
 	"-vx $TESTPOOL/$TESTFS"
-
-log_assert "Executing 'zpool status' with bad options fails"
 
 typeset -i i=1
 

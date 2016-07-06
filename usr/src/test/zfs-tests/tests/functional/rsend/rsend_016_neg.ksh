@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,7 +28,6 @@
 
 verify_runnable "both"
 
-log_assert "Ensure that error conditions cause appropriate failures."
 
 log_neg eval "$ZFS send -i \#bla $POOl/$FS@final > /dev/null"
 

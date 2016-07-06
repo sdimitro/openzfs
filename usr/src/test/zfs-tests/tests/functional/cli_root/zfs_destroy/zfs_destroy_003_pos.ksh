@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -60,7 +60,6 @@ function cleanup
 	done
 }
 
-log_assert "Verify that 'zfs destroy [-rR]' succeeds as root. "
 
 log_onexit cleanup
 

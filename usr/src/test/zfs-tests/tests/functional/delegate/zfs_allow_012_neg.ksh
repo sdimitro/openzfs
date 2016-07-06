@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -50,8 +50,6 @@ function cleanup
 	log_must restore_root_datasets
 }
 
-log_assert "Verify privileged user can not use permissions properly when " \
-	"delegation property is set off"
 log_onexit cleanup
 
 

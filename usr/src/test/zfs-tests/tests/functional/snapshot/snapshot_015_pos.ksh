@@ -27,7 +27,7 @@
 
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -63,7 +63,6 @@ function cleanup
 $ZFS 2>&1 | $GREP "allow" > /dev/null
 (($? != 0)) && log_unsupported
 
-log_assert "Verify snapshot can be created via mkdir in .zfs/snapshot."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

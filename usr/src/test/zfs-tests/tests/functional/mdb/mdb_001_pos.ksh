@@ -96,8 +96,6 @@ set -A dcmds "::arc" \
 # do as much checking as possible without the need to hardcode addresses.
 #
 
-log_assert "Verify that the ZFS mdb dcmds and walkers are working as expected."
-
 i=0
 while ((i < ${#dcmds[*]})); do
 	log_must eval "$MDB -ke \"${dcmds[i]}\" >$tmpfile 2>&1"

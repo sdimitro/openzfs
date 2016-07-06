@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -50,7 +50,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify permission set can be masked on descendent dataset."
 log_onexit restore_root_datasets
 
 typeset perms1="snapshot,reservation,compression"

@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -41,7 +45,6 @@
 
 verify_runnable "both"
 
-log_assert "Verifies that cp will include file attribute when using the -@ flag"
 log_onexit cleanup
 
 set -A BEFORE_FCKSUM

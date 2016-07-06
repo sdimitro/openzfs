@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -52,7 +56,6 @@ function cleanup
 	[[ -d $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Verify that '$CP [-p]' supports ZFS ACLs."
 log_onexit cleanup
 
 log_note "Create the second zfs file system: $TESTPOOL/$TESTFS1."

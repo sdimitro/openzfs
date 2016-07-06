@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -64,7 +64,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify a file system snapshot is identical to original."
 
 log_onexit cleanup
 

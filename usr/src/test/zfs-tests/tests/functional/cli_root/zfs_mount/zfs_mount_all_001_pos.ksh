@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_mount/zfs_mount.kshlib
 
@@ -167,10 +172,6 @@ function verify_all
 
 	return 0
 }
-
-
-log_assert "Verify that 'zfs $mountall' succeeds as root, " \
-	"and all available ZFS filesystems are mounted."
 
 log_onexit cleanup_all
 

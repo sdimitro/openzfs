@@ -25,6 +25,11 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
+
 . $STF_SUITE/tests/functional/truncate/truncate.cfg
 . $STF_SUITE/include/libtest.shlib
 
@@ -47,7 +52,6 @@ function cleanup
 	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Ensure file with random blocks is truncated properly"
 
 options=""
 options_display="default options"

@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -41,7 +41,6 @@ function cleanup
 	# No need to recreate the volume as no other tests expect it.
 }
 
-log_assert "nopwrite works on volumes"
 
 log_must $ZFS set compress=on $origin
 log_must $ZFS set checksum=sha256 $origin

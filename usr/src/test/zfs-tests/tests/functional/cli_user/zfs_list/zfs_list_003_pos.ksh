@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ function cleanup
 verify_runnable "both"
 log_onexit cleanup
 
-log_assert "Verify 'zfs list -r' could display any children recursively."
 
 tmpfile=/var/tmp/zfslist.out.$$
 children="$TESTPOOL/$TESTFS"

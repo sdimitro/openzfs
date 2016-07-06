@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
 
 #
@@ -78,7 +82,6 @@ set -A badargs \
 	"-i $snap1 $snap2 -i $snap1 $snap2" \
 	"-i snap1 $snap2 -i snap1 $snap2"
 
-log_assert "Verify that invalid parameters to 'zfs send' are caught."
 log_onexit cleanup
 
 log_must $ZFS snapshot $snap1

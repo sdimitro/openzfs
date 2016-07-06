@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -64,7 +64,6 @@ fi
 
 typeset pool_dev=${disk}s${SLICE0}
 
-log_assert "'zpool create' should fail with mountpoint exists and not empty."
 log_onexit cleanup
 
 if [[ ! -d $TESTDIR ]]; then

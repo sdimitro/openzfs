@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -45,7 +45,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify option '-l' only allow permission to the dataset itself."
 log_onexit restore_root_datasets
 
 childfs=$ROOT_TESTFS/childfs

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -55,7 +55,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify zfs receive can handle out of space correctly."
 log_onexit cleanup
 
 log_must mkfile $MINVDEVSIZE $TESTDIR/bfile

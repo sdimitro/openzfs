@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -95,7 +95,6 @@ function cleanup
 	fi
 }
 
-log_assert "Setting canmount=noauto to file system, it must be successful."
 log_onexit cleanup
 
 set -A old_mnt

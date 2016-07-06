@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -67,7 +67,6 @@ function cleanup
 	cleanup_devices $vdisks $sdisks
 }
 
-log_assert "Ensure ZFS does not interfere with devices in use by SVM"
 
 log_onexit cleanup
 

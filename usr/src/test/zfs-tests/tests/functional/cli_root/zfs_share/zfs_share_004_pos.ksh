@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -87,7 +87,6 @@ function test_snap_share # mntp filesystem
 	log_must $LS -l  $mntp/$SNAPROOT/snapshot
 }
 
-log_assert "Verify that a file system and its snapshot are shared."
 log_onexit cleanup
 
 log_must $ZFS snapshot $TESTPOOL/$TESTFS@snapshot

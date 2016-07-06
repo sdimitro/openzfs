@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -62,7 +67,6 @@ function cleanup
 	fi
 }
 
-log_assert "'zfs promote' will fail with invalid arguments. "
 log_onexit cleanup
 
 snap=$TESTPOOL/$TESTFS@$TESTSNAP

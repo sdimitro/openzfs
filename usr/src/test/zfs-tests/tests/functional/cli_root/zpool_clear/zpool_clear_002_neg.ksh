@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,7 +53,6 @@ function cleanup
 		log_must $RM -f $file
 }
 
-log_assert "Execute 'zpool clear' using invalid parameters."
 log_onexit cleanup
 
 # Create another pool for negative testing, which clears pool error

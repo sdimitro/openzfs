@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -51,8 +55,6 @@ function cleanup
 	datasetexists $snap && log_must $ZFS destroy $snap
 }
 
-log_assert "Verify 'zpool history' can deal with non-existent pools and " \
-	"garbage to the command."
 log_onexit cleanup
 
 log_must $ZFS snapshot $snap

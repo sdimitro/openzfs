@@ -25,7 +25,7 @@
 # Use is subject to license terms.
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,8 +44,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "Test properties are inherited correctly"
 
 #
 # Simple function to create specified datasets.

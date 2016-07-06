@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_mount/zfs_mount.kshlib
 
@@ -48,10 +52,6 @@ function cleanup
 		log_must force_unmount $TESTPOOL/$fs
 	done
 }
-
-
-log_assert "Verify that '$ZFS $mountcmd' with a filesystem " \
-	"whose name is not in 'zfs list' will fail with return code 1."
 
 log_onexit cleanup
 

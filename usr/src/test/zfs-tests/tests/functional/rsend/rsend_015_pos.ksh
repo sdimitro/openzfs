@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -32,7 +32,6 @@
 
 verify_runnable "both"
 
-log_assert "Destroying the fromsnap of zfs send -b doesn't cause issues."
 log_onexit cleanup_pool $POOL2
 
 log_must zfs create $POOL2/$FS

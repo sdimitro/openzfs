@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,8 +52,6 @@ function cleanup
 	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
-log_assert "Verify a snapshot will only be allowed if there is enough " \
-	"free space outside of this refreservation."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

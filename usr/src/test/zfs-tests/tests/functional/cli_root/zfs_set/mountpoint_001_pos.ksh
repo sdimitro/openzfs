@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -65,7 +65,6 @@ function cleanup
 	[[ -d $TESTDIR_NOTEXISTING ]] && log_must $RM -r $TESTDIR_NOTEXISTING
 }
 
-log_assert "Setting a valid mountpoint to file system, it must be successful."
 log_onexit cleanup
 
 old_fs_mpt=$(get_prop mountpoint $TESTPOOL/$TESTFS)

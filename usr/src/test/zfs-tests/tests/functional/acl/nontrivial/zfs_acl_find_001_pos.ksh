@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -71,7 +71,6 @@ function find_ls_acl #<opt> <obj>
 	fi
 }
 
-log_assert "Verify that '$FIND' command supports ZFS ACLs."
 
 log_onexit cleanup
 

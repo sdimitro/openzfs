@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -65,7 +65,6 @@ if ! $(is_physical_device $DISKS) ; then
 	log_unsupported "This case cannot be run on raw files."
 fi
 
-log_assert "'zpool destroy <pool>' can destroy a specified pool."
 
 log_onexit cleanup
 

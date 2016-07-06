@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "Listing zfs clones should work correctly."
 
 function cleanup
 {

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,7 +55,6 @@ function cleanup
 	destroy_pool $TESTPOOL
 }
 
-log_assert "Ensure ZFS cannot use a device designated as a dump device"
 
 log_onexit cleanup
 

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,9 +51,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "'zpool create -O property=value pool' can successfully create a pool \
-		with multiple filesystem properties set."
 
 set -A RW_FS_PROP "quota=512M" \
 		  "reservation=512M" \

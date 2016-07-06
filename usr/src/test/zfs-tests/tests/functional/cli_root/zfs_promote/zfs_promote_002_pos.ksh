@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/zfs_promote/zfs_promote.cfg
@@ -60,7 +60,6 @@ function cleanup
 	done
 }
 
-log_assert "'zfs promote' can deal with multiple snapshots in a filesystem."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

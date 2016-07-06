@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,10 +53,6 @@ set -A values "" "mountpoint" "checksum" "compression" "atime" "readonly" \
 	"blad" "default" "TESTPOOL" "$TESTPOOL/$TESTCTR" \
 	"$TESTPOOL/$TESTCTR/$TESTFS" "$TESTPOOL/$TESTFS"
 set -A dataset "$TESTPOOL" "$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTVOL"
-
-log_assert "Setting invalid value to mountpoint, checksum, compression, atime,"\
-	"readonly, setuid, zoned or canmount on a file system file system or volume." \
-	"It should be failed."
 
 typeset -i i=0
 typeset -i j=0

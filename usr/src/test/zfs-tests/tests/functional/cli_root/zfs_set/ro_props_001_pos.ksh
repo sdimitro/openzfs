@@ -70,7 +70,6 @@ function cleanup
 		destroy_snapshot $TESTPOOL/$TESTFS@$TESTSNAP
 }
 
-log_assert "Verify that read-only properties are immutable."
 log_onexit cleanup
 
 # Create filesystem and volume's snapshot

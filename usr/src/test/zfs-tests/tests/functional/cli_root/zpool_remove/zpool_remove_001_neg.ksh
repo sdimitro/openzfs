@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -79,10 +79,6 @@ set -A create_args "$vdev_devs" "mirror $mirror_devs"  \
 
 set -A verify_disks "$vdev_devs" "$mirror_devs" "$raidz_devs" \
 		"$raidz1_devs" "$raidz2_devs" "$spare_devs1"
-
-
-log_assert "Check zpool remove <pool> <device> can not remove " \
-	"active device from pool"
 
 log_onexit cleanup
 

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
@@ -125,7 +125,6 @@ function verify_readonly # $1 dataset, $2 on|off
 
 log_onexit cleanup
 
-log_assert "Setting a valid readonly property on a dataset succeeds."
 
 typeset all_datasets
 

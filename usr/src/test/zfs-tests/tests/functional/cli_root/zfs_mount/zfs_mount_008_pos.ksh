@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_mount/zfs_mount.kshlib
 
 #
@@ -52,7 +56,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify 'zfs mount -O' will override existing mount point."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS; fs1=$TESTPOOL/$TESTFS1

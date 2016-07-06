@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -34,7 +34,6 @@ DISK_ARR=($DISKS)
 POOL2=${TESTPOOL}2
 log_must zpool create -f $TESTPOOL mirror ${DISK_ARR[0]} ${DISK_ARR[1]}
 
-log_assert "Per-vdev ZAPs persist correctly on the original pool after split."
 conf="$TESTDIR/vz007"
 log_must zdb -PC $TESTPOOL > $conf
 
@@ -58,7 +57,6 @@ new_top_s0=$(get_top_vd_zap ${DISK_ARR[0]} $conf)
 [[ "$new_top_s0" -ne "$orig_top" ]] && log_fail "Top ZAP in original pool "\
         "didn't persist (expected $orig_top, got $new_top_s0)"
 
-log_assert "Per-vdev ZAPs persist on the new pool after import."
 
 # Import the split pool.
 log_must zpool import $POOL2

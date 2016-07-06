@@ -25,6 +25,9 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -69,8 +72,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify chmod have correct behaviour to directory and file when " \
-	"setting different inherit strategies to them."
 log_onexit cleanup
 
 # Define inherit flag

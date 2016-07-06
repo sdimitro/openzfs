@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -71,9 +71,6 @@ function create_free_testing #<file size> <file>
 	done
 }
 
-
-log_assert "Creating non-power-of-2 blocksize file and freeing the file \
-	storage space at will should work normally with compression setting"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

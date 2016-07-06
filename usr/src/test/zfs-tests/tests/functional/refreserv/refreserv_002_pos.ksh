@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -81,9 +81,6 @@ function max_refreserv
 	done
 }
 
-
-log_assert "Setting full size as refreservation, verify no snapshot " \
-	"can be created."
 log_onexit cleanup
 
 log_must $ZFS create $TESTPOOL/$TESTFS/subfs

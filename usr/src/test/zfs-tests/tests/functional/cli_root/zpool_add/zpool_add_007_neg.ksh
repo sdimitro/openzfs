@@ -24,6 +24,11 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_add/zpool_add.kshlib
 
@@ -46,8 +51,6 @@ function cleanup
 
 	partition_cleanup
 }
-
-log_assert "'zpool add' should return an error with badly-formed parameters."
 
 log_onexit cleanup
 

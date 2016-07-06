@@ -25,7 +25,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "overwrite any of the {user|group}quota size, it will fail"
 
 log_note "overwrite to $QFS to make it exceed userquota"
 log_must $ZFS set userquota@$QUSER1=$UQUOTA_SIZE $QFS

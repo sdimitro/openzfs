@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_common.kshlib
 
 #
@@ -55,8 +59,6 @@ typeset props=("${zfs_props[@]}" "${userquota_props[@]}")
 typeset dataset=($TESTPOOL/$TESTCTR $TESTPOOL/$TESTFS $TESTPOOL/$TESTVOL \
 	$TESTPOOL/$TESTFS@$TESTSNAP $TESTPOOL/$TESTVOL@$TESTSNAP)
 
-log_assert "Setting the valid options and properties 'zfs get' return " \
-    "correct value. It should be successful."
 log_onexit cleanup
 
 # Create volume and filesystem's snapshot

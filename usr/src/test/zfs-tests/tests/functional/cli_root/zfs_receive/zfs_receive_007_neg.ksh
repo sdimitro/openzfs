@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -50,7 +54,6 @@ function cleanup
 	done
 }
 
-log_assert "'zfs recv -F' should fail if the incremental stream does not match"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

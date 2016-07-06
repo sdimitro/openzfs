@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -58,8 +58,6 @@ function cleanup
 	done
 }
 
-log_assert "With ZFS_ABORT set, all zfs commands can abort and generate a " \
-    "core file."
 log_onexit cleanup
 
 #preparation work for testing

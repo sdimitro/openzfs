@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -66,7 +66,6 @@ function cleanup
 }
 
 
-log_assert "Verify zpool export succeed or fail with spare."
 log_onexit cleanup
 
 mntpnt=$(get_prop mountpoint $TESTPOOL)

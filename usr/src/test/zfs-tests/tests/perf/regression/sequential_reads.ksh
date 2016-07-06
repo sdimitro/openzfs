@@ -34,7 +34,6 @@ function cleanup
 	log_must $ZFS destroy $TESTFS
 }
 
-log_assert "Measure IO stats during sequential read load"
 log_onexit cleanup
 
 export TESTFS=$PERFPOOL/testfs

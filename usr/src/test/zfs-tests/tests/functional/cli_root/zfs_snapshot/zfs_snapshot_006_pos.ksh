@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
@@ -67,7 +67,6 @@ function nonexist_user_prop
 	fi
 }
 
-log_assert "User property could be set upon snapshot via 'zfs snapshot -o'."
 log_onexit cleanup
 
 typeset snap_property=

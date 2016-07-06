@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -44,7 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "chmod A{+|=} should set compact ACL correctly."
 log_onexit cleanup
 
 typeset a_flag=('owner' 'group' 'everyone')

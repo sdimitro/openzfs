@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -43,9 +43,6 @@
 #
 
 verify_runnable "both"
-
-log_assert "write()s to a file and mmap() that file at the same time does not "\
-	"result in a deadlock."
 
 # Detect and make sure this test must be executed on a multi-process system
 is_mp || log_fail "This test requires a multi-processor system."

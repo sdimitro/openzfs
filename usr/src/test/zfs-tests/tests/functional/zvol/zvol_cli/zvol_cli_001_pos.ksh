@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ set -A args  "list" "list -r" \
     "list -r -o name $TESTPOOL/$TESTVOL" "list -H -o name $TESTPOOL/$TESTVOL" \
     "list -rH -o name $TESTPOOL/$TESTVOL"
 
-log_assert "Executing well-formed 'zfs list' commands should return success"
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

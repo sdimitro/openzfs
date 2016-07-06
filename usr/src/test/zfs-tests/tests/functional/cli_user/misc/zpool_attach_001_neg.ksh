@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -54,7 +54,6 @@ function check_for_attach
 
 verify_runnable "global"
 
-log_assert "zpool attach returns an error when run as a user"
 
 log_mustnot $ZPOOL attach $TESTPOOL.virt /$TESTDIR/disk1.dat \
 	/$TESTDIR/disk-additional.dat

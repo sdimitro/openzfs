@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -55,8 +55,6 @@ set -A args "destroy" "destroy $TESTPOOL/$TESTFS" \
     "destroy -r $TESTPOOL/$TESTFS@$TESTSNAP" \
     "destroy -rf $TESTPOOL/$TESTFS@$TESTSNAP" \
     "destroy -fr $TESTPOOL/$TESTFS@$TESTSNAP"
-
-log_assert "zfs destroy [-f|-r] [fs|snap]"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

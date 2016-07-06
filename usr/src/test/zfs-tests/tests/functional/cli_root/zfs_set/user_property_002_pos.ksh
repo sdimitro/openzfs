@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -87,7 +91,6 @@ function inherit_check
 	return 0
 }
 
-log_assert "User defined property inherited from its parent."
 log_onexit cleanup
 
 pool=$TESTPOOL; fs=$pool/$TESTFS; vol=$pool/$TESTVOL

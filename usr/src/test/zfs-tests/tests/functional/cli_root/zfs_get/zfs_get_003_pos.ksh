@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -45,7 +49,6 @@ function cleanup
 	log_must $ZFS mount -o remount,atime $TESTPOOL/$TESTFS
 }
 
-log_assert "'zfs get' should get consistent report with different option."
 log_onexit cleanup
 
 log_must $ZFS set atime=on $TESTPOOL/$TESTFS

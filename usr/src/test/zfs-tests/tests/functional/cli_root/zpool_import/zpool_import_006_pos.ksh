@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -59,8 +59,6 @@ function cleanup
 	done
 }
 
-log_assert "For mirror, N-1 destroyed pools devices was removed or used " \
-	"by other pool, it still can be imported correctly."
 log_onexit cleanup
 
 log_must $ZPOOL create $TESTPOOL1 mirror $VDEV0 $VDEV1 $VDEV2

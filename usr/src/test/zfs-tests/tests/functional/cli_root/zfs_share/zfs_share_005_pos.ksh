@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -53,7 +57,6 @@ set -A shareopts \
     "nosuid" "root=machine1:machine2" "rw=.mydomain.mycompany.com" \
     "rw=-terra:engineering" "log" "public"
 
-log_assert "Verify that NFS share options are propagated correctly."
 log_onexit cleanup
 
 cleanup

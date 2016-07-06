@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -38,7 +38,6 @@ sendfs=$POOL/sendfs
 recvfs=$POOL2/recvfs
 streamfs=$POOL/stream
 
-log_assert "Verify compressed send streams can be resumed if interrupted"
 log_onexit resume_cleanup $sendfs $streamfs
 
 test_fs_setup $sendfs $recvfs

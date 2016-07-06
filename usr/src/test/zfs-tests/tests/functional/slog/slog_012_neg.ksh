@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/slog/slog.kshlib
@@ -43,7 +43,6 @@
 
 verify_runnable "global"
 
-log_assert "Pool can survive when one of mirror log device get corrupted."
 log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"

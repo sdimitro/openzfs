@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_list_d.kshlib
@@ -55,7 +55,6 @@ function cleanup
 }
 
 log_onexit cleanup
-log_assert "'zfs list -d <n>' should get expected output."
 
 mntpnt=/var/tmp
 DEPTH_OUTPUT="$mntpnt/depth_output"

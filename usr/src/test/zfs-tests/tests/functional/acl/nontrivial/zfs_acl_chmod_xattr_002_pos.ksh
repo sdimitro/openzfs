@@ -25,6 +25,9 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -68,8 +71,6 @@ set -A a_flag "owner@" "group@" "everyone@"
 
 MYTESTFILE=/etc/passwd
 
-log_assert "Verify that the permission of write_xattr for " \
-	"owner/group/everyone while remove extended attributes are correct."
 log_onexit cleanup
 
 function operate_node #user node acl

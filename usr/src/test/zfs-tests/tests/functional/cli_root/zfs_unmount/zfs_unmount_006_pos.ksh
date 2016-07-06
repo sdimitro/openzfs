@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -46,7 +50,6 @@ function cleanup
 	fi
 }
 
-log_assert "Re-creating zfs files, 'zfs unmount' still succeed."
 log_onexit cleanup
 
 # Call cleanup to make sure the file system are mounted.

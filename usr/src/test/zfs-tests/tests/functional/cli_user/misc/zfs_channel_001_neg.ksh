@@ -39,7 +39,6 @@
 
 verify_runnable "global"
 
-log_assert "zfs program returns an error when run as a user"
 
 log_mustnot eval "echo return 0 | $ZFS program $TESTPOOL -"
 

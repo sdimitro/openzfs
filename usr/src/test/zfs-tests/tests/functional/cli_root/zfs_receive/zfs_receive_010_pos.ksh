@@ -80,7 +80,6 @@ function cleanup
 	rm /tmp/zr010p*
 }
 
-log_assert "zfs receive of full send as clone should work"
 log_onexit cleanup
 log_must $ZFS create -o checksum=sha256 -o compression=gzip -o recordsize=512 \
 	$TESTPOOL/$TESTFS/base

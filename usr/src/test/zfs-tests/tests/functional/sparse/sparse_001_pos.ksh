@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,7 +50,6 @@ function cleanup
 	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Ensure random blocks are read back correctly"
 
 options=""
 options_display="default options"

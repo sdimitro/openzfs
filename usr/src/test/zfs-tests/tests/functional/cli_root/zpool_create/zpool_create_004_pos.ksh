@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/zpool_create/zpool_create.shlib
@@ -54,7 +54,6 @@ function cleanup
 	partition_disk $SIZE $disk 6
 }
 
-log_assert "Storage pools with 16 file based vdevs can be created."
 log_onexit cleanup
 
 disk=${DISKS%% *}

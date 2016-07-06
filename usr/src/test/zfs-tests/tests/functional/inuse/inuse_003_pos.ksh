@@ -84,9 +84,6 @@ function cleanup
 	log_must cleanup_devices $vdisks $sdisks
 }
 
-log_assert "Ensure ZFS does not interfere with devices that are in use by " \
-    "ufsdump or ufsrestore"
-
 log_onexit cleanup
 
 typeset bigdir="${UFSMP}/bigdirectory"

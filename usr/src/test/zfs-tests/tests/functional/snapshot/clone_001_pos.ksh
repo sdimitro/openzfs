@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -97,7 +97,6 @@ function cleanup_all
 	return 0
 }
 
-log_assert "Verify a cloned file system is writable."
 
 log_onexit cleanup_all
 

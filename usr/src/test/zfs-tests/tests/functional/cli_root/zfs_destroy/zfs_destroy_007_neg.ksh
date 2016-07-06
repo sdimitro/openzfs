@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,7 +55,6 @@ function cleanup
 	datasetexists $fssnap && log_must $ZFS destroy $fssnap
 }
 
-log_assert "Destroy dataset which is namespace-parent of origin should failed."
 log_onexit cleanup
 
 # Define variable $fssnap & and namespace-parent of origin clone.

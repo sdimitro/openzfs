@@ -24,7 +24,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup {
 }
 
 
-log_assert "The noxattr mount option functions as expected"
 log_onexit cleanup
 
 $ZFS set 2>&1 | $GREP xattr > /dev/null

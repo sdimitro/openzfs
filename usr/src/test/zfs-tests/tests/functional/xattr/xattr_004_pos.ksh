@@ -24,7 +24,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -57,7 +57,6 @@ function cleanup {
 	fi
 }
 
-log_assert "Files from ufs,tmpfs with xattrs copied to zfs retain xattr info."
 log_onexit cleanup
 
 # Create a UFS file system that we can work in

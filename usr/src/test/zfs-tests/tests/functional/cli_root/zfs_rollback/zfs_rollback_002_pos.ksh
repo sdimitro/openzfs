@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_rollback/zfs_rollback_common.kshlib
 
@@ -41,7 +45,6 @@
 
 verify_runnable "both"
 
-log_assert "'zfs rollback -f' will force unmount any filesystems."
 log_onexit cleanup_env
 
 # Create a snapshot of this file system: FSSNAP0

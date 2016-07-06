@@ -25,6 +25,9 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -51,8 +54,6 @@ set -A users \
 set -A a_access "read_data" "write_data" "read_data/execute"
 set -A a_flag "owner@" "group@" "everyone@"
 
-log_assert "Verify that the read_data/write_data/execute permission for" \
-	"owner/group/everyone are correct."
 log_onexit cleanup
 
 function logname #node acl_spec user

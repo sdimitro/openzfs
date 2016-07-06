@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -91,7 +91,6 @@ set -A args  "$TESTPOOL/" "$TESTPOOL//blah" "$TESTPOOL/@blah" \
 	"-b 64k $TESTPOOL/$TESTFS1" "-s -b 32k $TESTPOOL/$TESTFS1" \
 	"$TESTPOOL/$BYND_MAX_NAME"
 
-log_assert "Verify 'zfs create <filesystem>' fails with bad <filesystem> argument."
 
 datasetexists $TESTPOOL/$TESTFS || \
 	log_must $ZFS create $TESTPOOL/$TESTFS

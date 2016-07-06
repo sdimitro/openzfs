@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,7 +53,6 @@ function cleanup
 	    log_must $ZFS destroy -r $TESTPOOL@snap
 }
 
-log_assert "'zfs send -R' can send from read-only pools"
 log_onexit cleanup
 
 log_must $ZFS snapshot -r $TESTPOOL@snap

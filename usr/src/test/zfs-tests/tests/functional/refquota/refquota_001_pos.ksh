@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,8 +52,6 @@ function cleanup
 	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
-log_assert "refquota limits the amount of space a dataset can consume, " \
-	"but does not include space used by descendents."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

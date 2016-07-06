@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_copies/zfs_copies.kshlib
 
@@ -52,7 +56,6 @@ function cleanup
 	done
 }
 
-log_assert "Verify that the space used by multiple copies is charged correctly."
 log_onexit cleanup
 
 for val in 1 2 3; do

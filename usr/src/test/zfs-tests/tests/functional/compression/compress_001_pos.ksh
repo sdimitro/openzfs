@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -46,7 +46,6 @@ verify_runnable "both"
 
 typeset OP=create
 
-log_assert "Ensure that compressed files are smaller."
 
 log_note "Ensure compression is off"
 log_must $ZFS set compression=off $TESTPOOL/$TESTFS

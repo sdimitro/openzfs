@@ -23,8 +23,11 @@
 #
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+
 #
+# Copyright (c) 2016 by Delphix. All rights reserved.
 #
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_upgrade/zfs_upgrade.kshlib
 
@@ -72,7 +75,6 @@ function setup_datasets
 	done
 }
 
-log_assert "Executing 'zfs upgrade -r [-V version] filesystem' command succeeds."
 log_onexit cleanup
 
 rootfs=$TESTPOOL/$TESTFS

@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -58,7 +63,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Ensure a reservation of 0 or 'none' is allowed."
 
 log_must $ZFS create $TESTPOOL/$RESERVATION
 log_must $ZFS create $TESTPOOL/$RESERVATION2

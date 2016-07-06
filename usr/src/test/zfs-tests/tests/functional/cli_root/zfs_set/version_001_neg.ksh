@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_upgrade/zfs_upgrade.kshlib
 
@@ -42,8 +46,6 @@
 #
 
 verify_runnable "both"
-
-log_assert "Verify invalid version values are rejected"
 
 typeset values=('' '-1' '-1.0' '-1.8' '-9999999999999999' \
 	'0x1' '0b' '1b' '1.1b' '0' '0.000' '1.234')

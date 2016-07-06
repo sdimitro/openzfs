@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -39,7 +43,6 @@
 
 verify_runnable "global"
 
-log_assert "Verify scrub -s works correctly."
 
 log_must $ZPOOL scrub $TESTPOOL
 log_must $ZPOOL scrub -s $TESTPOOL

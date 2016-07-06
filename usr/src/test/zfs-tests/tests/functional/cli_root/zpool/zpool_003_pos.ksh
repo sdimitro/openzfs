@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,7 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "Debugging features of zpool should succeed."
 
 log_must $ZPOOL -? > /dev/null 2>&1
 

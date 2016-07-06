@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -46,9 +46,6 @@ verify_runnable "global"
 
 set -A args "" "create -V" "create -V $TESTPOOL" \
 	"create -V $TESTPOOL/$TESTVOL@" "create -V blah" "destroy"
-
-log_assert "Try each ZFS volume sub-command without parameters to make sure" \
-    " it returns an error."
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

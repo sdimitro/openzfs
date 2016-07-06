@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/history/history_common.kshlib
@@ -53,8 +53,6 @@ function cleanup
 	log_must $ZFS create $fs
 }
 
-log_assert "Verify 'zfs list|get|holds|mount|unmount|share|unshare|send' " \
-    "will not be logged."
 log_onexit cleanup
 
 # Create initial test environment

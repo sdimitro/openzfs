@@ -24,7 +24,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup {
 	done
 }
 
-log_assert "special . and .. dirs work as expected for xattrs"
 log_onexit cleanup
 
 # create a file, and an xattr on it

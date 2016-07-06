@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "When scrubbing, detach device should not break system."
 
 log_must $ZPOOL scrub $TESTPOOL
 log_must $ZPOOL detach $TESTPOOL $DISK2

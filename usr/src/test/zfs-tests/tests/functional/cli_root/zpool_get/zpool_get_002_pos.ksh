@@ -43,7 +43,6 @@
 # 2. Get each property individually
 #
 
-log_assert "Zpool get all works as expected"
 log_onexit cleanup
 
 if ! is_global_zone ; then

@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "nvlist arguments can be passed to LUA."
 
 log_must nvlist_to_lua $TESTPOOL
 

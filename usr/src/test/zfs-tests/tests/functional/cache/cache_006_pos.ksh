@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cache/cache.cfg
@@ -48,7 +48,6 @@
 verify_runnable "global"
 verify_disk_count "$LDEV2"
 
-log_assert "Exporting and importing pool with cache devices passes."
 log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/grow_replicas/grow_replicas.cfg
@@ -47,7 +47,6 @@
 
 verify_runnable "global"
 
-log_assert "A zpool mirror/raidz may be increased in capacity by adding a disk."
 
 log_must $ZFS set compression=off $TESTPOOL/$TESTFS
 $FILE_WRITE -o create -f $TESTDIR/$TESTFILE1 \

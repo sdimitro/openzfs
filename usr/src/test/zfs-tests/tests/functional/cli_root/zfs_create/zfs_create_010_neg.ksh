@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -84,9 +84,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "Verify 'zfs create [-s] [-b <blocksize> ] -V <size> <volume>' fails with" \
-    "badly-formed <size> or <volume> arguments."
 
 set -A args "$VOLSIZE" "$TESTVOL1" \
 	"$VOLSIZE $TESTVOL1" "0 $TESTPOOL/$TESTVOL1" \

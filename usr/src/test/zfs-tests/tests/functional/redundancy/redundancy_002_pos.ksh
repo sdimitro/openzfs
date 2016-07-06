@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/redundancy/redundancy.kshlib
@@ -47,7 +47,6 @@
 
 verify_runnable "global"
 
-log_assert "Verify raidz2 pool can withstand two devices are failing."
 log_onexit cleanup
 
 typeset -i cnt=$(random 3 5)

@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -43,8 +47,6 @@
 
 verify_runnable "both"
 
-log_assert "Compress will keep file attribute intact after the file is " \
-	"compressed and uncompressed"
 log_onexit cleanup
 
 set -A BEFORE_FCKSUM

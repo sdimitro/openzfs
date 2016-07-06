@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -62,7 +62,6 @@ function cleanup
 	partition_cleanup
 }
 
-log_assert "'zpool add' should fail with inapplicable scenarios."
 
 log_onexit cleanup
 

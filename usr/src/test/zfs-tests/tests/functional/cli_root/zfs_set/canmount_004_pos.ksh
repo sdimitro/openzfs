@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -61,7 +65,6 @@ function assert_unmounted
 	fi
 }
 
-log_assert "Verify canmount=noauto work fine when setting sharenfs or sharesmb."
 log_onexit cleanup
 
 CS_FS=$TESTPOOL/$TESTFS/cs_fs.$$

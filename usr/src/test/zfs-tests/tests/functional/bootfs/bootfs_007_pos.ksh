@@ -28,7 +28,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -60,7 +60,6 @@ typeset EFI_BOOTFS=$TESTPOOL/efs
 typeset assert_mesg="setting bootfs on a pool which was configured with the \
     whole disk works"
 
-log_assert $assert_mesg
 create_pool "$TESTPOOL" "$DISK"
 log_must $ZFS create $EFI_BOOTFS
 

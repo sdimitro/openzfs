@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_mount/zfs_mount.kshlib
 
@@ -61,10 +65,6 @@ function cleanup
 }
 
 typeset -i ret=0
-
-log_assert "Verify that '$ZFS $mountcmd <filesystem>' " \
-	"which mountpoint be the identical or the top of an existing one " \
-	"will fail with return code 1."
 
 log_onexit cleanup
 

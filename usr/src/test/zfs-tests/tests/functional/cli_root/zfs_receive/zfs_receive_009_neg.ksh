@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
 
 #
@@ -57,7 +61,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify 'zfs receive' fails with bad option, missing or too many arguments"
 log_onexit cleanup
 
 set -A badopts "v" "n" "F" "d" "-V" "-N" "-f" "-D" "-VNfD" "-vNFd" "-vnFD" "-dVnF" \

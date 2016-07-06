@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
@@ -59,7 +59,6 @@ function cleanup
 	done
 }
 
-log_assert "Verify that invalid parameters to 'zfs receive' are caught."
 log_onexit cleanup
 
 init_snap=$TESTPOOL/$TESTFS@initsnap

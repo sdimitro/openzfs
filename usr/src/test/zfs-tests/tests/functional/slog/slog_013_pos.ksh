@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/slog/slog.kshlib
@@ -55,8 +55,6 @@ function cleanup_testenv
 	fi
 }
 
-log_assert "Verify slog device can be disk, file, lofi device or any device " \
-	"that presents a block interface."
 verify_disk_count "$DISKS" 2
 log_onexit cleanup_testenv
 

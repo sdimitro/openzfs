@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -40,7 +40,6 @@ function cleanup
 	log_must setup_test_model $POOL
 }
 
-log_assert "Compressed send doesn't interfere with preservation of properties"
 log_onexit cleanup
 
 typeset -a datasets=("" "/pclone" "/$FS" "/$FS/fs1" "/$FS/fs1/fs2"

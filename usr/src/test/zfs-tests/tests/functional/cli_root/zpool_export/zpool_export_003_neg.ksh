@@ -24,6 +24,11 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -53,7 +58,6 @@ log_onexit cleanup
 
 set -A args "" "-f" "-? $TESTPOOL" "-QWERTYUIO $TESTPOOL"
 
-log_assert "'zpool export' should return an error with badly-formed parameters."
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

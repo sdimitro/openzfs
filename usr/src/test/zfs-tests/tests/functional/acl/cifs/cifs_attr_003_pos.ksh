@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -568,8 +568,6 @@ TESTSTR="ZFS test suites"
 ace_file="write_data/append_data/write_xattr/write_acl/write_attributes"
 ace_dir="add_file/add_subdirectory/${ace_file}"
 
-log_assert "Verify DOS & BSD'ish attributes will provide the " \
-    "access limitation as expected."
 log_onexit cleanup
 
 $ECHO "$TESTSTR" > $TESTFILE

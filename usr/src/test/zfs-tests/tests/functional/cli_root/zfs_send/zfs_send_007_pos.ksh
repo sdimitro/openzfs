@@ -46,7 +46,6 @@ function cleanup
 }
 
 
-log_assert "Verify that 'zfs send' drills appropriate holes"
 log_onexit cleanup
 streamfile=$(mktemp /var/tmp/file.XXXXXX)
 vdev=$(mktemp /var/tmp/file.XXXXXX)

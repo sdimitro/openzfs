@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/zfs_promote/zfs_promote.cfg
@@ -92,7 +92,6 @@ function testing_verify
 	log_mustnot $ZFS destroy -r $c_ds
 }
 
-log_assert "'zfs promote' can promote a clone filesystem."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

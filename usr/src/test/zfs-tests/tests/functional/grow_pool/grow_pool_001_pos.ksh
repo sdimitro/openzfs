@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -46,7 +46,6 @@
 
 verify_runnable "global"
 
-log_assert "A zpool may be increased in capacity by adding a disk"
 
 log_must $ZFS set compression=off $TESTPOOL/$TESTFS
 $FILE_WRITE -o create -f $TESTDIR/$TESTFILE1 \

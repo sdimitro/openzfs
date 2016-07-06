@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -156,7 +156,6 @@ function check
 	log_must zfs destroy -r $recv_ds
 }
 
-log_assert "Verify compressed send works with datasets of varying recsize."
 log_onexit cleanup
 typeset recsize opts dir
 typeset small=$((128 * 1024))

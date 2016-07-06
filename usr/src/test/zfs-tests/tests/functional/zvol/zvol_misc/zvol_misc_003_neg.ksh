@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -60,7 +60,6 @@ function cleanup
 	zfs set volsize=$volsize $TESTPOOL/$TESTVOL
 }
 
-log_assert "Verify zpool creation and newfs on dump zvol is denied."
 log_onexit cleanup
 
 voldev=/dev/zvol/dsk/$TESTPOOL/$TESTVOL

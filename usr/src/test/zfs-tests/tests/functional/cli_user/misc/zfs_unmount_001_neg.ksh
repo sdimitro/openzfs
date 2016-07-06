@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -53,8 +53,6 @@ set -A args "umount" "umount -f" "unmount" "unmount -f" \
     "unmount -f $TESTPOOL/$TESTFS@$TESTSNAP" \
     "umount $TESTDIR" "umount -f $TESTDIR" \
     "unmount $TESTDIR" "unmount -f $TESTDIR"
-
-log_assert "zfs u[n]mount [-f] [mountpoint|fs|snap]"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

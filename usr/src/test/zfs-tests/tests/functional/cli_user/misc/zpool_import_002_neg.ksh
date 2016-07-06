@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -53,7 +53,6 @@ fi
 
 set -A args "" "-D" "-Df" "-f" "-f $TESTPOOL" "-Df $TESTPOOL" "-a"
 
-log_assert "Executing 'zpool import' by regular user fails"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

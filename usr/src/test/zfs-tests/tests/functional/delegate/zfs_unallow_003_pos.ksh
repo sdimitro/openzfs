@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -46,8 +46,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify options '-r' and '-l'+'-d' will unallow permission to " \
-	"this dataset and the descendent datasets."
 log_onexit restore_root_datasets
 
 log_must setup_unallow_testenv

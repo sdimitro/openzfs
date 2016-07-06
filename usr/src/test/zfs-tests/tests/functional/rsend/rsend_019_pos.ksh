@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -39,8 +39,6 @@ sendfs=$POOL/sendfs
 recvfs=$POOL3/recvfs
 streamfs=$POOL2/stream
 
-log_assert "Verify resumability of a full and incremental ZFS send/receive " \
-    "in the presence of a corrupted stream"
 log_onexit resume_cleanup $sendfs $streamfs
 
 for sendfs in $POOL2/sendfs $POOL2; do

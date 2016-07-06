@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -49,8 +49,6 @@ set -A args  "" "create $TESTPOOL/$TESTFS" \
     "create $TESTPOOL/$TESTFS@$TESTSNAP" \
     "create $TESTPOOL/$TESTCLCT/$TESTFS" \
     "create $TESTFS/$TESTPOOL/$TESTCLCT"
-
-log_assert "Verify zfs create without parameters fails."
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

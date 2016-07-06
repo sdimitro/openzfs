@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -39,7 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "'zfs snapshot' fails with bad options, or too many arguments. "
 
 set -A badopts "r" "R" "-R" "-x" "-rR" "-?" "-*" "-123"
 

@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -47,8 +52,6 @@ fi
 
 set -A args "" "-x" "-v" "-x $testpool" "-v $testpool" "-xv $testpool" \
 	"-vx $testpool"
-
-log_assert "Executing 'zpool status' with correct options succeeds"
 
 typeset -i i=0
 

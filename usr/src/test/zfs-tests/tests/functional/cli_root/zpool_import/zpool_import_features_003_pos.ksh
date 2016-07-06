@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,7 +55,6 @@ function cleanup
 	log_must $MKFILE $FILE_SIZE $VDEV0
 }
 
-log_assert "Pool with active read-only compatible features can be imported."
 log_onexit cleanup
 
 log_must $ZPOOL create $TESTPOOL1 $VDEV0

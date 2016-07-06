@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +51,6 @@ function cleanup
 	log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "ZFS can handle race directory rename operation."
 
 log_onexit cleanup
 

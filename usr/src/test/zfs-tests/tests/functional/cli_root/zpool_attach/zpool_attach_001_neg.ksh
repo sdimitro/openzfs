@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -60,7 +65,6 @@ set -A args "" "-f" "-?" "-z fakepool" "-f fakepool" "-ev fakepool" "fakepool" \
 	"-f $TESTPOOL fakedevice fakenewdevice fakenewdevice" \
 	"-f $TESTPOOL fakedevice" "-f $TESTPOOL $DISKLIST"
 
-log_assert "Executing 'zpool attach' with bad options fails"
 
 if [[ -z $DISKLIST ]]; then
 	log_fail "DISKLIST is empty."

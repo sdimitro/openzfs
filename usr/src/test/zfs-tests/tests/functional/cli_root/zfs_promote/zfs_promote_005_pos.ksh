@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -52,7 +56,6 @@ function cleanup
 	fi
 }
 
-log_assert "The original fs was unmounted, 'zfs promote' still should succeed."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

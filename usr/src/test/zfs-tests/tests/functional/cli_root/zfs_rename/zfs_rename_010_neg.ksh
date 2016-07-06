@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -43,7 +43,6 @@
 
 verify_runnable "both"
 
-log_assert "The recursive flag -r can only be used for snapshots."
 
 set -A datasets $TESTPOOL		$TESTPOOL/$TESTCTR \
 	$TESTPOOL/$TESTCTR/$TESTFS1	$TESTPOOL/$TESTFS

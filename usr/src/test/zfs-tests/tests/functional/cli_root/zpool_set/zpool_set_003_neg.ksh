@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -54,7 +54,6 @@ set -A vals  "100"       "10"       "12345" "HEALTHY" "10"   "10"
 
 log_onexit cleanup
 
-log_assert "zpool set cannot set a readonly property"
 
 log_must $MKFILE $MINVDEVSIZE /tmp/zpool_set_003.$$.dat
 log_must $ZPOOL create $TESTPOOL /tmp/zpool_set_003.$$.dat

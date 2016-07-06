@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -72,8 +72,6 @@ function exec_n_check
 	return 0
 }
 
-log_assert "Setting exec=off on a filesystem, processes can not be executed " \
-	"from this file system."
 log_onexit cleanup
 
 log_must $CP $LS $TESTDIR/myls

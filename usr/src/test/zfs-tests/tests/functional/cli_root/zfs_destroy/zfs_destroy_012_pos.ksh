@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -32,7 +32,6 @@
 #
 ################################################################################
 
-log_assert "deferred destroyed snapshots remain until last hold is released"
 log_onexit cleanup_testenv
 
 setup_testenv snap

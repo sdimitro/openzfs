@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ function cleanup
 	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Offlining disks in a non-redundant pool should fail."
 
 log_onexit cleanup
 

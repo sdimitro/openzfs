@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,8 +53,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "Check the zfs userspace with all possible parameters"
 
 set -A params -- "-n" "-H" "-p" "-o type,name,used,quota" \
     "-o name,used,quota" "-o used,quota" "-o used" "-o quota" "-s type" \

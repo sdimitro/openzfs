@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -50,7 +54,6 @@ set -A badopts \
     "-g" "-b" "-c" "-d" "--invalid" \
     "$TESTPOOL" "$TESTPOOL/$TESTFS" "$TESTPOOL\$TESTCTR\$TESTFS1"
 
-log_assert "Verify that invalid share parameters and options are caught."
 log_onexit cleanup
 
 typeset -i i=0

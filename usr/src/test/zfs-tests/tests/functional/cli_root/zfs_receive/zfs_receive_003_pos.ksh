@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -52,7 +56,6 @@ function cleanup
 	done
 }
 
-log_assert "'zfs recv -F' to force rollback."
 log_onexit cleanup
 
 ibackup=/var/tmp/ibackup.$$

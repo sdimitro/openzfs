@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -47,7 +47,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify a nested file system can be created/destroyed."
 
 log_must $FILE_WRITE -o create -f $TESTDIR1/file -b 8192 -c 600 -d 0
 log_must $ZFS unmount $TESTDIR1

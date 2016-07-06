@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -48,8 +48,6 @@ function cleanup
 {
 	$RM -rf $TESTDIR/*
 }
-
-log_assert "Create a SVM device and add this to an existing ZFS pool"
 
 log_onexit cleanup
 

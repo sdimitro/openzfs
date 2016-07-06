@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,9 +50,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "Setting volume reservation to 'none' allows more data to be " \
-    "written to top level filesystem"
 
 function cleanup
 {

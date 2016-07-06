@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,8 +52,6 @@ function cleanup
 	log_must $RM $TESTDIR/myls
 }
 
-log_assert "Setting exec=on on a filesystem, processes can be executed from " \
-	"this file system."
 log_onexit cleanup
 
 log_must $CP $LS $TESTDIR/myls

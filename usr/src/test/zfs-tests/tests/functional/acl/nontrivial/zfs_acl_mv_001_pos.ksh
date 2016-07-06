@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -120,7 +125,6 @@ function testing_mv #<flag for file|dir> <file1|dir1> <file2|dir2>
 	fi
 }
 
-log_assert "Verify that '$MV' supports ZFS ACLs."
 
 log_onexit cleanup
 

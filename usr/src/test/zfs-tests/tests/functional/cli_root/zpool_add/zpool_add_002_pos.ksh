@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_add/zpool_add.kshlib
@@ -53,9 +53,6 @@ function cleanup
 
 	partition_cleanup
 }
-
-log_assert "'zpool add -f <pool> <vdev> ...' can successfully add" \
-	"devices to the pool in some cases."
 
 log_onexit cleanup
 

@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -58,7 +58,6 @@ function cleanup
 }
 
 log_onexit cleanup
-log_assert "async_destroy can suspend and resume traversal"
 
 log_must $ZFS create -o recordsize=1k -o compression=off $TEST_FS
 

@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -49,7 +53,6 @@ function cleanup
 	! ismounted $oldmpt && log_must $ZFS mount $testfs
 }
 
-log_assert "With legacy mount, FSType-specific option works well."
 log_onexit cleanup
 
 #

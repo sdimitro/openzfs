@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -47,9 +47,6 @@ verify_runnable "both"
 
 set -A dataset "$TESTPOOL" "$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTVOL"
 set -A values "on" "off" "fletcher2" "fletcher4" "sha256"
-
-log_assert "Setting a valid checksum on a file system, volume," \
-	"it should be successful."
 
 typeset -i i=0
 typeset -i j=0

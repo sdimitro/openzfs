@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/truncate/truncate.cfg
 . $STF_SUITE/include/libtest.shlib
 
@@ -46,7 +50,6 @@ function cleanup
 	[[ -f $srcfile ]] && $RM -f $srcfile
 }
 
-log_assert "Ensure zeroed file gets written correctly during a sync operation"
 
 srcfile="/tmp/cosmo.$$"
 log_must $DD if=/dev/urandom of=$srcfile bs=1024k count=1

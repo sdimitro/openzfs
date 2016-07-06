@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
@@ -55,9 +59,6 @@ if is_global_zone ; then
 else
 	set -A dataset "$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTCTR"
 fi
-
-log_assert "Setting a valid value to atime, readonly, setuid or zoned on file" \
-	"system or volume. It should be successful."
 
 typeset -i i=0
 typeset -i j=0

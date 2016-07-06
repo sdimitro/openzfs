@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -40,8 +45,6 @@ verify_runnable "global"
 
 set -A args "" "-f" "-? $TESTPOOL" "nonexistent_pool" \
 	"$TESTPOOL abcd" "abcd $TESTPOOL"
-
-log_assert "'zpool destroy' should return an error with badly-formed parameters."
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

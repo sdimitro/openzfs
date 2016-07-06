@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -54,8 +54,6 @@ function cleanup
 	log_must setup_test_model $POOL
 }
 
-log_assert "zfs receive -dF will destroy all the dataset that not exist" \
-	"on the sender side"
 log_onexit cleanup
 
 cleanup

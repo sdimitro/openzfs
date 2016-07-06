@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -84,7 +84,6 @@ function verify_snapshot
 	log_must $ZFS destroy -r $volume@snap0
 }
 
-log_assert "Verify the ability to take snapshots of zvols used as dump or swap."
 log_onexit cleanup
 
 voldev=/dev/zvol/dsk/$TESTPOOL/$TESTVOL

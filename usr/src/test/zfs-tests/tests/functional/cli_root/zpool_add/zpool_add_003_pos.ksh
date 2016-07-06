@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,9 +55,6 @@ function cleanup
 	[[ -e $tmpfile ]] && \
 		log_must $RM -f $tmpfile
 }
-
-log_assert "'zpool add -n <pool> <vdev> ...' can display the configuration" \
-	"without actually adding devices to the pool."
 
 log_onexit cleanup
 

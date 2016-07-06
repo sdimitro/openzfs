@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -44,7 +48,6 @@ if is_global_zone ; then
 	    "$TESTPOOL/$TESTVOL" "$TESTDIR"
 fi
 
-log_assert "Verify that sharing a dataset other than filesystem fails."
 
 typeset -i i=0
 while (( i < ${#datasets[*]} ))

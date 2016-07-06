@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -87,8 +91,6 @@ log_onexit cleanup
 for dataset in $all_datasets; do
 	log_must $ZFS snapshot ${dataset}@snap
 done
-
-log_assert "Setting a valid snapdir property on a dataset succeeds."
 
 for dataset in $all_datasets; do
 	for value in hidden visible; do

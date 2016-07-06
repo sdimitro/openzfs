@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -60,7 +60,6 @@
 
 verify_runnable "both"
 
-log_assert "The RBAC profile \"ZFS File System Management\" works"
 
 ZFS_USER=$($CAT /tmp/zfs-privs-test-user.txt)
 

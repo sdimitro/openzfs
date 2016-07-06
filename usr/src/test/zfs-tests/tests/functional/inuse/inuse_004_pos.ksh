@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -78,9 +78,6 @@ function mini_format
 	$RM -rf $format_file
 	return $retval
 }
-
-log_assert "format will disallow modification of a mounted zfs disk partition"\
- " or a spare device"
 
 log_onexit cleanup
 log_must default_setup_noexit $FS_DISK0

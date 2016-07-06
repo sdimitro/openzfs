@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -29,7 +29,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify datasets using mixed compression algorithms can be received."
 log_onexit cleanup_pool $POOL2
 
 send_ds=$POOL2/sendfs

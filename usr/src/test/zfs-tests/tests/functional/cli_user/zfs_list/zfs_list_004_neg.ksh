@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -45,9 +45,6 @@
 #
 
 verify_runnable "both"
-
-log_assert "Verify 'zfs list [-r]' should fail while the given " \
-	"dataset/path does not exist or not belong to zfs."
 
 paths="$TESTPOOL/NONEXISTFS $TESTPOOL/$TESTFS/NONEXISTFS \
 	/$TESTDIR/NONEXISTFS /devices /tmp ./../devices ./../tmp"

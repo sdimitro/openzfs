@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/zfs_list/zfs_list.kshlib
@@ -86,8 +86,6 @@ snap_cksum=$snap_creation
 fs_rev_cksum="carrot apple banana Apple Orange Carrot Banana"
 vol_rev_cksum="carrot-vol apple-vol banana-vol Apple-vol Orange-vol"
 vol_rev_cksum="$vol_rev_cksum Carrot-vol Banana-vol"
-
-log_assert "The sort functionality in 'zfs list' works as expected."
 
 #
 # we must be in the C locale here, as running in other locales

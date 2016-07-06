@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -45,8 +45,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "Ensure that pool names can use the ASCII subset of UTF-8"
 
 function cleanup
 {

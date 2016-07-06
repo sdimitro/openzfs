@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -200,8 +200,6 @@ function verify_attr
 	$expect $func $object $opt $user
 }
 
-log_assert "Verify set/clear DOS attributes will succeed while user has " \
-    "write_attributes permission or PRIV_FILE_OWNER privilege"
 log_onexit cleanup
 
 file="file.0"

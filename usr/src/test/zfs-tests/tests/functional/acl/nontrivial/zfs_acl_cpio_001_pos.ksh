@@ -26,6 +26,11 @@
 #
 # Copyright (c) 2012 by Marcelo Leal. All rights reserved.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -55,7 +60,6 @@ function cleanup
 	[[ -d $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Verify that '$CPIO' command supports to archive ZFS ACLs."
 log_onexit cleanup
 
 set -A ops "A+user:$ZFS_ACL_OTHER1:execute:allow" \

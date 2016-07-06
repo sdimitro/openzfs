@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "Running a large program file should work correctly."
 
 log_must_program $TESTPOOL $ZCP_ROOT/lua_core/tst.large_prog.zcp
 

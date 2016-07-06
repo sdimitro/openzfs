@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,9 +49,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "Destroying a regular volume with reservation allows more data to" \
-    " be written to top level filesystem"
 
 function cleanup
 {

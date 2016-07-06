@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,9 +50,6 @@ function cleanup
 }
 
 tmpfile="/var/tmp/zpool_create_003.tmp$$"
-
-log_assert "'zpool create -n <pool> <vspec> ...' can display the configureation" \
-        "without actually creating the pool."
 
 log_onexit cleanup
 

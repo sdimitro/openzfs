@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -38,7 +42,6 @@
 #	3. Check usage message contains text "usage"
 #
 
-log_assert "Zpool get usage message is displayed when called with no arguments."
 
 $ZPOOL get > /dev/null 2>&1
 RET=$?

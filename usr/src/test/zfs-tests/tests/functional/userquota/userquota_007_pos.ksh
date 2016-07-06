@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +51,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Check set user|group quota to larger than the quota size of a fs"
 
 log_must $ZFS set quota=200m $QFS
 log_must $ZFS set userquota@$QUSER1=500m $QFS

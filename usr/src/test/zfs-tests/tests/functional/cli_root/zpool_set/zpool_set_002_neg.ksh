@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ function cleanup {
 	$RM /tmp/zpool_set_002.$$.dat
 }
 
-log_assert "Malformed zpool set commands are rejected"
 
 if poolexists bootfs
 then

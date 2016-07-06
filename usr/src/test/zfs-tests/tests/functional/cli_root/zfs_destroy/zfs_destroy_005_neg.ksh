@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,8 +50,6 @@
 
 verify_runnable "both"
 
-log_assert "Seperately verify 'zfs destroy -f|-r|-rf|-R|-rR <dataset>' will " \
-	"fail in different conditions."
 log_onexit cleanup_testenv
 
 #

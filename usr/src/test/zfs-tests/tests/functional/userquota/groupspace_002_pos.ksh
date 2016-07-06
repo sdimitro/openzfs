@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,7 +53,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Check the zfs groupspace used and quota"
 
 log_must $ZFS set groupquota@$QGROUP=500m $QFS
 mkmount_writable $QFS

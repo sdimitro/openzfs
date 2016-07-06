@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "Listing zfs snapshots should work correctly."
 
 function cleanup
 {

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -59,8 +59,6 @@ function cleanup {
 		datasetexists $obj && log_must $ZFS destroy -f $obj
 	done
 }
-
-log_assert "Verify space released when a dataset with reservation is destroyed"
 
 log_onexit cleanup
 

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -42,7 +42,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs unallow can handle invalid arguments."
 log_onexit restore_root_datasets
 
 function neg_test

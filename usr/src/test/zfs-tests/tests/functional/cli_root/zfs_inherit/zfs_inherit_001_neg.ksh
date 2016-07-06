@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -51,10 +55,6 @@ if [[ $? -eq 0 ]]; then
 fi
 
 set -A prop $props_str canmount
-
-
-log_assert "'zfs inherit' should return an error when attempting to inherit" \
-	" un-inheritable properties."
 
 typeset -i i=0
 for obj in $TESTPOOL/$TESTFS $TESTPOOL/$TESTVOL; do

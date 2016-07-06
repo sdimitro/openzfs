@@ -25,7 +25,6 @@ verify_runnable "global"
 
 verify_runnable "both"
 
-log_assert "Returning a recursive table should fail gracefully."
 
 log_mustnot_checkerror_program "Maximum table depth" \
     $TESTPOOL $ZCP_ROOT/lua_core/tst.return_recursive_table.zcp

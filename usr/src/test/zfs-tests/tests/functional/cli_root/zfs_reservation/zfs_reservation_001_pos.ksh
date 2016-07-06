@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -50,7 +55,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Verify that a reservation > 2^64 -1 fails."
 
 log_must $ZFS create $TESTPOOL/$RESERVATION
 

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -62,7 +62,6 @@ function cleanup
 	fi
 }
 
-log_assert "'zpool create' should fail with regular file in swap."
 log_onexit cleanup
 
 if [[ -n $DISK ]]; then

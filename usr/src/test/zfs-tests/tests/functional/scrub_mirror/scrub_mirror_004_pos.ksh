@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,9 +44,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "The primary side of a zpool mirror may be completely mangled" \
-	"without affecting the content of the pool"
 
 overwrite_verify_mirror $TESTPOOL $SIDE_SECONDARY /dev/urandom
 

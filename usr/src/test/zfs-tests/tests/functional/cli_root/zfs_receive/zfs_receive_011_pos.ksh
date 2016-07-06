@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
@@ -46,7 +46,6 @@ function cleanup
 	[[ -f $tpoolfile ]] && log_must $RM -f $tpoolfile
 }
 
-log_assert "Verifying 'zfs receive' works correctly on deduplicated streams"
 log_onexit cleanup
 
 truncate -s 100M $tpoolfile

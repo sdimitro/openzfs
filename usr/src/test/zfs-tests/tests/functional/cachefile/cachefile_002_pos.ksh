@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -58,7 +58,6 @@ function cleanup
 
 verify_runnable "global"
 
-log_assert "Importing a pool with \"cachefile\" set doesn't update zpool.cache"
 log_onexit cleanup
 
 log_must $ZPOOL create -o cachefile=none $TESTPOOL $DISKS

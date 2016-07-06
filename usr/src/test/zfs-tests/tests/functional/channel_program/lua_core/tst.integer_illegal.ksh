@@ -24,8 +24,6 @@
 
 verify_runnable "global"
 
-log_assert "constructing illegal integer values should fail gracefully"
-
 set -A args "1.0" \
 	"1.5" \
 	"-1.5"

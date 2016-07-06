@@ -26,9 +26,7 @@ verify_runnable "global"
 
 verify_runnable "both"
 
-log_assert "Timeouts work correctly."
 
-log_assert "non-terminating program fails (with default timeout)"
 log_mustnot_checkerror_program "timed out" \
     $TESTPOOL $ZCP_ROOT/lua_core/tst.timeout.zcp
 
@@ -46,7 +44,6 @@ function test_timeout
 	fi
 }
 
-log_assert "timeout options work"
 test_timeout 1
 test_timeout 10
 test_timeout 100

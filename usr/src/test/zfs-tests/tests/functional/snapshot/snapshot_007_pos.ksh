@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -70,7 +70,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify that many snapshots can be made on a zfs dataset."
 
 log_onexit cleanup
 

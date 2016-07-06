@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -61,7 +61,6 @@ then
         log_unsupported "bootfs pool property not supported on this release."
 fi
 
-log_assert "Invalid pool names are rejected by zpool set bootfs"
 log_onexit cleanup
 
 # here, we build up a large string and add it to the list of pool names

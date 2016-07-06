@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,8 +44,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "Ensure that a set of invalid names cannot be used to create pools."
 
 # Global variable use to cleanup failures.
 POOLNAME=""

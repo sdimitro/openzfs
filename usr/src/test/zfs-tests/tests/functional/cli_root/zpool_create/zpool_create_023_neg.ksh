@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -73,7 +73,6 @@ set -A args "QuOta=none" "quota=non" "quota=abcd" "quota=0" "quota=" \
     "version=0" "version=1.234" "version=10K" "version=-1" \
     "version=aaa" "version=999"
 
-log_assert "'zpool create -O' should return an error with badly formed parameters."
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

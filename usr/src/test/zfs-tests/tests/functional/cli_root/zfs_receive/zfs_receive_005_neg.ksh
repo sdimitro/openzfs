@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
 
 #
@@ -62,7 +66,6 @@ function cleanup
 	done
 }
 
-log_assert "Verify 'zfs receive' fails with unsupported scenarios."
 log_onexit cleanup
 
 init_snap=$TESTPOOL/$TESTFS@initsnap

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/slog/slog.kshlib
@@ -44,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "Slog device can not be replaced with spare device."
 log_onexit cleanup
 
 log_must $ZPOOL create $TESTPOOL $VDEV spare $SDEV log $LDEV

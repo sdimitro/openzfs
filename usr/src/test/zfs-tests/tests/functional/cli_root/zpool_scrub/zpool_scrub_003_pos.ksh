@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -51,9 +55,6 @@ function get_scrub_percent
 	fi
 	$ECHO $percent
 }
-
-log_assert "scrub command terminates the existing scrub process and starts" \
-	"a new scrub."
 
 log_must $ZPOOL scrub $TESTPOOL
 typeset -i PERCENT=30 percent=0

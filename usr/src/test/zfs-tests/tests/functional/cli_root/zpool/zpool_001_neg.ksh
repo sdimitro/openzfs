@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -53,7 +58,6 @@ set -A args "" "create" "add" "destroy" "import fakepool" \
     "add raidz1 fakepool" "add raidz2 fakepool" \
     "setvprop" "blah blah" "-%" "--" "--?" "-*" "-="
 
-log_assert "Execute zpool sub-command without proper parameters."
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

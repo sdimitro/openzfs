@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -63,7 +67,6 @@ function nonexist_user_prop
 	fi
 }
 
-log_assert "'zfs snapshot -o' cannot set properties other than user property."
 log_onexit cleanup
 
 typeset ro_props="type used available avail creation referenced refer compressratio \

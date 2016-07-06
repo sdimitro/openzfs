@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -68,7 +68,6 @@ set -A argv \
 	"231" "562"	"r-xrw--w-"	"712" "000"	"---------" \
 	"777" "121"	"--x-w---x"	"123" "775"	"rwxrwxr-x"
 
-log_assert " Verify chmod permission settings on files and directories"
 log_onexit cleanup
 
 #

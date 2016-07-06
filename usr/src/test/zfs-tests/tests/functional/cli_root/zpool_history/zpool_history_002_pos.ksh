@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -42,7 +42,6 @@
 
 verify_runnable "global"
 
-log_assert "Verify zpool history can handle options [-il] correctly."
 
 options="-i -l -il -li -lil -ili -lli -iill -liil"
 

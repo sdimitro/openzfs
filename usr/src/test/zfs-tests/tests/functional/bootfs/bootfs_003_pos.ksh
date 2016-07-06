@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -62,7 +62,6 @@ fi
 
 log_onexit cleanup
 
-log_assert "Valid pool names are accepted by zpool set bootfs"
 $MKFILE $MINVDEVSIZE /bootfs_003.$$.dat
 
 typeset -i i=0;

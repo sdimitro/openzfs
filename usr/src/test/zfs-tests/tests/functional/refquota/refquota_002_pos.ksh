@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ function cleanup
 	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
-log_assert "Quotas are enforced using the minimum of the two properties"
 log_onexit cleanup
 
 TESTFILE='testfile'

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -45,7 +45,6 @@
 
 verify_runnable "global"
 
-log_assert "zpool remove returns an error when run as a user"
 
 log_mustnot $ZPOOL remove $TESTPOOL.virt /$TESTDIR/disk-spare1.dat
 

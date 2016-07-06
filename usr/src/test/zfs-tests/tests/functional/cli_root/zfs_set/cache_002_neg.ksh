@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
@@ -42,9 +46,6 @@ verify_runnable "both"
 
 set -A dataset "$TESTPOOL" "$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTVOL"
 set -A values  "12345" "null" "not_existed" "abcd1234"
-
-log_assert "Setting invalid {primary|secondary}cache on fs and volume, " \
-	"It should fail."
 
 typeset -i i=0
 typeset -i j=0

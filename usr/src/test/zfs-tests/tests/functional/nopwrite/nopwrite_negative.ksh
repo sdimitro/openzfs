@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -40,7 +40,6 @@ function cleanup
 	log_must $ZFS create -o mountpoint=$TESTDIR $origin
 }
 
-log_assert "nopwrite isn't enabled without the prerequisites"
 
 # Data written into origin fs without compression or sha256
 $DD if=/dev/urandom of=$TESTDIR/file bs=1024k count=$MEGS conv=notrunc \

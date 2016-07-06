@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -43,7 +43,6 @@
 #
 
 verify_runnable "global"
-log_assert "zpool set version can upgrade a pool"
 for version in 1 2 3 4 5 6 7 8
 do
 	log_must $ZPOOL set version=$version $TESTPOOL

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cache/cache.cfg
@@ -51,7 +51,6 @@ function cleanup {
 	fi
 }
 
-log_assert "Remove cache device from pool with spare device should succeed"
 log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"

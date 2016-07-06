@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -51,7 +51,6 @@ function get_prop_mb
 datasets="$TESTPOOL/$TESTFS1 $TESTPOOL/$TESTFS1/$TESTFS2 \
     $TESTPOOL/$TESTFS1/$TESTFS2/$TESTFS3"
 
-log_assert "verify zfs written and written@ property"
 log_onexit cleanup
 
 typeset -l i=1

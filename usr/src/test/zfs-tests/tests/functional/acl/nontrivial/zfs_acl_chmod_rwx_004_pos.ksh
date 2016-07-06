@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -108,8 +108,6 @@ function verify_explicit_ACL_rule #node access flag
 	log_must usr_exec $CHMOD A0- $node
 }
 
-log_assert "Verify that explicit ACL setting to specified user or group will" \
-	"override existed access rule."
 log_onexit cleanup
 
 set -A a_access "read_data" "write_data" "execute"

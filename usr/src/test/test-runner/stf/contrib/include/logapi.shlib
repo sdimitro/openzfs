@@ -28,15 +28,6 @@
 
 . ${STF_TOOLS}/include/stf.shlib
 
-# Output an assertion
-#
-# $@ - assertion text
-
-function log_assert
-{
-	_printline ASSERTION: "$@"
-}
-
 # Output a comment
 #
 # $@ - comment text

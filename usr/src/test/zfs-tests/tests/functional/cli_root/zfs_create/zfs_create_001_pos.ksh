@@ -24,6 +24,10 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -53,7 +57,6 @@ log_onexit cleanup
 set -A datasets "$TESTPOOL/$TESTFS1" "$TESTPOOL/$LONGFSNAME" "$TESTPOOL/..." \
 		"$TESTPOOL/_1234_"
 
-log_assert "'zfs create <filesystem>' can create a ZFS filesystem in the namespace."
 
 typeset -i i=0
 while (( $i < ${#datasets[*]} )); do

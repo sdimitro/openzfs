@@ -24,6 +24,11 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_rename/zfs_rename.kshlib
 
@@ -80,7 +85,6 @@ set -A bad_dataset $TESTPOOL/$TESTFS1 $TESTPOOL/$TESTCTR1 \
 #
 log_onexit cleanup
 
-log_assert "'zfs rename' should fail when datasets are of a different type."
 
 additional_setup
 

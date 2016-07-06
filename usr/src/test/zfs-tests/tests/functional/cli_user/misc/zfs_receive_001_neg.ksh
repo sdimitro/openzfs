@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -43,7 +43,6 @@
 # 2. Verify that the dataset wasn't created
 #
 
-log_assert "zfs receive returns an error when run as a user"
 
 log_mustnot eval "$ZFS receive -d $TESTPOOL/$TESTFS/$TESTFS2 \
  < /tmp/zfstest_datastream.dat"

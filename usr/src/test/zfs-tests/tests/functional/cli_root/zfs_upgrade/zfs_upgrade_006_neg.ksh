@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_upgrade/zfs_upgrade.kshlib
 
@@ -43,7 +47,6 @@ verify_runnable "both"
 set -A args "" "-?" "-A" "-R" "-b" "-c" "-d" "--invalid" \
     "-V" "-V $TESTPOOL/$TESTFS" "-V $TESTPOOL $TESTPOOL/$TESTFS"
 
-log_assert "Badly-formed 'zfs upgrade' should return an error."
 
 typeset -i i=1
 while (( i < ${#args[*]} )); do

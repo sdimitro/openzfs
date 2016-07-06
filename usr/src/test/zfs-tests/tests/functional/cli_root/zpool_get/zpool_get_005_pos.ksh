@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -41,7 +41,6 @@
 # 1. For all parsable properties, verify zpool get -p returns a parsable value
 #
 
-log_assert "Zpool get returns parsable values for all known parsable properties"
 
 if ! is_global_zone ; then
 	TESTPOOL=${TESTPOOL%%/*}

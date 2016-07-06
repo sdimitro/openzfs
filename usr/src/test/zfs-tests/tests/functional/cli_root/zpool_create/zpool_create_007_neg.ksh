@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -73,7 +73,6 @@ set -A args  "" "-?" "-n" "-f" "-nf" "-fn" "-f -n" "--f" "-e" "-s" \
 	"tan%k $disk" "ta@# $disk" "tan+k $disk" \
 	"$BYND_MAX_NAME $disk"
 
-log_assert "'zpool create' should return an error with badly-formed parameters."
 log_onexit default_cleanup_noexit
 
 typeset -i i=0

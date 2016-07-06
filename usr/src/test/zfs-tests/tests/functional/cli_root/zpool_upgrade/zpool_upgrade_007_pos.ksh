@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -53,7 +53,6 @@ function cleanup
 	destroy_upgraded_pool $config
 }
 
-log_assert "Import pools of all versions - 'zfs upgrade' on each pools works"
 log_onexit cleanup
 
 # $CONFIGS gets set in the .cfg script

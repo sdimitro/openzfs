@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,7 +28,6 @@
 
 verify_runnable "both"
 
-log_assert "ENOSPC is returned when file system is full."
 sync
 log_must $ZFS set compression=off $TESTPOOL/$TESTFS
 log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap

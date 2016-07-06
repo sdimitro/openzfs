@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -59,9 +59,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "Verify that to set a reservation on a filesystem or volume must " \
-    "use value smaller than space available property of pool"
 
 space_avail=`get_prop available $TESTPOOL`
 

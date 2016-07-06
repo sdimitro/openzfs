@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -63,7 +63,6 @@ function cleanup {
 	fi
 }
 
-log_assert "Boot properties cannot be set on pools with older versions"
 
 # These are configs from zpool_upgrade.cfg - see that file for more info.
 CONFIGS="1 2 3"

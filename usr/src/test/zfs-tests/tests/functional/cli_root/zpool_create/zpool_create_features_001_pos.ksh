@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -58,7 +58,6 @@ function check_features
 
 log_onexit cleanup
 
-log_assert "'zpool create' creates pools with all features enabled"
 
 log_must $ZPOOL create -f $TESTPOOL $DISKS
 check_features

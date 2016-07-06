@@ -24,7 +24,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ function cleanup {
 	fi
 }
 
-log_assert "Create/read/write/append of xattrs works"
 log_onexit cleanup
 
 log_must $TOUCH $TESTDIR/myfile.$$

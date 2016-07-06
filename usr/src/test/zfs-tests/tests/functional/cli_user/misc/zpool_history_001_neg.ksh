@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -44,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "zpool history returns an error when run as a user"
 
 log_mustnot $ZPOOL history
 log_mustnot $ZPOOL history $TESTPOOL
@@ -52,4 +51,5 @@ log_mustnot $ZPOOL history -i $TESTPOOL
 log_mustnot $ZPOOL history -l $TESTPOOL
 log_mustnot $ZPOOL history -il $TESTPOOL
 
-log_assert "zpool history returns an error when run as a user"
+log_pass "zpool history returns an error when run as a user"
+

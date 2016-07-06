@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "For an added swap zvol, (2G <= volsize <= 16G)"
 
 typeset -i min max mem
 ((mem = $($KSTAT -p ::arcstats:c_max | $AWK '{print $2}') / 4))

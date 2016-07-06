@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,8 +55,6 @@ function cleanup
 }
 
 typeset -i retval=0
-log_assert "Creating directories with 50 big files in each, until file system "\
-	"is full."
 
 log_onexit cleanup
 

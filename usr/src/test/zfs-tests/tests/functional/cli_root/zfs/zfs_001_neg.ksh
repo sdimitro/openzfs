@@ -24,6 +24,10 @@
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -61,7 +65,6 @@ set -A args  "" "create" "create -s" "create -V" "create -s -V" \
     "recv" "recv -d" "recv -vnF" "allow" "unallow" \
     "blah blah" "-%" "--" "--?" "-*" "-="
 
-log_assert "Badly-formed zfs sub-command should return an error."
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do

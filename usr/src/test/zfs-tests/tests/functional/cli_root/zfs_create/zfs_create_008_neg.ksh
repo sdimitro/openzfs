@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -89,7 +89,6 @@ set -A args "ab" "-?" "-cV" "-Vc" "-c -V" "c" "V" "--c" "-e" "-s" \
     "-o version=0" "-o version=1.234" "-o version=10K" "-o version=-1" \
     "-o version=aaa" "-o version=999"
 
-log_assert "'zfs create' should return an error with badly-formed parameters."
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -76,7 +76,6 @@ function cleanup
 }
 
 
-log_assert "Verify set, export and destroy when cachefile is set on pool."
 log_onexit cleanup
 
 log_must $ZPOOL create $TESTPOOL $DISKS

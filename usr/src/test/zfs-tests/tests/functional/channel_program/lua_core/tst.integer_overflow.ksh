@@ -23,7 +23,6 @@
 
 verify_runnable "global"
 
-log_assert "overflowing a 64-bit integer should wrap around"
 
 log_must_program testpool - <<-EOF
 	assert(18446744073709551615 + 1 == (-18446744073709551616))

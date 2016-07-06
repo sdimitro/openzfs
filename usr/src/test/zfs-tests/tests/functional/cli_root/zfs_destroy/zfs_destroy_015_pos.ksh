@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 # DESCRIPTION
@@ -36,7 +36,6 @@ function cleanup
 	$RM -rf $VIRTUAL_DISK
 }
 
-log_assert "zfs destroy for multiple snapshot is handled correctly"
 log_onexit cleanup
 
 $ZFS create $TESTPOOL/$TESTFS1

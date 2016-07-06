@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -68,7 +68,6 @@ function verify_assertion #slices
 	return 0
 }
 
-log_assert "Verify newfs over active pool fails."
 
 log_onexit cleanup
 

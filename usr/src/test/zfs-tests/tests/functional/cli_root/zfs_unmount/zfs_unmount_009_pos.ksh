@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -79,7 +83,6 @@ function restore_dataset
 }
 
 
-log_assert "zfs fource unmount and destroy in snapshot directory will not cause error."
 log_onexit cleanup
 
 for fs in $TESTPOOL/$TESTFS $TESTPOOL ; do

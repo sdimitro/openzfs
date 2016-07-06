@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -118,7 +122,6 @@ set -A mntp_fs \
     "$TESTDIR1" "$TESTPOOL/$TESTCTR/$TESTFS1" \
     "$TESTDIR2" "$TESTPOOL/$TESTCLONE"
 
-log_assert "Verify that 'zfs unshare [-a] <filesystem|mountpoint>' succeeds as root."
 log_onexit cleanup
 
 log_must $ZFS create $TESTPOOL/$TESTFS2

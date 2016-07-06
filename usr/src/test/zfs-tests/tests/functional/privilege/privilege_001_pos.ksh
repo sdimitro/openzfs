@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -57,7 +57,6 @@
 # We can only run this in the global zone
 verify_runnable "global"
 
-log_assert "The RBAC profile \"ZFS Storage Management\" works"
 
 ZFS_USER=$($CAT /tmp/zfs-privs-test-user.txt)
 

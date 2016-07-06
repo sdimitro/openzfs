@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_rollback/zfs_rollback_common.kshlib
 
@@ -53,8 +57,6 @@ function cleanup
 	done
 }
 
-log_assert "Seperately verify 'zfs rollback ''|-f|-r|-rf will fail in " \
-	"different conditions."
 log_onexit cleanup
 
 # Create snapshot1 and snapshot2 for this file system.

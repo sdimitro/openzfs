@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -46,7 +46,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify option '-c' will be granted locally to the creator."
 log_onexit restore_root_datasets
 
 eval set -A dataset $DATASETS

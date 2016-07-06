@@ -36,9 +36,6 @@ set -A args "function() return 1 end" \
 	"{[0]=true, [\"0\"]=false}" \
 	"{[false]=true, [\"false\"]=false}"
 
-log_assert "Returning lua constructs that cannot be converted to " \
-    "nvlists fails as expected."
-
 typeset -i i=0
 while (( i < ${#args[*]} )); do
 	log_note "running program: ${args[i]}"

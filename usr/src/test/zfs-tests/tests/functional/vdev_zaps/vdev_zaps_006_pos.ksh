@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -36,7 +36,6 @@ DISK_ARR=($DISKS)
 DISK=${DISK_ARR[0]}
 log_must zpool create -f $TESTPOOL $DISK
 
-log_assert "Per-vdev ZAPs are created for added vdevs."
 
 log_must zpool add -f $TESTPOOL ${DISK_ARR[1]}
 conf="$TESTDIR/vz006"
@@ -47,7 +46,6 @@ orig_top=$(get_top_vd_zap ${DISK_ARR[1]} $conf)
 assert_zap_common $TESTPOOL ${DISK_ARR[1]} "top" $orig_top
 assert_leaf_zap $TESTPOOL ${DISK_ARR[1]} "$conf"
 
-log_assert "Per-vdev top-level ZAP persists for indirect devices."
 log_must zpool remove $TESTPOOL ${DISK_ARR[1]}
 wait_for_removal $TESTPOOL
 log_must zdb -PC $TESTPOOL > $conf

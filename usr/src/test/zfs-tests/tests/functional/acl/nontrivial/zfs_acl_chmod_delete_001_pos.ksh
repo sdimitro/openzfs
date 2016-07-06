@@ -25,6 +25,9 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -98,8 +101,6 @@ set -A access_target \
 
 set -A a_flag "owner@" "group@" "everyone@" "user:$ZFS_ACL_STAFF1"
 
-log_assert "Verify that the combined delete_child/delete permission for" \
-	"owner/group/everyone are correct."
 log_onexit cleanup
 
 function operate_node #user node

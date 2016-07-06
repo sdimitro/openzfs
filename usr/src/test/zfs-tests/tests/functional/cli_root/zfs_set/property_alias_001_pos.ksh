@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
@@ -72,8 +76,6 @@ function set_and_check #<dataset><set_prop_name><set_value><check_prop_name>
                         ;;
          esac
 }
-
-log_assert "Properties with aliases also work with those aliases."
 
 set -A ro_prop "available" "avail" "referenced" "refer"
 set -A rw_prop "readonly" "rdonly" "compression" "compress" "reservation" "reserv"

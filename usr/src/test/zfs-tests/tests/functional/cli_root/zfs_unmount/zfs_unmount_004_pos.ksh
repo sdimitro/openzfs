@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_unmount/zfs_unmount.kshlib
 
@@ -78,9 +82,6 @@ function do_unmount_multiple #options #expect
 		((i = i + 1))
 	done
 }
-
-log_assert "Verify that '$ZFS $unmountcmd [-f] <filesystem|mountpoint>' " \
-	"with an unmounted filesystem will fail with return code 1."
 
 log_onexit cleanup
 

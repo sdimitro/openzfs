@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -51,7 +51,6 @@ then
 	log_unsupported "Zfs upgrade not supported"
 fi
 
-log_assert "zfs upgrade returns an error when run as a user"
 
 
 log_mustnot $ZFS upgrade $TESTPOOL/$TESTFS/version1

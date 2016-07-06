@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -38,7 +38,6 @@ NUMFILES=10000
 NUMTHREADS=16
 TIMEOUT=500
 
-log_assert "ZFS can handle ZPL operations during a remap."
 
 default_setup_noexit "$DISKS"
 log_onexit default_cleanup_noexit

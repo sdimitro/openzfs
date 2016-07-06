@@ -25,6 +25,9 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -42,8 +45,6 @@
 
 verify_runnable "both"
 
-log_assert "chmod A{+|-|=} read_data|write_data|execute for owner@, group@ " \
-	"or everyone@ correctly alters mode bits."
 log_onexit cleanup
 
 set -A bits 0 1 2 3 4 5 6 7

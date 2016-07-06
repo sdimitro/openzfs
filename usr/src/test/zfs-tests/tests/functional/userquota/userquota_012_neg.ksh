@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -54,7 +54,6 @@ function cleanup
 log_onexit cleanup
 
 typeset snap_fs=$QFS@snap
-log_assert "Check  set userquota and groupquota on snapshot"
 
 log_note "Check can not set user|group quuota on snapshot"
 log_must $ZFS snapshot $snap_fs

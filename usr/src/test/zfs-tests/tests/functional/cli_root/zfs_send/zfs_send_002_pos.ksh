@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
@@ -98,7 +98,6 @@ function do_testing # <prop> <prop_value>
 	log_must $RM -f $stream
 }
 
-log_assert "Verify 'zfs send' generates valid streams with a property setup"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

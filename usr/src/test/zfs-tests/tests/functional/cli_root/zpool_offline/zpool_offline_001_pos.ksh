@@ -24,6 +24,11 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -59,7 +64,6 @@ function cleanup
 	done
 }
 
-log_assert "Executing 'zpool offline' with correct options succeeds"
 
 log_onexit cleanup
 

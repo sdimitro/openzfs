@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -42,7 +42,6 @@
 #
 #
 
-log_assert "Writing random data into /dev/zfs should do no harm."
 
 log_mustnot $DD if=/dev/urandom of=/dev/zfs count=1024
 

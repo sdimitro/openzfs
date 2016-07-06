@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -46,7 +50,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify long name filesystem with snapshot should not break ZFS."
 log_onexit cleanup
 
 initfs=$TESTPOOL/$TESTFS/$TESTFS

@@ -27,6 +27,10 @@
 # Copyright (c) 2012 by Marcelo Leal. All rights reserved.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -57,7 +61,6 @@ function cleanup
 	[[ -d $TESTDIR/ ]] && log_must $RM -rf $TESTDIR/*
 }
 
-log_assert "Verify that '$TAR' command supports to archive ZFS ACLs & xattrs."
 
 log_onexit cleanup
 

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +51,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Ensure that the quotaon(1M) utility fails on a ZFS file system."
 
 log_must $ZFS set quota=1099511627776 $TESTPOOL/$TESTFS
 log_must $TOUCH $TESTDIR/quotas

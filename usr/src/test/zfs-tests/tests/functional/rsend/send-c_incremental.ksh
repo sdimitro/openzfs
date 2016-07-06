@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -31,7 +31,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify compressed send works with incremental send streams."
 log_onexit cleanup_pool $POOL2
 
 typeset opt=$(random_get "-i" "-I")

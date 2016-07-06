@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,7 +55,6 @@ typeset disk=${DISK}
 typeset spare_devs1="${disk}s${SLICE0}"
 typeset spare_devs2="${disk}s${SLICE1}"
 
-log_assert "zpool remove can only remove inactive hotspare device from pool"
 
 log_note "check hotspare device which is created by zpool create"
 log_must $ZPOOL create $TESTPOOL $spare_devs1 spare $spare_devs2

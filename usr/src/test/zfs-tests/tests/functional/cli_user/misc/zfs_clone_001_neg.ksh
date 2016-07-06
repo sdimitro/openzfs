@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -43,7 +43,6 @@
 #
 #
 
-log_assert "zfs clone returns an error when run as a user"
 log_mustnot $ZFS clone $TESTPOOL/$TESTFS@snap $TESTPOOL/$TESTFS.myclone
 
 # check to see that the above command really did nothing

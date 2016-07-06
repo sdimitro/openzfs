@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -41,8 +45,6 @@
 
 verify_runnable "both"
 
-log_assert "Verifies that cp won't be able to include file attribute when " \
-	"attribute is unreadable (except root)"
 log_onexit cleanup
 
 function test_unreadable_attr

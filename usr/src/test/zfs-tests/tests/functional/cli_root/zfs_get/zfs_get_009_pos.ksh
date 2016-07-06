@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_common.kshlib
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_list_d.kshlib
 
@@ -41,7 +45,6 @@
 
 verify_runnable "both"
 
-log_assert "'zfs get -d <n>' should get expected output."
 log_onexit depth_fs_cleanup
 
 set -A all_props type used available creation volsize referenced \

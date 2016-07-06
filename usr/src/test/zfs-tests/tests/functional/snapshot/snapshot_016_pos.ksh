@@ -27,7 +27,7 @@
 
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -63,7 +63,6 @@ function cleanup
 	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
-log_assert "Verify renamed snapshots via mv can be destroyed."
 log_onexit cleanup
 
 # scenario 1

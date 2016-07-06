@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -61,9 +61,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert "Reservation values cannot exceed the amount of space" \
-	" available in the pool"
 
 space_avail=`get_prop available $TESTPOOL`
 

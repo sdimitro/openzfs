@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -43,7 +47,6 @@ set -A datasets \
 	"$TESTPOOL/$TESTCTR" "$ZFSROOT/$TESTPOOL/$TESTCTR" \
 	"$TESTPOOL/$TESTVOL" "/dev/zvol/dsk/$TESTPOOL/$TESTVOL"
 
-log_assert "Verify that unsharing a dataset other than filesystem fails."
 
 typeset -i i=0
 while (( i < ${#datasets[*]} ))

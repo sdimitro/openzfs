@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_upgrade/zfs_upgrade.kshlib
 
@@ -43,7 +47,6 @@ verify_runnable "both"
 set -A args \
 	"0" "0.000" "0.5" "-1.234" "-1" "1234b" "5678x"
 
-log_assert "Set invalid value or non-digit version should fail as expected."
 
 typeset -i i=0
 while (( i < ${#args[*]} ))

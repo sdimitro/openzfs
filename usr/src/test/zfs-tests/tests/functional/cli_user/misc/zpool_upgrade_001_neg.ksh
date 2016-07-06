@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -45,7 +45,6 @@
 
 verify_runnable "global"
 
-log_assert "zpool upgrade returns an error when run as a user"
 
 log_onexit cleanup
 # zpool upgrade returns 0 when it can't do anything

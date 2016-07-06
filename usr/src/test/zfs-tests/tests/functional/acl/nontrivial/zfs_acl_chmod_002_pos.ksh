@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -44,7 +48,6 @@ function acl_upgrade_cleannup
 	log_must $ZFS destroy -rR $ACL_UPGRADE_FS
 }
 
-log_assert "Verify acl after upgrading."
 log_onexit acl_upgrade_cleannup
 
 ACL_UPGRADE_FS=$TESTPOOL/acl_upgrade_fs.$$

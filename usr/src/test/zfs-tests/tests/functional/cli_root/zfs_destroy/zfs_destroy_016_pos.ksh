@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 # DESCRIPTION
@@ -75,7 +75,6 @@ invalid_args="@snap0%snap5 @snap1%snap6 @snap0%snap6 @snap5%snap1 \
     @snap1%$TESTPOOL/$TESTFS1@snap5 @snap1%%snap5 @snap1%@snap5 \
     @@snap1%snap5 snap1%snap5 snap1%snap3%snap5"
 valid_args="@snap1%snap5 @%"
-log_assert "zfs destroy deletes ranges of snapshots"
 log_onexit cleanup
 
 log_must $ZFS create $TESTPOOL/$TESTFS1

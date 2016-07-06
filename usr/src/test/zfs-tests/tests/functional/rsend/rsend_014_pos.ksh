@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -30,7 +30,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs send will work on filesystems and volumes in a read-only pool."
 log_onexit cleanup_pool $POOL2
 
 log_must eval "$ZPOOL export $POOL"

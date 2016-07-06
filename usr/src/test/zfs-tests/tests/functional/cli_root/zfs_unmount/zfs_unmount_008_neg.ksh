@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -67,7 +71,6 @@ function cleanup
 
 }
 
-log_assert "zfs unmount fails with bad parameters or scenarios"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +51,6 @@ function cleanup
 	[[ -f $TMPFILE ]] && log_must $RM -f $TMPFILE
 }
 
-log_assert "zpool history limitation test."
 log_onexit cleanup
 
 mntpnt=$(get_prop mountpoint $TESTPOOL)

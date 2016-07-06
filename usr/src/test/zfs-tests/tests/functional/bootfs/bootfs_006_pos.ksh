@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -91,7 +91,6 @@ function cleanup {
 	log_must $RM $VDEV1 $VDEV2 $VDEV3 $VDEV4
 }
 
-log_assert "Pools of correct vdev types accept boot property"
 
 
 

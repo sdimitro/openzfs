@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/slog/slog.kshlib
@@ -44,7 +44,6 @@
 
 verify_runnable "global"
 
-log_assert "Adding a log device to normal pool works."
 log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"

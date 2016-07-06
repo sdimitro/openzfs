@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -65,7 +65,6 @@ function cleanup
 
 verify_runnable "global"
 
-log_assert "zdb can't run as a user on datasets, but can run without arguments"
 log_onexit cleanup
 
 log_must eval "$ZDB > /tmp/zdb_001_neg.$$.txt"

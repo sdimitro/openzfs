@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -35,8 +35,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify 'zfs destroy -R <snapshot>' does not destroy" \
-	"nested datasets."
 log_onexit cleanup
 
 datasets="$TESTPOOL/$TESTFS1 $TESTPOOL/$TESTFS1/$TESTFS2

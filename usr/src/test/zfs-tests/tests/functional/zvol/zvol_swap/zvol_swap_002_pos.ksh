@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,7 +44,6 @@
 #
 
 verify_runnable "global"
-log_assert "Using a zvol as swap space, fill /tmp to 80%."
 
 vol=$TESTPOOL/$TESTVOL
 swapdev=/dev/zvol/dsk/$vol

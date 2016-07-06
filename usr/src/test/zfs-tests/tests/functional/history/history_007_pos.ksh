@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ function cleanup
 	[[ -d $import_dir ]] && $RM -rf $import_dir
 }
 
-log_assert "Verify command history moves with migrated pool."
 log_onexit cleanup
 
 tst_dir=$STF_SUITE/tests/functional/history

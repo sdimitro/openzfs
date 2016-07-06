@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -41,8 +45,6 @@
 #
 
 verify_runnable "both"
-
-log_assert "Verify invalid reservation values are rejected"
 
 set -A suffix "b" "k" "m" "t" "p" "e" "K" "M" "G" "T" "P" "E" "kb" "Mb" "Gb" \
 	"Tb" "Pb" "Eb" "KB" "MB" "GB" "TB" "PB" "EB"

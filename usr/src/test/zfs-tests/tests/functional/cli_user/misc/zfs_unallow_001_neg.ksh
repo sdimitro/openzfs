@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -49,7 +49,6 @@ if (($? != 0)) then
         log_unsupported "ZFS unallow not supported on this machine."
 fi
 
-log_assert "zfs unallow returns an error when run as a user"
 
 log_mustnot $ZFS unallow everyone $TESTPOOL/$TESTFS/allowed
 

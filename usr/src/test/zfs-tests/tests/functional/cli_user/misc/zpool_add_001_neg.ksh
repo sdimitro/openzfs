@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -58,7 +58,6 @@ set -A args "add" "add -f" "add -n" \
     "add -fn $TESTPOOL $ADD_DISK" \
     "add -nf $TESTPOOL $ADD_DISK" \
 
-log_assert "zpool add [-fn] pool_name vdev"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

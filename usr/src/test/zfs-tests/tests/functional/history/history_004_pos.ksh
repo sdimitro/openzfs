@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -43,8 +43,6 @@
 #
 
 verify_runnable "global"
-
-log_assert "'zpool history' can cope with simultaneous commands."
 
 typeset -i orig_count=$($ZPOOL history $spool | $WC -l | $AWK '{print $1}')
 

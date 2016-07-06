@@ -24,6 +24,11 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -59,7 +64,6 @@ olddir=$PWD
 
 log_onexit cleanup
 
-log_assert "Verify a busy ZPOOL cannot be exported."
 
 ismounted "$TESTPOOL/$TESTFS"
 (( $? != 0 )) && \

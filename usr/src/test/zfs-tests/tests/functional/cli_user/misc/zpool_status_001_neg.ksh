@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -55,7 +55,6 @@ function check_pool_status
 
 verify_runnable "global"
 
-log_assert "zpool status works when run as a user"
 
 log_must eval "$ZPOOL status > /tmp/pool-status.$$"
 check_pool_status

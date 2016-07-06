@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -65,7 +65,6 @@ function cleanup
 	return 0
 }
 
-log_assert "'zpool import' fails for pool that was not cleanly exported"
 log_onexit cleanup
 
 uncompress_pool

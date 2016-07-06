@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -96,7 +96,6 @@ function recreate_files
 
 log_onexit cleanup
 
-log_assert "Verify that import could handle damaged or missing device."
 
 CWD=$PWD
 cd $DEVICE_DIR || log_fail "Unable change directory to $DEVICE_DIR"

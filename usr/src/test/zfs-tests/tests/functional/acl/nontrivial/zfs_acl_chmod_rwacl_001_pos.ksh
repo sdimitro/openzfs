@@ -25,6 +25,9 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
 
 #
@@ -47,8 +50,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify chmod A[number]{+|-|=} read_acl/write_acl have correct " \
-	"behaviour to access permission."
 log_onexit cleanup
 
 function read_ACL #<node> <user1> <user2> ...

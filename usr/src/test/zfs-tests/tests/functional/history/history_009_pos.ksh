@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/history/history_common.kshlib
@@ -49,7 +49,6 @@ function cleanup
 	del_group $HIST_GROUP
 }
 
-log_assert "Verify delegated commands are logged in the pool history."
 log_onexit cleanup
 
 testfs=$TESTPOOL/$TESTFS

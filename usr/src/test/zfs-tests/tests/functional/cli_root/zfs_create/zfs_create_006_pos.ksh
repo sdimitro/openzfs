@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -54,10 +54,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-
-log_assert "'zfs create -o property=value -V size volume' can successfully \
-	   create a ZFS volume with correct property set."
 
 typeset -i i=0
 while (( $i < ${#RW_VOL_PROP[*]} )); do

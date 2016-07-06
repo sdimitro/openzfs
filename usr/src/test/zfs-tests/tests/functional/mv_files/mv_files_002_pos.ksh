@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -58,9 +58,6 @@ function cleanup
 	$RM -f $OLDDIR/* >/dev/null 2>&1
 	$RM -f $NEWDIR_ACROSS_FS/* >/dev/null 2>&1
 }
-
-log_assert "Doing a 'mv' of a large amount of files across two zfs filesystems" \
-	    "works without errors."
 
 log_onexit cleanup
 

@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -32,7 +32,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify compressed streams are rejected if incompatible."
 
 typeset compress_types="off gzip lz4"
 typeset send_ds=$POOL2/testds

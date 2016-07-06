@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_common.kshlib
 
 #
@@ -38,7 +42,6 @@
 
 verify_runnable "both"
 
-log_assert "'zfs get -o' fails with invalid options or column names"
 
 set -A  badargs "o name,property,value,resource" "o name" \
 	"-O name,property,value,source" "-oo name" "-o blah" \

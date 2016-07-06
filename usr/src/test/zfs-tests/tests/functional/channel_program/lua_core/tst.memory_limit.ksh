@@ -25,9 +25,7 @@
 
 verify_runnable "global"
 
-log_assert "Memory limits work correctly."
 
-log_assert "infinite memory consumer fails (with default memory limit)"
 log_mustnot_checkerror_program "Memory limit exhausted" \
     -t 10000 $TESTPOOL - <<-EOF
 	a = {};
@@ -39,7 +37,6 @@ log_mustnot_checkerror_program "Memory limit exhausted" \
 	return a
 EOF
 
-log_assert "memory limit options work"
 log_mustnot_checkerror_program "Memory limit exhausted" \
     -m 100000 -t 10000 $TESTPOOL - <<-EOF
 	a = {};
@@ -57,20 +54,17 @@ log_must_program -m 100000 $TESTPOOL - <<-EOF
 	return s
 EOF
 
-log_assert "very small memory limits fail correctly"
 log_mustnot_checkerror_program "Memory limit exhausted" -m 1 $TESTPOOL - <<-EOF
 	s = "teststring"
 	s = s .. s .. s .. s
 	return s
 EOF
 
-log_assert "memory limit max enforced"
 log_mustnot_checkerror_program "Invalid time or memory limit" \
     -m 1000000000000 $TESTPOOL - <<-EOF
 	return 1;
 EOF
 
-log_assert "memory limit overflow enforced"
 log_mustnot_checkerror_program "Invalid time or memory limit" \
     -m 9223372036854775808 $TESTPOOL - <<-EOF
 	return 1;

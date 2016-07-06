@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -46,8 +46,6 @@
 
 verify_runnable "both"
 
-log_assert "Changing permissions in a set will change what is allowed " \
-	"wherever the set is used."
 log_onexit restore_root_datasets
 
 fs1=$ROOT_TESTFS/fs1; fs2=$ROOT_TESTFS/fs2

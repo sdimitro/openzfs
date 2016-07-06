@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -48,8 +48,6 @@
 
 verify_runnable "global"
 
-log_assert "Setting devices=off on file system, the devices files in this file"\
-	"system can not be used."
 log_onexit cleanup
 
 log_must $ZFS set devices=off $TESTPOOL/$TESTFS

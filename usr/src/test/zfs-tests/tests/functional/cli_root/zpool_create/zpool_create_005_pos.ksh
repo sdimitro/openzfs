@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -54,8 +54,6 @@ function cleanup
 	done
 }
 
-log_assert "'zpool create [-R root][-m mountpoint] <pool> <vdev> ...' can create" \
-	"an alternate pool or a new pool mounted at the specified mountpoint."
 log_onexit cleanup
 
 set -A pooltype "" "mirror" "raidz" "raidz1" "raidz2"

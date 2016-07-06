@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -75,7 +75,6 @@ fi
 typeset pool_dev=${disk}s${SLICE0}
 typeset vol_name=$TESTPOOL/$TESTVOL
 
-log_assert "'zpool create' should fail with zfs vol device in swap."
 log_onexit cleanup
 
 #

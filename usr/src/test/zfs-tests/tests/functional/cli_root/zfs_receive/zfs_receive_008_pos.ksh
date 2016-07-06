@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
 
 #
@@ -62,8 +66,6 @@ function cleanup
 }
 
 verify_runnable "both"
-log_assert "Verifying 'zfs receive -vn [<filesystem|snapshot>] " \
-		"and zfs receive -vn -d <filesystem>'"
 
 log_onexit cleanup
 

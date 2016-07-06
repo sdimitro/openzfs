@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -44,8 +44,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify option '-u', '-g' and '-e' only removed the specified type "\
-	"permissions set."
 log_onexit restore_root_datasets
 
 for dtst in $DATASETS ; do

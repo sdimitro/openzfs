@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup
 	log_must $ZFS set refreserv=none $TESTPOOL/$TESTFS
 }
 
-log_assert "'zfs set refquota' can handle incorrect arguments correctly."
 log_onexit cleanup
 
 set -A badopt	\

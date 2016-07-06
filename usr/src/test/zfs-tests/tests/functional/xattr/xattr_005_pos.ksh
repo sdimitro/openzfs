@@ -24,7 +24,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup {
 	log_must $RM $TESTDIR/myfile.$$
 }
 
-log_assert "read/write/create/delete xattr on a clone filesystem"
 log_onexit cleanup
 
 # create a file, and an xattr on it

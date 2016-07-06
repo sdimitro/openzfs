@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zfs_create/zfs_create_common.kshlib
 . $STF_SUITE/tests/functional/cli_root/zfs_create/properties.kshlib
@@ -49,10 +53,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-
-log_assert "'zfs create -o property=value filesystem' can successfully create \
-	   a ZFS filesystem with correct property set."
 
 typeset -i i=0
 while (( $i < ${#RW_FS_PROP[*]} )); do

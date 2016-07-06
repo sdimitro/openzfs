@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -48,7 +48,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify that a file write cannot exceed the file system quota"
 
 #
 # cleanup to be used internally as otherwise quota assertions cannot be

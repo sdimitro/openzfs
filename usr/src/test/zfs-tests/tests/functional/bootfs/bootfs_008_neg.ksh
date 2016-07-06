@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -62,7 +62,6 @@ typeset VDEV=/bootfs_008_neg_a.$$.dat
 typeset COMP_FS=$TESTPOOL/COMP_FS
 
 log_onexit cleanup
-log_assert $assert_msg
 
 log_must $MKFILE $MINVDEVSIZE $VDEV
 log_must $ZPOOL create $TESTPOOL $VDEV

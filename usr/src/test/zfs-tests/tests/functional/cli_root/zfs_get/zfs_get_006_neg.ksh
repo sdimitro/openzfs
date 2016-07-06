@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_common.kshlib
 
 #
@@ -39,7 +43,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify 'zfs get all' fails with invalid combination scenarios."
 
 set -f	# Force ksh ignore '?' and '*'
 set -A  bad_combine "ALL" "\-R all" "-P all" "-h all" "-rph all" "-RpH all" "-PrH all" \

@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_set/zfs_set_common.kshlib
 
 #
@@ -44,7 +48,6 @@ function cleanup
 	log_must $ZFS set mountpoint=$oldmpt $fs
 }
 
-log_assert "Verify that we cannot share or mount legacy filesystems."
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS

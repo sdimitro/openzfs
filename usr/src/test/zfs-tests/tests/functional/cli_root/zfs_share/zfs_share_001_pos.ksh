@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -103,7 +107,6 @@ function test_share # mntp filesystem
 	log_mustnot $ZFS share $filesystem
 }
 
-log_assert "Verify that 'zfs share' succeeds as root."
 log_onexit cleanup
 
 log_must $ZFS snapshot $TESTPOOL/$TESTFS@snapshot

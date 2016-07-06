@@ -24,7 +24,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup {
 
 }
 
-log_assert "read/write xattr on a file with no permissions fails"
 log_onexit cleanup
 
 log_must $TOUCH $TESTDIR/myfile.$$

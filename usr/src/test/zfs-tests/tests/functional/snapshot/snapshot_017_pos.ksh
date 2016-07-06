@@ -27,7 +27,7 @@
 
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -129,7 +129,6 @@ function verify_dir {
 	fi
 }
 
-log_assert "Directory structure of snapshots reflects filesystem structure."
 log_onexit cleanup
 
 SAVED_DIR=$PWD

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -41,7 +41,6 @@
 # 2. Verify a 0 exit status
 #
 
-log_assert "Attempting to upgrade a non-existent pool will return an error"
 NO_POOL=notapool
 FOUND=""
 

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +51,6 @@ function cleanup
 }
 
 log_onexit cleanup
-log_assert "zpool create can create pools with specified properties"
 
 if [[ -n $DISK ]]; then
 	disk=$DISK

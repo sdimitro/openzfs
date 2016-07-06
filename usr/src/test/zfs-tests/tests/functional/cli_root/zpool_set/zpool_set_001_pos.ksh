@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 #
 # DESCRIPTION:
@@ -38,7 +42,6 @@
 #
 #
 
-log_assert "zpool set usage message is displayed when called with no arguments"
 
 $ZPOOL set > /dev/null 2>&1
 RET=$?

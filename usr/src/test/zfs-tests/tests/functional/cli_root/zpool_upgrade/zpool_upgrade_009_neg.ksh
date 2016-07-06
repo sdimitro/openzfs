@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,9 +49,6 @@ function cleanup
 {
 	destroy_upgraded_pool $config
 }
-
-log_assert \
-"Zpool upgrade -V shouldn't be able to upgrade a pool to an unknown version"
 
 # Create a version 2 pool
 typeset -i config=2

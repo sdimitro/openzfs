@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -58,9 +58,6 @@ typeset spare_devs1="${disk}s${SLICE0}"
 typeset spare_devs2="${disk}s${SLICE1}"
 typeset spare_devs3="${disk}s${SLICE3}"
 typeset spare_devs4="${disk}s${SLICE4}"
-
-log_assert "zpool remove can remove hotspare device which state go though" \
-	" active to inactive in pool"
 
 log_note "Check spare device which state go through active to inactive"
 log_must $ZPOOL create $TESTPOOL $spare_devs1 $spare_devs2 spare \

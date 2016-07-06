@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -56,9 +56,6 @@ function cleanup
 }
 
 log_onexit cleanup
-
-log_assert \
-	"the userquota and groupquota can't change during zfs actions"
 
 cleanup
 

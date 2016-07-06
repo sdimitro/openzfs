@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cache/cache.cfg
@@ -45,7 +45,6 @@
 verify_runnable "global"
 verify_disk_count "$LDEV2"
 
-log_assert "A raidz/raidz2 cache can not be added to existed pool."
 log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"

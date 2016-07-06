@@ -28,7 +28,7 @@
 #
 
 #
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -61,7 +61,6 @@ then
         log_unsupported "bootfs pool property not supported on this release."
 fi
 
-log_assert "Valid datasets are accepted as bootfs property values"
 log_onexit cleanup
 
 typeset VDEV=/bootfs_001_pos_a.$$.dat

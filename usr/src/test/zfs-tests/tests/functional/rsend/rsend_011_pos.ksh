@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -54,7 +54,6 @@ function cleanup
 	log_must setup_test_model $POOL
 }
 
-log_assert "Verify changes made by 'zfs inherit' can be properly received."
 log_onexit cleanup
 
 #

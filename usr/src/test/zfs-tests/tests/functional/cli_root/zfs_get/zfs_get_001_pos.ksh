@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_common.kshlib
 . $STF_SUITE/tests/functional/cli_root/zfs_get/zfs_get_list_d.kshlib
 
@@ -103,8 +107,6 @@ function check_return_value
 	log_note "SUCCESS: '$ZFS get $opt $prop $dst'."
 }
 
-log_assert "Setting the valid options and properties 'zfs get' should return " \
-    "the correct property value."
 log_onexit cleanup
 
 # Create filesystem and volume's snapshot

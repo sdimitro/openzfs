@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -49,7 +49,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Check the basic function of set/get userquota and groupquota on fs"
 
 log_note "Check the set|get userquota@$QUSER1 and groupquota@QGROUP"
 log_must $ZFS set userquota@$QUSER1=$UQUOTA_SIZE $QFS

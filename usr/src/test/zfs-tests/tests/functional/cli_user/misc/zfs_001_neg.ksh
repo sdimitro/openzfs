@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -51,7 +51,6 @@ function cleanup
 }
 
 log_onexit cleanup
-log_assert "zfs shows a usage message when run as a user"
 
 eval "$ZFS > /tmp/zfs_001_neg.$$.txt 2>&1"
 log_must $GREP "usage: zfs command args" /tmp/zfs_001_neg.$$.txt

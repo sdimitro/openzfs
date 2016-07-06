@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_user/misc/misc.cfg
@@ -51,7 +51,6 @@ function cleanup
 	fi
 }
 
-log_assert "zfs send returns an error when run as a user"
 log_onexit cleanup
 
 log_mustnot eval "$ZFS send $TESTPOOL/$TESTFS@snap > /tmp/zfstest_datastream.$$"

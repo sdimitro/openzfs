@@ -26,6 +26,10 @@
 #
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.kshlib
 
@@ -45,7 +49,6 @@ function cleanup
 	destroy_upgraded_pool 1
 }
 
-log_assert "Upgrading a pool that has already been upgraded succeeds."
 log_onexit cleanup
 
 # we just create a version 1 pool here

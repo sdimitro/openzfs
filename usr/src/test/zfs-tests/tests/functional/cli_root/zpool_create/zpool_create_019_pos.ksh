@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -46,7 +50,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "zpool create cannot create pools specifying readonly properties"
 
 if [[ -n $DISK ]]; then
 	disk=$DISK

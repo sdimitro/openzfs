@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -95,8 +95,6 @@ do
 	done
 	(( n+=1 ))
 done
-
-log_assert "Verify 'zfs list [-rH] [-o property[,prop]*] [fs|clct|vol]'."
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do

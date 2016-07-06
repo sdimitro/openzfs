@@ -24,11 +24,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
-#
-
-#
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +47,6 @@ function cleanup {
 	log_must $RM $TESTDIR/myfile.$$
 }
 
-log_assert "Basic applications work with xattrs: cpio cp find mv pax tar"
 log_onexit cleanup
 
 # Create a file, and set an xattr on it. This file is used in several of the
@@ -189,5 +184,4 @@ log_must $TAR x@f $TESTDIR/noxattr.tar
 log_mustnot eval "$RUNAT $TESTDIR/tar.$$ $CAT passwd > /dev/null 2>&1"
 log_must $RM $TESTDIR/tar.$$ $TESTDIR/noxattr.tar $TESTDIR/xattr.tar
 
-
-log_assert "Basic applications work with xattrs: cpio cp find mv pax tar"
+log_pass "Basic applications work with xattrs: cpio cp find mv pax tar"

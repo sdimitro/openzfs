@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -51,7 +51,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Ensure that the fsdb(1M) utility fails on a ZFS file system."
 
 populate_dir $NUM_FILES
 inode_num=`$LS -li $TESTDIR/$TESTFILE.0 | $AWK '{print $1}'`

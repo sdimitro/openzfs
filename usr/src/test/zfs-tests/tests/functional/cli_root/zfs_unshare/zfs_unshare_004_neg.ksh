@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -52,7 +52,6 @@ set -A opts "" "$TESTPOOL/$NONEXISTFSNAME" "$NONEEXISTMOUNTPOINT" "-?" "-1" \
 		"$TESTPOOL/$TESTFS $TESTDIR" "-f $TESTPOOL/$TESTFS $TESTDIR" \
 		"${TESTDIR#/}" "-f ${TESTDIR#/}"
 
-log_assert "Verify that '$ZFS unshare' issue error message with badly formed parameter."
 
 shareval=$(get_prop sharenfs $TESTPOOL/$TESTFS)
 if [[ $shareval == off ]]; then

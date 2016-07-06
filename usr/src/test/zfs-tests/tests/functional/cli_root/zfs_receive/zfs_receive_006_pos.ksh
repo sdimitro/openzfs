@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -63,8 +67,6 @@ function cleanup
 
 }
 
-log_assert "'zfs recv -d <fs>' should succeed no matter ancestor filesystem \
-	exists."
 log_onexit cleanup
 
 ancestor_fs=$TESTPOOL/$TESTFS

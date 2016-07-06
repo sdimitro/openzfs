@@ -25,6 +25,10 @@
 # Use is subject to license terms.
 #
 
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+
 . $STF_SUITE/include/libtest.shlib
 
 #
@@ -90,9 +94,6 @@ function test_legacy_share # mntp filesystem
 	    log_fail "file system $filesystem is shared (zfs share)."
 }
 
-log_assert "Verify that '$ZFS share' with a file system " \
-        "whose sharenfs property is 'off'  " \
-        "will fail with return code 1."
 log_onexit cleanup
 
 typeset -i i=0

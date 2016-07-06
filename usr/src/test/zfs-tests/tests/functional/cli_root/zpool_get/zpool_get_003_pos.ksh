@@ -41,7 +41,6 @@
 # 1. For all properties, verify zpool get retrieves a value
 #
 
-log_assert "Zpool get returns values for all known properties"
 log_onexit cleanup
 
 if ! is_global_zone ; then

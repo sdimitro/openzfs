@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -34,7 +34,6 @@
 
 verify_runnable "both"
 
-log_assert "zfs mount fails with non-empty directory"
 
 fs=$TESTPOOL/$TESTFS
 

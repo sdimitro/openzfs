@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/userquota/userquota_common.kshlib
@@ -52,7 +52,6 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "If write operation overwrite {user|group}quota size, it will fail"
 
 mkmount_writable $QFS
 log_note "Check the userquota@$QUSER1"

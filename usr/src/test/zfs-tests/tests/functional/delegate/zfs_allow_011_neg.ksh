@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -43,8 +43,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify zpool subcmds and system readonly properties can't be " \
-	"delegated."
 log_onexit restore_root_datasets
 
 set -A invalid_perms	\

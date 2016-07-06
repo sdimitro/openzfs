@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 #
@@ -31,7 +31,6 @@
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/vdev_zaps/vdev_zaps.kshlib
 
-log_assert "Per-vdev ZAPs are transferred properly on attach/detach"
 
 DISK=${DISKS%% *}
 log_must zpool create -f $TESTPOOL $DISK

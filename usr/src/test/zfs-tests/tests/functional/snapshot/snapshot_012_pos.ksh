@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -67,7 +67,6 @@ function cleanup
 	fi
 }
 
-log_assert "Verify that 'snapshot -r' can work with 'zfs promote'."
 log_onexit cleanup
 
 ctr=$TESTPOOL/$TESTCTR

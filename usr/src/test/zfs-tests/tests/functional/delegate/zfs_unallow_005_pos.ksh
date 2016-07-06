@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/delegate/delegate_common.kshlib
@@ -46,7 +46,6 @@
 
 verify_runnable "both"
 
-log_assert "Verify option '-c' will remove the created permission set."
 log_onexit restore_root_datasets
 
 log_must $ZFS allow -c $LOCAL_SET $ROOT_TESTFS

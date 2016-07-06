@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -103,9 +103,6 @@ function cleanup
 
 	$RM -f /tmp/j.* > /dev/null
 }
-
-log_assert "The largest pool can be created and a dataset in that" \
-	"pool can be created and mounted."
 
 # Set trigger. When the test case exit, cleanup is executed.
 log_onexit cleanup

@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -91,8 +91,6 @@ function verify_all
 	return 0
 }
 
-log_assert "Badly-formed 'zfs $mountcmd' with inapplicable scenarios " \
-	"should return an error."
 log_onexit cleanup_all
 
 log_must setup_all

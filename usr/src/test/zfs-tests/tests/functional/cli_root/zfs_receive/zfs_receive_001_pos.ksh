@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/cli_root/cli_common.kshlib
@@ -72,7 +72,6 @@ function recreate_root
 	log_must $ZFS set mountpoint=$TESTDIR1 $rst_root
 }
 
-log_assert "Verifying 'zfs receive [<filesystem|snapshot>] -d <filesystem>' works."
 log_onexit cleanup
 
 typeset datasets="$TESTPOOL/$TESTFS $TESTPOOL"

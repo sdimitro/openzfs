@@ -2565,11 +2565,11 @@ struct proto_option_defs {
 #define	PROTO_OPT_MOUNTD_PORT			17
 	{"mountd_port",
 	    "mountd_port", PROTO_OPT_MOUNTD_PORT,
-	    OPT_TYPE_NUMBER, 0, SVC_NFSD|SVC_MOUNTD, 1, UINT16_MAX},
-#define	PROTO_OPT_STATD_PORT			17
+	    OPT_TYPE_NUMBER, 0, SVC_MOUNTD, 1, UINT16_MAX},
+#define	PROTO_OPT_STATD_PORT			18
 	{"statd_port",
 	    "statd_port", PROTO_OPT_STATD_PORT,
-	    OPT_TYPE_NUMBER, 0, SVC_NFSD|SVC_STATD, 1, UINT16_MAX},
+	    OPT_TYPE_NUMBER, 0, SVC_STATD, 1, UINT16_MAX},
 	{NULL}
 };
 

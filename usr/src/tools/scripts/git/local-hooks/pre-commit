@@ -1,0 +1,192 @@
+#!/bin/bash
+#
+# CDDL HEADER START
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+# CDDL HEADER END
+#
+# Copyright (c) 2016 by Delphix. All rights reserved.
+#
+# This hook can be installed in git repos in order to
+# catch common mistakes early in the workflow.
+#
+# Install using:
+# $workspace/dlpx-os-gate/git-hook-setup.sh, or
+# $workspace/dlpx-os-gate/workspace-setup.sh (which calls
+# all top level os gate setup scripts)
+# $workspace denotes the path to an individual workspace.
+#
+
+shopt -s extglob
+
+#
+# This function takes the output of git diff, and outputs the lines
+# with the line number prepended to each line.
+#
+function diff_get_line_numbers
+{
+	local path=
+	local line=
+	local lnum=
+	while IFS= read -r line; do
+		esc=$'\033'
+		if [[ $line =~ ---\ (a/)?.* ]]; then
+			continue
+		elif [[ $line =~ \+\+\+\ (b/)?([^[:blank:]$esc]+).* ]]; then
+			path=${BASH_REMATCH[2]}
+		elif [[ $line =~ @@\ -[0-9]+(,[0-9]+)?\ \+([0-9]+)(,[0-9]+)?\ @@.* ]]; then
+			lnum=${BASH_REMATCH[2]}
+		elif [[ $line =~ ^($esc\[[0-9;]+m)*([\ +-]) ]]; then
+			echo "$lnum:$line"
+			if [[ ${BASH_REMATCH[2]} != - ]]; then
+				((lnum++))
+			fi
+		fi
+	done
+}
+
+#
+# This function gets the lines added to a file by this commit, and
+# then runs the given grep expression over them.  It then echoes the
+# ones that match (along with their line numbers).
+#
+function get_lines
+{
+	local res=
+	local num=0
+	while IFS= read -r line; do
+		# Strip the line number from the start of the line, then run the check.
+		echo "$line" | sed 's/^[0-9]*:+//' | egrep "$1" > /dev/null
+		if [[ $? -ne 1 ]]; then
+			echo "$line"
+			num=$((num+1))
+		fi
+	done <<< "$added_lines"
+	return $num
+}
+
+#
+# Update the Delphix copyright year of modified files
+#
+function update_copyright
+{
+	# Exclude any lines that mention the current year.
+	# If the copyright mentions Delphix, Capture the "year" [or ", year"].
+	# Substitute the correctly formatted Delphix copyright,
+	# with [captured, ] and current year.
+	# Retain the part after the year unchanged.
+	sed_replace "/Copyright.*$year/! s/Copyright.*\(20[0-9][0-9]\)\(,[[:blank:]]*20[0-9][0-9]\)\{0,1\}.*Delphix[\.]*/Copyright (c) \1, $year by Delphix./" $1
+
+	# Convert a 2 line Delphix copyright into single line :
+	# Add the next line to the pattern space.
+	# If the next line is [wsp,comment marker]"All rights reserved" )
+	# kill the \n, whitespace, and/or comment marker.
+	sed_replace "/Copyright.*Delphix/N; s/\n[[:blank:]]*[\#\*\/]*\**[[:blank:]]*All rights reserved\.*\(.*\)/ All rights reserved.\1/" $1
+}
+
+#
+# Remove windows line breaks from modified files
+#
+function remove_windows_line_breaks
+{
+	sed_replace "s/"$'\r'"//g" $1
+}
+
+#
+# Remove UTF-8 BOM from modified files
+#
+function remove_utf8_bom
+{
+	sed_replace "s/"$'\xEF\xBB\xBF'"//g" $1
+}
+
+function sed_replace
+{
+	if [[ $(uname) == "Darwin" ]]; then
+		sed -i "" "$1" $2
+	else
+		sed -i "$1" $2
+	fi
+	git add $2
+}
+
+function fix_trailing_spaces
+{
+	sed_replace "s/[[:blank:]]*$//" $1
+}
+
+#
+# Identify the lines which changed for a file and store the result in a global
+# added_lines variable
+#
+function compute_added_lines
+{
+	added_lines="$(git diff -U0 --cached HEAD "$1" | diff_get_line_numbers | \
+	    grep '^[0-9]\+:+')"
+}
+
+#
+# Check all text files
+#
+function text_files_checks
+{
+	compute_added_lines $1
+	#
+	# The UTF-8 BOM makes text processing more complicated, breaks compatibility
+	# with ASCII, and looks ugly in some editors. We disallow it.
+	#
+	remove_utf8_bom $1
+	#
+	# Text files must have Unix linebreaks.
+	#
+	remove_windows_line_breaks $1
+	# Remove trailing whitespace from c, h and dtrace files
+	case "$1" in
+		*.@(c|d|h))  fix_trailing_spaces $1;;
+	esac
+	update_copyright $1
+}
+
+
+GIT_DIR=$(cd $GIT_DIR; pwd -P)
+commit_msg=$(git log -n 1 --format=%B | awk '/^$/ {exit} {print $0}')
+
+# If this is an in-progress merge, cherry-pick,
+# Revert, or an illumos sync
+# do not run the hook, but continue the commit
+#
+[[ -f "$GIT_DIR/MERGE_HEAD" ]] && exit 0
+[[ -f "$GIT_DIR/CHERRY_PICK_HEAD" ]] && exit 0
+[[ $commit_msg =~ "Revert".* ]] && exit 0
+[[ $commit_msg =~ .*"illumos sync".* ]] && exit 0
+
+errors=()
+year=$(date +%Y)
+
+#
+# iterate over all staged files
+#
+files=$(git diff-index --name-status --cached HEAD | grep -v ^D | cut -c3-)
+if [[ -n "$files" ]]; then
+	for f in $files; do
+		#
+		# Skip the git hook tests as they contain mistakes on purpose
+		#
+		case "$f" in
+			*tools/git/local-test/*) continue ;;
+			README*|mapfile*|Make*|*.@(as|bash|c|cfg|css|d|fio|h|header|html|in|ksh|kshlib|mf|\
+			    pl|py|run|s|S|sh|sed|txt|uts|xcl|xml|zcp|\
+			    1m|3c|3lib|1|2|3|4|5|6|7)) text_files_checks $f;;
+		esac
+	done
+fi
+
+exit 0

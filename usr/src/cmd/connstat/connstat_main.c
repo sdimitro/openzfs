@@ -31,6 +31,7 @@
 #include <netdb.h>
 #include <sys/varargs.h>
 #include <ofmt.h>
+#include <inet/tcp.h>
 #include <netinet/in.h>
 #include <inet/mib2.h>
 #include "connstat.h"
@@ -80,7 +81,7 @@ usage(int code)
 		"-6, --ipv6             Only display IPv6 connections",
 		"-c, --count=COUNT      Only print COUNT reports",
 		"-e, --established      Only display established connections",
-		"-F, --filter=FILTER    Only display connection that match "
+		"-F, --filter=FILTER    Only display connections that match "
 		    "FILTER",
 		"-h, --help             Print this help",
 		"-i, --interval=SECONDS Report once every SECONDS seconds",
@@ -88,9 +89,6 @@ usage(int code)
 		"-o, --output=FIELDS    Restrict output to the comma-separated "
 		    "list of fields\n"
 		    "                         specified",
-		"-p, --protocol=PROTO   Display connection for PROTO "
-		    "(currently only tcp is\n"
-		    "                         supported)",
 		"-P, --parsable         Parsable output mode",
 		"-T, --timestamp=TYPE   Display a timestamp for each iteration",
 		NULL
@@ -98,7 +96,7 @@ usage(int code)
 
 	(void) fprintf(stderr, gettext("usage: "));
 	(void) fprintf(stderr,
-	    gettext("%s [-p <proto>] [-eLP] [-4|-6] [-T d|u] [-F <filter>]\n"
+	    gettext("%s [-eLP] [-4|-6] [-T d|u] [-F <filter>]\n"
 	    "               [-i <interval> [-c <count>]] [-o <field>[,...]]\n"),
 	    progname);
 
@@ -110,13 +108,9 @@ usage(int code)
 	(void) fprintf(stderr, gettext("\nFilter:\n"));
 	(void) fprintf(stderr, gettext("  The FILTER argument for the -F "
 	    "option is of the form:\n"
-	    "    <attr>=<value>,[<attr>=<value>,...]\n"));
-	(void) fprintf(stderr, gettext("  Filter attributes:\n"));
-	(void) fprintf(stderr, gettext(
-	    "  laddr  Local IP address\n"
-	    "  lport  Local port\n"
-	    "  raddr  Remote IP address\n"
-	    "  rport  Remote port\n"));
+	    "    <field>=<value>,[<field>=<value>,...]\n"));
+	(void) fprintf(stderr, gettext("  Filterable fields are laddr, lport, "
+	    "raddr, rport, and state.\n"));
 
 	(void) fprintf(stderr, gettext("\nFields:\n"));
 	(void) fprintf(stderr, gettext(
@@ -166,7 +160,7 @@ main(int argc, char *argv[])
 	int interval = 0;
 	char *fields = NULL;
 	char *filterstr = NULL;
-	connstat_conn_attr_t filter;
+	connstat_conn_attr_t filter = {0};
 	char *protostr = DEFAULT_PROTO;
 	connstat_proto_t *proto;
 	ofmt_handle_t ofmt;
@@ -201,7 +195,8 @@ main(int argc, char *argv[])
 			}
 			break;
 		case 'e':
-			flags |= CS_ESTABLISHED;
+			flags |= CS_STATE;
+			filter.ca_state = TCPS_ESTABLISHED;
 			break;
 		case 'F':
 			filterstr = optarg;
@@ -229,6 +224,12 @@ main(int argc, char *argv[])
 			flags |= CS_PARSABLE;
 			break;
 		case 'p':
+			/*
+			 * -p is an undocumented flag whose only supported
+			 * argument is "tcp". The idea is to reserve this
+			 * flag for potential future use in case connstat
+			 * is extended to support stats for other protocols.
+			 */
 			protostr = optarg;
 			break;
 		case 'T':
@@ -292,7 +293,6 @@ main(int argc, char *argv[])
 		count = 1;
 	}
 
-	bzero(&filter, sizeof (filter));
 	if (filterstr != NULL) {
 		process_filter(filterstr, &filter, &flags);
 	}
@@ -310,10 +310,16 @@ main(int argc, char *argv[])
 	return (0);
 }
 
+/*
+ * Convert the input IP address literal to sockaddr of the appropriate address
+ * family. Preserves any potential port number that may have been set in the
+ * input sockaddr_storage structure.
+ */
 static void
 str2sockaddr(const char *addr, struct sockaddr_storage *ss)
 {
 	struct addrinfo hints, *res;
+	uint16_t port = ((struct sockaddr_in *)ss)->sin_port;
 
 	bzero(&hints, sizeof (hints));
 	hints.ai_flags = AI_NUMERICHOST;
@@ -322,6 +328,7 @@ str2sockaddr(const char *addr, struct sockaddr_storage *ss)
 	}
 	bcopy(res->ai_addr, ss, res->ai_addrlen);
 	freeaddrinfo(res);
+	((struct sockaddr_in *)ss)->sin_port = port;
 }
 
 /*
@@ -334,9 +341,10 @@ process_filter(char *filterstr, connstat_conn_attr_t *filter, uint_t *flags)
 {
 	int option;
 	char *val;
-	enum { F_LADDR, F_RADDR, F_LPORT, F_RPORT };
-	static char *filter_optstr[] = { "laddr", "raddr", "lport", "rport" };
-	int addrflag = 0, portflag = 0;
+	enum { F_LADDR, F_RADDR, F_LPORT, F_RPORT, F_STATE };
+	static char *filter_optstr[] =
+	    { "laddr", "raddr", "lport", "rport", "state" };
+	uint_t flag = 0;
 	struct sockaddr_storage *addrp = NULL;
 	uint16_t port;
 
@@ -346,30 +354,41 @@ process_filter(char *filterstr, connstat_conn_attr_t *filter, uint_t *flags)
 
 		switch (option) {
 		case F_LADDR:
-			addrflag = CS_LADDR;
+			flag = CS_LADDR;
 			addrp = &filter->ca_laddr;
 			break;
 		case F_RADDR:
-			addrflag = CS_RADDR;
+			flag = CS_RADDR;
 			addrp = &filter->ca_raddr;
 			break;
 		case F_LPORT:
-			portflag = CS_LPORT;
+			flag = CS_LPORT;
 			addrp = &filter->ca_laddr;
 			break;
 		case F_RPORT:
-			portflag = CS_RPORT;
+			flag = CS_RPORT;
 			addrp = &filter->ca_raddr;
+			break;
+		case F_STATE:
+			flag = CS_STATE;
 			break;
 		default:
 			usage(1);
 		}
 
-		switch (option) {
-		case F_LADDR:
-		case F_RADDR:
+		if (*flags & flag) {
+			(void) fprintf(stderr, gettext(
+			    "Ambiguous filter provided. The \"%s\" field "
+			    "appears more than once.\n"),
+			    filter_optstr[option]);
+			usage(1);
+		}
+		*flags |= flag;
+
+		switch (flag) {
+		case CS_LADDR:
+		case CS_RADDR:
 			str2sockaddr(val, addrp);
-			*flags |= addrflag;
 			if (addrp->ss_family == AF_INET) {
 				if (!(*flags & CS_IPV4)) {
 					(void) fprintf(stderr, gettext(
@@ -386,8 +405,8 @@ process_filter(char *filterstr, connstat_conn_attr_t *filter, uint_t *flags)
 				*flags &= ~CS_IPV4;
 			}
 			break;
-		case F_LPORT:
-		case F_RPORT:
+		case CS_LPORT:
+		case CS_RPORT:
 			port = strtol(val, NULL, 10);
 			if (port == 0 && errno != 0) {
 				(void) fprintf(stderr, gettext(
@@ -396,7 +415,14 @@ process_filter(char *filterstr, connstat_conn_attr_t *filter, uint_t *flags)
 				usage(1);
 			}
 			((struct sockaddr_in *)addrp)->sin_port = htons(port);
-			*flags |= portflag;
+			break;
+		case CS_STATE:
+			filter->ca_state = tcp_str2state(val);
+			if (filter->ca_state < TCPS_CLOSED) {
+				(void) fprintf(stderr, gettext(
+				    "invalid TCP state: %s\n"), val);
+				usage(1);
+			}
 			break;
 		}
 	}

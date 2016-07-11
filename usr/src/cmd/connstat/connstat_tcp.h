@@ -26,11 +26,18 @@
 extern "C" {
 #endif
 
-extern connstat_getfieldsfunc_t tcp_get_fields;
-extern connstat_walkfunc_t tcp_walk_ipv4, tcp_walk_ipv6;
+int tcp_str2state(const char *state);
+connstat_getfieldsfunc_t tcp_get_fields;
+connstat_walkfunc_t tcp_walk_ipv4, tcp_walk_ipv6;
 
-#define	TCP_DEFAULT_FIELDS	"laddr,lport,raddr,rport,inbytes,outbytes," \
-	"retransbytes,suna,swnd,cwnd,rwnd,rtt"
+/*
+ * Keep the default output to < 80 columns. For most interactive workflows,
+ * the user will run the command without arguments to get an idea of what
+ * connections exist before narrowing down the investigation to a single
+ * connection (with filtering) and specifying additional fields to output
+ * depending on what the user is interested in.
+ */
+#define	TCP_DEFAULT_FIELDS	"laddr,lport,raddr,rport,state"
 
 #define	CONNSTAT_TCP_PROTO \
 	{ "tcp", TCP_DEFAULT_FIELDS, MIB2_TCP, MIB2_TCP_CONN, MIB2_TCP6_CONN, \

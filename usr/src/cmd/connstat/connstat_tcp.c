@@ -111,6 +111,29 @@ static ofmt_field_t tcp_fields[] = {
 
 static tcp_fields_buf_t fields_buf;
 
+
+typedef struct tcp_state_info_s {
+	int tsi_state;
+	const char *tsi_string;
+} tcp_state_info_t;
+
+tcp_state_info_t tcp_state_info[] = {
+	{ TCPS_CLOSED, "CLOSED" },
+	{ TCPS_IDLE, "IDLE" },
+	{ TCPS_BOUND, "BOUND" },
+	{ TCPS_LISTEN, "LISTEN" },
+	{ TCPS_SYN_SENT, "SYN_SENT" },
+	{ TCPS_SYN_RCVD, "SYN_RCVD" },
+	{ TCPS_ESTABLISHED, "ESTABLISHED" },
+	{ TCPS_CLOSE_WAIT, "CLOSE_WAIT" },
+	{ TCPS_FIN_WAIT_1, "FIN_WAIT_1" },
+	{ TCPS_CLOSING, "CLOSING" },
+	{ TCPS_LAST_ACK, "LAST_ACK" },
+	{ TCPS_FIN_WAIT_2, "FIN_WAIT_2" },
+	{ TCPS_TIME_WAIT, "TIME_WAIT" },
+	{ TCPS_CLOSED - 1, NULL }
+};
+
 ofmt_field_t *
 tcp_get_fields()
 {
@@ -220,8 +243,8 @@ tcp_ipv4_print(mib2_tcpConnEntry_t *ce, conn_walk_state_t *state)
 		}
 	}
 
-	if ((state->cws_flags & CS_ESTABLISHED) &&
-	    ce->tcpConnState != MIB2_TCP_established) {
+	if ((state->cws_flags & CS_STATE) &&
+	    ce->tcpConnEntryInfo.ce_state != state->cws_filter.ca_state) {
 		return;
 	}
 
@@ -275,8 +298,8 @@ tcp_ipv6_print(mib2_tcp6ConnEntry_t *ce, conn_walk_state_t *state)
 		}
 	}
 
-	if ((state->cws_flags & CS_ESTABLISHED) &&
-	    ce->tcp6ConnState != MIB2_TCP_established) {
+	if ((state->cws_flags & CS_STATE) &&
+	    ce->tcp6ConnEntryInfo.ce_state != state->cws_filter.ca_state) {
 		return;
 	}
 
@@ -308,40 +331,49 @@ tcp_walk_ipv6(struct strbuf *dbuf, conn_walk_state_t *state)
 	}
 }
 
-static boolean_t
-print_tcp_state(ofmt_arg_t *ofarg, char *buf, uint_t bufsize)
-{
-	int state;
-	char *statestr = NULL;
-	struct tcp_state_info_s {
-		int tsi_state;
-		char *tsi_string;
-	} tcp_state_info[] = {
-		{ TCPS_CLOSED, "CLOSED" },
-		{ TCPS_IDLE, "IDLE" },
-		{ TCPS_BOUND, "BOUND" },
-		{ TCPS_LISTEN, "LISTEN" },
-		{ TCPS_SYN_SENT, "SYN_SENT" },
-		{ TCPS_SYN_RCVD, "SYN_RCVD" },
-		{ TCPS_ESTABLISHED, "ESTABLISHED" },
-		{ TCPS_CLOSE_WAIT, "CLOSE_WAIT" },
-		{ TCPS_FIN_WAIT_1, "FIN_WAIT_1" },
-		{ TCPS_CLOSING, "CLOSING" },
-		{ TCPS_LAST_ACK, "LAST_ACK" },
-		{ TCPS_FIN_WAIT_2, "FIN_WAIT_2" },
-		{ TCPS_TIME_WAIT, "TIME_WAIT" },
-		{ TCPS_CLOSED - 1, NULL }
-	};
-	struct tcp_state_info_s *sip;
-
-	/* LINTED E_BAD_PTR_CAST_ALIGN */
-	state = *(int *)((char *)ofarg->ofmt_cbarg + ofarg->ofmt_id);
+static tcp_state_info_t *tcp_stateinfobystate(int state) {
+	tcp_state_info_t *sip;
 
 	for (sip = tcp_state_info; sip->tsi_string != NULL; sip++) {
 		if (sip->tsi_state == state) {
-			statestr = sip->tsi_string;
+			return (sip);
 		}
 	}
+	return (NULL);
+}
+
+static tcp_state_info_t *tcp_stateinfobystr(const char *statestr) {
+	tcp_state_info_t *sip;
+
+	for (sip = tcp_state_info; sip->tsi_string != NULL; sip++) {
+		if (strncasecmp(statestr, sip->tsi_string,
+		    strlen(sip->tsi_string)) == 0) {
+			return (sip);
+		}
+	}
+	return (NULL);
+}
+int
+tcp_str2state(const char *statestr)
+{
+	tcp_state_info_t *sip = tcp_stateinfobystr(statestr);
+	return (sip == NULL ? TCPS_CLOSED - 1 : sip->tsi_state);
+}
+
+static const char *
+tcp_state2str(int state)
+{
+	tcp_state_info_t *sip = tcp_stateinfobystate(state);
+	return (sip == NULL ? NULL : sip->tsi_string);
+}
+
+static boolean_t
+print_tcp_state(ofmt_arg_t *ofarg, char *buf, uint_t bufsize)
+{
+	/* LINTED E_BAD_PTR_CAST_ALIGN */
+	int state = *(int *)((char *)ofarg->ofmt_cbarg + ofarg->ofmt_id);
+	const char *statestr = tcp_state2str(state);
+
 	if (statestr != NULL) {
 		(void) strlcpy(buf, statestr, bufsize);
 	} else {

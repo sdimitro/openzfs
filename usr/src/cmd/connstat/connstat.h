@@ -13,7 +13,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_CONNSTAT_H
@@ -31,6 +31,7 @@ extern "C" {
 typedef struct connstat_conn_attr_s {
 	struct sockaddr_storage	ca_laddr;
 	struct sockaddr_storage	ca_raddr;
+	int			ca_state;
 } connstat_conn_attr_t;
 
 typedef struct conn_walk_state_s {
@@ -40,14 +41,14 @@ typedef struct conn_walk_state_s {
 } conn_walk_state_t;
 
 /* cws_flags */
-#define	CS_ESTABLISHED	0x0001	/* Show only established connections */
-#define	CS_LOOPBACK	0x0002	/* Include loopback connections */
-#define	CS_IPV4		0x0004	/* Show only IPv4 connections */
-#define	CS_IPV6		0x0008	/* Show only IPv6 connections */
-#define	CS_LADDR	0x0010	/* Filter by laddr in cws_filter */
-#define	CS_RADDR	0x0020	/* Filter by raddr in cws_filter */
-#define	CS_LPORT	0x0040	/* Filter by lport in cws_filter */
-#define	CS_RPORT	0x0080	/* Filter by rport in cws_filter */
+#define	CS_LOOPBACK	0x0001	/* Include loopback connections */
+#define	CS_IPV4		0x0002	/* Show only IPv4 connections */
+#define	CS_IPV6		0x0004	/* Show only IPv6 connections */
+#define	CS_LADDR	0x0008	/* Filter by laddr in cws_filter */
+#define	CS_RADDR	0x0010	/* Filter by raddr in cws_filter */
+#define	CS_LPORT	0x0020	/* Filter by lport in cws_filter */
+#define	CS_RPORT	0x0040	/* Filter by rport in cws_filter */
+#define	CS_STATE	0x0080	/* Filter by state in cws_filter */
 #define	CS_PARSABLE	0x0100	/* Parsable output */
 
 typedef ofmt_field_t *connstat_getfieldsfunc_t();

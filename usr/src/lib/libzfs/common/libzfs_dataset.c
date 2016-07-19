@@ -2230,6 +2230,36 @@ zfs_get_clones_nvl(zfs_handle_t *zhp)
 	return (value);
 }
 
+static int
+get_rsnaps_string(zfs_handle_t *zhp, char *propbuf, size_t proplen)
+{
+	nvlist_t *value;
+	uint64_t *snaps;
+	uint_t nsnaps;
+
+	value = fnvlist_lookup_nvlist(zhp->zfs_props,
+	    zfs_prop_to_name(ZFS_PROP_REDACT_SNAPS));
+	if (nvlist_lookup_uint64_array(value, ZPROP_VALUE, &snaps,
+	    &nsnaps) != 0)
+		return (-1);
+	if (nsnaps == 0) {
+		/* There's no redaction snapshots; pass a special value back */
+		(void) snprintf(propbuf, proplen, "none");
+		return (0);
+	}
+	propbuf[0] = '\0';
+	for (int i = 0; i < nsnaps; i++) {
+		char buf[128];
+		if (propbuf[0] != '\0')
+			(void) strlcat(propbuf, ",", proplen);
+		(void) snprintf(buf, sizeof (buf), "%llu",
+		    (u_longlong_t)snaps[i]);
+		(void) strlcat(propbuf, buf, proplen);
+	}
+
+	return (0);
+}
+
 /*
  * Retrieve a property from the given object.  If 'literal' is specified, then
  * numbers are left as exact values.  Otherwise, numbers are converted to a
@@ -2352,6 +2382,11 @@ zfs_prop_get(zfs_handle_t *zhp, zfs_prop_t prop, char *propbuf, size_t proplen,
 		if (str == NULL)
 			return (-1);
 		(void) strlcpy(propbuf, str, proplen);
+		break;
+
+	case ZFS_PROP_REDACT_SNAPS:
+		if (get_rsnaps_string(zhp, propbuf, proplen) != 0)
+			return (-1);
 		break;
 
 	case ZFS_PROP_CLONES:

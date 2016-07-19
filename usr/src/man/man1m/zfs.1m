@@ -618,6 +618,10 @@ property.
 For filesystems or volumes which have saved partially-completed state from
 .Sy zfs receive Fl s No Ns , this opaque token can be provided to Sy zfs send Fl t
 .No to resume and complete the Sy zfs receive.
+.It Sy redact_snaps
+For bookmarks, this is the list of snapshot guids the bookmark contains a redaction
+list for.  For snapshots, this is the list of snapshot guids the snapshot is
+redacted with respect to.
 .It Sy referenced
 The amount of data that is accessible by this dataset, which may or may not be
 shared with other datasets in the pool. When a snapshot or clone is created, it

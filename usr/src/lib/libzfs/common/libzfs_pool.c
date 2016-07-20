@@ -1943,7 +1943,7 @@ zpool_initialize(zpool_handle_t *zhp, pool_initialize_func_t cmd_type,
 	}
 
 	fnvlist_free(guids_to_paths);
-	if (elem != NULL)
+	if (vd_errlist != NULL)
 		return (-1);
 
 	return (zpool_standard_error(hdl, err, msg));

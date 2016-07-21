@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012, Joyent Inc. All rights reserved.
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -519,7 +519,9 @@ tcp_time_wait_processing(tcp_t *tcp, mblk_t *mp, uint32_t seg_seq,
 	new_swnd = ntohs(tcpha->tha_win) <<
 	    ((tcpha->tha_flags & TH_SYN) ? 0 : tcp->tcp_snd_ws);
 
-	if (tcp->tcp_snd_ts_ok && !(tcpha->tha_flags & TH_RST)) {
+	boolean_t keepalive = (seg_len == 0 || seg_len == 1) &&
+	    (seg_seq + 1 == tcp->tcp_rnxt);
+	if (tcp->tcp_snd_ts_ok && !(flags & TH_RST) && !keepalive) {
 		int options;
 		if (tcp->tcp_snd_sack_ok)
 			tcpopt.tcp = tcp;

@@ -5223,7 +5223,6 @@ receive_object(struct receive_writer_arg *rwa, struct drr_object *drro,
 		dmu_buf_rele(db, FTAG);
 	}
 	dmu_tx_commit(tx);
-
 	return (0);
 }
 

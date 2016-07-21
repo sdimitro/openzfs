@@ -55,8 +55,7 @@
 #include <sys/debug.h>
 #include <sys/pci.h>
 #include <sys/ethernet.h>
-
-#define	VLAN_TAGSZ 4
+#include <sys/vlan.h>
 
 #include <sys/dlpi.h>
 #include <sys/taskq.h>
@@ -75,10 +74,6 @@
 
 #include "virtiovar.h"
 #include "virtioreg.h"
-
-#if !defined(__packed)
-#define	__packed __attribute__((packed))
-#endif /* __packed */
 
 /* Configuration registers */
 #define	VIRTIO_NET_CONFIG_MAC		0 /* 8bit x 6byte */
@@ -107,6 +102,7 @@
 /* Status */
 #define	VIRTIO_NET_S_LINK_UP	1
 
+#pragma pack(1)
 /* Packet header structure */
 struct virtio_net_hdr {
 	uint8_t		flags;
@@ -116,6 +112,7 @@ struct virtio_net_hdr {
 	uint16_t	csum_start;
 	uint16_t	csum_offset;
 };
+#pragma pack()
 
 #define	VIRTIO_NET_HDR_F_NEEDS_CSUM	1 /* flags */
 #define	VIRTIO_NET_HDR_GSO_NONE		0 /* gso_type */
@@ -126,10 +123,12 @@ struct virtio_net_hdr {
 
 
 /* Control virtqueue */
+#pragma pack(1)
 struct virtio_net_ctrl_cmd {
 	uint8_t	class;
 	uint8_t	command;
-} __packed;
+};
+#pragma pack()
 
 #define	VIRTIO_NET_CTRL_RX		0
 #define	VIRTIO_NET_CTRL_RX_PROMISC	0
@@ -142,22 +141,24 @@ struct virtio_net_ctrl_cmd {
 #define	VIRTIO_NET_CTRL_VLAN_ADD	0
 #define	VIRTIO_NET_CTRL_VLAN_DEL	1
 
+#pragma pack(1)
 struct virtio_net_ctrl_status {
 	uint8_t	ack;
-} __packed;
+};
 
 struct virtio_net_ctrl_rx {
 	uint8_t	onoff;
-} __packed;
+};
 
 struct virtio_net_ctrl_mac_tbl {
 	uint32_t nentries;
 	uint8_t macs[][ETHERADDRL];
-} __packed;
+};
 
 struct virtio_net_ctrl_vlan {
 	uint16_t id;
-} __packed;
+};
+#pragma pack()
 
 static int vioif_quiesce(dev_info_t *);
 static int vioif_attach(dev_info_t *, ddi_attach_cmd_t);
@@ -1077,7 +1078,6 @@ vioif_send(struct vioif_softc *sc, mblk_t *mp)
 	(void) memset(buf->tb_inline_mapping.vbm_buf, 0,
 	    sizeof (struct virtio_net_hdr));
 
-	/* LINTED E_BAD_PTR_CAST_ALIGN */
 	net_header = (struct virtio_net_hdr *)
 	    buf->tb_inline_mapping.vbm_buf;
 
@@ -1481,6 +1481,7 @@ vioif_show_features(struct vioif_softc *sc, const char *prefix,
 
 	/* LINTED E_PTRDIFF_OVERFLOW */
 	bufp += virtio_show_features(features, bufp, bufend - bufp);
+	*bufp = '\0';
 
 	/* LINTED E_PTRDIFF_OVERFLOW */
 	bufp += snprintf(bufp, bufend - bufp, "Vioif ( ");

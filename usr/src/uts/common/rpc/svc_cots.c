@@ -18,7 +18,9 @@
  *
  * CDDL HEADER END
  */
+
 /*
+ * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  *  Copyright (c) 1993, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
@@ -372,6 +374,7 @@ svc_cots_krecv(SVCXPRT *clone_xprt, mblk_t *mp, struct rpc_msg *msg)
 	    "xdr_callmsg_start:");
 	RPCLOG0(4, "xdr_callmsg_start:\n");
 	if (!xdr_callmsg(xdrs, msg)) {
+		XDR_DESTROY(xdrs);
 		TRACE_1(TR_FAC_KRPC, TR_XDR_CALLMSG_END,
 		    "xdr_callmsg_end:(%S)", "bad");
 		RPCLOG0(1, "svc_cots_krecv xdr_callmsg failure\n");
@@ -444,6 +447,7 @@ svc_cots_ksend(SVCXPRT *clone_xprt, struct rpc_msg *msg)
 		if (!(xdr_replymsg_body(xdrs, msg) &&
 		    (!has_args || SVCAUTH_WRAP(&clone_xprt->xp_auth, xdrs,
 		    xdr_results, xdr_location)))) {
+			XDR_DESTROY(xdrs);
 			RPCLOG0(1, "svc_cots_ksend: "
 			    "xdr_replymsg_body/SVCAUTH_WRAP failed\n");
 			freemsg(mp);
@@ -473,7 +477,7 @@ svc_cots_ksend(SVCXPRT *clone_xprt, struct rpc_msg *msg)
 		}
 
 		/*
-		 * Initialize the XDR decode stream.  Additional mblks
+		 * Initialize the XDR encode stream.  Additional mblks
 		 * will be allocated if necessary.  They will be TIDU
 		 * sized.
 		 */
@@ -518,6 +522,7 @@ svc_cots_ksend(SVCXPRT *clone_xprt, struct rpc_msg *msg)
 		if (!(xdr_replymsg(xdrs, msg) &&
 		    (!has_args || SVCAUTH_WRAP(&clone_xprt->xp_auth, xdrs,
 		    xdr_results, xdr_location)))) {
+			XDR_DESTROY(xdrs);
 			TRACE_1(TR_FAC_KRPC, TR_XDR_REPLYMSG_END,
 			    "xdr_replymsg_end:(%S)", "bad");
 			freemsg(mp);
@@ -528,6 +533,8 @@ svc_cots_ksend(SVCXPRT *clone_xprt, struct rpc_msg *msg)
 		TRACE_1(TR_FAC_KRPC, TR_XDR_REPLYMSG_END,
 		    "xdr_replymsg_end:(%S)", "good");
 	}
+
+	XDR_DESTROY(xdrs);
 
 	put(clone_xprt->xp_wq, mp);
 	retval = TRUE;
@@ -565,6 +572,8 @@ svc_cots_kfreeargs(SVCXPRT *clone_xprt, xdrproc_t xdr_args,
     caddr_t args_ptr)
 {
 	cots_data_t *cd = (cots_data_t *)clone_xprt->xp_p2buf;
+	/* LINTED pointer alignment */
+	XDR *xdrs = &clone_xprt->xp_xdrin;
 	mblk_t *mp;
 	bool_t retval;
 
@@ -575,13 +584,12 @@ svc_cots_kfreeargs(SVCXPRT *clone_xprt, xdrproc_t xdr_args,
 	 * the memory be intact during the free routine.
 	 */
 	if (args_ptr) {
-		/* LINTED pointer alignment */
-		XDR	*xdrs = &clone_xprt->xp_xdrin;
-
 		xdrs->x_op = XDR_FREE;
 		retval = (*xdr_args)(xdrs, args_ptr);
 	} else
 		retval = TRUE;
+
+	XDR_DESTROY(xdrs);
 
 	if ((mp = cd->cd_req_mp) != NULL) {
 		cd->cd_req_mp = (mblk_t *)0;
@@ -613,11 +621,11 @@ svc_cots_kgetres(SVCXPRT *clone_xprt, int size)
 	 */
 	while ((mp = allocb(len, BPRI_LO)) == NULL) {
 		if (strwaitbuf(len, BPRI_LO))
-			return (FALSE);
+			return (NULL);
 	}
 
 	/*
-	 * Initialize the XDR decode stream.  Additional mblks
+	 * Initialize the XDR encode stream.  Additional mblks
 	 * will be allocated if necessary.  They will be TIDU
 	 * sized.
 	 */
@@ -665,13 +673,14 @@ svc_cots_kgetres(SVCXPRT *clone_xprt, int size)
 	rply.acpted_rply.ar_stat = SUCCESS;
 
 	if (!xdr_replymsg_hdr(xdrs, &rply)) {
+		XDR_DESTROY(xdrs);
 		freeb(mp);
 		return (NULL);
 	}
 
-
 	buf = XDR_INLINE(xdrs, size);
 	if (buf == NULL) {
+		XDR_DESTROY(xdrs);
 		ASSERT(cd->cd_mp == NULL);
 		freemsg(mp);
 	} else {
@@ -688,6 +697,7 @@ svc_cots_kfreeres(SVCXPRT *clone_xprt)
 
 	cd = (cots_data_t *)clone_xprt->xp_p2buf;
 	if ((mp = cd->cd_mp) != NULL) {
+		XDR_DESTROY(&clone_xprt->xp_xdrout);
 		cd->cd_mp = (mblk_t *)NULL;
 		freemsg(mp);
 	}

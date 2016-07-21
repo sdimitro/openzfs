@@ -19,6 +19,7 @@
 #
 # CDDL HEADER END
 #
+# Copyright 2015 Toomas Soome <tsoome@me.com>
 #
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
@@ -192,7 +193,11 @@ my $no_errs = 0;		# set for CSTYLED-protected lines
 sub err($) {
 	my ($error) = @_;
 	unless ($no_errs) {
-		printf $fmt, $filename, $., $error, $line;
+		if ($verbose) {
+			printf $fmt, $filename, $., $error, $line;
+		} else {
+			printf $fmt, $filename, $., $error;
+		}
 		$err_stat = 1;
 	}
 }
@@ -201,7 +206,11 @@ sub err_prefix($$) {
 	my ($prevline, $error) = @_;
 	my $out = $prevline."\n".$line;
 	unless ($no_errs) {
-		printf $fmt, $filename, $., $error, $out;
+		if ($verbose) {
+			printf $fmt, $filename, $., $error, $out;
+		} else {
+			printf $fmt, $filename, $., $error;
+		}
 		$err_stat = 1;
 	}
 }
@@ -209,7 +218,11 @@ sub err_prefix($$) {
 sub err_prev($) {
 	my ($error) = @_;
 	unless ($no_errs) {
-		printf $fmt, $filename, $. - 1, $error, $prev;
+		if ($verbose) {
+			printf $fmt, $filename, $. - 1, $error, $prev;
+		} else {
+			printf $fmt, $filename, $. - 1, $error;
+		}
 		$err_stat = 1;
 	}
 }
@@ -642,7 +655,7 @@ line: while (<$filehandle>) {
 	if (/^\s*\(void\)[^ ]/) {
 		err("missing space after (void) cast");
 	}
-	if (/\S{/ && !/{{/) {
+	if (/\S\{/ && !/\{\{/) {
 		err("missing space before left brace");
 	}
 	if ($in_function && /^\s+{/ &&

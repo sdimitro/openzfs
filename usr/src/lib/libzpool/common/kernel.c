@@ -875,11 +875,11 @@ random_get_pseudo_bytes(uint8_t *ptr, size_t len)
 }
 
 int
-ddi_strtoul(const char *hw_serial, char **nptr, int base, unsigned long *result)
+ddi_strtoul(const char *str, char **nptr, int base, unsigned long *result)
 {
 	char *end;
 
-	*result = strtoul(hw_serial, &end, base);
+	*result = strtoul(str, &end, base);
 	if (*result == 0)
 		return (errno);
 	return (0);
@@ -894,6 +894,16 @@ ddi_strtoull(const char *str, char **nptr, int base, u_longlong_t *result)
 	if (*result == 0)
 		return (errno);
 	return (0);
+}
+
+/* ARGSUSED */
+uint32_t
+zone_get_hostid(void *zonep)
+{
+	/*
+	 * We're emulating the system's hostid in userland.
+	 */
+	return (strtoul(hw_serial, NULL, 10));
 }
 
 /* ARGSUSED */

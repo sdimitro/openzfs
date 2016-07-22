@@ -527,6 +527,14 @@ typedef struct callb_cpr {
 extern char *kmem_asprintf(const char *fmt, ...);
 #define	strfree(str) kmem_free((str), strlen(str) + 1)
 
+extern int ddi_strtoul(const char *str, char **nptr, int base,
+    unsigned long *result);
+
+extern int ddi_strtoull(const char *str, char **nptr, int base,
+    u_longlong_t *result);
+
+extern uint32_t zone_get_hostid(void *zonep);
+
 /*
  * Task queues
  */
@@ -534,16 +542,6 @@ extern char *kmem_asprintf(const char *fmt, ...);
 	    (taskq_create(a, b, c, d, e, f))
 #define	taskq_create_sysdc(a, b, d, e, p, dc, f) \
 	    (taskq_create(a, b, maxclsyspri, d, e, f))
-
-/*
- * Hostname information
- */
-extern char hw_serial[];	/* for userland-emulated hostid access */
-extern int ddi_strtoul(const char *str, char **nptr, int base,
-    unsigned long *result);
-
-extern int ddi_strtoull(const char *str, char **nptr, int base,
-    u_longlong_t *result);
 
 /* ZFS Boot Related stuff. */
 

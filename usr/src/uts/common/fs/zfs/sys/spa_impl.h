@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright 2013 Saso Kiselkov. All rights reserved.
@@ -179,6 +179,15 @@ typedef enum spa_all_vdev_zap_action {
 	AVZ_ACTION_REBUILD	/* Populate the new AVZ, see spa_avz_rebuild */
 } spa_avz_action_t;
 
+typedef enum spa_config_source {
+	SPA_CONFIG_SRC_NONE = 0,
+	SPA_CONFIG_SRC_SCAN,		/* scan of path (default: /dev/dsk) */
+	SPA_CONFIG_SRC_CACHEFILE,	/* any cachefile */
+	SPA_CONFIG_SRC_TRYIMPORT,	/* returned from call to tryimport */
+	SPA_CONFIG_SRC_SPLIT,		/* new pool in a pool split */
+	SPA_CONFIG_SRC_MOS		/* MOS, but not always from right txg */
+} spa_config_source_t;
+
 struct spa {
 	/*
 	 * Fields protected by spa_namespace_lock.
@@ -196,6 +205,8 @@ struct spa {
 	int		spa_inject_ref;		/* injection references */
 	uint8_t		spa_sync_on;		/* sync threads are running */
 	spa_load_state_t spa_load_state;	/* current load operation */
+	boolean_t	spa_trust_config;	/* do we trust vdev tree? */
+	spa_config_source_t spa_config_source;	/* where config comes from? */
 	uint64_t	spa_import_flags;	/* import specific flags */
 	spa_taskqs_t	spa_zio_taskq[ZIO_TYPES][ZIO_TASKQ_TYPES];
 	dsl_pool_t	*spa_dsl_pool;
@@ -254,6 +265,8 @@ struct spa {
 	int		spa_async_suspended;	/* async tasks suspended */
 	kcondvar_t	spa_async_cv;		/* wait for thread_exit() */
 	uint16_t	spa_async_tasks;	/* async task mask */
+	uint64_t	spa_missing_tvds;	/* unopenable tvds on load */
+	uint64_t	spa_missing_tvds_allowed; /* allow loading spa? */
 
 	spa_removing_phys_t spa_removing_phys;
 	spa_vdev_removal_t *spa_vdev_removal;

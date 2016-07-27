@@ -211,8 +211,8 @@ function check_pool_config
 
 	typeset actual=""
 	typeset began=false
-	printf "$status\n" | while read line; do
-		typeset vdev=$(echo "$line" | awk '{printf $1}')
+	zpool status $poolname 2>&1 | while read line; do
+		typeset vdev=$(echo "$line" | awk '{print $1}')
 		if ( ! $began ) && [[ $vdev == NAME ]]; then
 			began=true
 			continue

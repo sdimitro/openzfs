@@ -168,13 +168,22 @@ commit_msg=$(git log -n 1 --format=%B | awk '/^$/ {exit} {print $0}')
 [[ $commit_msg =~ "Revert".* ]] && exit 0
 [[ $commit_msg =~ .*"illumos sync".* ]] && exit 0
 
+# Read the command that initiated this commit
+git_cmd=$(ps -ocommand= -p $PPID)
+
 errors=()
 year=$(date +%Y)
 
 #
-# iterate over all staged files
+# iterate over all staged files, and files in the last commit, if we are amending
 #
 files=$(git diff-index --name-status --cached HEAD | grep -v ^D | cut -c3-)
+
+# If we are amending a commit, process the files already committed as well
+if [[ $git_cmd =~ .*"--amend".*  ]]; then
+	files="$files $(git diff --name-only HEAD~..HEAD | tr '\n' ' ')"
+fi
+
 if [[ -n "$files" ]]; then
 	for f in $files; do
 		#
@@ -183,7 +192,7 @@ if [[ -n "$files" ]]; then
 		case "$f" in
 			*tools/git/local-test/*) continue ;;
 			README*|mapfile*|Make*|*.@(as|bash|c|cfg|css|d|fio|h|header|html|in|ksh|kshlib|mf|\
-			    pl|py|run|s|S|sh|sed|txt|uts|xcl|xml|zcp|\
+			    pl|py|run|s|S|sh|sed|txt|uts|xcl|xml|zcp|shlib|\
 			    1m|3c|3lib|1|2|3|4|5|6|7)) text_files_checks $f;;
 		esac
 	done

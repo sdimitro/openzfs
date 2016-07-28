@@ -738,7 +738,7 @@ vdev_initialize_restart(vdev_t *vd)
 
 	if (vd->vdev_leaf_zap != 0) {
 		mutex_enter(&vd->vdev_initialize_lock);
-		uint64_t initialize_state;
+		uint64_t initialize_state = VDEV_INITIALIZE_NONE;
 		int err = zap_lookup(vd->vdev_spa->spa_meta_objset,
 		    vd->vdev_leaf_zap, VDEV_LEAF_ZAP_INITIALIZE_STATE,
 		    sizeof (initialize_state), 1, &initialize_state);

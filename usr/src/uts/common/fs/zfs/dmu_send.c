@@ -4367,6 +4367,53 @@ recv_begin_check_existing_impl(dmu_recv_begin_arg_t *drba, dsl_dataset_t *ds,
 
 }
 
+/*
+ * Check that any feature flags used in the data stream we're receiving are
+ * supported by the pool we are receiving into.
+ *
+ * Note that some of the features we explicitly check here have additional
+ * (implicit) features they depend on, but those dependencies are enforced
+ * through the zfeature_register() calls declaring the features that we
+ * explicitly check.
+ */
+static int
+recv_begin_check_feature_flags_impl(uint64_t featureflags, spa_t *spa)
+{
+	/* Verify pool version supports SA if SA_SPILL feature set */
+	if ((featureflags & DMU_BACKUP_FEATURE_SA_SPILL) &&
+	    spa_version(spa) < SPA_VERSION_SA)
+		return (SET_ERROR(ENOTSUP));
+
+	/*
+	 * LZ4 compressed, embedded, mooched, and large blocks in the stream can
+	 * only be used if those pool features are enabled because we don't
+	 * attempt to decompress / un-embed / un-mooch / split up the blocks
+	 * during the receive process.
+	 */
+	if ((featureflags & DMU_BACKUP_FEATURE_LZ4) &&
+	    !spa_feature_is_enabled(spa, SPA_FEATURE_LZ4_COMPRESS))
+		return (SET_ERROR(ENOTSUP));
+	if ((featureflags & DMU_BACKUP_FEATURE_EMBED_DATA) &&
+	    !spa_feature_is_enabled(spa, SPA_FEATURE_EMBEDDED_DATA))
+		return (SET_ERROR(ENOTSUP));
+	if ((featureflags & DMU_BACKUP_FEATURE_EMBED_MOOCH_BYTESWAP) &&
+	    !spa_feature_is_enabled(spa, SPA_FEATURE_MOOCH_BYTESWAP))
+		return (SET_ERROR(ENOTSUP));
+	if ((featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS) &&
+	    !spa_feature_is_enabled(spa, SPA_FEATURE_LARGE_BLOCKS))
+		return (SET_ERROR(ENOTSUP));
+
+	/*
+	 * Receiving redacted streams requires that redacted datasets are
+	 * enabled.
+	 */
+	if ((featureflags & DMU_BACKUP_FEATURE_REDACTED) &&
+	    !spa_feature_is_enabled(spa, SPA_FEATURE_REDACTED_DATASETS))
+		return (SET_ERROR(ENOTSUP));
+
+	return (0);
+}
+
 static int
 dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 {
@@ -4390,43 +4437,13 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 	    ((flags & DRR_FLAG_CLONE) && drba->drba_origin == NULL))
 		return (SET_ERROR(EINVAL));
 
-	/* Verify pool version supports SA if SA_SPILL feature set */
-	if ((featureflags & DMU_BACKUP_FEATURE_SA_SPILL) &&
-	    spa_version(dp->dp_spa) < SPA_VERSION_SA)
-		return (SET_ERROR(ENOTSUP));
+	error = recv_begin_check_feature_flags_impl(featureflags, dp->dp_spa);
+	if (error != 0)
+		return (error);
 
+	/* Resumable receives require extensible datasets */
 	if (drba->drba_cookie->drc_resumable &&
-	    !spa_feature_is_enabled(dp->dp_spa,
-	    SPA_FEATURE_EXTENSIBLE_DATASET))
-		return (SET_ERROR(ENOTSUP));
-
-	/*
-	 * The receiving code doesn't know how to translate a WRITE_EMBEDDED
-	 * record to a plain WRITE record, so the pool must have the
-	 * EMBEDDED_DATA feature enabled if the stream has WRITE_EMBEDDED
-	 * records.  Same with WRITE_EMBEDDED records that use LZ4 compression.
-	 */
-	if ((featureflags & DMU_BACKUP_FEATURE_EMBED_DATA) &&
-	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_EMBEDDED_DATA))
-		return (SET_ERROR(ENOTSUP));
-	if ((featureflags & DMU_BACKUP_FEATURE_LZ4) &&
-	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_LZ4_COMPRESS))
-		return (SET_ERROR(ENOTSUP));
-
-	/*
-	 * The receiving code doesn't know how to translate large blocks
-	 * to smaller ones, so the pool must have the LARGE_BLOCKS
-	 * feature enabled if the stream has LARGE_BLOCKS.
-	 */
-	if ((featureflags & DMU_BACKUP_FEATURE_LARGE_BLOCKS) &&
-	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_LARGE_BLOCKS))
-		return (SET_ERROR(ENOTSUP));
-
-	if ((featureflags & DMU_BACKUP_FEATURE_REDACTED) &&
-	    (!spa_feature_is_enabled(dp->dp_spa,
-	    SPA_FEATURE_REDACTED_DATASETS) ||
-	    !spa_feature_is_enabled(dp->dp_spa,
-	    SPA_FEATURE_EXTENSIBLE_DATASET)))
+	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_EXTENSIBLE_DATASET))
 		return (SET_ERROR(ENOTSUP));
 
 	error = dsl_dataset_hold(dp, tofs, FTAG, &ds);
@@ -4699,23 +4716,13 @@ dmu_recv_resume_begin_check(void *arg, dmu_tx_t *tx)
 	    drrb->drr_type >= DMU_OST_NUMTYPES)
 		return (SET_ERROR(EINVAL));
 
-	/* Verify pool version supports SA if SA_SPILL feature set */
-	if ((featureflags & DMU_BACKUP_FEATURE_SA_SPILL) &&
-	    spa_version(dp->dp_spa) < SPA_VERSION_SA)
-		return (SET_ERROR(ENOTSUP));
-
 	/*
-	 * The receiving code doesn't know how to translate a WRITE_EMBEDDED
-	 * record to a plain WRITE record, so the pool must have the
-	 * EMBEDDED_DATA feature enabled if the stream has WRITE_EMBEDDED
-	 * records.  Same with WRITE_EMBEDDED records that use LZ4 compression.
+	 * This is mostly a sanity check since we should have already done these
+	 * checks during a previous attempt to receive the data.
 	 */
-	if ((featureflags & DMU_BACKUP_FEATURE_EMBED_DATA) &&
-	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_EMBEDDED_DATA))
-		return (SET_ERROR(ENOTSUP));
-	if ((featureflags & DMU_BACKUP_FEATURE_LZ4) &&
-	    !spa_feature_is_enabled(dp->dp_spa, SPA_FEATURE_LZ4_COMPRESS))
-		return (SET_ERROR(ENOTSUP));
+	error = recv_begin_check_feature_flags_impl(featureflags, dp->dp_spa);
+	if (error != 0)
+		return (error);
 
 	/* 6 extra bytes for /%recv */
 	char recvname[ZFS_MAX_DATASET_NAME_LEN + 6];

@@ -800,7 +800,7 @@ function get_prop # property dataset
 		return 1
 	fi
 
-	$ECHO $prop_val
+	$ECHO "$prop_val"
 	return 0
 }
 

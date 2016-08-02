@@ -176,6 +176,7 @@
 #include <sharefs/share.h>
 #include <sys/dmu_objset.h>
 #include <sys/dmu_send.h>
+#include <sys/dmu_recv.h>
 #include <sys/dsl_destroy.h>
 #include <sys/dsl_bookmark.h>
 #include <sys/dsl_userhold.h>

@@ -35,14 +35,17 @@
 #include <sys/objlist.h>
 #include <sys/dsl_bookmark.h>
 
+#define	BEGINNV_REDACT_SNAPS		"redact_snaps"
+#define	BEGINNV_REDACT_FROM_SNAPS	"redact_from_snaps"
+#define	BEGINNV_RESUME_OBJECT		"resume_object"
+#define	BEGINNV_RESUME_OFFSET		"resume_offset"
+
 struct vnode;
 struct dsl_dataset;
 struct drr_begin;
 struct avl_tree;
 struct dmu_replay_record;
 struct dmu_send_outparams;
-
-extern const char *recv_clone_name;
 
 int dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
     boolean_t large_block_ok, boolean_t compressok,
@@ -55,40 +58,6 @@ int dmu_send_estimate_fast(struct dsl_dataset *ds, struct dsl_dataset *fromds,
 int dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
     boolean_t embedok, boolean_t large_block_ok, boolean_t compressok,
     int outfd, offset_t *off, struct dmu_send_outparams *dso);
-
-typedef struct dmu_recv_cookie {
-	struct dsl_dataset *drc_ds;
-	struct dmu_replay_record *drc_drr_begin;
-	struct drr_begin *drc_drrb;
-	const char *drc_tofs;
-	const char *drc_tosnap;
-	boolean_t drc_newfs;
-	boolean_t drc_byteswap;
-	boolean_t drc_force;
-	boolean_t drc_resumable;
-	struct avl_tree *drc_guid_to_ds_map;
-	uint64_t drc_newsnapobj;
-	void *drc_owner;
-	cred_t *drc_cred;
-	nvlist_t *drc_begin_nvl;
-
-	objset_t *drc_os;
-	vnode_t *drc_vp; /* The vnode to read the stream from */
-	uint64_t drc_voff; /* The current offset in the stream */
-	uint64_t drc_bytes_read;
-	/*
-	 * A record that has had its payload read in, but hasn't yet been handed
-	 * off to the worker thread.
-	 */
-	struct receive_record_arg *drc_rrd;
-	/* A record that has had its header read in, but not its payload. */
-	struct receive_record_arg *drc_next_rrd;
-	zio_cksum_t drc_cksum;
-	zio_cksum_t drc_prev_cksum;
-	int drc_err;
-	/* Sorted list of objects not to issue prefetches for. */
-	objlist_t *drc_ignore_objlist;
-} dmu_recv_cookie_t;
 
 typedef int (*dmu_send_outfunc_t)(void *buf, int len, void *arg);
 typedef struct dmu_send_outparams {
@@ -123,14 +92,5 @@ redact_block_set_count(redact_block_phys_t *rbp, uint64_t count)
 {
 	BF64_SET_SB((rbp)->rbp_size_count, 0, 48, 0, 1, count);
 }
-
-int dmu_recv_begin(char *tofs, char *tosnap,
-    struct dmu_replay_record *drr_begin,
-    boolean_t force, boolean_t resumable, char *origin, dmu_recv_cookie_t *drc,
-    vnode_t *vp, offset_t *voffp);
-int dmu_recv_stream(dmu_recv_cookie_t *drc, int cleanup_fd,
-    uint64_t *action_handlep, offset_t *voffp);
-int dmu_recv_end(dmu_recv_cookie_t *drc, void *owner);
-boolean_t dmu_objset_is_receiving(objset_t *os);
 
 #endif /* _DMU_SEND_H */

@@ -1371,6 +1371,7 @@ ZFS_COMMON_OBJS +=		\
 	dmu.o			\
 	dmu_diff.o		\
 	dmu_send.o		\
+	dmu_recv.o		\
 	dmu_object.o		\
 	dmu_objset.o		\
 	dmu_traverse.o		\

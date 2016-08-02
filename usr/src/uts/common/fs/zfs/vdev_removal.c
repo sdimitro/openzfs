@@ -1236,7 +1236,7 @@ spa_vdev_remove_cancel_check(void *arg, dmu_tx_t *tx)
 	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
 
 	if (spa->spa_vdev_removal == NULL)
-		return (ENOENT);
+		return (ENOTACTIVE);
 	return (0);
 }
 
@@ -1383,7 +1383,7 @@ spa_vdev_remove_cancel(spa_t *spa)
 	spa_vdev_remove_suspend(spa);
 
 	if (spa->spa_vdev_removal == NULL)
-		return (ENOENT);
+		return (ENOTACTIVE);
 
 	uint64_t vdid = spa->spa_vdev_removal->svr_vdev->vdev_id;
 

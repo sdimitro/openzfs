@@ -2913,6 +2913,9 @@ setup_redact_merge_thread(struct redact_merge_thread_arg *rmt_arg,
     struct dmu_send_params *dspp, struct send_thread_arg *redact_args,
     redaction_list_t *rl, dmu_sendstatus_t *dssp)
 {
+	if (dspp->redact_type == REDACT_NONE)
+		return;
+
 	rmt_arg->cancel = B_FALSE;
 	VERIFY0(bqueue_init(&rmt_arg->q, zfs_send_no_prefetch_queue_ff,
 	    zfs_send_no_prefetch_queue_length,
@@ -2925,6 +2928,7 @@ setup_redact_merge_thread(struct redact_merge_thread_arg *rmt_arg,
 		rmt_arg->rl = rl;
 		rmt_arg->num_blocks_visited = &dssp->dss_blocks;
 	}
+
 	(void) thread_create(NULL, 0, redact_merge_thread, rmt_arg, 0,
 	    curproc, TS_RUN, minclsyspri);
 }

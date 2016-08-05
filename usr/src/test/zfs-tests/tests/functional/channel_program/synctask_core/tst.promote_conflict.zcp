@@ -18,4 +18,6 @@
 args = ...
 argv = args["argv"]
 err, desc = zfs.sync.promote(argv[1])
-return {err=err, desc=desc}
+assert(err == EEXIST)
+assert(#desc == 1)
+assert(desc[1] == "promote_conflict_snap")

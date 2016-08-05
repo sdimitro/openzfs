@@ -234,7 +234,7 @@ typedef struct zcp_alloc_arg {
 typedef struct zcp_eval_arg {
 	lua_State	*ea_state;
 	zcp_alloc_arg_t	*ea_allocargs;
-	kthread_t	*ea_thread;
+	cred_t		*ea_cred;
 	nvlist_t	*ea_outnvl;
 	int		ea_result;
 	uint64_t	ea_timeout;
@@ -250,7 +250,7 @@ zcp_convert_return_values(lua_State *state, nvlist_t *nvl,
 	lua_pushlightuserdata(state, nvl);
 	lua_pushvalue(state, 1);
 	lua_remove(state, 1);
-	err = lua_pcall(state, 3, 0, 0);
+	err = lua_pcall(state, 3, 0, 0); /* zcp_lua_to_nvlist_helper */
 	if (err != 0) {
 		zcp_lua_to_nvlist(state, 1, nvl, ZCP_RET_ERROR, 0);
 		evalargs->ea_result = SET_ERROR(ECHRNG);
@@ -259,22 +259,56 @@ zcp_convert_return_values(lua_State *state, nvlist_t *nvl,
 
 /*
  * Push a Lua table representing nvl onto the stack.  If it can't be
- * converted, return EINVAL, fill in errbuf, and push nothing.
+ * converted, return EINVAL, fill in errbuf, and push nothing. errbuf may
+ * be specified as NULL, in which case no error string will be output.
+ *
+ * Most nvlists are converted as simple key->value Lua tables, but we make
+ * an exception for the case where all nvlist entries are BOOLEANs (a string
+ * key without a value). In Lua, a table key pointing to a value of Nil
+ * (no value) is equivalent to the key not existing, so a BOOLEAN nvlist
+ * entry can't be directly converted to a Lua table entry. Nvlists of entirely
+ * BOOLEAN entries are frequently used to pass around lists of datasets, so for
+ * convenience we check for this case, and convert it to a simple Lua array of
+ * strings.
  */
-static int
+int
 zcp_nvlist_to_lua(lua_State *state, nvlist_t *nvl,
     char *errbuf, int errbuf_len)
 {
+	nvpair_t *pair;
 	lua_newtable(state);
-	for (nvpair_t *pair = nvlist_next_nvpair(nvl, NULL);
+	boolean_t has_values = B_FALSE;
+	/*
+	 * If the list doesn't have any values, just convert it to a string
+	 * array.
+	 */
+	for (pair = nvlist_next_nvpair(nvl, NULL);
 	    pair != NULL; pair = nvlist_next_nvpair(nvl, pair)) {
-		int err = zcp_nvpair_value_to_lua(state, pair,
-		    errbuf, errbuf_len);
-		if (err != 0) {
-			lua_pop(state, 1);
-			return (err);
+		if (nvpair_type(pair) != DATA_TYPE_BOOLEAN) {
+			has_values = B_TRUE;
+			break;
 		}
-		(void) lua_setfield(state, -2, nvpair_name(pair));
+	}
+	if (!has_values) {
+		int i = 1;
+		for (pair = nvlist_next_nvpair(nvl, NULL);
+		    pair != NULL; pair = nvlist_next_nvpair(nvl, pair)) {
+			(void) lua_pushinteger(state, i);
+			(void) lua_pushstring(state, nvpair_name(pair));
+			(void) lua_settable(state, -3);
+			i++;
+		}
+	} else {
+		for (pair = nvlist_next_nvpair(nvl, NULL);
+		    pair != NULL; pair = nvlist_next_nvpair(nvl, pair)) {
+			int err = zcp_nvpair_value_to_lua(state, pair,
+			    errbuf, errbuf_len);
+			if (err != 0) {
+				lua_pop(state, 1);
+				return (err);
+			}
+			(void) lua_setfield(state, -2, nvpair_name(pair));
+		}
 	}
 	return (0);
 }
@@ -332,9 +366,11 @@ zcp_nvpair_value_to_lua(lua_State *state, nvpair_t *pair,
 		break;
 	}
 	default: {
-		(void) snprintf(errbuf, errbuf_len,
-		    "Unhandled nvpair type %d for key '%s'",
-		    nvpair_type(pair), nvpair_name(pair));
+		if (errbuf != NULL) {
+			(void) snprintf(errbuf, errbuf_len,
+			    "Unhandled nvpair type %d for key '%s'",
+			    nvpair_type(pair), nvpair_name(pair));
+		}
 		return (EINVAL);
 	}
 	}
@@ -640,7 +676,7 @@ zcp_eval_sync(void *arg, dmu_tx_t *tx)
 	 */
 	ri.zri_space_used = 0;
 	ri.zri_pool = dmu_tx_pool(tx);
-	ri.zri_auth_thread = evalargs->ea_thread;
+	ri.zri_cred = evalargs->ea_cred;
 	ri.zri_tx = tx;
 	ri.zri_timed_out = B_FALSE;
 	/*
@@ -691,21 +727,29 @@ zcp_eval_sync(void *arg, dmu_tx_t *tx)
 	switch (err) {
 	case LUA_OK: {
 		/*
-		 * Return values will have been pushed onto the stack:
+		 * Lua supports returning multiple values in a single return
+		 * statement.  Return values will have been pushed onto the
+		 * stack:
 		 * 1: Return value 1
 		 * 2: Return value 2
 		 * 3: etc...
+		 * To simplify the process of retrieving a return value from a
+		 * channel program, we disallow returning more than one value
+		 * to ZFS from the Lua script, yielding a singleton return
+		 * nvlist of the form { "return": Return value 1 }.
 		 */
-		char numstr[64];
-		int i, numvals;
-		evalargs->ea_result = 0;
+		int return_count = lua_gettop(state);
 
-		numvals = lua_gettop(state);
-		for (i = 0; i < numvals; i++) {
-			VERIFY3U(sizeof (numstr), >,
-			    snprintf(numstr, sizeof (numstr), "%d", i));
+		if (return_count == 1) {
+			evalargs->ea_result = 0;
 			zcp_convert_return_values(state, evalargs->ea_outnvl,
-			    numstr, evalargs);
+			    ZCP_RET_RETURN, evalargs);
+		} else if (return_count > 1) {
+			evalargs->ea_result = SET_ERROR(ECHRNG);
+			(void) lua_pushfstring(state, "Multiple return "
+			    "values not supported");
+			zcp_convert_return_values(state, evalargs->ea_outnvl,
+			    ZCP_RET_ERROR, evalargs);
 		}
 		break;
 	}
@@ -878,13 +922,7 @@ zcp_eval(const char *poolname, const char *program, uint64_t timeout,
 	evalargs.ea_state = state;
 	evalargs.ea_allocargs = &allocargs;
 	evalargs.ea_timeout = timeout;
-	/*
-	 * ea_thread must remain a valid thread while the sync function executes
-	 * so that it can be used for permissions checking. This will work
-	 * because the current thread will wait for the sync function to
-	 * complete.
-	 */
-	evalargs.ea_thread = curthread;
+	evalargs.ea_cred = CRED();
 	evalargs.ea_outnvl = outnvl;
 	evalargs.ea_result = 0;
 

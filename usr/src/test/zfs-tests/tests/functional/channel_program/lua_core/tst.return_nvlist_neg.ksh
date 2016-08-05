@@ -32,8 +32,11 @@ set -A args "function() return 1 end" \
 	"{[function() return 1 end]=0}" \
 	"assert" \
 	"0, assert" \
-        "true, {[{}]=0}" \
+	"true, {[{}]=0}" \
 	"{[0]=true, [\"0\"]=false}" \
+	"{val=true}, {val=false}" \
+	"{1, 2, 3}, {[4]=5}" \
+	"nil, true, 1, \"test\", {}, {val=true}" \
 	"{[false]=true, [\"false\"]=false}"
 
 typeset -i i=0

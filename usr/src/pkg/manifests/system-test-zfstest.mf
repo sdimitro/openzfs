@@ -461,6 +461,21 @@ file \
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.parse_args_neg \
     mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.promote_conflict \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.promote_conflict.out \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.promote_conflict.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.promote_multiple \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.promote_simple \
+    mode=0555
 $(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/edonr_test.amd64 \
     mode=0555
 $(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/edonr_test.i386 \

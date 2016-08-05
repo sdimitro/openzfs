@@ -81,8 +81,12 @@ dsl_destroy_snapshot_check_impl(dsl_dataset_t *ds, boolean_t defer)
 }
 
 int
-dsl_destroy_snapshot_check(const char *dsname, boolean_t defer, dmu_tx_t *tx)
+dsl_destroy_snapshot_check(void *arg, dmu_tx_t *tx)
 {
+	dsl_destroy_snapshot_arg_t *ddsa = arg;
+	const char *dsname = ddsa->ddsa_name;
+	boolean_t defer = ddsa->ddsa_defer;
+
 	dsl_pool_t *dp = dmu_tx_pool(tx);
 	int error = 0;
 	dsl_dataset_t *ds;
@@ -494,8 +498,12 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 }
 
 void
-dsl_destroy_snapshot_sync(const char *dsname, boolean_t defer, dmu_tx_t *tx)
+dsl_destroy_snapshot_sync(void *arg, dmu_tx_t *tx)
 {
+	dsl_destroy_snapshot_arg_t *ddsa = arg;
+	const char *dsname = ddsa->ddsa_name;
+	boolean_t defer = ddsa->ddsa_defer;
+
 	dsl_pool_t *dp = dmu_tx_pool(tx);
 	dsl_dataset_t *ds;
 
@@ -594,7 +602,7 @@ dsl_destroy_snapshots_nvl(nvlist_t *snaps, boolean_t defer,
 	 * returned from LUA.
 	 */
 	int rv = 0;
-	nvlist_t *errlist_raw = fnvlist_lookup_nvlist(result, "0");
+	nvlist_t *errlist_raw = fnvlist_lookup_nvlist(result, ZCP_RET_RETURN);
 	for (nvpair_t *pair = nvlist_next_nvpair(errlist_raw, NULL);
 	    pair != NULL; pair = nvlist_next_nvpair(errlist_raw, pair)) {
 		int32_t val = (int32_t)fnvpair_value_int64(pair);

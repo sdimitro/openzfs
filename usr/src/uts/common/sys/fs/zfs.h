@@ -1009,6 +1009,7 @@ typedef enum {
 #define	ZCP_ARG_CLIARGV		"argv"
 
 #define	ZCP_RET_ERROR		"error"
+#define	ZCP_RET_RETURN		"return"
 
 #define	ZCP_DEFAULT_TIMEOUT	1000
 #define	ZCP_DEFAULT_MEMLIMIT	(10 * 1024 * 1024)

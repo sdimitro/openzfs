@@ -264,6 +264,16 @@ dsl_dataset_phys(dsl_dataset_t *ds)
 	return (ds->ds_dbuf->db_data);
 }
 
+typedef struct dsl_dataset_promote_arg {
+	const char *ddpa_clonename;
+	dsl_dataset_t *ddpa_clone;
+	list_t shared_snaps, origin_snaps, clone_snaps;
+	dsl_dataset_t *origin_origin; /* origin of the origin */
+	uint64_t used, comp, uncomp, unique, cloneusedsnap, originusedsnap;
+	nvlist_t *err_ds;
+	cred_t *cr;
+} dsl_dataset_promote_arg_t;
+
 /*
  * The max length of a temporary tag prefix is the number of hex digits
  * required to express UINT64_MAX plus one for the hyphen.
@@ -301,6 +311,8 @@ uint64_t dsl_dataset_create_sync(dsl_dir_t *pds, const char *lastname,
 uint64_t dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
     uint64_t flags, dmu_tx_t *tx);
 int dsl_dataset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors);
+void dsl_dataset_promote_sync(void *arg, dmu_tx_t *tx);
+int dsl_dataset_promote_check(void *arg, dmu_tx_t *tx);
 int dsl_dataset_promote(const char *name, char *conflsnap);
 int dsl_dataset_clone_swap(dsl_dataset_t *clone, dsl_dataset_t *origin_head,
     boolean_t force);

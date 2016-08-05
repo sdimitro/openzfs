@@ -35,7 +35,7 @@
 
 #define	DST_AVG_BLKSHIFT 14
 
-typedef int (zcp_synctask_func_t)(lua_State *, boolean_t);
+typedef int (zcp_synctask_func_t)(lua_State *, boolean_t, nvlist_t **);
 typedef struct zcp_synctask_info {
 	const char *name;
 	zcp_synctask_func_t *func;
@@ -45,7 +45,49 @@ typedef struct zcp_synctask_info {
 	const zcp_arg_t kwargs[2];
 } zcp_synctask_info_t;
 
-static int zcp_synctask_destroy(lua_State *, boolean_t);
+/*
+ * Generic synctask interface for channel program syncfuncs.
+ *
+ * To perform some action in syncing context, we'd generally call
+ * dsl_sync_task(), but since the Lua script is already running inside a
+ * synctask we need to leave out some actions (such as acquiring the config
+ * rwlock and performing space checks).
+ *
+ * If 'sync' is false, executes a dry run and returns the error code.
+ *
+ * This function also handles common fatal error cases for channel program
+ * library functions. If a fatal error occurs, err_dsname will be the dataset
+ * name reported in error messages, if supplied.
+ */
+static int
+zcp_sync_task(lua_State *state, dsl_checkfunc_t *checkfunc,
+    dsl_syncfunc_t *syncfunc, void *arg, boolean_t sync, const char *err_dsname)
+{
+	int err;
+	zcp_run_info_t *ri = zcp_run_info(state);
+
+	err = checkfunc(arg, ri->zri_tx);
+	if (!sync)
+		return (err);
+
+	if (err == 0) {
+		syncfunc(arg, ri->zri_tx);
+	} else if (err == EIO) {
+		if (err_dsname != NULL) {
+			return (luaL_error(state,
+			    "I/O error while accessing dataset '%s'",
+			    err_dsname));
+		} else {
+			return (luaL_error(state,
+			    "I/O error while accessing dataset."));
+		}
+	}
+
+	return (err);
+}
+
+
+static int zcp_synctask_destroy(lua_State *, boolean_t, nvlist_t **);
 static zcp_synctask_info_t zcp_synctask_destroy_info = {
 	.name = "destroy",
 	.func = zcp_synctask_destroy,
@@ -61,12 +103,12 @@ static zcp_synctask_info_t zcp_synctask_destroy_info = {
 	}
 };
 
+/* ARGSUSED */
 static int
-zcp_synctask_destroy(lua_State *state, boolean_t sync)
+zcp_synctask_destroy(lua_State *state, boolean_t sync, nvlist_t **err_details)
 {
 	int err;
 	const char *dsname = lua_tostring(state, 1);
-	zcp_run_info_t *ri = zcp_run_info(state);
 
 	boolean_t issnap = (strchr(dsname, '@') != NULL);
 
@@ -77,45 +119,77 @@ zcp_synctask_destroy(lua_State *state, boolean_t sync)
 	}
 
 	if (issnap) {
-		boolean_t defer = B_FALSE;
-
+		dsl_destroy_snapshot_arg_t ddsa = { 0 };
+		ddsa.ddsa_name = dsname;
 		if (!lua_isnil(state, 2)) {
-			defer = lua_toboolean(state, 2);
+			ddsa.ddsa_defer = lua_toboolean(state, 2);
+		} else {
+			ddsa.ddsa_defer = B_FALSE;
 		}
 
-		err = dsl_destroy_snapshot_check(dsname, defer, ri->zri_tx);
-		if (err == EIO) {
-			return (luaL_error(state,
-			    "I/O error while accessing dataset '%s'", dsname));
-		}
-		if (sync && err == 0) {
-			dsl_destroy_snapshot_sync(dsname, defer, ri->zri_tx);
-		}
+		err = zcp_sync_task(state, dsl_destroy_snapshot_check,
+		    dsl_destroy_snapshot_sync, &ddsa, sync, dsname);
 	} else {
-		dsl_destroy_head_arg_t args;
+		dsl_destroy_head_arg_t ddha = { 0 };
+		ddha.ddha_name = dsname;
 
-		args.ddha_name = dsname;
-
-		err = dsl_destroy_head_check(&args, ri->zri_tx);
-		if (err == EIO) {
-			return (luaL_error(state,
-			    "I/O error while accessing dataset '%s'", dsname));
-		}
-		if (sync && err == 0) {
-			dsl_destroy_head_sync(&args, ri->zri_tx);
-		}
+		err = zcp_sync_task(state, dsl_destroy_head_check,
+		    dsl_destroy_head_sync, &ddha, sync, dsname);
 	}
 
 	return (err);
 }
 
+static int zcp_synctask_promote(lua_State *, boolean_t, nvlist_t **err_details);
+static zcp_synctask_info_t zcp_synctask_promote_info = {
+	.name = "promote",
+	.func = zcp_synctask_promote,
+	.space_check = ZFS_SPACE_CHECK_RESERVED,
+	.blocks_modified = 3,
+	.pargs = {
+	    {.za_name = "clone", .za_lua_type = LUA_TSTRING},
+	    {NULL, NULL}
+	},
+	.kwargs = {
+	    {NULL, NULL}
+	}
+};
+
 static int
-zcp_synctask_func(lua_State *state)
+zcp_synctask_promote(lua_State *state, boolean_t sync, nvlist_t **err_details)
 {
 	int err;
+	dsl_dataset_promote_arg_t ddpa = { 0 };
+	const char *dsname = lua_tostring(state, 1);
+	zcp_run_info_t *ri = zcp_run_info(state);
+
+	ddpa.ddpa_clonename = dsname;
+	ddpa.err_ds = fnvlist_alloc();
+	ddpa.cr = ri->zri_cred;
+
+	err = zcp_sync_task(state, dsl_dataset_promote_check,
+	    dsl_dataset_promote_sync, &ddpa, sync, dsname);
+
+	/*
+	 * If there was a snapshot name conflict, then err_ds will be filled
+	 * with a list of conflicting snapshot names.
+	 */
+	if (err == EEXIST)
+		*err_details = ddpa.err_ds;
+
+	return (err);
+}
+
+static int
+zcp_synctask_wrapper(lua_State *state)
+{
+	int err;
+	int num_ret = 1;
+	nvlist_t *err_details = NULL;
 
 	zcp_synctask_info_t *info = lua_touserdata(state, lua_upvalueindex(1));
 	boolean_t sync = lua_toboolean(state, lua_upvalueindex(2));
+
 	zcp_run_info_t *ri = zcp_run_info(state);
 	dsl_pool_t *dp = ri->zri_pool;
 
@@ -138,7 +212,7 @@ zcp_synctask_func(lua_State *state)
 	}
 
 	if (err == 0) {
-		err = info->func(state, sync);
+		err = info->func(state, sync, &err_details);
 	}
 
 	if (err == 0) {
@@ -146,7 +220,13 @@ zcp_synctask_func(lua_State *state)
 	}
 
 	lua_pushnumber(state, (lua_Number)err);
-	return (1);
+	if (err_details != NULL) {
+		(void) zcp_nvlist_to_lua(state, err_details, NULL, 0);
+		fnvlist_free(err_details);
+		num_ret++;
+	}
+
+	return (num_ret);
 }
 
 int
@@ -155,6 +235,7 @@ zcp_load_synctask_lib(lua_State *state, boolean_t sync)
 	int i;
 	zcp_synctask_info_t *zcp_synctask_funcs[] = {
 		&zcp_synctask_destroy_info,
+		&zcp_synctask_promote_info,
 		NULL
 	};
 
@@ -164,7 +245,7 @@ zcp_load_synctask_lib(lua_State *state, boolean_t sync)
 		zcp_synctask_info_t *info = zcp_synctask_funcs[i];
 		lua_pushlightuserdata(state, info);
 		lua_pushboolean(state, sync);
-		lua_pushcclosure(state, &zcp_synctask_func, 2);
+		lua_pushcclosure(state, &zcp_synctask_wrapper, 2);
 		lua_setfield(state, -2, info->name);
 		info++;
 	}

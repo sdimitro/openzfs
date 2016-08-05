@@ -32,11 +32,8 @@ set -A args "" \
 	"1" \
 	"\"test\"" \
 	"{}" \
-        "{val=0}" \
-	"{val=true}, {val=false}" \
-        "{1, 2, 3}, {[4]=5}" \
-	"{1, {2, 3}, {val1={val2=true}}}, {test=\"yes\"}" \
-	"nil, true, 1, \"test\", {}, {val=true}" \
+	"{val=0}" \
+	"{{1, {2, 3}, {val1={val2=true}}}, {test=\"yes\"}}" \
 	"EINVAL"
 
 typeset -i i=0

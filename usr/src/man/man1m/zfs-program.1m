@@ -103,12 +103,22 @@ Lua return statements take the form:
 return ret0, ret1, ret2, ...
 .Ed
 .Pp
-Which is returned to the caller as an enumerated list:
+Return statements returning multiple values are permitted internally in a
+channel program script, but attempting to return more than one value from the
+top level of the channel program is not permitted and will throw an error.
+However, tables containing multiple values can still be returned.
+If invoked from the command line, a return statement:
 .Bd -literal -offset indent
-0: ret0
-1: ret1
-2: ret2,
-\&...
+a = {foo="bar", baz=2}
+return a
+.Ed
+.Pp
+Will be output formatted as:
+.Bd -literal -offset indent
+Channel program fully executed with return value:
+    return:
+        baz: 2
+        foo: 'bar'
 .Ed
 .Ss Fatal Errors
 If the channel program encounters a fatal error while running, a non-zero exit
@@ -218,9 +228,28 @@ syntactic sugar for this calling convention:
 zfs.sync.snapshot{"rpool@snap", defer=true}
 .Ed
 .Ss Function Return Values
-If an API function succeeds, it returns 0.  If it fails, it returns an error
+If an API function succeeds, it returns 0. If it fails, it returns an error
 code and the channel program continues executing. API functions do not generate
 Fatal Errors except in the case of an unrecoverable internal file system error.
+.Pp
+In addition to returning an error code, some functions also return extra
+details describing what caused the error. This extra description is given as a
+second return value, and will always be a Lua table, or Nil if no error details
+were returned. Different keys will exist in the error details table depending
+on the function and error case. Any such function may be called expecting a
+single return value:
+.Bd -literal -offset indent
+errno = zfs.sync.promote(dataset)
+.Ed
+.Pp
+Or, the error details can be retrieved:
+.Bd -literal -offset indent
+errno, details = zfs.sync.promote(dataset)
+if (errno == EEXIST) then
+    assert(details ~= Nil)
+    list_of_conflicting_snapshots = details
+end
+.Ed
 .Pp
 The following global aliases for API function error return codes are defined
 for use in channel programs:
@@ -236,6 +265,10 @@ ENOEXEC   EEXIST      ETXTBSY     EDQUOT
 EBADF     EXDEV       EFBIG
 .Ed
 .Ss API Functions
+For detailed descriptions of the exact behavior of any zfs administrative
+operations, see the main
+.Xr zfs 1
+manual page.
 .Bl -tag -width "xx"
 .It Em zfs.debug(msg)
 Record a debug message in the zfs_dbgmsg log. A log of these messages can be
@@ -249,7 +282,7 @@ msg (string)
 Debug message to be printed.
 .Ed
 .It Em zfs.get_prop(dataset, property)
-Returns a string containing the property value for the given dataset.  Throws a
+Returns a string containing the property value for the given dataset. Throws a
 Lua error if the dataset is invalid or the property doesn't exist.
 .Pp
 dataset (string)
@@ -264,8 +297,10 @@ Name of property to retrieve. Must be a user property.
 .El
 .Bl -tag -width "xx"
 .It Sy zfs.sync submodule
-The sync submodule contains functions that modify the on-disk state.  They are
+The sync submodule contains functions that modify the on-disk state. They are
 executed in "syncing context".
+.Pp
+The available sync submodule functions are as follows:
 .Bl -tag -width "xx"
 .It Em zfs.sync.destroy(dataset, [defer=true|false])
 Destroy the given dataset. Returns 0 on successful destroy, or a nonzero error
@@ -283,12 +318,24 @@ Valid only for destroying snapshots. If set to true, and the snapshot has holds
 or clones, allows the snapshot to be marked for deferred deletion rather than
 failing.
 .Ed
+.It Em zfs.sync.promote(dataset)
+Promote the given clone to a filesystem. Returns 0 on successful promotion, or
+a nonzero error code otherwise. If EEXIST is returned, the second return value
+will be an array of the clone's snapshots whose names collide with snapshots of
+the parent filesystem.
+.Pp
+dataset (string)
+.Bd -ragged -compact -offset "xxxx"
+Clone to be promoted.
+.Ed
 .El
 .It Sy zfs.check submodule
 For each function in the zfs.sync submodule, there is a corresponding zfs.check
 function which performs a "dry run" of the same operation. Each takes the same
 arguments as its zfs.sync counterpart and returns 0 if the operation would
-succeed, or a non-zero error code if it would fail.  For example,
+succeed, or a non-zero error code if it would fail, along with any other error
+details. That is, each has the same behavior as the corresponding sync function
+except for actually executing the requested change. For example,
 .Em zfs.check.destroy("fs")
 returns 0 if
 .Em zfs.sync.destroy("fs")
@@ -297,6 +344,7 @@ would successfully destroy the dataset.
 The available zfs.check functions are:
 .Bl -tag -width "xx"
 .It Em zfs.check.destroy(dataset, [defer=true|false])
+.It Em zfs.check.promote(dataset)
 .El
 .It Sy zfs.list submodule
 The zfs.list submodule provides functions for iterating over datasets and
@@ -396,4 +444,21 @@ results = {}
 results["succeeded"] = succeeded
 results["failed"] = failed
 return results
+.Ed
+.Ss Example 3
+The following function performs a forced promote operation by attempting to
+promote the given clone and destroying any conflicting snapshots.
+.Bd -literal -offset indent
+function force_promote(ds)
+   errno, details = zfs.check.promote(ds)
+   if (errno == EEXIST) then
+       assert(details ~= Nil)
+       for i, snap in ipairs(details) do
+           zfs.sync.destroy(ds .. "@" .. snap)
+       end
+   elseif (errno ~= 0) then
+       return errno
+   end
+   return zfs.sync.promote(ds)
+end
 .Ed

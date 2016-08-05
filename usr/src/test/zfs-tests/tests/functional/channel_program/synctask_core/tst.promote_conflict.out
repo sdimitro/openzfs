@@ -1,0 +1,5 @@
+Channel program fully executed with return value:
+    return:
+        err: 17
+        desc:
+            1: 'promote_conflict_snap'

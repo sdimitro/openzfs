@@ -85,7 +85,7 @@ nvlist_equal(nvlist_t *nvla, nvlist_t *nvlb)
 static void
 test(const char *testname, boolean_t expect_success, boolean_t expect_match)
 {
-	char *progstr = "return (...)";
+	char *progstr = "input = ...; return {output=input}";
 
 	nvlist_t *outnvl;
 
@@ -105,7 +105,8 @@ test(const char *testname, boolean_t expect_success, boolean_t expect_match)
 		 * input contains an array (since arrays are converted to lua
 		 * tables), so this is only asserted for some test cases.
 		 */
-		nvlist_t *real_outnvl = fnvlist_lookup_nvlist(outnvl, "0");
+		nvlist_t *real_outnvl = fnvlist_lookup_nvlist(outnvl, "return");
+		real_outnvl = fnvlist_lookup_nvlist(real_outnvl, "output");
 		if (!nvlist_equal(nvl, real_outnvl)) {
 			unexpected_failures = B_TRUE;
 			(void) printf("unexpected input/output mismatch for "
@@ -136,7 +137,7 @@ run_tests(void)
 	nvl = fnvlist_alloc();
 
 	fnvlist_add_boolean(nvl, key);
-	test("boolean", B_FALSE, B_FALSE);
+	test("boolean", B_TRUE, B_FALSE);
 
 	fnvlist_add_boolean_value(nvl, key, B_TRUE);
 	test("boolean_value", B_FALSE, B_FALSE);

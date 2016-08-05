@@ -2578,22 +2578,12 @@ struct promotenode {
 	dsl_dataset_t *ds;
 };
 
-typedef struct dsl_dataset_promote_arg {
-	const char *ddpa_clonename;
-	dsl_dataset_t *ddpa_clone;
-	list_t shared_snaps, origin_snaps, clone_snaps;
-	dsl_dataset_t *origin_origin; /* origin of the origin */
-	uint64_t used, comp, uncomp, unique, cloneusedsnap, originusedsnap;
-	char *err_ds;
-	cred_t *cr;
-} dsl_dataset_promote_arg_t;
-
 static int snaplist_space(list_t *l, uint64_t mintxg, uint64_t *spacep);
 static int promote_hold(dsl_dataset_promote_arg_t *ddpa, dsl_pool_t *dp,
     void *tag);
 static void promote_rele(dsl_dataset_promote_arg_t *ddpa, void *tag);
 
-static int
+int
 dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 {
 	dsl_dataset_promote_arg_t *ddpa = arg;
@@ -2605,6 +2595,7 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 	uint64_t unused;
 	uint64_t ss_mv_cnt;
 	size_t max_snap_len;
+	boolean_t conflicting_snaps;
 
 	err = promote_hold(ddpa, dp, FTAG);
 	if (err != 0)
@@ -2665,6 +2656,7 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 	 * Note however, if we stop before we reach the ORIGIN we get:
 	 * uN + kN + kN-1 + ... + kM - uM-1
 	 */
+	conflicting_snaps = B_FALSE;
 	ss_mv_cnt = 0;
 	ddpa->used = dsl_dataset_phys(origin_ds)->ds_referenced_bytes;
 	ddpa->comp = dsl_dataset_phys(origin_ds)->ds_compressed_bytes;
@@ -2693,12 +2685,12 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 		}
 		err = dsl_dataset_snap_lookup(hds, ds->ds_snapname, &val);
 		if (err == 0) {
-			(void) strcpy(ddpa->err_ds, snap->ds->ds_snapname);
-			err = SET_ERROR(EEXIST);
+			fnvlist_add_boolean(ddpa->err_ds,
+			    snap->ds->ds_snapname);
+			conflicting_snaps = B_TRUE;
+		} else if (err != ENOENT) {
 			goto out;
 		}
-		if (err != ENOENT)
-			goto out;
 
 		/* The very first snapshot does not have a deadlist */
 		if (dsl_dataset_phys(ds)->ds_prev_snap_obj == 0)
@@ -2726,15 +2718,24 @@ dsl_dataset_promote_check(void *arg, dmu_tx_t *tx)
 		zfs_bookmark_phys_t bm;
 		err = dsl_bookmark_lookup_impl(ddpa->ddpa_clone,
 		    dbn->dbn_name, &bm);
+
 		if (err == 0) {
-			(void) strcpy(ddpa->err_ds, dbn->dbn_name);
-			err = SET_ERROR(EEXIST);
+			fnvlist_add_boolean(ddpa->err_ds, dbn->dbn_name);
+			conflicting_snaps = B_TRUE;
+		} else if (err == ESRCH) {
+			err = 0;
+		} else if (err != 0) {
 			goto out;
 		}
-		if (err == ESRCH)
-			err = 0;
-		if (err != 0)
-			goto out;
+	}
+
+	/*
+	 * In order to return the full list of conflicting snapshots, we check
+	 * whether there was a conflict after traversing all of them.
+	 */
+	if (conflicting_snaps) {
+		err = SET_ERROR(EEXIST);
+		goto out;
 	}
 
 	/*
@@ -2799,7 +2800,7 @@ out:
 	return (err);
 }
 
-static void
+void
 dsl_dataset_promote_sync(void *arg, dmu_tx_t *tx)
 {
 	dsl_dataset_promote_arg_t *ddpa = arg;
@@ -3166,6 +3167,7 @@ dsl_dataset_promote(const char *name, char *conflsnap)
 	dsl_dataset_promote_arg_t ddpa = { 0 };
 	uint64_t numsnaps;
 	int error;
+	nvpair_t *snap_pair;
 	objset_t *os;
 
 	/*
@@ -3183,12 +3185,22 @@ dsl_dataset_promote(const char *name, char *conflsnap)
 		return (error);
 
 	ddpa.ddpa_clonename = name;
-	ddpa.err_ds = conflsnap;
+	ddpa.err_ds = fnvlist_alloc();
 	ddpa.cr = CRED();
 
-	return (dsl_sync_task(name, dsl_dataset_promote_check,
+	error = dsl_sync_task(name, dsl_dataset_promote_check,
 	    dsl_dataset_promote_sync, &ddpa,
-	    2 + numsnaps, ZFS_SPACE_CHECK_RESERVED));
+	    2 + numsnaps, ZFS_SPACE_CHECK_RESERVED);
+
+	/*
+	 * Return the first conflicting snapshot found.
+	 */
+	snap_pair = nvlist_next_nvpair(ddpa.err_ds, NULL);
+	if (snap_pair != NULL && conflsnap != NULL)
+		(void) strcpy(conflsnap, nvpair_name(snap_pair));
+
+	fnvlist_free(ddpa.err_ds);
+	return (error);
 }
 
 int

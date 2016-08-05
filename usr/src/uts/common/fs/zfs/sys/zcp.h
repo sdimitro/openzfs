@@ -53,12 +53,12 @@ typedef struct zcp_run_info {
 	int		zri_space_used;
 
 	/*
-	 * The thread which originally invoked the channel program, since
-	 * channel programs are always invoked from the synctask thread
-	 * they should always do permissions checks against this thread
-	 * rather than the 'current' thread.
+	 * The credentials of the thread which originally invoked the channel
+	 * program. Since channel programs are always invoked from the synctask
+	 * thread they should always do permissions checks against this cred
+	 * rather than the 'current' thread's.
 	 */
-	kthread_t	*zri_auth_thread;
+	cred_t		*zri_cred;
 
 	/*
 	 * The tx in which this channel program is running.
@@ -104,6 +104,7 @@ typedef struct zcp_arg {
 
 void zcp_parse_args(lua_State *, const char *, const zcp_arg_t *,
     const zcp_arg_t *);
+int zcp_nvlist_to_lua(lua_State *, nvlist_t *, char *, int);
 
 struct dsl_dataset *zcp_dataset_hold(lua_State *, dsl_pool_t *,
     const char *, void *);

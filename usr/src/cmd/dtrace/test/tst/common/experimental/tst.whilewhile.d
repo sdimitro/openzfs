@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -22,7 +22,6 @@
  *   Verify that nested while loops work.
  */
 
-#pragma D option experimental
 #pragma D option quiet
 
 BEGIN

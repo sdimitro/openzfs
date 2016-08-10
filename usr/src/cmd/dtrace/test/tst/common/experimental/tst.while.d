@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -22,8 +22,6 @@
  *   Verify that once the predicate of a while loop fails, we don't
  *   evaluate it again.
  */
-
-#pragma D option experimental
 
 BEGIN
 {

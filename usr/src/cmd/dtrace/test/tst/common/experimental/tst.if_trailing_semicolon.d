@@ -14,15 +14,13 @@
  */
 
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 /*
  * ASSERTION:
  *   "if" body without trailing semicolon parses correctly
  */
-
-#pragma D option experimental
 
 BEGIN
 {

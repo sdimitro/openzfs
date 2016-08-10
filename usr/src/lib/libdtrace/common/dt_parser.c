@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2013, Joyent Inc. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -2866,16 +2866,8 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		    dnp->dn_string, mark, name,
 		    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 	} else {
-		const char *addendum = "";
-
-		if (strcmp(dnp->dn_string, "entry") == 0) {
-			addendum = ". This experimental feature may "
-			    "be enabled with the -xd flag.";
-		}
-
-		xyerror(D_IDENT_UNDEF, "failed to resolve %s: %s%s\n",
-		    dnp->dn_string, dtrace_errmsg(dtp, dtrace_errno(dtp)),
-		    addendum);
+		xyerror(D_IDENT_UNDEF, "failed to resolve %s: %s\n",
+		    dnp->dn_string, dtrace_errmsg(dtp, dtrace_errno(dtp)));
 	}
 }
 
@@ -2904,18 +2896,11 @@ dt_cook_var(dt_node_t *dnp, uint_t idflags)
 	dt_ident_t *idp = dnp->dn_ident;
 
 	if ((idflags & DT_IDFLG_REF) && dt_ident_unref(idp)) {
-		const char *addendum = "";
-
-		if (strcmp(idp->di_name, "callers") == 0) {
-			addendum = ". This experimental feature may "
-			    "be enabled with the -xd flag.";
-		}
-
 		dnerror(dnp, D_VAR_UNDEF,
-		    "%s%s has not yet been declared or assigned%s\n",
+		    "%s%s has not yet been declared or assigned\n",
 		    (idp->di_flags & DT_IDFLG_LOCAL) ? "this->" :
 		    (idp->di_flags & DT_IDFLG_TLS) ? "self->" : "",
-		    idp->di_name, addendum);
+		    idp->di_name);
 	}
 
 	dt_node_attr_assign(dnp, dt_ident_cook(dnp, idp, &dnp->dn_args));
@@ -4502,15 +4487,6 @@ dt_cook_none(dt_node_t *dnp, uint_t idflags)
 	return (dnp);
 }
 
-/*ARGSUSED*/
-static dt_node_t *
-dt_cook_experimental(dt_node_t *dnp, uint_t idflags)
-{
-	dnerror(dnp, D_SYNTAX, "The experimental \"if\" or \"while\" statement "
-	    "must be enabled with -xd.");
-	return (NULL);
-}
-
 static dt_node_t *(*dt_cook_funcs[])(dt_node_t *, uint_t) = {
 	dt_cook_none,		/* DT_NODE_FREE */
 	dt_cook_none,		/* DT_NODE_INT */
@@ -4534,8 +4510,8 @@ static dt_node_t *(*dt_cook_funcs[])(dt_node_t *, uint_t) = {
 	dt_cook_none,		/* DT_NODE_PROBE */
 	dt_cook_provider,	/* DT_NODE_PROVIDER */
 	dt_cook_none,		/* DT_NODE_PROG */
-	dt_cook_experimental,	/* DT_NODE_IF */
-	dt_cook_experimental,	/* DT_NODE_WHILE */
+	dt_cook_none,		/* DT_NODE_IF */
+	dt_cook_none,		/* DT_NODE_WHILE */
 };
 
 /*

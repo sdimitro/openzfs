@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2013, Joyent Inc. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright 2015 Gary Mills
  */
 
@@ -2418,12 +2418,10 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 	/*
-	 * If experimental features are enabled, perform their transformations,
-	 * and replace the existing clause chain with the new one.
+	 * Perform experimental transformations and replace the
+	 * existing clause chain with the new one.
 	 */
-	if (context == DT_CTX_DPROG &&
-	    ((dtp->dt_cflags & DTRACE_C_EXPERIMENTAL) ||
-	    (dtp->dt_pcb->pcb_cflags & DTRACE_C_EXPERIMENTAL))) {
+	if (context == DT_CTX_DPROG) {
 		dt_node_t *dnp, *next_dnp;
 		dt_node_t *new_list = NULL;
 

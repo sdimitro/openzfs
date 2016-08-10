@@ -944,7 +944,7 @@ dmu_object_remap_one_indirect(objset_t *os, dnode_t *dn,
 	    dbuf_read(dbuf, NULL, DB_RF_MUST_SUCCEED) == 0 &&
 	    dbuf_can_remap(dbuf)) {
 		dmu_tx_t *tx = dmu_tx_create(os);
-		dmu_tx_hold_remap_l1indirect(tx, dn->dn_object, offset);
+		dmu_tx_hold_remap_l1indirect(tx, dn->dn_object);
 		err = dmu_tx_assign(tx, TXG_WAIT);
 		if (err == 0) {
 			(void) dbuf_dirty(dbuf, tx);

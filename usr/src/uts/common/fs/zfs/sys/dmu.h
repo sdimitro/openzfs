@@ -645,11 +645,6 @@ struct blkptr *dmu_buf_get_blkptr(dmu_buf_t *db);
 void dmu_buf_will_dirty(dmu_buf_t *db, dmu_tx_t *tx);
 
 /*
- * Tells if the given dbuf is freeable.
- */
-boolean_t dmu_buf_freeable(dmu_buf_t *);
-
-/*
  * You must create a transaction, then hold the objects which you will
  * (or might) modify as part of this transaction.  Then you must assign
  * the transaction to a transaction group.  Once the transaction has
@@ -675,7 +670,7 @@ void dmu_tx_hold_write(dmu_tx_t *tx, uint64_t object, uint64_t off,
     uint64_t len);
 void dmu_tx_hold_free(dmu_tx_t *tx, uint64_t object, uint64_t off,
     uint64_t len);
-void dmu_tx_hold_remap_l1indirect(dmu_tx_t *tx, uint64_t object, uint64_t off);
+void dmu_tx_hold_remap_l1indirect(dmu_tx_t *tx, uint64_t object);
 void dmu_tx_hold_netfree(dmu_tx_t *tx);
 void dmu_tx_hold_zap(dmu_tx_t *tx, uint64_t object, int add, const char *name);
 void dmu_tx_hold_bonus(dmu_tx_t *tx, uint64_t object);

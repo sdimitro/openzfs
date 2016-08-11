@@ -1,4 +1,4 @@
 Channel program execution failed:
-[string "channel program"]:1: attempt to divide by zero
+[string "channel program"]:16: attempt to divide by zero
 stack traceback:
-	[string "channel program"]:1: in main chunk
+	[string "channel program"]:16: in main chunk

@@ -31,7 +31,7 @@ function log_program
 	# Expected output/error filename is the same as the .zcp name
 	typeset basename
 	if [[ $2 != "-" ]]; then
-		basename=${2%%.*}
+		basename=${2%.*}
 	fi
 
 	log_note "running: zfs program $cmdargs:"

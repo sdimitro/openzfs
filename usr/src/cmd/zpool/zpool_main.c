@@ -3892,8 +3892,14 @@ zpool_do_initialize(int argc, char **argv)
 			cmd_type = POOL_INITIALIZE_SUSPEND;
 			break;
 		case '?':
-			(void) fprintf(stderr, gettext("invalid option '%c'\n"),
-			    optopt);
+			if (optopt != 0) {
+				(void) fprintf(stderr,
+				    gettext("invalid option '%c'\n"), optopt);
+			} else {
+				(void) fprintf(stderr,
+				    gettext("invalid option '%s'\n"),
+				    argv[optind - 1]);
+			}
 			usage(B_FALSE);
 		}
 	}

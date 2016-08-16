@@ -14,6 +14,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include "includes.h"
@@ -475,8 +476,8 @@ try_krb4_authentication(void)
 		packet_check_eom();
 
 		/*
-		 * If his response isn't properly encrypted with the session
-		 * key, and the decrypted checksum fails to match, he's
+		 * If its response isn't properly encrypted with the session
+		 * key, and the decrypted checksum fails to match, it's
 		 * bogus. Bail out.
 		 */
 		r = krb_rd_priv(auth.dat, auth.length, schedule, &cred.session,
@@ -529,7 +530,7 @@ try_krb5_authentication(krb5_context *context, krb5_auth_context *auth_context)
 		ret = 0;
 		goto out;
 	}
-	
+
 	problem = krb5_auth_con_init(*context, auth_context);
 	if (problem) {
 		debug("Kerberos v5: krb5_auth_con_init failed");
@@ -670,7 +671,7 @@ send_krb5_tgt(krb5_context context, krb5_auth_context auth_context)
 		goto out;
 
 	remotehost = get_canonical_hostname(1);
-	
+
 #ifdef HEIMDAL
 	problem = krb5_build_principal(context, &creds.server,
 	    strlen(creds.client->realm), creds.client->realm,

@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -152,7 +153,7 @@
  *    number of references to the ofile in other structures (such as an smb
  *    request). The reference count is not incremented in these 2 instances:
  *
- *    1) The ofile is open. An ofile is anchored by his state. If there's
+ *    1) The ofile is open. An ofile is anchored by its state. If there's
  *       no activity involving an ofile currently open, the reference count
  *       of that ofile is zero.
  *

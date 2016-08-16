@@ -34,6 +34,7 @@
 /*
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include "includes.h"
@@ -507,7 +508,7 @@ do_exec_no_pty(Session *s, const char *command)
 			close(err[0]);
 			if ((err[0] = open(_PATH_DEVNULL, O_WRONLY)) == -1)
 				fatal("Cannot open /dev/null: %.100s", strerror(errno));
-		} 
+		}
 		if (dup2(err[0], 2) < 0)	/* stderr */
 			perror("dup2 stderr");
 
@@ -918,7 +919,7 @@ void copy_environment(char **source, char ***env, u_int *envsize)
 
 		debug3("Copy environment: %s=%s", var_name, var_val);
 		child_set_env(env, envsize, var_name, var_val);
-		
+
 		xfree(var_name);
 	}
 }
@@ -1001,7 +1002,7 @@ do_setup_env(Session *s, const char *shell)
 #endif
 
 #ifdef GSSAPI
-	/* Allow any GSSAPI methods that we've used to alter 
+	/* Allow any GSSAPI methods that we've used to alter
 	 * the childs environment as they see fit
 	 */
 	ssh_gssapi_do_child(xxx_gssctxt, &env,&envsize);
@@ -1025,9 +1026,9 @@ do_setup_env(Session *s, const char *shell)
 	 * remains intact here.
 	 */
 #  ifdef SUPERUSER_PATH
-	child_set_env(&env, &envsize, "PATH", 
+	child_set_env(&env, &envsize, "PATH",
 	    s->pw->pw_uid == 0 ? SUPERUSER_PATH : _PATH_STDPATH);
-#  else 
+#  else
 	child_set_env(&env, &envsize, "PATH", _PATH_STDPATH);
 #  endif /* SUPERUSER_PATH */
 # endif /* HAVE_CYGWIN */
@@ -1303,7 +1304,7 @@ safely_chroot(const char *path, uid_t uid)
 			memcpy(component, path, cp - path);
 			component[cp - path] = '\0';
 		}
-	
+
 		debug3("%s: checking '%s'", __func__, component);
 
 		if (stat(component, &st) != 0)
@@ -1311,7 +1312,7 @@ safely_chroot(const char *path, uid_t uid)
 			    component, strerror(errno));
 		if (st.st_uid != 0 || (st.st_mode & 022) != 0)
 			fatal("bad ownership or modes for chroot "
-			    "directory %s\"%s\"", 
+			    "directory %s\"%s\"",
 			    cp == NULL ? "" : "component ", component);
 		if (!S_ISDIR(st.st_mode))
 			fatal("chroot path %s\"%s\" is not a directory",
@@ -1419,7 +1420,7 @@ do_child(Session *s, const char *command)
 	 * so that error messages beyond this point have the proper
 	 * character encoding.
 	 */
-	(void) setlocale(LC_ALL, ""); 
+	(void) setlocale(LC_ALL, "");
 
 	/*
 	 * Close any extra open file descriptors so that we don\'t have them
@@ -1666,7 +1667,7 @@ session_pty_req(Session *s)
 		s->hostname[0] = '\0';
 		s->last_login_time = get_last_login_time(s->pw->pw_uid,
 		    s->pw->pw_name, s->hostname, sizeof(s->hostname));
-		
+
 		/*
 		 * PAM may update the last login date.
 		 *

@@ -22,6 +22,7 @@
  * Copyright (c) 1993, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Milan Jurik. All rights reserved.
  * Copyright 2014 Toomas Soome <tsoome@me.com>
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -239,7 +240,7 @@ c_disk()
 	}
 
 	/*
-	 * Determine total number of disks, and ask the user which disk he
+	 * Determine total number of disks, and ask the user which disk they
 	 * would like to make current.
 	 */
 
@@ -413,7 +414,7 @@ c_type()
 	index = input(FIO_INT, "Specify disk type (enter its number)", ':',
 	    &ioparam, defltptr, DATA_INPUT);
 	/*
-	 * Find the type s/he chose.
+	 * Find the type they chose.
 	 */
 	if (index == auto_conf_choice) {
 		float			scaled;
@@ -1093,7 +1094,7 @@ currently being used for swapping.\n");
 	 * Print the time so that the user will know when format started.
 	 * Lock out interrupts.  This could be a problem, since it could
 	 * cause the user to sit for quite awhile with no control, but we
-	 * don't have any other good way of keeping his gun from going off.
+	 * don't have any other good way of keeping their gun from going off.
 	 */
 	clock = time((time_t *)0);
 	fmt_print("Beginning format. The current time is %s\n",
@@ -1830,7 +1831,7 @@ c_defect()
 
 	/*
 	 * If the user has modified the working list but not committed
-	 * it, warn him that he is probably making a mistake.
+	 * it, warn them that they are probably making a mistake.
 	 */
 	if (work_list.flags & LIST_DIRTY) {
 		if (!EMBEDDED_SCSI) {

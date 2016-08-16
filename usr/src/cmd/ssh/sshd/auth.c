@@ -28,7 +28,7 @@
  */
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
  */
 
 #include "includes.h"
@@ -319,7 +319,7 @@ audit_failed_login_cleanup(void *ctxt)
 	 * authctxt and authctxt->valid need to be checked before either of
 	 * the authctxt->pam* variables.
 	 *
-	 *           authctxt->                     authctxt->     
+	 *           authctxt->                     authctxt->
 	 * authctxt    valid      authctxt->pam       pam_retval   PAM rval
 	 * --------  ----------   -------------     ------------   --------
 	 *   NULL      ANY             ANY              ANY        PAM_ABORT
@@ -525,7 +525,7 @@ secure_filename(FILE *f, const char *file, struct passwd *pw,
 
 	/*
 	 * A user is not required to have all the files that are subject to
-	 * the strict mode checking in his/her home directory. If the
+	 * the strict mode checking in their home directory. If the
 	 * directory is not present at the moment, which might be the case if
 	 * the directory is not mounted until the user is authenticated, do
 	 * not perform the home directory check below.

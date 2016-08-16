@@ -1,13 +1,14 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
  * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -110,7 +111,7 @@ extern "C" {
  * to aid in platform-specific optimizations and debugging.
  * Sources originally distributed under the following license headers:
  * CommonDigest.c - APSL
- * 
+ *
  * md32_Common.h
  * ====================================================================
  * Copyright (c) 1999-2002 The OpenSSL Project.  All rights reserved.
@@ -120,7 +121,7 @@ extern "C" {
  * are met:
  *
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
+ *    notice, this list of conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
@@ -173,21 +174,21 @@ extern "C" {
  * This package is an SSL implementation written
  * by Eric Young (eay@cryptsoft.com).
  * The implementation was written so as to conform with Netscapes SSL.
- * 
+ *
  * This library is free for commercial and non-commercial use as long as
  * the following conditions are aheared to.  The following conditions
  * apply to all code found in this distribution, be it the RC4, RSA,
  * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
  * included with this distribution is covered by the same copyright terms
  * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- * 
+ *
  * Copyright remains Eric Young's, and as such any Copyright notices in
  * the code are not to be removed.
  * If this package is used in a product, Eric Young should be given attribution
  * as the author of the parts of the library used.
  * This can be in the form of a textual message at program startup or
  * in documentation (online or textual) provided with the package.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -202,10 +203,10 @@ extern "C" {
  *     Eric Young (eay@cryptsoft.com)"
  *    The word 'cryptographic' can be left out if the rouines from the library
  *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from 
+ * 4. If you include any Windows specific code (or a derivative thereof) from
  *    the apps directory (application code) you must include an acknowledgement:
  *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -217,7 +218,7 @@ extern "C" {
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- * 
+ *
  * The licence and distribution terms for any publically available version or
  * derivative of this code cannot be changed.  i.e. this code cannot simply be
  * copied and put under another distribution licence
@@ -905,7 +906,7 @@ int HASH_FINAL (unsigned char *md, HASH_CTX *c)
  * *either* case. Now declaring 'em long excuses the compiler
  * from keeping 32 MSBs zeroed resulting in 13% performance
  * improvement under SPARC Solaris7/64 and 5% under AlphaLinux.
- * Well, to be honest it should say that this *prevents* 
+ * Well, to be honest it should say that this *prevents*
  * performance degradation.
  *				<appro@fy.chalmers.se>
  * Apparently there're LP64 compilers that generate better
@@ -951,7 +952,7 @@ int HASH_FINAL (unsigned char *md, HASH_CTX *c)
 	a+=((k)+(t)+I((b),(c),(d))); \
 	a=ROTATE(a,s); \
 	a+=b; };
-	
+
 // from md5_dgst.c
 
 
@@ -1328,12 +1329,12 @@ mDNSexport mDNSs32 DNSDigest_Base64ToBin(const char *src, mDNSu8 *target, mDNSu3
 #define HMAC_MD5_AlgName (*(const domainname*) "\010" "hmac-md5" "\007" "sig-alg" "\003" "reg" "\003" "int")
 
 // Adapted from Appendix, RFC 2104
-mDNSexport void DNSDigest_ConstructHMACKey(uDNS_AuthInfo *info, const mDNSu8 *key, mDNSu32 len)		
+mDNSexport void DNSDigest_ConstructHMACKey(uDNS_AuthInfo *info, const mDNSu8 *key, mDNSu32 len)
 	{
 	MD5_CTX k;
 	mDNSu8 buf[MD5_LEN];
 	int i;
-	
+
 	// If key is longer than HMAC_LEN reset it to MD5(key)
 	if (len > HMAC_LEN)
 		{
@@ -1370,14 +1371,14 @@ mDNSexport mDNSu8 *DNSDigest_SignMessage(DNSMessage *msg, mDNSu8 **end, mDNSu16 
 	mDNSu32 len;
 	mDNSOpaque16 buf;
 	MD5_CTX c;
-	
+
 	// Init MD5 context, digest inner key pad and message
     MD5_Init(&c);
     MD5_Update(&c, info->key.ipad, HMAC_LEN);
 	MD5_Update(&c, (mDNSu8 *)msg, (unsigned long)(*end - (mDNSu8 *)msg));
-	   
+
 	// Construct TSIG RR, digesting variables as apporpriate
-	mDNSPlatformMemZero(&tsig, sizeof(AuthRecord));	
+	mDNSPlatformMemZero(&tsig, sizeof(AuthRecord));
 	mDNS_SetupResourceRecord(&tsig, mDNSNULL, 0, kDNSType_TSIG, 0, kDNSRecordTypeKnownUnique, mDNSNULL, mDNSNULL);
 
 	// key name
@@ -1392,7 +1393,7 @@ mDNSexport mDNSu8 *DNSDigest_SignMessage(DNSMessage *msg, mDNSu8 **end, mDNSu16 
 	// ttl
 	tsig.resrec.rroriginalttl = 0;
 	MD5_Update(&c, (mDNSu8 *)&tsig.resrec.rroriginalttl, sizeof(tsig.resrec.rroriginalttl));
-	
+
 	// alg name
 	AssignDomainName(&tsig.resrec.rdata->u.name, &HMAC_MD5_AlgName);
 	len = DomainNameLength(&HMAC_MD5_AlgName);
@@ -1411,7 +1412,7 @@ mDNSexport mDNSu8 *DNSDigest_SignMessage(DNSMessage *msg, mDNSu8 **end, mDNSu16 
 	utc48[5] = (mDNSu8)( utc32        & 0xff);
 
 	mDNSPlatformMemCopy(utc48, rdata, 6);
-	rdata += 6;              	
+	rdata += 6;
 	MD5_Update(&c, utc48, 6);
 
 	// 300 sec is fudge recommended in RFC 2485
@@ -1427,7 +1428,7 @@ mDNSexport mDNSu8 *DNSDigest_SignMessage(DNSMessage *msg, mDNSu8 **end, mDNSu16 
 
 	// finish the message & tsig var hash
     MD5_Final(digest, &c);
-	
+
 	// perform outer MD5 (outer key pad, inner digest)
 	MD5_Init(&c);
 	MD5_Update(&c, info->key.opad, HMAC_LEN);
@@ -1447,7 +1448,7 @@ mDNSexport mDNSu8 *DNSDigest_SignMessage(DNSMessage *msg, mDNSu8 **end, mDNSu16 
 	rdata[4] = 0;                                                         // other data len
 	rdata[5] = 0;
 	rdata += 6;
-	
+
 	tsig.resrec.rdlength = (mDNSu16)(rdata - tsig.resrec.rdata->u.data);
 	*end = PutResourceRecordTTLJumbo(msg, ptr, numAdditionals, &tsig.resrec, 0);
 	if (!*end) { LogMsg("ERROR: DNSDigest_SignMessage - could not put TSIG"); return mDNSNULL; }

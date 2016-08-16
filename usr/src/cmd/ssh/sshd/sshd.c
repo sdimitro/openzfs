@@ -42,6 +42,7 @@
  */
 /*
  * Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include "includes.h"
@@ -451,7 +452,7 @@ contracts_post_fork_parent(int fork_succeeded)
 			strerror(errno));
 		return;
 	}
-	
+
 	if ((errno = ct_ctl_abandon(cfd)))
 		debug2("Error while abandoning latest contract: %s",
 			strerror(errno));
@@ -1117,8 +1118,8 @@ main(int ac, char **av)
 	/*
 	 * Clear out any supplemental groups we may have inherited.  This
 	 * prevents inadvertent creation of files with bad modes (in the
-	 * portable version at least, it's certainly possible for PAM 
-	 * to create a file, and we can't control the code in every 
+	 * portable version at least, it's certainly possible for PAM
+	 * to create a file, and we can't control the code in every
 	 * module which might be used).
 	 */
 	if (setgroups(0, NULL) < 0)
@@ -1553,8 +1554,8 @@ main(int ac, char **av)
 	/*
 	 * Check that the connection comes from a privileged port.
 	 * Rhosts-Authentication only makes sense from privileged
-	 * programs.  Of course, if the intruder has root access on his local
-	 * machine, he can connect from any port.  So do not use these
+	 * programs.  Of course, if the intruder has root access on their local
+	 * machine, they can connect from any port.  So do not use these
 	 * authentication methods from machines that you do not trust.
 	 */
 	if (options.rhosts_authentication &&
@@ -1647,7 +1648,7 @@ main(int ac, char **av)
 	destroy_sensitive_data();
 
 	/* Just another safety check. */
-	if (getuid() != authctxt->pw->pw_uid || 
+	if (getuid() != authctxt->pw->pw_uid ||
 	    geteuid() != authctxt->pw->pw_uid) {
 		fatal("Failed to set uids to %u.", (u_int)authctxt->pw->pw_uid);
 	}

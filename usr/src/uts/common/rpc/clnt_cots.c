@@ -21,6 +21,7 @@
 
 /*
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -3615,7 +3616,7 @@ clnt_dispatch_notifyall(queue_t *q, int32_t msg_type, int32_t reason)
 				e->call_reason = reason;
 			e->call_notified = TRUE;
 			/*
-			 * Let the caller timeout, else he will retry
+			 * Let the caller timeout, else it will retry
 			 * immediately.
 			 */
 			e->call_status = RPC_XPRTFAILED;

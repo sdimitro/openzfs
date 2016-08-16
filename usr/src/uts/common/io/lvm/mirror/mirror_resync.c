@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/param.h>
@@ -3189,7 +3190,7 @@ resend_mmrr:
 	/*
 	 * if the owner changed while we were sending the message, and it's
 	 * not us, the new mirror owner won't yet have done the right thing
-	 * with our data.  Let him know.  If we became the owner, we'll
+	 * with our data.  Let them know.  If we became the owner, we'll
 	 * deal with that differently below.  Note that receiving a message
 	 * about another node twice won't hurt anything.
 	 */

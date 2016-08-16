@@ -16,6 +16,7 @@
  * Use is subject to license terms.
  *
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include "includes.h"
@@ -80,7 +81,7 @@ ssh_proxy_connect(const char *host, u_short port, const char *proxy_command)
 	 * Build the final command string in the buffer by making the
 	 * appropriate substitutions to the given proxy command.
 	 *
-	 * Use "exec" to avoid "sh -c" processes on some platforms 
+	 * Use "exec" to avoid "sh -c" processes on some platforms
 	 * (e.g. Solaris)
 	 */
 	buffer_init(&command);
@@ -904,7 +905,7 @@ check_host_key(char *host, struct sockaddr *hostaddr, Key *host_key, int
 		 * XXX Should permit the user to change to use the new id.
 		 * This could be done by converting the host key to an
 		 * identifying sentence, tell that the host identifies itself
-		 * by that sentence, and ask the user if he/she whishes to
+		 * by that sentence, and ask the user if they wish to
 		 * accept the authentication.
 		 */
 		break;

@@ -28,7 +28,7 @@
 /*	  All Rights Reserved  	*/
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -334,8 +334,8 @@ poll_common(pollfd_t *fds, nfds_t nfds, timespec_t *tsp, k_sigset_t *ksetp)
 	}
 
 	/*
-	 * Check to see if this guy just wants to use poll() as a timeout.
-	 * If yes then bypass all the other stuff and make him sleep.
+	 * Check to see if this one just wants to use poll() as a timeout.
+	 * If yes then bypass all the other stuff and make it sleep.
 	 */
 	if (nfds == 0) {
 		/*

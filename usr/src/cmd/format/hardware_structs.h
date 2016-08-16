@@ -21,6 +21,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_HARDWARE_STRUCTS_H
@@ -174,7 +175,7 @@ struct ctlr_ops {
 
 /*
  * This structure describes a specific partition layout.  It is malloc'd
- * when the data file is read and whenever the user creates his own
+ * when the data file is read and whenever the user creates their own
  * partition layout.  The link is used to make a list of possible
  * partition layouts for each drive type.
  */

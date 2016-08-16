@@ -1,6 +1,7 @@
 /*
  * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 /*	$OpenBSD: pathnames.h,v 1.13 2002/05/23 19:24:30 markus Exp $	*/
 
@@ -75,7 +76,7 @@ extern "C" {
 
 /*
  * Per-user file containing host keys of known hosts.  This file need not be
- * readable by anyone except the user him/herself, though this does not
+ * readable by anyone except the user, though this does not
  * contain anything particularly secret.
  */
 #define _PATH_SSH_USER_HOSTFILE		"~/.ssh/known_hosts"
@@ -84,7 +85,7 @@ extern "C" {
 
 /*
  * Name of the default file containing client-side authentication key. This
- * file should only be readable by the user him/herself.
+ * file should only be readable by the user.
  */
 #define _PATH_SSH_CLIENT_IDENTITY	".ssh/identity"
 #define _PATH_SSH_CLIENT_ID_DSA		".ssh/id_dsa"
@@ -100,7 +101,7 @@ extern "C" {
 
 /*
  * File containing a list of those rsa keys that permit logging in as this
- * user.  This file need not be readable by anyone but the user him/herself,
+ * user.  This file need not be readable by anyone but the user,
  * but does not contain anything particularly secret.  If the user\'s home
  * directory resides on an NFS volume where root is mapped to nobody, this
  * may need to be world-readable.  (This file is read by the daemon which is

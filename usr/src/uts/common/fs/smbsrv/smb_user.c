@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -89,14 +90,14 @@
  * SMB_USER_STATE_LOGGED_IN
  *
  *    While in this state:
- *      - The user is queued in the list of users of his session.
+ *      - The user is queued in the list of users of their session.
  *      - References will be given out if the user is looked up.
  *      - The user can access files and pipes.
  *
  * SMB_USER_STATE_LOGGING_OFF
  *
  *    While in this state:
- *      - The user is queued in the list of users of his session.
+ *      - The user is queued in the list of users of their session.
  *      - References will not be given out if the user is looked up.
  *      - The trees the user connected are being disconnected.
  *      - The resources associated with the user remain.
@@ -104,7 +105,7 @@
  * SMB_USER_STATE_LOGGING_OFF
  *
  *    While in this state:
- *      - The user is queued in the list of users of his session.
+ *      - The user is queued in the list of users of their session.
  *      - References will not be given out if the user is looked up.
  *      - The user has no more trees connected.
  *      - The resources associated with the user remain.
@@ -129,7 +130,7 @@
  * --------
  *
  *    The state machine of the user structures is controlled by 3 elements:
- *      - The list of users of the session he belongs to.
+ *      - The list of users of the session they belong to.
  *      - The mutex embedded in the structure itself.
  *      - The reference count.
  *
@@ -153,7 +154,7 @@
  *    number of references to the user in other structures (such as an smb
  *    request). The reference count is not incremented in these 2 instances:
  *
- *    1) The user is logged in. An user is anchored by his state. If there's
+ *    1) The user is logged in. An user is anchored by their state. If there's
  *       no activity involving a user currently logged in, the reference
  *       count of that user is zero.
  *

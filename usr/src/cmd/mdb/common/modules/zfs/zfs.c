@@ -1686,7 +1686,7 @@ metaslab_print_weight(uint64_t weight)
 		(void) mdb_snprintf(buf, sizeof (buf), "%llu x %s",
 		    WEIGHT_GET_COUNT(weight), size);
 	}
-	mdb_printf("%9s ", buf);
+	mdb_printf("%11s ", buf);
 }
 
 /* ARGSUSED */
@@ -1741,9 +1741,8 @@ metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	}
 
 	if (!(flags & DCMD_PIPE_OUT) && DCMD_HDRSPEC(flags)) {
-		mdb_printf("%<u>%-4s %-2s %-6s %-11s %9s %18s %18s%</u>\n",
-		    "MSID", "DVA", "ASIZE", "ALLOC TYPE",
-		    "WEIGHT", "RESULT", "VDEV");
+		mdb_printf("%<u>%6s %6s %8s %11s %18s %18s%</u>\n",
+		    "MSID", "DVA", "ASIZE", "WEIGHT", "RESULT", "VDEV");
 	}
 
 	if (mat.mat_msp != NULL) {
@@ -1753,12 +1752,12 @@ metaslab_trace(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		    mat.mat_msp, 0) == -1) {
 			return (DCMD_ERR);
 		}
-		mdb_printf("%4llu ", ms.ms_id);
+		mdb_printf("%6llu ", ms.ms_id);
 	} else {
-		mdb_printf("%4s ", "-");
+		mdb_printf("%6s ", "-");
 	}
 
-	mdb_printf("%2d %6llx ", mat.mat_dva_id, mat.mat_size);
+	mdb_printf("%6d %8llx ", mat.mat_dva_id, mat.mat_size);
 
 	metaslab_print_weight(mat.mat_weight);
 

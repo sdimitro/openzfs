@@ -78,18 +78,74 @@ function get_lines
 #
 function update_copyright
 {
-	# Exclude any lines that mention the current year.
-	# If the copyright mentions Delphix, Capture the "year" [or ", year"].
-	# Substitute the correctly formatted Delphix copyright,
-	# with [captured, ] and current year.
-	# Retain the part after the year unchanged.
-	sed_replace "/Copyright.*$year/! s/Copyright.*\(20[0-9][0-9]\)\(,[[:blank:]]*20[0-9][0-9]\)\{0,1\}.*Delphix[\.]*/Copyright (c) \1, $year by Delphix./" $1
+	#
+	# Exclude up-to-date lines from date refresh.
+	# The following command handles the "...Copyright ..single_year..."
+	# variant:  "single year" becomes "single_year, current_year".
+	#
+	sed_replace "/Copyright.*$year/! \
+	    s/Copyright[^0-9][^0-9]*\(20[0-9][0-9]\)[^,][^,]*\(Delphix[\.].*$\)/Copyright (c) \1, $year by \2/" $1
 
-	# Convert a 2 line Delphix copyright into single line :
-	# Add the next line to the pattern space.
-	# If the next line is [wsp,comment marker]"All rights reserved" )
-	# kill the \n, whitespace, and/or comment marker.
-	sed_replace "/Copyright.*Delphix/N; s/\n[[:blank:]]*[\#\*\/]*\**[[:blank:]]*All rights reserved\.*\(.*\)/ All rights reserved.\1/" $1
+	#
+	# Exclude up-to-date lines from date refresh.
+	# The following command handles the "...Copyright ...year1, year2..."
+	# variant: "year1" becomes "year1, current year".
+	#
+	sed_replace "/Copyright.*$year/! \
+	    s/Copyright[^0-9][^0-9]*\(20[0-9][0-9]\)[[:blank:]]*,.*\(Delphix[\.].*$\)/Copyright (c) \1, $year by \2/" $1
+
+	#
+	# The following command converts a 2 line Delphix copyright into
+	# a single line. Example:
+	# /* Copyright (c) 2016 by Delphix.
+	#  * All rights reserved. */
+	# becomes:
+	# /* Copyright (c) 2016 by Delphix. All rights reserved. */
+	#
+	sed_replace "/Copyright.*Delphix/N; \
+	    s/[[:blank:]]*\n[[:blank:]]*[\#\*\/]*\**[[:blank:]]*All rights reserved\.*\(.*\)/ All rights reserved.\1/" $1
+
+	#
+	# The following command reformats a stand-alone Delphix copyright
+	# that is preceeded, and followed by a comment delimiter on a separate line.
+	# Example:
+	# /*
+	#  * Copyright (c) 2016 by Delphix. * All rights reserved.
+	#  */
+	# becomes:
+	# /* Copyright (c) 2016 by Delphix. All rights reserved. */
+	#
+	sed_replace "/[[:blank:]]*\/\*[[:blank:]]*$/ {
+		N
+		N
+	s/[[:blank:]]*\/\*[[:blank:]]*\n[[:blank:]]*[\*\#]*[[:blank:]]*\(.*Delphix.*\)\n[[:blank:]]*\*\/[[:blank:]]*/\/\* \1 \*\//
+	}" $1
+
+	#
+	# The following command reformats a stand-alone Delphix copyright
+	# that is followed by a comment delimiter on a separate line. Example:
+	# /* Copyright (c) 2016 by Delphix. * All rights reserved.
+	#  */
+	# becomes:
+	# /* Copyright (c) 2016 by Delphix. All rights reserved. */
+	#
+	sed_replace "/[[:blank:]]*\/\*.*Delphix.*$/ {
+		N
+		s/\(.*Delphix.*\)\n[[:blank:]]*\*\/[[:blank:]]*/\1 \*\//
+	}" $1
+
+	#
+	# The following command reformats a stand-alone Delphix copyright
+	# with a leading comment delimiter on a separate line. Example:
+	# /*
+	#  * Copyright (c) 2016 by Delphix. * All rights reserved. */
+	# becomes:
+	# /* Copyright (c) 2016 by Delphix. All rights reserved. */
+	#
+	sed_replace  "/[[:blank:]]*\/\*[[:blank:]]*$/ {
+		N
+		s/[[:blank:]]*\/\*[[:blank:]]*\n[[:blank:]]*[\*\#]*[[:blank:]]*\(.*Delphix.*\*\/\)[[:blank:]]*$/\/\* \1/
+	}" $1
 }
 
 #
@@ -148,7 +204,9 @@ function text_files_checks
 	# Text files must have Unix linebreaks.
 	#
 	remove_windows_line_breaks $1
+	#
 	# Remove trailing whitespace from c, h and dtrace files
+	#
 	case "$1" in
 		*.@(c|d|h))  fix_trailing_spaces $1;;
 	esac
@@ -159,6 +217,7 @@ function text_files_checks
 GIT_DIR=$(cd $GIT_DIR; pwd -P)
 commit_msg=$(git log -n 1 --format=%B | awk '/^$/ {exit} {print $0}')
 
+#
 # If this is an in-progress merge, cherry-pick,
 # Revert, or an illumos sync
 # do not run the hook, but continue the commit
@@ -168,7 +227,9 @@ commit_msg=$(git log -n 1 --format=%B | awk '/^$/ {exit} {print $0}')
 [[ $commit_msg =~ "Revert".* ]] && exit 0
 [[ $commit_msg =~ .*"illumos sync".* ]] && exit 0
 
+#
 # Read the command that initiated this commit
+#
 git_cmd=$(ps -ocommand= -p $PPID)
 
 errors=()
@@ -179,7 +240,9 @@ year=$(date +%Y)
 #
 files=$(git diff-index --name-status --cached HEAD | grep -v ^D | cut -c3-)
 
+#
 # If we are amending a commit, process the files already committed as well
+#
 if [[ $git_cmd =~ .*"--amend".*  ]]; then
 	files="$files $(git diff --name-only HEAD~..HEAD | tr '\n' ' ')"
 fi

@@ -577,9 +577,6 @@ typedef struct sendflags {
 	/* recursive send  (ie, -R) */
 	boolean_t replicate;
 
-	/* For incremental, allow sending from non-ancestor snapshots */
-	boolean_t rebase;
-
 	/* for incrementals, do all intermediate snapshots */
 	boolean_t doall;
 

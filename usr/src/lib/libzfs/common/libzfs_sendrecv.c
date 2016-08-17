@@ -2370,7 +2370,7 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
 	    "warning: cannot send '%s'"), zhp->zfs_name);
 
-	if (from != NULL && strchr(from, '@') && !flags->rebase) {
+	if (from != NULL && strchr(from, '@')) {
 		zfs_handle_t *from_zhp = zfs_open(hdl, from,
 		    ZFS_TYPE_DATASET);
 		if (!snapshot_is_before(from_zhp, zhp)) {

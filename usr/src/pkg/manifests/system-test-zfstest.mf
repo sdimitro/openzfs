@@ -2313,15 +2313,11 @@ file path=opt/zfs-tests/tests/functional/rsend/rsend_011_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_012_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_013_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_014_pos mode=0555
-file path=opt/zfs-tests/tests/functional/rsend/rsend_015_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_016_neg mode=0555
-file path=opt/zfs-tests/tests/functional/rsend/rsend_017_pos mode=0555
-file path=opt/zfs-tests/tests/functional/rsend/rsend_018_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_019_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_020_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_021_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_022_pos mode=0555
-file path=opt/zfs-tests/tests/functional/rsend/rsend_023_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/rsend_024_pos mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/send-cD mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/send-c_embedded_blocks \

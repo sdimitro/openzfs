@@ -173,8 +173,7 @@
 .Nm
 .Cm send
 .Op Fl DLPcenpv
-.Oo Oo Fl b Oc
-.Fl i Ar snapshot Ns
+.Oo Fl i Ar snapshot Ns
 .No | Ns Ar bookmark
 .Oc
 .Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot
@@ -2673,7 +2672,7 @@ on future versions of ZFS .
 .Nm
 .Cm send
 .Op Fl Lce
-.Op Oo Fl b Oc Fl i Ar snapshot Ns | Ns Ar bookmark
+.Op Fl i Ar snapshot Ns | Ns Ar bookmark
 .Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot
 .Xc
 Generate a send stream, which may be of a filesystem, and may be incremental
@@ -2724,17 +2723,6 @@ for details on ZFS feature flags and the
 and
 .Sy mooch_byteswap
 features.
-.It Fl b, -rebase
-Generate an incremental send stream between two datatsets which are
-not direct descendents of each other.  Using this flag removes the
-requirement that the incremental source must be an earlier snapshot in
-the destination's history.  This can be used to rebase the destination
-on top of the source snapshot.  Note that by default, rebase streams
-must be received into an existing filesystem whose most recent shapshot
-is the same as the incremental source snapshot.  This can be overridden
-by setting the "origin" property to a snapshot that is the same as the
-incremental source snapshot; this will allow the rebase stream to be
-received as a clone of that snapshot.
 .It Fl i Ar snapshot Ns | Ns Ar bookmark
 Generate an incremental send stream. The incremental source must be an earlier
 snapshot in the destination's history. It will commonly be an earlier snapshot

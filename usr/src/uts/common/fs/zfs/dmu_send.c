@@ -2344,26 +2344,16 @@ redact_block_merge(struct send_merge_thread_arg *smta,
 }
 
 /*
- * Merge the results from the from_ds and the to_ds, and then hand the record
- * off to send_main_thread to see if it should be redacted.  If this is not a
- * rebase send, the from thread will push an end of stream record and stop.
- * We'll just send everything that was changed in the to_ds since the ancestor's
- * creation txg.  Otherwise, we merge the records from the fromsnap and the
- * tosnap as follows:
- *
- * Since traverse_dataset has a canonical order, we can compare each change as
- * they're pulled off the queues.  We need to send all the differences between
- * from_ds and to_ds.  Anything that hasn't been modified since the common
- * ancestor can't be different between them.  Thus, we send:
- *
- * 1) Everything that's changed in to_ds since the common ancestor (just like in
- * the non-rebase case).
- * 2) Everything that's changed in from_ds since the common ancestor, but we
- * send the the data in to_ds.  For example, from_ds changed object 6 block
- * 10, so we send a record for object 6 block 10, but the data is the data from
- * to_ds.
- * 3) As an exception to the above, if the data has the same checksum (and the
- * checksums are cryptographically secure), then we don't need to send it.
+ * Merge the results from the from thread and the to thread, and then hand the
+ * records off to send_prefetch_thread to prefetch them.  If this is not a
+ * send from a redaction bookmark, the from thread will push an end of stream
+ * record and stop, and we'll just send everything that was changed in the
+ * to_ds since the ancestor's creation txg. If it is, then since
+ * traverse_dataset has a canonical order, we can compare each change as
+ * they're pulled off the queues.  That will give us a stream that is
+ * appropriately sorted, and covers all records.  In addition, we pull the
+ * data from the redact_merge_thread and use that to determine which blocks
+ * should be redacted.
  */
 static void
 send_merge_thread(void *arg)
@@ -2552,9 +2542,7 @@ send_prefetch_thread(void *arg)
 	while (!data->eos_marker && !spta->cancel && smta->error == 0) {
 		if (data->zb.zb_objset != dmu_objset_id(os)) {
 			/*
-			 * This entry came from a different dataset:
-			 * either the "from" dataset when doing
-			 * a rebase send, or the "from bookmark" when
+			 * This entry came from the "from bookmark" when
 			 * sending from a bookmark that has a redaction
 			 * list.  We need to check if this object/blkid
 			 * exists in the target ("to") dataset, and if
@@ -2693,7 +2681,6 @@ struct dmu_send_params {
 	const char *tosnap;
 	dsl_dataset_t *to_ds;
 	/* From snapshot args */
-	dsl_dataset_t *from_ds; // Only set if this is a rebase send
 	zfs_bookmark_phys_t ancestor_zb;
 	uint64_t *fromredactsnaps;
 	uint64_t numfromredactsnaps; // UINT64_MAX if not sending from redacted
@@ -2804,12 +2791,12 @@ create_begin_record(struct dmu_send_params *dspp, objset_t *os,
 
 	struct drr_begin *drrb = &drr->drr_u.drr_begin;
 	dsl_dataset_t *to_ds = dspp->to_ds;
-	dsl_dataset_t *from_ds = dspp->from_ds;
 
 	drrb->drr_magic = DMU_BACKUP_MAGIC;
 	drrb->drr_creation_time = dsl_dataset_phys(to_ds)->ds_creation_time;
 	drrb->drr_type = dmu_objset_type(os);
 	drrb->drr_toguid = dsl_dataset_phys(to_ds)->ds_guid;
+	drrb->drr_fromguid = dspp->ancestor_zb.zbm_guid;
 
 	DMU_SET_STREAM_HDRTYPE(drrb->drr_versioninfo, DMU_SUBSTREAM);
 	DMU_SET_FEATUREFLAGS(drrb->drr_versioninfo, featureflags);
@@ -2819,20 +2806,6 @@ create_begin_record(struct dmu_send_params *dspp, objset_t *os,
 	if (dsl_dataset_phys(dspp->to_ds)->ds_flags & DS_FLAG_CI_DATASET)
 		drrb->drr_flags |= DRR_FLAG_CI_DATA;
 	drrb->drr_flags |= DRR_FLAG_FREERECORDS;
-
-	if (dspp->ancestor_zb.zbm_creation_txg != 0) {
-		/*
-		 * We're doing an incremental send; if from_ds is non-null, then
-		 * this is a rebase send, and we have to specify the guid of the
-		 * snapshot we're rebasing from.  If it is null, then this is a
-		 * normal incremental send, and we should specify the guid of
-		 * the ancestor_zb.
-		 */
-		if (from_ds != NULL)
-			drrb->drr_fromguid = dsl_dataset_phys(from_ds)->ds_guid;
-		else
-			drrb->drr_fromguid = dspp->ancestor_zb.zbm_guid;
-	}
 
 	dsl_dataset_name(to_ds, drrb->drr_toname);
 	if (!to_ds->ds_is_snapshot) {
@@ -2863,15 +2836,13 @@ setup_to_thread(struct send_thread_arg *to_arg, dsl_dataset_t *to_ds,
 
 static void
 setup_from_thread(struct send_thread_arg *from_arg, uint64_t fromtxg,
-    dsl_dataset_t *from_ds, redaction_list_t *from_rl, objset_t *os,
-    dmu_sendstatus_t *dssp)
+    redaction_list_t *from_rl, objset_t *os, dmu_sendstatus_t *dssp)
 {
 	VERIFY0(bqueue_init(&from_arg->q, zfs_send_no_prefetch_queue_ff,
 	    zfs_send_no_prefetch_queue_length,
 	    offsetof(struct send_block_record, ln)));
 	from_arg->error_code = 0;
 	from_arg->cancel = B_FALSE;
-	from_arg->ds = from_ds;
 	from_arg->fromtxg = fromtxg;
 	from_arg->flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA;
 	from_arg->to_os = os;
@@ -2986,7 +2957,6 @@ setup_resume_points(struct dmu_send_params *dspp,
     struct send_merge_thread_arg *smt_arg, boolean_t resuming, objset_t *os,
     redaction_list_t *new_rl, redaction_list_t *redact_rl, nvlist_t *nvl)
 {
-	dsl_dataset_t *from_ds = dspp->from_ds;
 	dsl_dataset_t *to_ds = dspp->to_ds;
 	int err = 0;
 
@@ -3036,9 +3006,8 @@ setup_resume_points(struct dmu_send_params *dspp,
 	}
 
 	SET_BOOKMARK(&to_arg->resume, to_ds->ds_object, obj, 0, blkid);
-	if (from_ds != NULL || nvlist_exists(nvl, BEGINNV_REDACT_FROM_SNAPS)) {
-		uint64_t objset = (from_ds == NULL ?
-		    dspp->ancestor_zb.zbm_redaction_obj : from_ds->ds_object);
+	if (nvlist_exists(nvl, BEGINNV_REDACT_FROM_SNAPS)) {
+		uint64_t objset = dspp->ancestor_zb.zbm_redaction_obj;
 		/*
 		 * Note: If the resume point is in an object whose
 		 * blocksize is different in the from vs to snapshots,
@@ -3086,14 +3055,13 @@ setup_send_progress(struct dmu_send_params *dspp)
 /*
  * Actually do the bulk of the work in a zfs send.
  *
- * The idea is that we want to do a send from from_ds to to_ds, and their common
- * ancestor's information is in ancestor_zb.  We also want to not send any data
- * that has been modified by all the datasets in redactsnaparr, and store the
- * list of blocks that are redacted in this way in a bookmark named redactbook,
- * created on the to_ds.  We do this by creating several worker threads, whose
- * function is described below.
+ * The idea is that we want to do a send from ancestor_zb to to_ds.  We also
+ * want to not send any data that has been modified by all the datasets in
+ * redactsnaparr, and store the list of blocks that are redacted in this way in
+ * a bookmark named redactbook, created on the to_ds.  We do this by creating
+ * several worker threads, whose function is described below.
  *
- * There are four cases.
+ * There are three cases.
  * The first case is a redacted zfs send.  In this case there are a variable
  * number of threads.  There are 5 threads plus one more for each dataset
  * redaction is occuring with respect to.  The first thread is the to_ds
@@ -3155,32 +3123,35 @@ setup_send_progress(struct dmu_send_params *dspp)
  *                                         | Sends data over +->(to zfs receive)
  *                                         | wire            |
  *                                         +-----------------+
- * The second case is a rebase send.  In this case, there are six threads.  The
- * to_ds traversal thread and the main thread behave the same as in the redacted
- * send case.  The redact merge thread notices there are no redact traversal
- * threads, and so returns immediately.  The new thread is the from_ds traversal
- * thread.  It performs basically the same function as the to_ds traversal
- * thread, but for the from_ds.  The send merge thread now has to merge the data
- * from the two threads.  For details about that process, see the header comment
- * of send_merge_thread().  Any data it decides to send on will be prefetched by
- * the prefetch thread.  Note that it is not possible to perform a redacted
- * rebase send.
  *
- * The graphic below diagrams the flow of data in the case of a rebase zfs
- * send.
+ * The second case is an incremental send from a redaction bookmark.  The to_ds
+ * traversal thread and the main thread behave the same as in the redacted
+ * send case.  The redact merge thread notices there are no redact traversal
+ * threads, and so returns immediately.  The new thread is the from bookmark
+ * traversal thread.  It iterates over the redaction list in the redaction
+ * bookmark, and enqueues records for each block that was redacted in the
+ * original send.  The send merge thread now has to merge the data from the
+ * two threads.  For details about that process, see the header comment of
+ * send_merge_thread().  Any data it decides to send on will be prefetched by
+ * the prefetch thread.  Note that you can perform a redacted send from an
+ * incremental bookmark; in that case, the data flow behaves very similarly to
+ * the flow in the redacted send case, except with the addition of the bookmark
+ * traversal thread iterating over the redaction bookmark.  The
+ * send_merge_thread also has to take on the responsibility of merging the
+ * redact merge thread's records and the to_ds records.
  *
  * +---------------------+
  * |                     |
  * | Redact Merge Thread +--------------+
  * |                     |              |
  * +---------------------+              |
- *        Blocks modified by            |
- *        from_ds since ancestor_zb     | End of Stream record
+ *        Blocks in redaction list      | Ranges modified by every secure snap
+ *        of from bookmark              | (or EOS if not readcted)
  *        (send_block_record)           | (send_redact_record)
  * +---------------------+   |     +----v----------------------+
- * | from_ds Traversal   |   v     | Send Merge Thread         |
- * | Thread (finds       +---------> Merges from_ds and to_ds  |
- * | candidate blocks)   |         | send records              |
+ * | bookmark Traversal  |   v     | Send Merge Thread         |
+ * | Thread (finds       +---------> Merges bookmark, rmt, and |
+ * | candidate blocks)   |         | to_ds send records        |
  * +---------------------+         +----^---------------+------+
  *                                      |               | Merged data
  *                                      |  +------------v--------+
@@ -3195,40 +3166,29 @@ setup_send_progress(struct dmu_send_params *dspp)
  *                                         | wire            |
  *                                         +-----------------+
  *
- * The third case is an incremental send from a redaction bookmark.  This case
- * is very similar to the rebase send case; there are six threads, and they all
- * fulfill the same basic role.  The only difference is the from_ds traversal
- * thread.  Instead of iterating over the blocks in the from_ds, it iterates
- * over the redaction list in the redaction bookmark, and enqueues records for
- * each block that was redacted in the original send.  Note that you can perform
- * a redacted send from an incremental bookmark; in that case, the data flow
- * behaves very similarly to the flow in the redacted send case, except with the
- * addition of the from_ds traversal thread iterating over the redaction
- * bookmark.  The send_merge_thread also has to take on the responsibility of
- * merging the redaction list's records and the to_ds records.
- *
- * The final case is a simple zfs full or incremental send.  In this case, there
- * are only 5 threads. The to_ds traversal thread behaves the same as always. As
- * in the rebase case, the redact merge thread is started, realizes there's no
- * redaction going on, and promptly returns. The send merge thread takes all the
- * blocks that the to_ds traveral thread sends it, prefetches the data, and
- * sends the blocks on to the main thread.  The main thread sends the data over
- * the wire.
+ * The final case is a simple zfs full or incremental send.  In this case,
+ * there are only 5 threads. The to_ds traversal thread behaves the same as
+ * always. The redact merge thread is started, realizes there's no redaction
+ * going on, and promptly returns. The send merge thread takes all the blocks
+ * that the to_ds traveral thread sends it, prefetches the data, and sends the
+ * blocks on to the main thread.  The main thread sends the data over the
+ * wire.
  *
  * To keep performance acceptable, we want to prefetch the data in the worker
  * threads.  While the to_ds thread could simply use the TRAVERSE_PREFETCH
  * feature built into traverse_dataset, the combining and deletion of records
- * due to redaction and rebase sends means that we could issue many unnecessary
- * prefetches.  As a result, we only prefetch data after we've determined that
- * the record is not going to be redacted.  To prevent the prefetching from
- * getting too far ahead of the main thread, the blocking queues that are used
- * for communication are capped not by the number of entries in the queue, but
- * by the sum of the size of the prefetches associated with them.  The limit on
- * the amount of data that the thread can prefetch beyond what the main thread
- * has reached is controlled by the global variable zfs_send_queue_length.  In
- * addition, to prevent poor performance in the beginning of a send, we also
- * limit the distance ahead that the traversal threads can be.  That distance is
- * controlled by the zfs_send_no_prefetch_queue_length tunable.
+ * due to redaction and sends from redaction bookmarks mean that we could
+ * issue many unnecessary prefetches.  As a result, we only prefetch data
+ * after we've determined that the record is not going to be redacted.  To
+ * prevent the prefetching from getting too far ahead of the main thread, the
+ * blocking queues that are used for communication are capped not by the
+ * number of entries in the queue, but by the sum of the size of the
+ * prefetches associated with them.  The limit on the amount of data that the
+ * thread can prefetch beyond what the main thread has reached is controlled
+ * by the global variable zfs_send_queue_length.  In addition, to prevent poor
+ * performance in the beginning of a send, we also limit the distance ahead
+ * that the traversal threads can be.  That distance is controlled by the
+ * zfs_send_no_prefetch_queue_length tunable.
  *
  * Note: Releases dp using the specified tag.
  */
@@ -3257,7 +3217,6 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	boolean_t book_resuming = resuming;
 
 	dsl_dataset_t *to_ds = dspp->to_ds;
-	dsl_dataset_t *from_ds = dspp->from_ds;
 	zfs_bookmark_phys_t *ancestor_zb = &dspp->ancestor_zb;
 	dsl_pool_t *dp = dspp->dp;
 	void *tag = dspp->tag;
@@ -3342,8 +3301,6 @@ dmu_send_impl(struct dmu_send_params *dspp)
 
 
 	dsl_dataset_long_hold(to_ds, FTAG);
-	if (from_ds != NULL)
-		dsl_dataset_long_hold(from_ds, FTAG);
 	if (dspp->redact_type == REDACT_LIST) {
 		for (int i = 0; i < dspp->redact_data.rdl.numredactsnaps; i++) {
 			dsl_dataset_long_hold(
@@ -3469,7 +3426,7 @@ dmu_send_impl(struct dmu_send_params *dspp)
 	}
 
 	setup_to_thread(&to_arg, to_ds, dssp, fromtxg);
-	setup_from_thread(&from_arg, fromtxg, from_ds, from_rl, os, dssp);
+	setup_from_thread(&from_arg, fromtxg, from_rl, os, dssp);
 	setup_redact_threads(redact_args, dspp, os, dssp);
 	setup_redact_merge_thread(&rmt_arg, dspp, redact_args, redact_rl, dssp);
 	setup_merge_thread(&smt_arg, dspp, &from_arg, &to_arg, &rmt_arg, new_rl,
@@ -3552,8 +3509,6 @@ out:
 		dsl_dataset_long_rele(dspp->redact_data.rdl.redactsnaparr[i],
 		    FTAG);
 	}
-	if (from_ds != NULL)
-		dsl_dataset_long_rele(from_ds, FTAG);
 	dsl_dataset_long_rele(to_ds, FTAG);
 	if (from_rl != NULL) {
 		dsl_redaction_list_long_rele(from_rl, FTAG);
@@ -3585,169 +3540,13 @@ dsl_dataset_walk_origin(dsl_pool_t *dp, dsl_dataset_t **ds, void *tag)
 	return (err);
 }
 
-/*
- * Find the common ancestor of two datasets.
- *
- * We first measure how far each dataset is from the ORIGIN$ORIGIN by stepping
- * back through each object's origin snapshot.  We then walk the one that is
- * further up it's origin snapshots until each dataset is the same distance from
- * ORIGIN$ORIGIN.  Now, at each step we compare to see whether the two datasets
- * are in the same ds_dir.  Once they are, we compare the two snapshots; the
- * older of the two is the common ancestor of the two datasets.
- */
-static int
-find_common_ancestor(dsl_pool_t *dp, dsl_dataset_t *ds1, dsl_dataset_t *ds2,
-    zfs_bookmark_phys_t *zb)
-{
-	uint32_t steps1, steps2, diff;
-	dsl_dataset_t *walker1, *walker2;
-	int err = 0;
-
-	if (ds1->ds_dir == ds2->ds_dir) {
-		err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker1);
-		if (err != 0)
-			return (err);
-		err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker2);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			return (err);
-		}
-		goto fini;
-	}
-
-	/*
-	 * Count how far ds1 is from $ORIGIN.
-	 */
-	err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker1);
-	if (err != 0)
-		return (err);
-
-	steps1 = 0;
-	while (dsl_dataset_is_clone(walker1, dp->dp_origin_snap)) {
-		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			return (err);
-		}
-		steps1++;
-	}
-	dsl_dataset_rele(walker1, FTAG);
-
-	/*
-	 * Count how far ds2 is from $ORIGIN
-	 */
-	err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker1);
-	if (err != 0)
-		return (err);
-
-	steps2 = 0;
-	while (dsl_dataset_is_clone(walker1, dp->dp_origin_snap)) {
-		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			return (err);
-		}
-		steps2++;
-	}
-	dsl_dataset_rele(walker1, FTAG);
-
-	/*
-	 * Calculate which ds is farther from $ORIGIN, assign that to walker1,
-	 * and assign the other to walker2.  Assign the difference in distances
-	 * to diff.
-	 */
-	if (steps1 > steps2) {
-		diff = steps1 - steps2;
-		err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker1);
-		if (err != 0)
-			return (err);
-		err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker2);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			return (err);
-		}
-	} else {
-		diff = steps2 - steps1;
-		err = dsl_dataset_hold_obj(dp, ds2->ds_object, FTAG, &walker1);
-		if (err != 0)
-			return (err);
-		err = dsl_dataset_hold_obj(dp, ds1->ds_object, FTAG, &walker2);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			return (err);
-		}
-	}
-
-	/*
-	 * Walk walker1 back diff steps so both systems are the same distance
-	 * from $ORIGIN.
-	 */
-	for (int i = 0; i < diff; i++) {
-		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			dsl_dataset_rele(walker2, FTAG);
-			return (err);
-		}
-	}
-
-	/*
-	 * Walk back in step, and stop when the two walkers are snapshots in the
-	 * same dataset dir.
-	 */
-	while ((walker1->ds_dir != walker2->ds_dir) &&
-	    !(dsl_dir_phys(walker1->ds_dir)->dd_origin_obj == 0 &&
-	    dsl_dir_phys(walker2->ds_dir)->dd_origin_obj == 0)) {
-		err = dsl_dataset_walk_origin(dp, &walker1, FTAG);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			dsl_dataset_rele(walker2, FTAG);
-			return (err);
-		}
-
-
-		err = dsl_dataset_walk_origin(dp, &walker2, FTAG);
-		if (err != 0) {
-			dsl_dataset_rele(walker1, FTAG);
-			dsl_dataset_rele(walker2, FTAG);
-			return (err);
-		}
-	}
-
-fini:
-	/*
-	 * Load the zb with the data from the older snapshot.
-	 */
-	if (walker1->ds_dir != walker2->ds_dir) {
-		zb->zbm_creation_txg = 0;
-		zb->zbm_creation_time = 0;
-		zb->zbm_guid = 0;
-	} else if (dsl_dataset_phys(walker1)->ds_creation_txg >
-	    dsl_dataset_phys(walker2)->ds_creation_txg) {
-		zb->zbm_creation_txg =
-		    dsl_dataset_phys(walker2)->ds_creation_txg;
-		zb->zbm_creation_time =
-		    dsl_dataset_phys(walker2)->ds_creation_time;
-		zb->zbm_guid = dsl_dataset_phys(walker2)->ds_guid;
-	} else {
-		zb->zbm_creation_txg =
-		    dsl_dataset_phys(walker1)->ds_creation_txg;
-		zb->zbm_creation_time =
-		    dsl_dataset_phys(walker1)->ds_creation_time;
-		zb->zbm_guid = dsl_dataset_phys(walker1)->ds_guid;
-	}
-	zb->zbm_redaction_obj = 0;
-	dsl_dataset_rele(walker1, FTAG);
-	dsl_dataset_rele(walker2, FTAG);
-	return (err);
-}
-
 int
 dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
     boolean_t embedok, boolean_t large_block_ok, boolean_t compressok,
     int outfd, offset_t *off, dmu_send_outparams_t *dsop)
 {
 	int err;
+	dsl_dataset_t *fromds;
 	struct dmu_send_params dspp = {0};
 	dspp.embedok = embedok;
 	dspp.large_block_ok = large_block_ok;
@@ -3770,25 +3569,21 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 
 	if (fromsnap != 0) {
 		err = dsl_dataset_hold_obj(dspp.dp, fromsnap, FTAG,
-		    &dspp.from_ds);
+		    &fromds);
 		if (err != 0) {
 			dsl_dataset_rele(dspp.to_ds, FTAG);
 			dsl_pool_rele(dspp.dp, FTAG);
 			return (err);
 		}
-
-		err = find_common_ancestor(dspp.dp, dspp.from_ds, dspp.to_ds,
-		    &dspp.ancestor_zb);
-		if (err != 0) {
-			dsl_dataset_rele(dspp.to_ds, FTAG);
-			dsl_dataset_rele(dspp.from_ds, FTAG);
-			dsl_pool_rele(dspp.dp, FTAG);
-			return (err);
-		}
+		dspp.ancestor_zb.zbm_guid = dsl_dataset_phys(fromds)->ds_guid;
+		dspp.ancestor_zb.zbm_creation_txg =
+		    dsl_dataset_phys(fromds)->ds_creation_txg;
+		dspp.ancestor_zb.zbm_creation_time =
+		    dsl_dataset_phys(fromds)->ds_creation_time;
 		/* See dmu_send for the reasons behind this. */
 		uint64_t *fromredact;
 
-		if (!dsl_dataset_get_uint64_array_feature(dspp.from_ds,
+		if (!dsl_dataset_get_uint64_array_feature(fromds,
 		    SPA_FEATURE_REDACTED_DATASETS,
 		    &dspp.numfromredactsnaps,
 		    &fromredact)) {
@@ -3800,17 +3595,14 @@ dmu_send_obj(const char *pool, uint64_t tosnap, uint64_t fromsnap,
 			bcopy(fromredact, dspp.fromredactsnaps, size);
 		}
 
-		if (dsl_dataset_is_before(dspp.to_ds, dspp.from_ds, 0)) {
+		if (!dsl_dataset_is_before(dspp.to_ds, fromds, 0)) {
+			err = SET_ERROR(EXDEV);
+		} else {
 			dspp.is_clone = (dspp.to_ds->ds_dir !=
-			    dspp.from_ds->ds_dir);
-			dsl_dataset_rele(dspp.from_ds, FTAG);
-			dspp.from_ds = NULL;
+			    fromds->ds_dir);
+			dsl_dataset_rele(fromds, FTAG);
+			err = dmu_send_impl(&dspp);
 		}
-
-		err = dmu_send_impl(&dspp);
-
-		if (dspp.from_ds != NULL)
-			dsl_dataset_rele(dspp.from_ds, FTAG);
 	} else {
 		dspp.numfromredactsnaps = UINT64_MAX;
 		err = dmu_send_impl(&dspp);
@@ -3828,6 +3620,7 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 {
 	int err = 0;
 	boolean_t owned = B_FALSE;
+	dsl_dataset_t *fromds = NULL;
 	struct dmu_send_params dspp = {0};
 	dspp.tosnap = tosnap;
 	dspp.embedok = embedok;
@@ -3960,10 +3753,10 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 
 		if (strchr(fromsnap, '@')) {
 			err = dsl_dataset_hold(dspp.dp, fromsnap, FTAG,
-			    &dspp.from_ds);
+			    &fromds);
 
 			if (err != 0) {
-				ASSERT3P(dspp.from_ds, ==, NULL);
+				ASSERT3P(fromds, ==, NULL);
 			} else {
 				/*
 				 * We need to make a deep copy of the redact
@@ -3972,7 +3765,7 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 				 */
 				uint64_t *fromredact;
 				if (!dsl_dataset_get_uint64_array_feature(
-				    dspp.from_ds, SPA_FEATURE_REDACTED_DATASETS,
+				    fromds, SPA_FEATURE_REDACTED_DATASETS,
 				    &dspp.numfromredactsnaps,
 				    &fromredact)) {
 					dspp.numfromredactsnaps = UINT64_MAX;
@@ -3985,27 +3778,24 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 					bcopy(fromredact, dspp.fromredactsnaps,
 					    size);
 				}
-				if (dsl_dataset_is_before(dspp.to_ds,
-				    dspp.from_ds, 0)) {
+				if (!dsl_dataset_is_before(dspp.to_ds, fromds,
+				    0)) {
+					err = SET_ERROR(EXDEV);
+				} else {
 					ASSERT3U(dspp.is_clone, ==,
 					    (dspp.to_ds->ds_dir !=
-					    dspp.from_ds->ds_dir));
+					    fromds->ds_dir));
 					zb->zbm_creation_txg =
-					    dsl_dataset_phys(
-					    dspp.from_ds)->ds_creation_txg;
+					    dsl_dataset_phys(fromds)->
+					    ds_creation_txg;
 					zb->zbm_creation_time =
-					    dsl_dataset_phys(
-					    dspp.from_ds)->ds_creation_time;
-					zb->zbm_guid = dsl_dataset_phys(
-					    dspp.from_ds)->ds_guid;
+					    dsl_dataset_phys(fromds)->
+					    ds_creation_time;
+					zb->zbm_guid =
+					    dsl_dataset_phys(fromds)->ds_guid;
 					zb->zbm_redaction_obj = 0;
-					dsl_dataset_rele(dspp.from_ds, FTAG);
-					dspp.from_ds = NULL;
-				} else {
-					dspp.is_clone = B_FALSE;
-					err = find_common_ancestor(dspp.dp,
-					    dspp.from_ds, dspp.to_ds, zb);
 				}
+				dsl_dataset_rele(fromds, FTAG);
 			}
 		} else {
 			dspp.numfromredactsnaps = UINT64_MAX;
@@ -4023,9 +3813,6 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 		} else {
 			dsl_pool_rele(dspp.dp, FTAG);
 		}
-
-		if (dspp.from_ds != NULL)
-			dsl_dataset_rele(dspp.from_ds, FTAG);
 	} else {
 		dspp.numfromredactsnaps = UINT64_MAX;
 		err = dmu_send_impl(&dspp);

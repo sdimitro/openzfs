@@ -271,13 +271,13 @@ get_usage(zfs_help_t idx)
 	case HELP_ROLLBACK:
 		return (gettext("\trollback [-rRf] <snapshot>\n"));
 	case HELP_SEND:
-		return (gettext("\tsend [-DnPpRbvLec] [-[iI] snapshot] "
+		return (gettext("\tsend [-DnPpRvLec] [-[iI] snapshot] "
 		    "<snapshot>\n"
 		    "\tsend [-nvLe] [-i snapshot|bookmark] "
 		    "<filesystem|volume|snapshot>\n"
-		    "\tsend --redact snapshot[,...] [-DnPpbvLec] "
+		    "\tsend --redact snapshot[,...] [-DnPpvLec] "
 		    "[-i bookmark] <snapshot> <bookmark_name>\n"
-		    "\tsend [-DnPpbvLec] [-i bookmark|snapshot] "
+		    "\tsend [-DnPpvLec] [-i bookmark|snapshot] "
 		    "--redact-bookmark <bookmark> <snapshot>\n"
 		    "\tsend [-nvPe] -t <receive_resume_token> [bookmark_name]"
 		    "\n"));
@@ -3754,7 +3754,6 @@ zfs_do_send(int argc, char **argv)
 	lzc_redact_params_t lrp = {0};
 
 	struct option long_options[] = {
-		{"rebase",	no_argument,		NULL, 'b'},
 		{"replicate",	no_argument,		NULL, 'R'},
 		{"redact",	required_argument,	NULL, REDACT_OPT},
 		{"redact-bookmark",	required_argument, NULL, REDACTB_OPT},
@@ -3771,7 +3770,7 @@ zfs_do_send(int argc, char **argv)
 	};
 
 	/* check options */
-	while ((c = getopt_long(argc, argv, ":i:I:RbDpvnPLet:c", long_options,
+	while ((c = getopt_long(argc, argv, ":i:I:RDpvnPLet:c", long_options,
 	    NULL)) != -1) {
 		switch (c) {
 		case 'i':
@@ -3784,9 +3783,6 @@ zfs_do_send(int argc, char **argv)
 				usage(B_FALSE);
 			fromname = optarg;
 			flags.doall = B_TRUE;
-			break;
-		case 'b':
-			flags.rebase = B_TRUE;
 			break;
 		case 'R':
 			flags.replicate = B_TRUE;
@@ -3925,13 +3921,6 @@ zfs_do_send(int argc, char **argv)
 			lrp.lrp_u.lro_list.lrol_book_to_create++;
 	}
 
-	if (flags.rebase && fromname == NULL) {
-		(void) fprintf(stderr,
-		    gettext("Error: Specified rebase without specifying an \n"
-		    "incremental send.\n"));
-		return (1);
-	}
-
 	if (!flags.dryrun && isatty(STDOUT_FILENO)) {
 		(void) fprintf(stderr,
 		    gettext("Error: Stream can not be written to a terminal.\n"
@@ -3949,12 +3938,6 @@ zfs_do_send(int argc, char **argv)
 	 */
 	if (!(flags.replicate || flags.doall)) {
 		char frombuf[ZFS_MAX_DATASET_NAME_LEN];
-
-		if (flags.rebase && strchr(fromname, '#')) {
-			(void) fprintf(stderr, gettext("Error: Cannot "
-			    "do a rebase on top of a bookmark.\n"));
-			return (1);
-		}
 
 		if (lrp.lrp_type != LRP_UNDEFINED) {
 			if (strchr(argv[0], '@') == NULL) {
@@ -4008,12 +3991,13 @@ zfs_do_send(int argc, char **argv)
 		    "sent from a bookmark.\n"));
 		return (1);
 	}
-	if (flags.rebase || lrp.lrp_type != LRP_UNDEFINED) {
-		(void) fprintf(stderr,
-		    gettext("Error: multiple snapshots cannot be sent redacted "
-		    "or rebased.\n"));
+
+	if (lrp.lrp_type != LRP_UNDEFINED) {
+		(void) fprintf(stderr, gettext("Error: multiple snapshots "
+		    "cannot be sent redacted.\n"));
 		return (1);
 	}
+
 	cp = strchr(argv[0], '@');
 	*cp = '\0';
 	toname = cp + 1;

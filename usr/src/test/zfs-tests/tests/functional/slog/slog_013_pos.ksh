@@ -47,12 +47,7 @@ verify_runnable "global"
 function cleanup_testenv
 {
 	cleanup
-	if datasetexists $TESTPOOL2 ; then
-		log_must $ZPOOL destroy -f $TESTPOOL2
-	fi
-	if [[ -n $lofidev ]]; then
-		$LOFIADM -d $lofidev
-	fi
+	[[ -n $lofidev ]] && $LOFIADM -d $lofidev
 }
 
 verify_disk_count "$DISKS" 2
@@ -78,13 +73,3 @@ log_must verify_slog_device $TESTPOOL $lofidev 'ONLINE'
 
 log_pass "Verify slog device can be disk, file, lofi device or any device " \
 	"that presents a block interface."
-
-# Add file which reside in the itself
-mntpnt=$(get_prop mountpoint $TESTPOOL)
-log_must $MKFILE $MINVDEVSIZE $mntpnt/vdev
-log_must $ZPOOL add $TESTPOOL $mntpnt/vdev
-
-# Add ZFS volume
-vol=$TESTPOOL/vol
-log_must $ZPOOL create -V $MINVDEVSIZE $vol
-log_must $ZPOOL add $TESTPOOL /dev/zvol/dsk/$vol

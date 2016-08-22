@@ -45,6 +45,21 @@ typedef struct zcp_lib_info {
 	const zcp_arg_t kwargs[2];
 } zcp_lib_info_t;
 
+typedef struct zcp_alloc_arg {
+	boolean_t	aa_must_succeed;
+	int64_t		aa_alloc_remaining;
+	int64_t		aa_alloc_limit;
+} zcp_alloc_arg_t;
+
+typedef struct zcp_eval_arg {
+	lua_State	*ea_state;
+	zcp_alloc_arg_t	*ea_allocargs;
+	cred_t		*ea_cred;
+	nvlist_t	*ea_outnvl;
+	int		ea_result;
+	uint64_t	ea_timeout;
+} zcp_eval_arg_t;
+
 /*ARGSUSED*/
 static int
 zcp_eval_check(void *arg, dmu_tx_t *tx)
@@ -86,7 +101,7 @@ zcp_argerror(lua_State *state, int narg, const char *msg, ...)
 #define	ZCP_NVLIST_MAX_DEPTH 20
 
 /*
- * Convert a value from the given index into the lua stack to a nvpair, adding
+ * Convert a value from the given index into the lua stack to an nvpair, adding
  * it to an nvlist with the given key.
  *
  * Values are converted as follows:
@@ -107,11 +122,12 @@ zcp_argerror(lua_State *state, int narg, const char *msg, ...)
  *
  * In the case of a key collision, an error is thrown.
  *
- * If an error is encountered, lua_error() longjumps out of the call.
+ * If an error is encountered, a nonzero error code is returned, and an error
+ * string will be pushed onto the Lua stack.
  */
-void
-zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
-    int depth)
+int
+zcp_lua_to_nvlist_impl(lua_State *state, int index, nvlist_t *nvl,
+    const char *key, int depth)
 {
 	/*
 	 * Verify that we have enough remaining space in the lua stack to parse
@@ -119,7 +135,7 @@ zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
 	 */
 	if (!lua_checkstack(state, 3)) {
 		(void) lua_pushstring(state, "Lua stack overflow");
-		(void) lua_error(state);
+		return (1);
 	}
 
 	index = lua_absindex(state, index);
@@ -151,6 +167,7 @@ zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
 			 * now on the stack, with the key at stack slot -2 and
 			 * the value at slot -1.
 			 */
+			int err = 0;
 			char buf[32];
 			const char *mykey = NULL;
 
@@ -169,11 +186,12 @@ zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
 				mykey = buf;
 				break;
 			default:
+				fnvlist_free(mynvl);
 				(void) lua_pushfstring(state, "Invalid key "
 				    "type '%s' in table '%s'",
 				    lua_typename(state, lua_type(state, -2)),
 				    key);
-				(void) lua_error(state);
+				return (EINVAL);
 			}
 			/*
 			 * It's possible for string keys to collide
@@ -181,9 +199,10 @@ zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
 			 * throw an error.
 			 */
 			if (nvlist_exists(mynvl, mykey)) {
+				fnvlist_free(mynvl);
 				(void) lua_pushfstring(state, "Collision of "
 				    "key '%s' for table '%s'", mykey, key);
-				(void) lua_error(state);
+				return (EINVAL);
 			}
 			/*
 			 * Recursively convert the table value and insert into
@@ -192,12 +211,22 @@ zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
 			 * we track the current nvlist depth.
 			 */
 			if (depth >= ZCP_NVLIST_MAX_DEPTH) {
+				fnvlist_free(mynvl);
 				(void) lua_pushfstring(state, "Maximum table "
 				    "depth (%d) exceeded for table '%s'",
 				    ZCP_NVLIST_MAX_DEPTH, key);
-				(void) lua_error(state);
+				return (EINVAL);
 			}
-			zcp_lua_to_nvlist(state, -1, mynvl, mykey, depth + 1);
+			err = zcp_lua_to_nvlist_impl(state, -1, mynvl, mykey,
+			    depth + 1);
+			if (err != 0) {
+				fnvlist_free(mynvl);
+				/*
+				 * Error message has been pushed to the lua
+				 * stack by the recursive call.
+				 */
+				return (err);
+			}
 			/*
 			 * Pop the value pushed by lua_next().
 			 */
@@ -208,12 +237,28 @@ zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key,
 		break;
 	}
 	default:
-		(void) lua_pushfstring(state, "Invalid value type '%s' for "
-		    "key '%s'",
+		(void) lua_pushfstring(state,
+		    "Invalid value type '%s' for key '%s'",
 		    lua_typename(state, lua_type(state, index)), key);
-		(void) lua_error(state);
-		break;
+		return (EINVAL);
 	}
+
+	return (0);
+}
+
+/*
+ * Convert a lua value to an nvpair, adding it to an nvlist with the given key.
+ */
+void
+zcp_lua_to_nvlist(lua_State *state, int index, nvlist_t *nvl, const char *key)
+{
+	/*
+	 * On error, zcp_lua_to_nvlist_impl pushes an error string onto the Lua
+	 * stack before returning with a nonzero error code. If an error is
+	 * returned, throw a fatal lua error with the given string.
+	 */
+	if (zcp_lua_to_nvlist_impl(state, index, nvl, key, 0) != 0)
+		(void) lua_error(state);
 }
 
 int
@@ -221,24 +266,9 @@ zcp_lua_to_nvlist_helper(lua_State *state)
 {
 	nvlist_t *nv = (nvlist_t *)lua_touserdata(state, 2);
 	const char *key = (const char *)lua_touserdata(state, 1);
-	zcp_lua_to_nvlist(state, 3, nv, key, 0);
+	zcp_lua_to_nvlist(state, 3, nv, key);
 	return (0);
 }
-
-typedef struct zcp_alloc_arg {
-	boolean_t	aa_must_succeed;
-	int64_t		aa_alloc_remaining;
-	int64_t		aa_alloc_limit;
-} zcp_alloc_arg_t;
-
-typedef struct zcp_eval_arg {
-	lua_State	*ea_state;
-	zcp_alloc_arg_t	*ea_allocargs;
-	cred_t		*ea_cred;
-	nvlist_t	*ea_outnvl;
-	int		ea_result;
-	uint64_t	ea_timeout;
-} zcp_eval_arg_t;
 
 void
 zcp_convert_return_values(lua_State *state, nvlist_t *nvl,
@@ -252,7 +282,7 @@ zcp_convert_return_values(lua_State *state, nvlist_t *nvl,
 	lua_remove(state, 1);
 	err = lua_pcall(state, 3, 0, 0); /* zcp_lua_to_nvlist_helper */
 	if (err != 0) {
-		zcp_lua_to_nvlist(state, 1, nvl, ZCP_RET_ERROR, 0);
+		zcp_lua_to_nvlist(state, 1, nvl, ZCP_RET_ERROR);
 		evalargs->ea_result = SET_ERROR(ECHRNG);
 	}
 }

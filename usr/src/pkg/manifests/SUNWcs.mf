@@ -24,7 +24,7 @@
 # Copyright 2015 Nexenta Systems, Inc. All rights reserved.
 # Copyright (c) 2013 Gary Mills
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
 #
 
@@ -312,6 +312,7 @@ dir path=var/svc/manifest/system/svc group=sys
 dir path=var/svc/profile group=sys
 dir path=var/tmp group=sys mode=1777
 driver name=dump perms="dump 0660 root sys"
+driver name=eventfd perms="* 0666 root sys"
 driver name=fssnap \
     policy="ctl read_priv_set=sys_config write_priv_set=sys_config" \
     perms="* 0640 root sys" perms="ctl 0666 root sys"
@@ -868,6 +869,7 @@ file path=usr/has/man/man1has/ex.1has
 file path=usr/has/man/man1has/sh.1has
 file path=usr/has/man/man1has/vi.1has
 file path=usr/kernel/drv/$(ARCH64)/dump group=sys
+file path=usr/kernel/drv/$(ARCH64)/eventfd group=sys
 file path=usr/kernel/drv/$(ARCH64)/fssnap group=sys
 file path=usr/kernel/drv/$(ARCH64)/kstat group=sys
 file path=usr/kernel/drv/$(ARCH64)/ksyms group=sys
@@ -876,6 +878,8 @@ file path=usr/kernel/drv/$(ARCH64)/ptm group=sys
 file path=usr/kernel/drv/$(ARCH64)/pts group=sys
 $(i386_ONLY)file path=usr/kernel/drv/dump group=sys
 file path=usr/kernel/drv/dump.conf group=sys
+$(i386_ONLY)file path=usr/kernel/drv/eventfd group=sys
+file path=usr/kernel/drv/eventfd.conf group=sys
 $(i386_ONLY)file path=usr/kernel/drv/fssnap group=sys
 file path=usr/kernel/drv/fssnap.conf group=sys
 $(i386_ONLY)file path=usr/kernel/drv/kstat group=sys

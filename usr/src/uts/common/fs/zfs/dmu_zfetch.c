@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -36,8 +36,10 @@
 #include <sys/kstat.h>
 
 /*
- * I'm against tune-ables, but these should probably exist as tweakable globals
- * until we can get this working the way we want it to.
+ * This tunable disables predictive prefetch.  Note that it leaves "prescient"
+ * prefetch (e.g. prefetch for zfs send) intact.  Unlike predictive prefetch,
+ * prescient prefetch never issues i/os that end up not being needed,
+ * so it can't hurt performance.
  */
 
 boolean_t zfs_prefetch_disable = B_FALSE;

@@ -67,7 +67,7 @@ const uint8_t	edonr_224_test_digests[][28] = {
 		0x60, 0xf8, 0x5c, 0x0a, 0xfd, 0x7a, 0x7d, 0x97,
 		0x88, 0x2b, 0x05, 0x75
 	}
-	/* no test vectorfor test_msg2 */
+	/* no test vector for test_msg2 */
 };
 
 const uint8_t	edonr_256_test_digests[][32] = {

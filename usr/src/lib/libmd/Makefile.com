@@ -31,7 +31,8 @@ SRCS =		$(COMDIR)/edonr/edonr.c \
 		$(COMDIR)/sha1/sha1.c \
 		$(COMDIR)/sha2/sha2.c \
 		$(COMDIR)/skein/skein.c \
-		$(COMDIR)/skein/skein_block.c
+		$(COMDIR)/skein/skein_block.c \
+		$(COMDIR)/skein/skein_iv.c
 
 COMDIR =	$(SRC)/common/crypto
 SRCDIR =	../common

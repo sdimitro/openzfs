@@ -25,6 +25,7 @@
 #define	_SKEIN_IMPL_H_
 
 #include <sys/skein.h>
+#include "skein_impl.h"
 #include "skein_port.h"
 
 /* determine where we can get bcopy/bzero declarations */
@@ -269,5 +270,20 @@ enum {
 #define	SKEIN_256_ROUNDS_TOTAL	(72)
 #define	SKEIN_512_ROUNDS_TOTAL	(72)
 #define	SKEIN1024_ROUNDS_TOTAL	(80)
+
+
+extern const uint64_t SKEIN_256_IV_128[];
+extern const uint64_t SKEIN_256_IV_160[];
+extern const uint64_t SKEIN_256_IV_224[];
+extern const uint64_t SKEIN_256_IV_256[];
+extern const uint64_t SKEIN_512_IV_128[];
+extern const uint64_t SKEIN_512_IV_160[];
+extern const uint64_t SKEIN_512_IV_224[];
+extern const uint64_t SKEIN_512_IV_256[];
+extern const uint64_t SKEIN_512_IV_384[];
+extern const uint64_t SKEIN_512_IV_512[];
+extern const uint64_t SKEIN1024_IV_384[];
+extern const uint64_t SKEIN1024_IV_512[];
+extern const uint64_t SKEIN1024_IV_1024[];
 
 #endif	/* _SKEIN_IMPL_H_ */

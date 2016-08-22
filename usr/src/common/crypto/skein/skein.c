@@ -11,7 +11,6 @@
 #include <sys/note.h>
 #include <sys/skein.h>		/* get the Skein API definitions   */
 #include "skein_impl.h"		/* get internal definitions */
-#include "skein_iv.h"		/* get precomputed IVs */
 
 /* External function to process blkCnt (nonzero) full block(s) of data. */
 void Skein_256_Process_Block(Skein_256_Ctxt_t *ctx, const uint8_t *blkPtr,

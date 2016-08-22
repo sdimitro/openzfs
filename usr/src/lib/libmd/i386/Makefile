@@ -27,7 +27,8 @@
 LIBRARY =	libmd.a
 VERS =		.1
 
-OBJECTS =	edonr.o md4.o md5.o sha1.o sha2.o skein.o skein_block.o
+OBJECTS =	edonr.o md4.o md5.o sha1.o sha2.o \
+		skein.o skein_block.o skein_iv.o
 
 include		$(SRC)/lib/Makefile.lib
 include		$(SRC)/lib/Makefile.rootfs

@@ -102,6 +102,7 @@ static int not_this_project(char *);
 static char *mkjobname(time_t);
 static time_t parse_time(char *);
 static time_t gtime(struct tm *);
+static void escapestr(const char *);
 void atabort(char *)__NORETURN;
 void yyerror(void);
 extern int yyparse(void);
@@ -419,8 +420,7 @@ main(int argc, char **argv)
 
 
 static char *
-mkjobname(t)
-time_t t;
+mkjobname(time_t t)
 {
 	int i, fd;
 	char *name;
@@ -449,8 +449,7 @@ catch(int x)
 
 
 void
-atabort(msg)
-char *msg;
+atabort(char *msg)
 {
 	fprintf(stderr, "at: %s\n", gettext(msg));
 
@@ -514,8 +513,7 @@ leap(int year)
  * return time from time structure
  */
 static time_t
-gtime(tptr)
-struct	tm *tptr;
+gtime(struct tm *tptr)
 {
 	int i;
 	long	tv;
@@ -544,6 +542,23 @@ struct	tm *tptr;
 	tv = 60 * tv + tptr->tm_min;
 	tv = 60 * tv + tptr->tm_sec;
 	return (tv);
+}
+
+/*
+ * Escape a string to be used inside the job shell script.
+ */
+static void
+escapestr(const char *str)
+{
+	char c;
+	(void) putchar('\'');
+	while ((c = *str++) != '\0') {
+		if (c != '\'')
+			(void) putchar(c);
+		else
+			(void) fputs("'\\''", stdout); /* ' -> '\'' */
+	}
+	(void) putchar('\'');
 }
 
 /*
@@ -634,12 +649,12 @@ copy(char *jobfile, FILE *inputfile, int when)
 	}
 
 	for (ep = environ; *ep; ep++) {
-		if (strchr(*ep, '\'') != NULL)
-			continue;
 		if ((val = strchr(*ep, '=')) == NULL)
 			continue;
 		*val++ = '\0';
-		printf("export %s; %s='%s'\n", *ep, *ep, val);
+		(void) printf("export %s; %s=", *ep, *ep);
+		escapestr(val);
+		(void) putchar('\n');
 		*--val = '=';
 	}
 	if ((pfp = fopen(pname1, "r")) == NULL &&
@@ -679,7 +694,7 @@ copy(char *jobfile, FILE *inputfile, int when)
 			if (seteuid(effeusr) < 0) {
 				atabort(CANTCHUID);
 			}
-			printf("%s", dirbuf);
+			escapestr(dirbuf);
 			break;
 		case 'm':
 			printf("%o", um);
@@ -719,9 +734,9 @@ out:
 	fflush(NULL);
 }
 
+/* remove jobs that are specified */
 static int
 remove_jobs(int argc, char **argv, char *login)
-/* remove jobs that are specified */
 {
 	int		i, r;
 	int		error = 0;
@@ -740,7 +755,7 @@ remove_jobs(int argc, char **argv, char *login)
 	for (i = 0; i < argc; i++)
 		if (strchr(argv[i], '/') != NULL) {
 			fprintf(stderr, "at: %s: not a valid job-id\n",
-					argv[i]);
+			    argv[i]);
 		} else if (stat(argv[i], &buf)) {
 			fprintf(stderr, "at: %s: ", argv[i]);
 			perror("");
@@ -972,7 +987,8 @@ parse_time(char *t)
 }
 
 static int
-atoi_for2(char *p) {
+atoi_for2(char *p)
+{
 	int value;
 
 	value = (*p - '0') * 10 + *(p+1) - '0';

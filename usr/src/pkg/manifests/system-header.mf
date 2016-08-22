@@ -21,7 +21,7 @@
 
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 # Copyright 2012 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
 # Copyright 2013 Saso Kiselkov. All rights reserved.
@@ -962,6 +962,7 @@ file path=usr/include/sys/esunddi.h
 file path=usr/include/sys/ethernet.h
 file path=usr/include/sys/euc.h
 file path=usr/include/sys/eucioctl.h
+file path=usr/include/sys/eventfd.h
 file path=usr/include/sys/exacct.h
 file path=usr/include/sys/exacct_catalog.h
 file path=usr/include/sys/exacct_impl.h

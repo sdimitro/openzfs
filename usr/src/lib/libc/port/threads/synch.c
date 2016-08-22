@@ -22,6 +22,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2015, Joyent, Inc.
  * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
@@ -1780,7 +1781,7 @@ stall(void)
  */
 int
 mutex_lock_queue(ulwp_t *self, tdb_mutex_stats_t *msp, mutex_t *mp,
-	timespec_t *tsp)
+    timespec_t *tsp)
 {
 	uberdata_t *udp = curthread->ul_uberdata;
 	queue_head_t *qp;
@@ -2315,9 +2316,32 @@ mutex_lock(mutex_t *mp)
 	return (mutex_lock_impl(mp, NULL));
 }
 
+void
+mutex_enter(mutex_t *mp)
+{
+	int ret;
+	int attr = mp->mutex_type & ALL_ATTRIBUTES;
+
+	/*
+	 * Require LOCK_ERRORCHECK, accept LOCK_RECURSIVE.
+	 */
+	if (attr != LOCK_ERRORCHECK &&
+	    attr != (LOCK_ERRORCHECK | LOCK_RECURSIVE)) {
+		mutex_panic(mp, "mutex_enter: bad mutex type");
+	}
+	ret = mutex_lock(mp);
+	if (ret == EDEADLK) {
+		mutex_panic(mp, "recursive mutex_enter");
+	} else if (ret == EAGAIN) {
+		mutex_panic(mp, "excessive recursive mutex_enter");
+	} else if (ret != 0) {
+		mutex_panic(mp, "unknown mutex_enter failure");
+	}
+}
+
 int
 pthread_mutex_timedlock(pthread_mutex_t *_RESTRICT_KYWD mp,
-	const struct timespec *_RESTRICT_KYWD abstime)
+    const struct timespec *_RESTRICT_KYWD abstime)
 {
 	timespec_t tslocal;
 	int error;
@@ -2332,7 +2356,7 @@ pthread_mutex_timedlock(pthread_mutex_t *_RESTRICT_KYWD mp,
 
 int
 pthread_mutex_reltimedlock_np(pthread_mutex_t *_RESTRICT_KYWD mp,
-	const struct timespec *_RESTRICT_KYWD reltime)
+    const struct timespec *_RESTRICT_KYWD reltime)
 {
 	timespec_t tslocal;
 	int error;
@@ -2572,6 +2596,25 @@ fast_unlock:
 	/* else do it the long way */
 slow_unlock:
 	return (mutex_unlock_internal(mp, 0));
+}
+
+void
+mutex_exit(mutex_t *mp)
+{
+	int ret;
+	int attr = mp->mutex_type & ALL_ATTRIBUTES;
+
+	if (attr != LOCK_ERRORCHECK &&
+	    attr != (LOCK_ERRORCHECK | LOCK_RECURSIVE)) {
+		mutex_panic(mp, "mutex_exit: bad mutex type");
+	}
+	ret = mutex_unlock(mp);
+	if (ret == EPERM) {
+		mutex_panic(mp, "mutex_exit: not owner");
+	} else if (ret != 0) {
+		mutex_panic(mp, "unknown mutex_exit failure");
+	}
+
 }
 
 /*
@@ -3531,7 +3574,7 @@ cond_wait(cond_t *cvp, mutex_t *mp)
  */
 int
 pthread_cond_wait(pthread_cond_t *_RESTRICT_KYWD cvp,
-	pthread_mutex_t *_RESTRICT_KYWD mp)
+    pthread_mutex_t *_RESTRICT_KYWD mp)
 {
 	int error;
 
@@ -3590,8 +3633,8 @@ cond_timedwait(cond_t *cvp, mutex_t *mp, const timespec_t *abstime)
  */
 int
 pthread_cond_timedwait(pthread_cond_t *_RESTRICT_KYWD cvp,
-	pthread_mutex_t *_RESTRICT_KYWD mp,
-	const struct timespec *_RESTRICT_KYWD abstime)
+    pthread_mutex_t *_RESTRICT_KYWD mp,
+    const struct timespec *_RESTRICT_KYWD abstime)
 {
 	int error;
 
@@ -3634,8 +3677,8 @@ cond_reltimedwait(cond_t *cvp, mutex_t *mp, const timespec_t *reltime)
 
 int
 pthread_cond_reltimedwait_np(pthread_cond_t *_RESTRICT_KYWD cvp,
-	pthread_mutex_t *_RESTRICT_KYWD mp,
-	const struct timespec *_RESTRICT_KYWD reltime)
+    pthread_mutex_t *_RESTRICT_KYWD mp,
+    const struct timespec *_RESTRICT_KYWD reltime)
 {
 	int error;
 

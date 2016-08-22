@@ -24,7 +24,7 @@
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
 # Copyright (c) 2011, 2016 by Delphix. All rights reserved.
 # Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
-# Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 #
 
 #
@@ -510,7 +510,7 @@ SHA1_OBJS +=	sha1.o sha1_mod.o
 
 SHA2_OBJS +=	sha2.o sha2_mod.o
 
-SKEIN_OBJS +=	skein.o skein_block.o skein_mod.o
+SKEIN_OBJS +=	skein.o skein_block.o skein_iv.o skein_mod.o
 
 EDONR_OBJS +=	edonr.o edonr_mod.o
 
@@ -991,6 +991,8 @@ DEVINFO_OBJS += devinfo.o
 DEVPOLL_OBJS += devpoll.o
 
 DEVPOOL_OBJS += devpool.o
+
+EVENTFD_OBJS +=	eventfd.o
 
 I8042_OBJS +=	i8042.o
 
@@ -1909,6 +1911,8 @@ ATGE_OBJS += atge_main.o atge_l1e.o atge_mii.o atge_l1.o atge_l1c.o
 YGE_OBJS = yge.o
 
 SKD_OBJS = skd.o
+
+NVME_OBJS = nvme.o
 
 #
 #	Build up defines and paths.

@@ -15,10 +15,8 @@
  * http://www.skein-hash.info/sites/default/files/skein1.3.pdf
  */
 
-#ifndef	_SKEIN_IV_H_
-#define	_SKEIN_IV_H_
-
 #include <sys/skein.h>		/* get Skein macros and types */
+#include "skein_impl.h"		/* get internal definitions */
 
 #define	MK_64 SKEIN_MK_64
 
@@ -185,5 +183,3 @@ const uint64_t SKEIN1024_IV_1024[] = {
 	MK_64(0x61FD3062, 0xD00A579A),
 	MK_64(0x1DE0536E, 0x8682E539)
 };
-
-#endif	/* _SKEIN_IV_H_ */

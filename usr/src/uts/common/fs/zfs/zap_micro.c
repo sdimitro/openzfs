@@ -490,7 +490,7 @@ zap_lockdir_impl(dmu_buf_t *db, void *tag, dmu_tx_t *tx,
 			*zapp = zap;
 			int err = mzap_upgrade(zapp, tag, tx, 0);
 			if (err != 0)
-				zap_unlockdir(zap, tag);
+				rw_exit(&zap->zap_rwlock);
 			return (err);
 		}
 		VERIFY0(dmu_object_set_blocksize(os, obj, newsz, 0, tx));

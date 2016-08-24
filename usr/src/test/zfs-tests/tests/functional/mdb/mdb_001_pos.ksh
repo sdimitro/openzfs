@@ -64,6 +64,7 @@ typeset bp=$($MDB -ke "$spa + $off_ub + $off_rbp =J")
 
 set -A dcmds "::arc" \
 	"::arc -b" \
+	"::arc_compression_stats" \
 	"$bp ::blkptr" \
 	"$bp ::dva" \
 	"::walk spa" \

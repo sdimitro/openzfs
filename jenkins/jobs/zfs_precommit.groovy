@@ -17,7 +17,7 @@
  * CDDL HEADER END
  */
 
-workflowJob('zfs-precommit3') {
+workflowJob('zfs-precommit') {
     label 'blackbox-slave'
 
     quietPeriod 0
@@ -157,7 +157,7 @@ workflowJob('zfs-precommit3') {
 
     definition {
         cps {
-            script(readFileFromWorkspace('jenkins/jobs/pipelines/zfs_precommit3.groovy'))
+            script(readFileFromWorkspace('jenkins/jobs/pipelines/zfs_precommit.groovy'))
             sandbox()
         }
     }

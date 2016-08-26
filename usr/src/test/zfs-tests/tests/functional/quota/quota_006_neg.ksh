@@ -49,7 +49,7 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS set quota=none $TESTPOOL/$TESTFS
+	log_must zfs set quota=none $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
@@ -63,8 +63,8 @@ quota_fp_size=${quota_integer_size}.123
 
 for size in 0 -1 $quota_integer_size -$quota_integer_size $quota_fp_size -$quota_fp_size \
 	$invalid_size ; do
-	log_mustnot $ZFS set quota=$size $TESTPOOL/$TESTFS
+	log_mustnot zfs set quota=$size $TESTPOOL/$TESTFS
 done
-log_must $ZFS set quota=$space_used $TESTPOOL/$TESTFS
+log_must zfs set quota=$space_used $TESTPOOL/$TESTFS
 
 log_pass "As expected cannot set quota lower than space currently in use"

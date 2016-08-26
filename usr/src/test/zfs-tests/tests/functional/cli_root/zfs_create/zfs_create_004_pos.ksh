@@ -49,19 +49,19 @@ verify_runnable "both"
 function cleanup
 {
 	datasetexists $TESTPOOL/$TESTFS1 && \
-		log_must $ZFS destroy -f $TESTPOOL/$TESTFS1
+		log_must zfs destroy -f $TESTPOOL/$TESTFS1
 }
 
 log_onexit cleanup
 
 typeset -i i=0
 while (( $i < ${#RW_FS_PROP[*]} )); do
-	log_must $ZFS create -o ${RW_FS_PROP[$i]} $TESTPOOL/$TESTFS1
+	log_must zfs create -o ${RW_FS_PROP[$i]} $TESTPOOL/$TESTFS1
 	datasetexists $TESTPOOL/$TESTFS1 || \
 		log_fail "zfs create $TESTPOOL/$TESTFS1 fail."
 	propertycheck $TESTPOOL/$TESTFS1 ${RW_FS_PROP[i]} || \
 		log_fail "${RW_FS_PROP[i]} is failed to set."
-	log_must $ZFS destroy -f $TESTPOOL/$TESTFS1
+	log_must zfs destroy -f $TESTPOOL/$TESTFS1
 	(( i = i + 1 ))
 done
 

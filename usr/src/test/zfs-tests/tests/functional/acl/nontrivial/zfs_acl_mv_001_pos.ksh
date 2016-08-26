@@ -47,9 +47,9 @@ verify_runnable "both"
 function cleanup
 {
 	(( ${#cwd} != 0 )) && cd $cwd
-	[[ -d $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
-	[[ -d $TESTDIR1 ]] && log_must $RM -rf $TESTDIR1
-	(( ${#mask} != 0 )) && log_must $UMASK $mask
+	[[ -d $TESTDIR ]] && log_must rm -rf $TESTDIR/*
+	[[ -d $TESTDIR1 ]] && log_must rm -rf $TESTDIR1
+	(( ${#mask} != 0 )) && log_must umask $mask
 }
 
 function testing_mv #<flag for file|dir> <file1|dir1> <file2|dir2>
@@ -68,18 +68,18 @@ function testing_mv #<flag for file|dir> <file1|dir1> <file2|dir2>
 		orig_acl="$(get_acl ${obj[i]})"
 		orig_mode="$(get_mode ${obj[i]})"
 		if (( i < 1 )); then
-			log_must $MV ${obj[i]} $dst_file
+			log_must mv ${obj[i]} $dst_file
 			dst_acl=$(get_acl $dst_file)
 			dst_mode=$(get_mode $dst_file)
 		else
-			log_must $MV ${obj[i]} $TESTDIR1
+			log_must mv ${obj[i]} $TESTDIR1
 			dst_acl=$(get_acl $TESTDIR1/${obj[i]})
 			dst_mode=$(get_mode $TESTDIR1/${obj[i]})
 		fi
 
 		if [[ "$dst_mode" != "$orig_mode" ]] || \
 			[[ "$dst_acl" != "$orig_acl" ]]; then
-			log_fail "$MV fails to keep the acl for file."
+			log_fail "mv fails to keep the acl for file."
 		fi
 
 		(( i = i + 1 ))
@@ -97,13 +97,13 @@ function testing_mv #<flag for file|dir> <file1|dir1> <file2|dir2>
 		orig_nested_acl=$(get_acl ${obj[i]}/$nestedfile)
 		orig_nested_mode=$(get_mode ${obj[i]}/$nestedfile)
 		if (( i < 1 )); then
-			log_must $MV ${obj[i]} $dst_dir
+			log_must mv ${obj[i]} $dst_dir
 			dst_acl=$(get_acl $dst_dir)
 			dst_mode=$(get_mode $dst_dir)
 			dst_nested_acl=$(get_acl $dst_dir/$nestedfile)
 			dst_nested_mode=$(get_mode $dst_dir/$nestedfile)
 		else
-			log_must $MV ${obj[i]} $TESTDIR1
+			log_must mv ${obj[i]} $TESTDIR1
 			dst_acl=$(get_acl $TESTDIR1/${obj[i]})
 			dst_mode=$(get_mode $TESTDIR1/${obj[i]})
 			dst_nested_acl=$(get_acl \
@@ -116,7 +116,7 @@ function testing_mv #<flag for file|dir> <file1|dir1> <file2|dir2>
 		   [[ "$orig_acl" != "$dst_acl" ]] || \
 		   [[ "$dst_nested_mode" != "$orig_nested_mode" ]] || \
 		   [[ "$dst_nested_acl" != "$orig_nested_acl" ]]; then
-			log_fail "$MV fails to recursively keep the acl for " \
+			log_fail "mv fails to recursively keep the acl for " \
 				"directory."
 		fi
 
@@ -135,8 +135,8 @@ nestedfile="nestedfile.$$"
 dst_file=dstfile.$$
 dst_dir=dstdir.$$
 cwd=$PWD
-mask=`$UMASK`
-$UMASK 0022
+mask=`umask`
+umask 0022
 
 #
 # This assertion should only test 'mv' within the same filesystem
@@ -144,26 +144,26 @@ $UMASK 0022
 TESTDIR1=$TESTDIR/testdir1$$
 
 [[ ! -d $TESTDIR1 ]] && \
-	log_must $MKDIR -p $TESTDIR1
+	log_must mkdir -p $TESTDIR1
 
 log_note "Create files and directories and set special ace on them for testing. "
 cd $TESTDIR
 typeset -i i=0
 while (( i < ${#orig_file[*]} ))
 do
-	log_must $TOUCH ${orig_file[i]}
-	log_must $CHMOD A0+$spec_ace ${orig_file[i]}
+	log_must touch ${orig_file[i]}
+	log_must chmod A0+$spec_ace ${orig_file[i]}
 
 	(( i = i + 1 ))
 done
 i=0
 while (( i < ${#orig_dir[*]} ))
 do
-	log_must $MKDIR ${orig_dir[i]}
-	log_must $TOUCH ${orig_dir[i]}/$nestedfile
+	log_must mkdir ${orig_dir[i]}
+	log_must touch ${orig_dir[i]}/$nestedfile
 
 	for obj in ${orig_dir[i]} ${orig_dir[i]}/$nestedfile; do
-		log_must $CHMOD A0+$spec_ace $obj
+		log_must chmod A0+$spec_ace $obj
 	done
 
 	(( i = i + 1 ))
@@ -172,4 +172,4 @@ done
 testing_mv "f" ${orig_file[0]} ${orig_file[1]}
 testing_mv "d" ${orig_dir[0]} ${orig_dir[1]}
 
-log_pass "'$MV' succeeds to support ZFS ACLs."
+log_pass "'mv' succeeds to support ZFS ACLs."

@@ -56,9 +56,9 @@ log_onexit cleanup
 vol=$TESTPOOL/$TESTVOL
 snap=$TESTSNAP
 
-log_must eval "$DD if=$DATA of=$VOL_R_PATH bs=$BS count=$CNT >/dev/null 2>&1"
+log_must eval "dd if=$DATA of=$VOL_R_PATH bs=$BS count=$CNT >/dev/null 2>&1"
 if ! snapexists $vol@$snap; then
-	log_must $ZFS snapshot $vol@$snap
+	log_must zfs snapshot $vol@$snap
 fi
 
 rename_dataset $vol@$snap $vol@${snap}-new
@@ -71,13 +71,13 @@ create_clone $vol@$snap $clone
 
 #verify data integrity
 for input in $VOL_R_PATH /dev/zvol/rdsk/$clone; do
-	log_must eval "$DD if=$input of=$VOLDATA bs=$BS count=$CNT >/dev/null 2>&1"
+	log_must eval "dd if=$input of=$VOLDATA bs=$BS count=$CNT >/dev/null 2>&1"
 	if ! cmp_data $VOLDATA $DATA ; then
 		log_fail "$input gets corrupted after rename operation."
 	fi
 done
 
 destroy_clone $clone
-log_must $ZFS destroy $vol@$snap
+log_must zfs destroy $vol@$snap
 
 log_pass "'zfs rename' can rename volume snapshot as expected."

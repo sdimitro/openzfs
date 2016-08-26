@@ -47,13 +47,13 @@ function cleanup
 {
 	if [ -e /tmp/zpool_001_neg.$$.txt ]
 	then
-		$RM /tmp/zpool_001_neg.$$.txt
+		rm /tmp/zpool_001_neg.$$.txt
 	fi
 }
 
 log_onexit cleanup
 
-eval "$ZPOOL > /tmp/zpool_001_neg.$$.txt 2>&1"
-log_must $GREP "usage: zpool command args" /tmp/zpool_001_neg.$$.txt
+eval "zpool > /tmp/zpool_001_neg.$$.txt 2>&1"
+log_must grep "usage: zpool command args" /tmp/zpool_001_neg.$$.txt
 
 log_pass "zpool shows a usage message when run as a user"

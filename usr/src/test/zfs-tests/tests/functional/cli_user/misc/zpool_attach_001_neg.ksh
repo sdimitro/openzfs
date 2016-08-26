@@ -45,7 +45,7 @@
 
 function check_for_attach
 {
-	RESULT=$($ZPOOL status -v $TESTPOOL.virt | $GREP disk-additional.dat)
+	RESULT=$(zpool status -v $TESTPOOL.virt | grep disk-additional.dat)
 	if [ -n "$RESULT" ]
 	then
 		log_fail "A disk was attached to the pool!"
@@ -55,11 +55,11 @@ function check_for_attach
 verify_runnable "global"
 
 
-log_mustnot $ZPOOL attach $TESTPOOL.virt /$TESTDIR/disk1.dat \
+log_mustnot zpool attach $TESTPOOL.virt /$TESTDIR/disk1.dat \
 	/$TESTDIR/disk-additional.dat
 check_for_attach
 
-log_mustnot $ZPOOL attach -f $TESTPOOL.virt /$TESTDIR/disk1.dat \
+log_mustnot zpool attach -f $TESTPOOL.virt /$TESTDIR/disk1.dat \
 	 /$TESTDIR/disk-additional.dat
 check_for_attach
 

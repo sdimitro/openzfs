@@ -46,9 +46,9 @@
 verify_runnable "global"
 
 
-log_mustnot $ZPOOL remove $TESTPOOL.virt /$TESTDIR/disk-spare1.dat
+log_mustnot zpool remove $TESTPOOL.virt /$TESTDIR/disk-spare1.dat
 
-RESULT=$($ZPOOL status -v $TESTPOOL.virt | $GREP disk-spare1.dat)
+RESULT=$(zpool status -v $TESTPOOL.virt | grep disk-spare1.dat)
 if [ -z "$RESULT" ]
 then
 	log_fail "A disk was removed from the pool!"

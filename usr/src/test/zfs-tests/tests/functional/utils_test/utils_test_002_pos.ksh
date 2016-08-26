@@ -48,9 +48,9 @@ function cleanup
 {
 	ismounted $TESTPOOL/$TESTFS
 	(( $? != 0 )) && \
-		log_must $ZFS mount $TESTPOOL/$TESTFS
+		log_must zfs mount $TESTPOOL/$TESTFS
 
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
@@ -58,8 +58,8 @@ log_onexit cleanup
 
 populate_dir $NUM_FILES
 
-log_must $ZFS unmount $TESTDIR
+log_must zfs unmount $TESTDIR
 
-log_mustnot $LABELIT /dev/rdsk/${DISK}s0 mfiles ${DISK}s0
+log_mustnot labelit /dev/rdsk/${DISK}s0 mfiles ${DISK}s0
 
 log_pass "labelit(1M) returned an error as expected."

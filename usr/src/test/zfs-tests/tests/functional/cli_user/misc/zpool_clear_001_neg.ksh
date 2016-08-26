@@ -46,6 +46,6 @@
 verify_runnable "global"
 
 
-log_mustnot $ZPOOL clear $TESTPOOL
+log_mustnot zpool clear $TESTPOOL
 
 log_pass "zpool clear returns an error when run as a user"

@@ -53,11 +53,11 @@ function cleanup
 # Create a version 2 pool
 typeset -i config=2
 create_old_pool $config
-pool=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
+pool=$(eval echo \$ZPOOL_VERSION_${config}_NAME)
 
 # Attempt to upgrade it
-log_mustnot $ZPOOL upgrade -V 999 $pool
-log_mustnot $ZPOOL upgrade -V 999
+log_mustnot zpool upgrade -V 999 $pool
+log_mustnot zpool upgrade -V 999
 
 # Verify we're still on the old version
 check_poolversion $pool $config

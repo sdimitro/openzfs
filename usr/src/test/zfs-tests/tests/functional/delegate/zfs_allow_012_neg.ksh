@@ -46,7 +46,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	log_must $ZPOOL set delegation=on $TESTPOOL
+	log_must zpool set delegation=on $TESTPOOL
 	log_must restore_root_datasets
 }
 
@@ -59,13 +59,13 @@ set -A perms	create snapshot mount send allow quota reservation \
 		aclmode aclinherit rollback clone rename promote \
 		zoned xattr receive destroy sharenfs share
 
-log_must $ZPOOL set delegation=off $TESTPOOL
+log_must zpool set delegation=off $TESTPOOL
 
 for dtst in $DATASETS; do
 	typeset -i i=0
 	while (( i < ${#perms[@]} )); do
 
-		log_must $ZFS allow $STAFF1 ${perms[$i]} $dtst
+		log_must zfs allow $STAFF1 ${perms[$i]} $dtst
 		log_must verify_noperm $dtst ${perms[$i]} $STAFF1
 
 		log_must restore_root_datasets

@@ -65,9 +65,9 @@ MAX_VER=15
 for config in $CONFIGS
 do
         create_old_pool $config
-	pool=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
+	pool=$(eval echo \$ZPOOL_VERSION_${config}_NAME)
 	NEXT=$(random $config $MAX_VER)
-	log_must $ZPOOL upgrade -V $NEXT $pool
+	log_must zpool upgrade -V $NEXT $pool
         check_poolversion $pool $NEXT
         destroy_upgraded_pool $config
 done

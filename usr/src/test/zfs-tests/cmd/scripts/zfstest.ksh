@@ -16,10 +16,11 @@
 # Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
-export PATH="/usr/bin:/sbin:/usr/sbin:/opt/zfs-tests/bin"
+export PATH="/usr/bin"
 export NOINUSE_CHECK=1
 export STF_SUITE="/opt/zfs-tests"
 export STF_TOOLS="/opt/test-runner/stf"
+export PATHDIR=""
 runner="/opt/test-runner/bin/run"
 auto_detect=false
 
@@ -89,8 +90,40 @@ function verify_disks
 	return 0
 }
 
-verify_id
+function create_links
+{
+	typeset dir=$1
+	typeset file_list=$2
 
+	[[ -n $PATHDIR ]] || fail "PATHDIR wasn't correctly set"
+
+	for i in $file_list; do
+		[[ ! -e $PATHDIR/$i ]] || fail "$i already exists"
+		ln -s $dir/$i $PATHDIR/$i || fail "Couldn't link $i"
+	done
+
+}
+
+function constrain_path
+{
+	. $STF_SUITE/include/commands.cfg
+
+	PATHDIR=$(/usr/bin/mktemp -d /var/tmp/constrained_path.XXXX)
+	chmod 755 $PATHDIR || fail "Couldn't chmod $PATHDIR"
+
+	create_links "/usr/bin" "$USR_BIN_FILES"
+	create_links "/usr/sbin" "$USR_SBIN_FILES"
+	create_links "/sbin" "$SBIN_FILES"
+	create_links "/opt/zfs-tests/bin" "$ZFSTEST_FILES"
+
+	# Special case links
+	ln -s /usr/gnu/bin/dd $PATHDIR/gnu_dd
+}
+
+constrain_path
+export PATH=$PATHDIR
+
+verify_id
 while getopts ac:q c; do
 	case $c in
 	'a')
@@ -134,5 +167,8 @@ num_disks=$(echo $DISKS | awk '{print NF}')
 
 # Ensure user has only basic privileges.
 ppriv -s EIP=basic -e $runner $quiet -c $runfile
+ret=$?
 
-exit $?
+rm -rf $PATHDIR || fail "Couldn't remove $PATHDIR"
+
+exit $ret

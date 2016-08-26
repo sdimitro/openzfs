@@ -40,6 +40,6 @@
 verify_runnable "global"
 
 
-log_mustnot eval "echo return 0 | $ZFS program $TESTPOOL -"
+log_mustnot eval "echo return 0 | zfs program $TESTPOOL -"
 
 log_pass "zfs program returns an error when run as a user"

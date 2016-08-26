@@ -47,7 +47,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	poolexists $TESTPOOL1 || $ZPOOL import $TESTPOOL1 >/dev/null 2>&1
+	poolexists $TESTPOOL1 || zpool import $TESTPOOL1 >/dev/null 2>&1
 
 	poolexists $TESTPOOL1 && destroy_pool $TESTPOOL1
 
@@ -98,7 +98,7 @@ while (( i < ${#vdevs[*]} )); do
 	fi
 
 	create_pool $TESTPOOL1 ${vdevs[i]} $vslices spare $sslices
-	log_must $ZPOOL export $TESTPOOL1
+	log_must zpool export $TESTPOOL1
 	verify_assertion "$vdisks $sdisks"
 
 	if [[ ( $FS_DISK0 == $FS_DISK2 ) && -n ${vdevs[i]} ]]; then
@@ -112,7 +112,7 @@ while (( i < ${#vdevs[*]} )); do
 	fi
 
 	create_pool $TESTPOOL1 ${vdevs[i]} $vdisks spare $sdisks
-	log_must $ZPOOL export $TESTPOOL1
+	log_must zpool export $TESTPOOL1
 	verify_assertion "$vdisks $sdisks"
 
 	(( i = i + 1 ))

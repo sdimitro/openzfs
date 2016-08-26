@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,7 +28,7 @@ function callback
 {
 	typeset count=$1
 	if ((count == 0)); then
-		$ZFS remap $TESTPOOL/$TESTFS
+		zfs remap $TESTPOOL/$TESTFS
 	fi
 	return 0
 }

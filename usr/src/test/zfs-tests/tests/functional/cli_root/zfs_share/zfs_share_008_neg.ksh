@@ -52,7 +52,7 @@ fi
 typeset -i i=0
 while (( i < ${#datasets[*]} ))
 do
-	log_mustnot $ZFS set sharenfs=on ${datasets[i]}
+	log_mustnot zfs set sharenfs=on ${datasets[i]}
 
 	option=`get_prop sharenfs ${datasets[i]}`
 	if [[ $option == ${datasets[i]} ]]; then
@@ -62,7 +62,7 @@ do
 	not_shared ${datasets[i]} || \
 	    log_fail "An invalid setting '$option' was propagated."
 
-	log_mustnot $ZFS share ${datasets[i]}
+	log_mustnot zfs share ${datasets[i]}
 
 	not_shared ${datasets[i]} || \
 	    log_fail "An invalid dataset '${datasets[i]}' was shared."

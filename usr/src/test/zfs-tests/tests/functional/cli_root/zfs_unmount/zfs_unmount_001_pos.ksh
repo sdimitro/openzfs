@@ -52,13 +52,13 @@ verify_runnable "both"
 function cleanup
 {
 	mounted $TESTDIR2 && \
-		log_must $ZFS umount -f $TESTDIR2
+		log_must zfs umount -f $TESTDIR2
 
 	datasetexists $TESTPOOL/$TESTFS2 && \
-		log_must $ZFS destroy $TESTPOOL/$TESTFS2
+		log_must zfs destroy $TESTPOOL/$TESTFS2
 
 	[[ -d $TESTDIR2 ]] && \
-		log_must $RM -rf $TESTDIR2
+		log_must rm -rf $TESTDIR2
 }
 function do_unmount
 {
@@ -67,18 +67,18 @@ function do_unmount
 	typeset mnt=$3
 
 	[[ ! -d $TESTDIR2 ]] && \
-	    log_must $MKDIR $TESTDIR2
+	    log_must mkdir $TESTDIR2
 
 	if ! datasetexists $TESTPOOL/$TESTFS2 ; then
-		log_must $ZFS create $TESTPOOL/$TESTFS2
-		log_must $ZFS set mountpoint=$TESTDIR2 \
+		log_must zfs create $TESTPOOL/$TESTFS2
+		log_must zfs set mountpoint=$TESTDIR2 \
 		    $TESTPOOL/$TESTFS2
 	fi
 
 	unmounted $TESTPOOL/$TESTFS2 && \
-		log_must $ZFS mount $TESTPOOL/$TESTFS2
+		log_must zfs mount $TESTPOOL/$TESTFS2
 
-	log_must $ZFS $cmd $options $mnt
+	log_must zfs $cmd $options $mnt
 
 	unmounted "$mnt" || \
 		log_fail "Unable to unmount $options $mnt"

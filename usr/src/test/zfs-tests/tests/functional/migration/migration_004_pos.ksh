@@ -48,8 +48,8 @@ verify_runnable "both"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/cpio$$.cpio
-	$RM -rf $TESTDIR/$BNAME
+	rm -rf $TESTDIR/cpio$$.cpio
+	rm -rf $TESTDIR/$BNAME
 }
 
 log_onexit cleanup
@@ -58,7 +58,7 @@ cwd=$PWD
 cd $DNAME
 (( $? != 0 )) && log_untested "Could not change directory to $DNAME"
 
-$LS $BNAME | $CPIO -oc > $TESTDIR/cpio$$.cpio
+ls $BNAME | cpio -oc > $TESTDIR/cpio$$.cpio
 (( $? != 0 )) && log_failED "Unable to create cpio archive"
 
 cd $cwd

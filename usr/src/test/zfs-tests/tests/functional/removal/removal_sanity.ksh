@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -27,13 +27,13 @@ log_onexit default_cleanup_noexit
 FILE_CONTENTS="Leeloo Dallas mul-ti-pass."
 
 echo $FILE_CONTENTS  >$TESTDIR/$TESTFILE0
-log_must [ "x$($CAT $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
 
-log_must $ZPOOL remove $TESTPOOL $REMOVEDISK
+log_must zpool remove $TESTPOOL $REMOVEDISK
 log_must wait_for_removal $TESTPOOL
 log_mustnot vdevs_in_pool $TESTPOOL $REMOVEDISK
 
-log_must $DD if=/$TESTDIR/$TESTFILE0 of=/dev/null
-log_must [ "x$($CAT $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+log_must dd if=/$TESTDIR/$TESTFILE0 of=/dev/null
+log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
 
 log_pass "Removed device not in use after removal."

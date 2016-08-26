@@ -48,11 +48,11 @@
 verify_runnable "both"
 
 
-log_must $FILE_WRITE -o create -f $TESTDIR1/file -b 8192 -c 600 -d 0
-log_must $ZFS unmount $TESTDIR1
+log_must file_write -o create -f $TESTDIR1/file -b 8192 -c 600 -d 0
+log_must zfs unmount $TESTDIR1
 
 log_note "Verify that a nested file system with a mounted file system "\
     "cannot be destroyed."
-log_mustnot $ZFS destroy $TESTPOOL/$TESTCTR
+log_mustnot zfs destroy $TESTPOOL/$TESTCTR
 
 log_pass "A nested file system was successfully populated."

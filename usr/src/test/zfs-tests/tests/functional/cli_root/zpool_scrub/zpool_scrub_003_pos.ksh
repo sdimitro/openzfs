@@ -48,21 +48,21 @@ verify_runnable "global"
 function get_scrub_percent
 {
 	typeset -i percent
-	percent=$($ZPOOL status $TESTPOOL | $GREP "^ scrub" | \
-	    $AWK '{print $7}' | $AWK -F. '{print $1}')
+	percent=$(zpool status $TESTPOOL | grep "^ scrub" | \
+	    awk '{print $7}' | awk -F. '{print $1}')
 	if is_pool_scrubbed $TESTPOOL ; then
 		percent=100
 	fi
-	$ECHO $percent
+	echo $percent
 }
 
-log_must $ZPOOL scrub $TESTPOOL
+log_must zpool scrub $TESTPOOL
 typeset -i PERCENT=30 percent=0
 while ((percent < PERCENT)) ; do
 	percent=$(get_scrub_percent)
 done
 
-log_must $ZPOOL scrub $TESTPOOL
+log_must zpool scrub $TESTPOOL
 percent=$(get_scrub_percent)
 if ((percent > PERCENT)); then
 	log_fail "zpool scrub don't stop existing scrubbing process."

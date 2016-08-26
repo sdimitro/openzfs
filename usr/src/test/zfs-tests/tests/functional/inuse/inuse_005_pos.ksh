@@ -59,7 +59,7 @@ function verify_assertion #slices
 	typeset targets=$1
 
 	for t in $targets; do
-		$ECHO "y" | $NEWFS -v $t > /dev/null 2>&1
+		echo "y" | newfs -v $t > /dev/null 2>&1
 		(( $? !=0 )) || \
 			log_fail "newfs over active pool " \
 			"unexpected return code of 0"

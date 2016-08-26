@@ -74,10 +74,10 @@ function cleanup_all
 	typeset fs
 
 	cleanup_filesystem "$TESTPOOL" "$TESTFS1"
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 
 	[[ -d ${TEST_BASE_DIR%%/}/testroot$$ ]] && \
-		$RM -rf ${TEST_BASE_DIR%%/}/testroot$$
+		rm -rf ${TEST_BASE_DIR%%/}/testroot$$
 
 	return 0
 }
@@ -98,7 +98,7 @@ log_must setup_all
 
 typeset -i i=0
 while (( i < ${#args[*]} )); do
-	log_mustnot $ZFS ${args[i]}
+	log_mustnot zfs ${args[i]}
 	((i = i + 1))
 done
 

@@ -27,13 +27,13 @@ verify_runnable "global"
 function cleanup
 {
 	datasetexists $TESTPOOL/$TESTFS@$TESTSNAP && \
-	    log_must $ZFS destroy $TESTPOOL/$TESTFS@$TESTSNAP
+	    log_must zfs destroy $TESTPOOL/$TESTFS@$TESTSNAP
 	datasetexists $TESTPOOL/$TESTFS@$TESTSNAP1 && \
-	    log_must $ZFS destroy $TESTPOOL/$TESTFS@$TESTSNAP1
+	    log_must zfs destroy $TESTPOOL/$TESTFS@$TESTSNAP1
 	datasetexists $TESTPOOL/$TESTFS@$TESTSNAP2 && \
-	    log_must $ZFS destroy $TESTPOOL/$TESTFS@$TESTSNAP2
+	    log_must zfs destroy $TESTPOOL/$TESTFS@$TESTSNAP2
 	datasetexists $TESTPOOL/$TESTFS@$TESTSNAP3 && \
-	    log_must $ZFS destroy $TESTPOOL/$TESTFS@$TESTSNAP3
+	    log_must zfs destroy $TESTPOOL/$TESTFS@$TESTSNAP3
 }
 
 log_onexit cleanup

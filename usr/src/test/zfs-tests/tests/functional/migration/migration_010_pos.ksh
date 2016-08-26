@@ -48,16 +48,16 @@ verify_runnable "both"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/cp$$.cp
-	$RM -rf $TESTDIR/$BNAME
+	rm -rf $TESTDIR/cp$$.cp
+	rm -rf $TESTDIR/$BNAME
 }
 
 log_onexit cleanup
 
-prepare $DNAME "$CP $BNAME $TESTDIR/cp$$.cp"
+prepare $DNAME "cp $BNAME $TESTDIR/cp$$.cp"
 (( $? != 0 )) && log_fail "Unable to create src archive"
 
-migrate $TESTDIR $SUMA $SUMB "$CP $TESTDIR/cp$$.cp $BNAME"
+migrate $TESTDIR $SUMA $SUMB "cp $TESTDIR/cp$$.cp $BNAME"
 (( $? != 0 )) && log_fail "Uable to successfully migrate test file from" \
     "ZFS fs to ZFS fs"
 

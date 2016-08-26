@@ -53,7 +53,7 @@ for ds in $TESTPOOL $TESTPOOL/$TESTFS $TESTPOOL/$TESTVOL \
 	$TESTPOOL/$TESTFS@$TESTSNAP; do
 	for badarg in "" "-" "-?"; do
 		for prop in ${editable_props[@]}; do
-			log_mustnot eval "$ZFS set $badarg $prop= $ds >/dev/null 2>&1"
+			log_mustnot eval "zfs set $badarg $prop= $ds >/dev/null 2>&1"
 		done
 	done
 done

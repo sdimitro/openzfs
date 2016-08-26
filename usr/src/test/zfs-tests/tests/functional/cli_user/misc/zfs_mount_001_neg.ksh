@@ -44,10 +44,10 @@
 #
 
 
-log_mustnot $ZFS mount $TESTPOOL/$TESTFS/$TESTFS2.unmounted
+log_mustnot zfs mount $TESTPOOL/$TESTFS/$TESTFS2.unmounted
 
 # now verify that the above command didn't do anything
-MOUNTED=$($MOUNT | $GREP $TESTPOOL/$TESTFS/$TESTFS2.unmounted)
+MOUNTED=$(mount | grep $TESTPOOL/$TESTFS/$TESTFS2.unmounted)
 if [ -n "$MOUNTED" ]
 then
 	log_fail "Filesystem $TESTPOOL/$TESTFS/$TESTFS2.unmounted was mounted!"

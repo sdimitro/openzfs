@@ -47,7 +47,7 @@ verify_runnable "global"
 function cleanup
 {
 	if [[ -n $PREVDUMPDEV ]]; then
-		log_must $DUMPADM -u -d $PREVDUMPDEV
+		log_must dumpadm -u -d $PREVDUMPDEV
 	fi
 
 	poolexists $TESTPOOL1 && destroy_pool $TESTPOOL1
@@ -63,7 +63,7 @@ function verify_assertion #slices
 	typeset targets=$1
 
 	for t in $targets; do
-		log_mustnot $DUMPADM -d $t
+		log_mustnot dumpadm -d $t
 	done
 
         return 0
@@ -76,7 +76,7 @@ set -A vdevs "" "mirror" "raidz" "raidz1" "raidz2"
 
 typeset -i i=0
 
-PREVDUMPDEV=`$DUMPADM | $GREP "Dump device" | $AWK '{print $3}'`
+PREVDUMPDEV=`dumpadm | grep "Dump device" | awk '{print $3}'`
 
 unset NOINUSE_CHECK
 while (( i < ${#vdevs[*]} )); do

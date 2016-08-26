@@ -54,10 +54,10 @@ function cleanup
 
 log_onexit cleanup
 
-log_must $ZFS set compression=off $TESTPOOL/$TESTFS
+log_must zfs set compression=off $TESTPOOL/$TESTFS
 
 log_note "Writing file: $TESTFILE0 until ENOSPC."
-$FILE_WRITE -o create -f $TESTDIR/$TESTFILE0 -b $BLOCKSZ \
+file_write -o create -f $TESTDIR/$TESTFILE0 -b $BLOCKSZ \
     -c $NUM_WRITES -d $DATA
 ret=$?
 
@@ -65,7 +65,7 @@ ret=$?
     log_fail "$TESTFILE0 returned: $ret rather than ENOSPC."
 
 log_note "Write another file: $TESTFILE1 but expect ENOSPC."
-$FILE_WRITE -o create -f $TESTDIR/$TESTFILE1 -b $BLOCKSZ \
+file_write -o create -f $TESTDIR/$TESTFILE1 -b $BLOCKSZ \
     -c $NUM_WRITES -d $DATA
 ret=$?
 

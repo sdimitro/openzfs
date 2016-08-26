@@ -98,7 +98,7 @@ done
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_must eval "$ZFS ${args[i]} > /dev/null"
+	log_must eval "zfs ${args[i]} > /dev/null"
 	((i = i + 1))
 done
 
@@ -107,7 +107,7 @@ done
 cd /tmp
 typeset -i i=0
 while [[ $i -lt ${#pathargs[*]} ]]; do
-	log_must eval "$ZFS ${pathargs[i]} > /dev/null"
+	log_must eval "zfs ${pathargs[i]} > /dev/null"
 	((i = i + 1))
 done
 

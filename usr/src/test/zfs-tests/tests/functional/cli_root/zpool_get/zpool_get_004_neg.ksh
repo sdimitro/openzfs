@@ -54,7 +54,7 @@ set -A arguments "$TESTPOOL $TESTPOOL" "$TESTPOOL rubbish" "-v $TESTPOOL" \
 
 for arg in $arguments
 do
-	log_mustnot $ZPOOL get $arg
+	log_mustnot zpool get $arg
 done
 
 log_pass "Malformed zpool get commands are rejected"

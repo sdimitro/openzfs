@@ -52,28 +52,28 @@ verify_runnable "both"
 function cleanup
 {
 	# reset aclmode=discard
-	log_must $ZFS set aclmode=discard $TESTPOOL/$TESTFS
+	log_must zfs set aclmode=discard $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
 
-log_must $ZFS set aclmode=restricted $TESTPOOL/$TESTFS
+log_must zfs set aclmode=restricted $TESTPOOL/$TESTFS
 
 for user in root $ZFS_ACL_STAFF1; do
 	log_must set_cur_usr $user
 
-	log_must usr_exec $MKDIR $TESTDIR/testdir
-	log_must usr_exec $TOUCH $TESTDIR/testfile
+	log_must usr_exec mkdir $TESTDIR/testdir
+	log_must usr_exec touch $TESTDIR/testfile
 
 	# Make sure ACL is non-trival
-	log_must usr_exec $CHMOD A+user:${ZFS_ACL_STAFF1}:r::allow \
+	log_must usr_exec chmod A+user:${ZFS_ACL_STAFF1}:r::allow \
 	    $TESTDIR/testdir $TESTDIR/testfile
 
-	log_mustnot usr_exec $CHMOD u-w $TESTDIR/testdir
-	log_mustnot usr_exec $CHMOD u-w $TESTDIR/testfile
+	log_mustnot usr_exec chmod u-w $TESTDIR/testdir
+	log_mustnot usr_exec chmod u-w $TESTDIR/testfile
 
-	log_must usr_exec $RMDIR $TESTDIR/testdir
-	log_must usr_exec $RM $TESTDIR/testfile
+	log_must usr_exec rmdir $TESTDIR/testdir
+	log_must usr_exec rm $TESTDIR/testfile
 done
 
 log_pass "Verify mode bits based chmod fails on files/directories "\

@@ -14,8 +14,6 @@
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-verify_runnable "global"
-
 . $STF_SUITE/tests/functional/channel_program/channel_common.kshlib
 
 #
@@ -23,7 +21,7 @@ verify_runnable "global"
 #       Returning a recursive table should fail gracefully
 #
 
-verify_runnable "both"
+verify_runnable "global"
 
 
 log_mustnot_checkerror_program "Maximum table depth" \

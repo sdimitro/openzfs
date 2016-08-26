@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -67,17 +67,17 @@ fi
 
 create_pool $TESTPOOL $ZFS_SIDE2
 
-$RM -rf $TESTDIR  || log_unresolved Could not remove $TESTDIR
-$MKDIR -p $TESTDIR || log_unresolved Could not create $TESTDIR
+rm -rf $TESTDIR  || log_unresolved Could not remove $TESTDIR
+mkdir -p $TESTDIR || log_unresolved Could not create $TESTDIR
 
-log_must $ZFS create $TESTPOOL/$TESTFS
-log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
-log_must $ZFS set compression=off $TESTPOOL/$TESTFS
+log_must zfs create $TESTPOOL/$TESTFS
+log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+log_must zfs set compression=off $TESTPOOL/$TESTFS
 
 log_note "Configuring metadb with $META_SIDE1"
-log_must $METADB -a -f -c 3 $META_SIDE1
+log_must metadb -a -f -c 3 $META_SIDE1
 
 log_note "Configure $META_DEVICE_ID with $META_SIDE0"
-log_must $METAINIT $META_DEVICE_ID 1 1 $META_SIDE0
+log_must metainit $META_DEVICE_ID 1 1 $META_SIDE0
 
 log_pass

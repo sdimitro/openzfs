@@ -45,7 +45,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	datasetexists $TESTPOOL && log_must $ZPOOL destroy $TESTPOOL
+	datasetexists $TESTPOOL && log_must zpool destroy $TESTPOOL
 }
 
 log_onexit cleanup
@@ -76,7 +76,7 @@ set -A args "QuOta=none" "quota=non" "quota=abcd" "quota=0" "quota=" \
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_mustnot $ZPOOL create -O ${args[i]} -f $TESTPOOL $DISKS
+	log_mustnot zpool create -O ${args[i]} -f $TESTPOOL $DISKS
 	((i = i + 1))
 done
 

@@ -49,10 +49,10 @@ verify_runnable "both"
 function cleanup
 {
 	if datasetexists $clonesnap; then
-		log_must $ZFS promote $fs
+		log_must zfs promote $fs
 	fi
-	datasetexists $clone && log_must $ZFS destroy $clone
-	datasetexists $fssnap && log_must $ZFS destroy $fssnap
+	datasetexists $clone && log_must zfs destroy $clone
+	datasetexists $fssnap && log_must zfs destroy $fssnap
 }
 
 log_onexit cleanup
@@ -66,10 +66,10 @@ clonesnap=$fs/clone@snap
 # Define key word for expected failure.
 KEY_WORDS="filesystem has children"
 
-log_must $ZFS snapshot $fssnap
-log_must $ZFS clone $fssnap $clone
-log_must $ZFS promote $clone
-log_mustnot_expect "$KEY_WORDS" $ZFS destroy $fs
-log_mustnot_expect "$KEY_WORDS" $ZFS destroy $clone
+log_must zfs snapshot $fssnap
+log_must zfs clone $fssnap $clone
+log_must zfs promote $clone
+log_mustnot_expect "$KEY_WORDS" zfs destroy $fs
+log_mustnot_expect "$KEY_WORDS" zfs destroy $clone
 
 log_pass "Destroy dataset which is namespace-parent of origin passed."

@@ -47,19 +47,19 @@ verify_runnable "both"
 function additional_cleanup
 {
 	if datasetexists $TESTPOOL/notexist ; then
-		log_must $ZFS destroy -Rf $TESTPOOL/notexist
+		log_must zfs destroy -Rf $TESTPOOL/notexist
 	fi
 
 	if datasetexists $TESTPOOL/$TESTFS ; then
-		log_must $ZFS destroy -Rf $TESTPOOL/$TESTFS
+		log_must zfs destroy -Rf $TESTPOOL/$TESTFS
 	fi
-	log_must $ZFS create $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
 
 	if is_global_zone ; then
 		if datasetexists $TESTPOOL/$TESTVOL ; then
-			log_must $ZFS destroy -Rf $TESTPOOL/$TESTVOL
+			log_must zfs destroy -Rf $TESTPOOL/$TESTVOL
 		fi
-		log_must $ZFS create -V $VOLSIZE $TESTPOOL/$TESTVOL
+		log_must zfs create -V $VOLSIZE $TESTPOOL/$TESTVOL
 	fi
 }
 

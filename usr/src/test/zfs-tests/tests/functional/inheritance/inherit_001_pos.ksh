@@ -56,10 +56,10 @@ function create_dataset { #name type disks
 	if [[ $type == "POOL" ]]; then
 		create_pool "$dataset" "$disks"
 	elif [[ $type == "CTR" ]]; then
-		log_must $ZFS create $dataset
-		log_must $ZFS set canmount=off $dataset
+		log_must zfs create $dataset
+		log_must zfs set canmount=off $dataset
 	elif [[ $type == "FS" ]]; then
-		log_must $ZFS create $dataset
+		log_must zfs create $dataset
 	else
 		log_fail "Unrecognised type $type"
 	fi
@@ -141,7 +141,7 @@ function update_recordsize { #dataset init_code
 		def_val[idx]=$record_val
 		def_recordsize=1
 	elif [[ $init_code == "local" ]]; then
-		log_must $ZFS set recordsize=$record_val $dataset
+		log_must zfs set recordsize=$record_val $dataset
 		local_val[idx]=$record_val
 	fi
 }
@@ -330,13 +330,13 @@ function scan_state { #state-file
 					log_note "No operation specified"
 				else
 					export __ZFS_POOL_RESTRICT="$TESTPOOL"
-					log_must $ZFS unmount -a
+					log_must zfs unmount -a
 					unset __ZFS_POOL_RESTRICT
 
 					for p in ${prop[i]} ${prop[((i+1))]}; do
-						$ZFS $op $p $target
+						zfs $op $p $target
 						ret=$?
-						check_failure $ret "$ZFS $op $p \
+						check_failure $ret "zfs $op $p \
 						    $target"
 					done
 				fi

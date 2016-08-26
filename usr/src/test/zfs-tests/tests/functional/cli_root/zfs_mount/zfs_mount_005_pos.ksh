@@ -51,7 +51,7 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 	log_must force_unmount $TESTPOOL/$TESTFS
 	return 0
 }
@@ -64,20 +64,20 @@ unmounted $TESTPOOL/$TESTFS || \
 	log_must cleanup
 
 [[ -d $TESTDIR ]] || \
-	log_must $MKDIR -p $TESTDIR
+	log_must mkdir -p $TESTDIR
 
 cd $TESTDIR || \
 	log_unresolved "Unable change directory to $TESTDIR"
 
-$ZFS $mountcmd $TESTPOOL/$TESTFS
+zfs $mountcmd $TESTPOOL/$TESTFS
 ret=$?
 (( ret == 1 )) || \
-	log_fail "'$ZFS $mountcmd $TESTPOOL/$TESTFS' " \
+	log_fail "'zfs $mountcmd $TESTPOOL/$TESTFS' " \
 		"unexpected return code of $ret."
 
 log_note "Make sure the filesystem $TESTPOOL/$TESTFS is unmounted"
 unmounted $TESTPOOL/$TESTFS || \
 	log_fail Filesystem $TESTPOOL/$TESTFS is mounted
 
-log_pass "'$ZFS $mountcmd' with a filesystem " \
+log_pass "'zfs $mountcmd' with a filesystem " \
 	"whose mountpoint is currently in use failed with return code 1."

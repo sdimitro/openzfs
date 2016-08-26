@@ -221,8 +221,8 @@ function redacted_cleanup
 	typeset ds
 
 	# Verify the receiving pool can still be exported and imported.
-	log_must $ZPOOL export $POOL2
-	log_must $ZPOOL import $POOL2
+	log_must zpool export $POOL2
+	log_must zpool import $POOL2
 
 	for ds in $ds_list; do
 		datasetexists $ds && log_must zfs destroy -R $ds

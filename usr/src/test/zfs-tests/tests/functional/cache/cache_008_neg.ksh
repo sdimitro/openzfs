@@ -51,15 +51,15 @@ for type in "" "mirror" "raidz" "raidz2"
 do
 	for cachetype in "mirror" "raidz" "raidz1" "raidz2"
 	do
-		log_must $ZPOOL create $TESTPOOL $type $VDEV \
+		log_must zpool create $TESTPOOL $type $VDEV \
 			cache $LDEV
 
-		log_mustnot $ZPOOL add $TESTPOOL cache $cachetype $LDEV2
+		log_mustnot zpool add $TESTPOOL cache $cachetype $LDEV2
 		ldev=$(random_get $LDEV2)
 		log_mustnot verify_cache_device \
 			$TESTPOOL $ldev 'ONLINE' $cachetype
 
-		log_must $ZPOOL destroy $TESTPOOL
+		log_must zpool destroy $TESTPOOL
 	done
 done
 

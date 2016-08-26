@@ -61,20 +61,20 @@ log_onexit cleanup
 unmounted $TESTPOOL/$TESTFS || \
 	log_must cleanup
 
-log_must $ZFS $mountcmd $TESTPOOL/$TESTFS
+log_must zfs $mountcmd $TESTPOOL/$TESTFS
 
 mounted $TESTPOOL/$TESTFS || \
 	log_unresolved "Filesystem $TESTPOOL/$TESTFS is unmounted"
 
-$ZFS $mountcmd $TESTPOOL/$TESTFS
+zfs $mountcmd $TESTPOOL/$TESTFS
 ret=$?
 (( ret == 1 )) || \
-	log_fail "'$ZFS $mountcmd $TESTPOOL/$TESTFS' " \
+	log_fail "'zfs $mountcmd $TESTPOOL/$TESTFS' " \
 		"unexpected return code of $ret."
 
 log_note "Make sure the filesystem $TESTPOOL/$TESTFS is mounted"
 mounted $TESTPOOL/$TESTFS || \
 	log_fail Filesystem $TESTPOOL/$TESTFS is unmounted
 
-log_pass "'$ZFS $mountcmd <filesystem>' with a mounted filesystem " \
+log_pass "'zfs $mountcmd <filesystem>' with a mounted filesystem " \
 	"will fail with return code 1."

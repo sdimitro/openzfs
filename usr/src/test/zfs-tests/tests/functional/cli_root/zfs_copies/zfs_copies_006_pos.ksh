@@ -48,15 +48,15 @@ verify_runnable "global"
 function cleanup
 {
 	if ismounted $mntp ufs ; then
-		log_must $UMOUNT $mntp
+		log_must umount $mntp
 	fi
 
 	if datasetexists $vol; then
-		log_must $ZFS destroy $vol
+		log_must zfs destroy $vol
 	fi
 
 	if [[ -d $mntp ]]; then
-                $RM -rf $mntp
+                rm -rf $mntp
         fi
 }
 
@@ -66,7 +66,7 @@ mntp=$UFS_MNTPOINT
 vol=$TESTPOOL/$TESTVOL1
 
 if [[ ! -d $mntp ]]; then
-	$MKDIR -p $mntp
+	mkdir -p $mntp
 fi
 
 for val in 1 2 3; do

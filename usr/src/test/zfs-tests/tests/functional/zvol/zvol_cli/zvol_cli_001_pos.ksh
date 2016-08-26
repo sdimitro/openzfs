@@ -55,7 +55,7 @@ set -A args  "list" "list -r" \
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_must eval "$ZFS ${args[i]} > /dev/null"
+	log_must eval "zfs ${args[i]} > /dev/null"
 	((i = i + 1))
 done
 

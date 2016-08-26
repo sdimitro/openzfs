@@ -63,16 +63,16 @@ function cleanup
 
 	while (( i < ${#pools[*]} )); do
 		poolexists ${pools[i]} && \
-			log_must $ZPOOL export ${pools[i]}
+			log_must zpool export ${pools[i]}
 
 		datasetexists "${pools[i]}/$TESTFS" || \
-			log_must $ZPOOL import ${devs[i]} ${pools[i]}
+			log_must zpool import ${devs[i]} ${pools[i]}
 
 		ismounted "${pools[i]}/$TESTFS" || \
-			log_must $ZFS mount ${pools[i]}/$TESTFS
+			log_must zfs mount ${pools[i]}/$TESTFS
 
 		[[ -e ${mtpts[i]}/$TESTFILE0 ]] && \
-			log_must $RM -rf ${mtpts[i]}/$TESTFILE0
+			log_must rm -rf ${mtpts[i]}/$TESTFILE0
 
 		((i = i + 1))
 	done
@@ -82,7 +82,7 @@ function cleanup
         destroy_pool $TESTPOOL1
 
 	[[ -d $ALTER_ROOT ]] && \
-		log_must $RM -rf $ALTER_ROOT
+		log_must rm -rf $ALTER_ROOT
 }
 
 log_onexit cleanup
@@ -90,7 +90,7 @@ log_onexit cleanup
 
 setup_filesystem "$DEVICE_FILES" $TESTPOOL1 $TESTFS $TESTDIR1
 
-checksum1=$($SUM $MYTESTFILE | $AWK '{print $1}')
+checksum1=$(sum $MYTESTFILE | awk '{print $1}')
 
 typeset -i i=0
 typeset -i j=0
@@ -98,20 +98,20 @@ typeset basedir
 
 while (( i < ${#pools[*]} )); do
 	guid=$(get_config ${pools[i]} pool_guid)
-	log_must $CP $MYTESTFILE ${mtpts[i]}/$TESTFILE0
+	log_must cp $MYTESTFILE ${mtpts[i]}/$TESTFILE0
 
-	log_must $ZFS umount ${mtpts[i]}
+	log_must zfs umount ${mtpts[i]}
 
 	j=0
 	while (( j <  ${#options[*]} )); do
-		log_must $ZPOOL export ${pools[i]}
+		log_must zpool export ${pools[i]}
 
 		typeset target=${pools[i]}
 		if (( RANDOM % 2 == 0 )) ; then
 			target=$guid
 			log_note "Import by guid."
 		fi
-		log_must $ZPOOL import ${devs[i]} ${options[j]} $target
+		log_must zpool import ${devs[i]} ${options[j]} $target
 
 		log_must poolexists ${pools[i]}
 
@@ -124,7 +124,7 @@ while (( i < ${#pools[*]} )); do
 		[[ ! -e $basedir/$TESTFILE0 ]] && \
 			log_fail "$basedir/$TESTFILE0 missing after import."
 
-		checksum2=$($SUM $basedir/$TESTFILE0 | $AWK '{print $1}')
+		checksum2=$(sum $basedir/$TESTFILE0 | awk '{print $1}')
 		[[ "$checksum1" != "$checksum2" ]] && \
 			log_fail "Checksums differ ($checksum1 != $checksum2)"
 

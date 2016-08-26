@@ -44,7 +44,7 @@
 #
 
 
-log_mustnot $ZFS rename $TESTPOOL/$TESTFS/renameme $TESTPOOL/$TESTFS/renameme1
+log_mustnot zfs rename $TESTPOOL/$TESTFS/renameme $TESTPOOL/$TESTFS/renameme1
 
 # now verify the above command didn't actually do anything
 if datasetexists $TESTPOOL/$TESTFS/renameme1

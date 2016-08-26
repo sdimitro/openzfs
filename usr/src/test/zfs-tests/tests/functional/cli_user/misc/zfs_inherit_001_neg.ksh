@@ -43,10 +43,10 @@
 #
 #
 
-log_mustnot $ZFS inherit snapdir $TESTPOOL/$TESTFS/$TESTFS2
+log_mustnot zfs inherit snapdir $TESTPOOL/$TESTFS/$TESTFS2
 
 # check to see that the above command really did nothing
-PROP=$($ZFS get snapdir $TESTPOOL/$TESTFS)
+PROP=$(zfs get snapdir $TESTPOOL/$TESTFS)
 if [ "$PROP" = "visible" ]
 then
 	log_fail "snapdir property inherited from the $TESTPOOL/$TESTFS!"

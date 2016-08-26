@@ -49,7 +49,7 @@ MMAP_EXEC=$STF_SUITE/tests/functional/exec/mmap_exec
 
 function cleanup
 {
-	log_must $RM $TESTDIR/myls
+	log_must rm $TESTDIR/myls
 }
 
 #
@@ -74,8 +74,8 @@ function exec_n_check
 
 log_onexit cleanup
 
-log_must $CP $LS $TESTDIR/myls
-log_must $ZFS set exec=off $TESTPOOL/$TESTFS
+log_must cp /usr/bin/ls $TESTDIR/myls
+log_must zfs set exec=off $TESTPOOL/$TESTFS
 
 log_must exec_n_check 126 $TESTDIR/myls
 log_must exec_n_check 13 $MMAP_EXEC $TESTDIR/myls

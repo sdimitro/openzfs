@@ -55,7 +55,7 @@ set -A  bad_combine "ALL" "\-R all" "-P all" "-h all" "-rph all" "-RpH all" "-Pr
 typeset -i i=0
 while (( i < ${#bad_combine[*]} ))
 do
-	log_mustnot eval "$ZFS get ${bad_combine[i]} >/dev/null"
+	log_mustnot eval "zfs get ${bad_combine[i]} >/dev/null"
 
 	(( i = i + 1 ))
 done

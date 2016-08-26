@@ -47,11 +47,11 @@ verify_runnable "both"
 
 function cleanup
 {
-	for file in `$FIND $TESTDIR -type f`; do
-		$CAT /dev/null > $file
+	for file in `find $TESTDIR -type f`; do
+		cat /dev/null > $file
 	done
-	log_must $SYNC
-	log_must $RM -rf $TESTDIR/*
+	log_must sync
+	log_must rm -rf $TESTDIR/*
 }
 
 typeset -i retval=0

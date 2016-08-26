@@ -51,10 +51,10 @@ log_onexit cleanup
 
 
 log_note "Check the set|get userquota@$QUSER1 and groupquota@QGROUP"
-log_must $ZFS set userquota@$QUSER1=$UQUOTA_SIZE $QFS
+log_must zfs set userquota@$QUSER1=$UQUOTA_SIZE $QFS
 log_must check_quota "userquota@$QUSER1" $QFS "$UQUOTA_SIZE"
 
-log_must $ZFS set groupquota@$QGROUP=$GQUOTA_SIZE $QFS
+log_must zfs set groupquota@$QGROUP=$GQUOTA_SIZE $QFS
 log_must check_quota "groupquota@$QGROUP" $QFS "$GQUOTA_SIZE"
 
 log_pass "Check the basic function of set/get userquota on fs passed as expect"

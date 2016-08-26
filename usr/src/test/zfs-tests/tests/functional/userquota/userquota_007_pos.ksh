@@ -46,29 +46,29 @@
 function cleanup
 {
 	log_must cleanup_quota
-	log_must $ZFS set quota=none $QFS
+	log_must zfs set quota=none $QFS
 }
 
 log_onexit cleanup
 
 
-log_must $ZFS set quota=200m $QFS
-log_must $ZFS set userquota@$QUSER1=500m $QFS
-log_must $ZFS set groupquota@$QGROUP=600m $QFS
+log_must zfs set quota=200m $QFS
+log_must zfs set userquota@$QUSER1=500m $QFS
+log_must zfs set groupquota@$QGROUP=600m $QFS
 
-log_must $ZFS get userquota@$QUSER1 $QFS
-log_must $ZFS get groupquota@$QGROUP $QFS
+log_must zfs get userquota@$QUSER1 $QFS
+log_must zfs get groupquota@$QGROUP $QFS
 
 log_note "write some data to the $QFS"
 mkmount_writable $QFS
-log_must user_run $QUSER1 $MKFILE 100m $QFILE
-$SYNC
+log_must user_run $QUSER1 mkfile 100m $QFILE
+sync
 
 log_note "set user|group quota at a smaller size than it current usage"
-log_must $ZFS set userquota@$QUSER1=90m $QFS
-log_must $ZFS set groupquota@$QGROUP=90m $QFS
+log_must zfs set userquota@$QUSER1=90m $QFS
+log_must zfs set groupquota@$QGROUP=90m $QFS
 
-log_must $ZFS get userquota@$QUSER1 $QFS
-log_must $ZFS get groupquota@$QGROUP $QFS
+log_must zfs get userquota@$QUSER1 $QFS
+log_must zfs get groupquota@$QGROUP $QFS
 
 log_pass "set user|group quota to larger than quota size of a fs pass as expect"

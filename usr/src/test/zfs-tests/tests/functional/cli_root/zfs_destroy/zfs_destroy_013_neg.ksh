@@ -37,11 +37,11 @@ setup_testenv snap
 
 for dstype in FS VOL; do
     snap=$(eval echo \$${dstype}SNAP)
-    log_must $ZFS hold zfstest $snap
-    log_mustnot $ZFS destroy $snap
+    log_must zfs hold zfstest $snap
+    log_mustnot zfs destroy $snap
     log_must datasetexists $snap
-    log_must $ZFS release zfstest $snap
-    log_must $ZFS destroy $snap
+    log_must zfs release zfstest $snap
+    log_must zfs destroy $snap
     log_mustnot datasetexists $snap
 done
 

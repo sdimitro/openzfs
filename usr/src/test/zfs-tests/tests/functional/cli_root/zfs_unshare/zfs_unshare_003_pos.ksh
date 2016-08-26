@@ -50,10 +50,10 @@ verify_runnable "global"
 function cleanup
 {
 	if snapexists $TESTPOOL/$TESTFS@snapshot; then
-		log_must $ZFS destroy $TESTPOOL/$TESTFS@snapshot
+		log_must zfs destroy $TESTPOOL/$TESTFS@snapshot
 	fi
 
-	log_must $ZFS set sharenfs=off $TESTPOOL/$TESTFS
+	log_must zfs set sharenfs=off $TESTPOOL/$TESTFS
 }
 
 #
@@ -72,11 +72,11 @@ function test_snap_unshare # <mntp> <filesystem>
 	prop_value=$(get_prop "sharenfs" $filesystem)
 
 	if [[ $prop_value == "off" ]]; then
-		is_shared $mntp || $UNSHARE -F nfs $mntp
-		log_must $ZFS set sharenfs=on $filesystem
+		is_shared $mntp || unshare -F nfs $mntp
+		log_must zfs set sharenfs=on $filesystem
 	fi
 
-	log_must $ZFS set sharenfs=off $filesystem
+	log_must zfs set sharenfs=off $filesystem
 
 	not_shared $mntp || \
 		log_fail "File system $filesystem is shared (set sharenfs)."
@@ -87,7 +87,7 @@ function test_snap_unshare # <mntp> <filesystem>
 
 log_onexit cleanup
 
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@snapshot
+log_must zfs snapshot $TESTPOOL/$TESTFS@snapshot
 test_snap_unshare $TESTDIR $TESTPOOL/$TESTFS
 
 log_pass "A file system and its dependant are both unshared as expected."

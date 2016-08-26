@@ -56,11 +56,11 @@ setup_snap_env 1
 #
 write_mountpoint_dir ${FSSNAP0%%@*}
 
-log_must $ZFS rollback $FSSNAP0
-log_must $ZFS rollback -f $FSSNAP0
+log_must zfs rollback $FSSNAP0
+log_must zfs rollback -f $FSSNAP0
 log_must datasetexists $FSSNAP0
 
-$PKILL ${DD##*/}
+pkill ${DD##*/}
 
 check_files $FSSNAP0
 

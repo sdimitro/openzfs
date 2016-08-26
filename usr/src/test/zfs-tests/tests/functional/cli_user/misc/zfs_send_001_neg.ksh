@@ -47,13 +47,13 @@ function cleanup
 {
 	if [ -e /tmp/zfstest_datastream.$$ ]
 	then
-		log_must $RM /tmp/zfstest_datastream.$$
+		log_must rm /tmp/zfstest_datastream.$$
 	fi
 }
 
 log_onexit cleanup
 
-log_mustnot eval "$ZFS send $TESTPOOL/$TESTFS@snap > /tmp/zfstest_datastream.$$"
+log_mustnot eval "zfs send $TESTPOOL/$TESTFS@snap > /tmp/zfstest_datastream.$$"
 
 # Now check that the above command actually did nothing
 

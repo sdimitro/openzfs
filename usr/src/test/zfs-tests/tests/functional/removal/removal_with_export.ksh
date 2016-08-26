@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,7 +28,7 @@ function callback # count
 {
 	typeset count=$1
 	if ((count == 0)); then
-		log_must $ZPOOL export $TESTPOOL
+		log_must zpool export $TESTPOOL
 
 		#
 		# We are concurrently starting dd processes that will
@@ -37,9 +37,9 @@ function callback # count
 		# non-empty directory.  Therefore, remove the directory
 		# so that the dd process will fail.
 		#
-		log_must $RM -rf $TESTDIR
+		log_must rm -rf $TESTDIR
 
-		log_must $ZPOOL import $TESTPOOL
+		log_must zpool import $TESTPOOL
 	fi
 	return 0
 }

@@ -56,7 +56,7 @@ TEST_POOLS=
 # Now build all of our pools
 for config in $CONFIGS
 do
-	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
+	POOL_NAME=$(eval echo \$ZPOOL_VERSION_${config}_NAME)
 
 	TEST_POOLS="$TEST_POOLS $POOL_NAME"
 	create_old_pool $config
@@ -67,22 +67,22 @@ done
 
 # upgrade them all at once
 export __ZFS_POOL_RESTRICT="$TEST_POOLS"
-log_must $ZPOOL upgrade -a
+log_must zpool upgrade -a
 unset __ZFS_POOL_RESTRICT
 
 # verify their contents then destroy them
 for config in $CONFIGS
 do
-	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
+	POOL_NAME=$(eval echo \$ZPOOL_VERSION_${config}_NAME)
 
 	check_pool $POOL_NAME post > /dev/null
 
 	# a side effect of the check_pool here, is that we get a checksum written
 	# called /$TESTPOOL/pool-checksums.$POOL_NAME.post
-	log_must $DIFF /$TESTPOOL/pool-checksums.$POOL_NAME.pre \
+	log_must diff /$TESTPOOL/pool-checksums.$POOL_NAME.pre \
 		/$TESTPOOL/pool-checksums.$POOL_NAME.post
 
-	$RM /$TESTPOOL/pool-checksums.$POOL_NAME.pre /$TESTPOOL/pool-checksums.$POOL_NAME.post
+	rm /$TESTPOOL/pool-checksums.$POOL_NAME.pre /$TESTPOOL/pool-checksums.$POOL_NAME.post
 	destroy_upgraded_pool $config
 done
 

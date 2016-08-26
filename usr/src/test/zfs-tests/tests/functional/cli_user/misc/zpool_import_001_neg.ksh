@@ -45,7 +45,7 @@
 
 function check_for_import
 {
-	RESULT=$($ZPOOL list -H -o name | $GREP $TESTPOOL.exported)
+	RESULT=$(zpool list -H -o name | grep $TESTPOOL.exported)
 	if [ -n "$RESULT" ]
 	then
 		log_fail "Pool $TESTPOOL.export was successfully imported!"
@@ -54,12 +54,12 @@ function check_for_import
 
 verify_runnable "global"
 
-log_mustnot $ZPOOL import
+log_mustnot zpool import
 
-log_mustnot $ZPOOL import -a
+log_mustnot zpool import -a
 check_for_import
 
-log_mustnot $ZPOOL import -d /$TESTDIR $TESTPOOL.exported
+log_mustnot zpool import -d /$TESTDIR $TESTPOOL.exported
 check_for_import
 
 log_pass "zpool import returns an error when run as a user"

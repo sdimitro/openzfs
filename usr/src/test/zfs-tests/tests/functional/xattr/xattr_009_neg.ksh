@@ -42,20 +42,20 @@
 
 function cleanup {
 
-	log_must $RM $TESTDIR/myfile.$$
+	log_must rm $TESTDIR/myfile.$$
 
 }
 
 log_onexit cleanup
 
 # create a file, and an xattr on it
-log_must $TOUCH $TESTDIR/myfile.$$
+log_must touch $TESTDIR/myfile.$$
 create_xattr $TESTDIR/myfile.$$ passwd /etc/passwd
 
 # Try to create a soft link from the xattr namespace to the default namespace
-log_mustnot $RUNAT $TESTDIR/myfile.$$ $LN -s /etc/passwd foo
+log_mustnot runat $TESTDIR/myfile.$$ $LN -s /etc/passwd foo
 
 # Try to create a hard link from the xattr namespace to the default namespace
-log_mustnot $RUNAT $TESTDIR/myfile.$$ $LN /etc/passwd foo
+log_mustnot runat $TESTDIR/myfile.$$ $LN /etc/passwd foo
 
 log_pass "links between xattr and normal file namespace fail"

@@ -55,8 +55,8 @@ verify_runnable "global"
 function cleanup
 {
 	PIDS=""
-	$RM -f $OLDDIR/* >/dev/null 2>&1
-	$RM -f $NEWDIR_ACROSS_FS/* >/dev/null 2>&1
+	rm -f $OLDDIR/* >/dev/null 2>&1
+	rm -f $NEWDIR_ACROSS_FS/* >/dev/null 2>&1
 }
 
 log_onexit cleanup

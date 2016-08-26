@@ -47,7 +47,7 @@ verify_runnable "global"
 function cleanup
 {
 	datasetexists $vol && \
-		log_must $ZFS destroy -f $vol
+		log_must zfs destroy -f $vol
 }
 
 log_onexit cleanup
@@ -57,11 +57,11 @@ vol=$TESTPOOL/$TESTVOL
 
 typeset -i i=0
 while (( i < ${#options[*]} )); do
-	log_must $ZFS create ${options[i]} -V $VOLSIZE $vol
+	log_must zfs create ${options[i]} -V $VOLSIZE $vol
 	datasetexists $vol || \
 		log_fail "zfs create ${options[i]} -V $VOLSIZE $vol fail."
 
-	log_must $ZFS destroy -f $vol
+	log_must zfs destroy -f $vol
 	((i = i + 1))
 done
 

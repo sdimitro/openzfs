@@ -46,11 +46,11 @@ FOUND=""
 
 while [ -z "$FOUND" ]
 do
-   $ZPOOL list $NO_POOL 2>&1 > /dev/null
+   zpool list $NO_POOL 2>&1 > /dev/null
    if [ $? -ne 0 ]
    then
       FOUND="true"
-      log_mustnot $ZPOOL upgrade $NO_POOL
+      log_mustnot zpool upgrade $NO_POOL
    else
       NO_POOL="${NO_POOL}x"
    fi

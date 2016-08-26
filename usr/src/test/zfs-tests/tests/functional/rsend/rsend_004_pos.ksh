@@ -50,8 +50,8 @@ log_onexit cleanup_pool $POOL2
 #
 # Duplicate POOL2 for testing
 #
-log_must eval "$ZFS send -R $POOL@final > $BACKDIR/pool-final-R"
-log_must eval "$ZFS receive -d -F $POOL2 < $BACKDIR/pool-final-R"
+log_must eval "zfs send -R $POOL@final > $BACKDIR/pool-final-R"
+log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/pool-final-R"
 
 if is_global_zone ; then
 	#
@@ -62,10 +62,10 @@ if is_global_zone ; then
 	interlist="$interlist $(getds_with_suffix $POOL2 @snapB)"
 	interlist="$interlist $(getds_with_suffix $POOL2 @snapA)"
 
-	log_must eval "$ZFS send -R -i @init $POOL2@final > " \
+	log_must eval "zfs send -R -i @init $POOL2@final > " \
 		"$BACKDIR/pool-init-final-iR"
 	log_must destroy_tree $interlist
-	log_must eval "$ZFS receive -d -F $POOL2 < $BACKDIR/pool-init-final-iR"
+	log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/pool-init-final-iR"
 
 	# Get current datasets with suffix @final
 	dstlist=$(getds_with_suffix $POOL2 @final)
@@ -79,7 +79,7 @@ dstds=$(get_dst_ds $POOL $POOL2)
 #
 # Testing send -R -i backup from filesystem
 #
-log_must eval "$ZFS send -R -i @init $dstds/$FS@final > " \
+log_must eval "zfs send -R -i @init $dstds/$FS@final > " \
 	"$BACKDIR/fs-init-final-iR"
 
 srclist=$(getds_with_suffix $dstds/$FS @final)
@@ -88,9 +88,9 @@ interlist="$interlist $(getds_with_suffix $dstds/$FS @snapB)"
 interlist="$interlist $(getds_with_suffix $dstds/$FS @snapA)"
 log_must destroy_tree $interlist
 if is_global_zone ; then
-	log_must eval "$ZFS receive -d -F $POOL2 < $BACKDIR/fs-init-final-iR"
+	log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/fs-init-final-iR"
 else
-	$ZFS receive -F -d $dstds/$FS < $BACKDIR/fs-init-final-iR
+	zfs receive -F -d $dstds/$FS < $BACKDIR/fs-init-final-iR
 fi
 
 dstlist=$(getds_with_suffix $dstds/$FS @final)
@@ -104,10 +104,10 @@ if is_global_zone ; then
 	# Testing send -R -i backup from volume
 	#
 	srclist=$(getds_with_suffix $POOL2/$FS/vol @final)
-	log_must eval "$ZFS send -R -i @init $POOL2/$FS/vol@final > " \
+	log_must eval "zfs send -R -i @init $POOL2/$FS/vol@final > " \
 		"$BACKDIR/vol-init-final-iR"
 	log_must destroy_tree $srclist
-	log_must eval "$ZFS receive -d $POOL2 < $BACKDIR/vol-init-final-iR"
+	log_must eval "zfs receive -d $POOL2 < $BACKDIR/vol-init-final-iR"
 
 	dstlist=$(getds_with_suffix $POOL2/$FS/vol @final)
 	if [[ $srclist != $dstlist ]]; then

@@ -43,15 +43,15 @@
 DISK1=${DISKS%% *}
 DISK2="$(echo $DISKS | cut -d' ' -f2)"
 
-log_must $ZPOOL create -f $TESTPOOL mirror $DISK1 $DISK2
-log_must $ZPOOL initialize $TESTPOOL $DISK1
+log_must zpool create -f $TESTPOOL mirror $DISK1 $DISK2
+log_must zpool initialize $TESTPOOL $DISK1
 
-log_must $ZPOOL offline $TESTPOOL $DISK1
+log_must zpool offline $TESTPOOL $DISK1
 
 progress="$(initialize_progress $TESTPOOL $DISK1)"
 [[ -z "$progress" ]] && log_fail "Initializing did not start"
 
-log_must $ZPOOL online $TESTPOOL $DISK1
+log_must zpool online $TESTPOOL $DISK1
 
 new_progress="$(initialize_progress $TESTPOOL $DISK1)"
 [[ -z "$new_progress" ]] && \
@@ -60,11 +60,11 @@ new_progress="$(initialize_progress $TESTPOOL $DISK1)"
     log_fail "Initializing lost progress after onlining"
 log_mustnot eval "initialize_prog_line $TESTPOOL $DISK1 | grep suspended"
 
-log_must $ZPOOL initialize -s $TESTPOOL $DISK1
+log_must zpool initialize -s $TESTPOOL $DISK1
 action_date="$(initialize_prog_line $TESTPOOL $DISK1 | \
     sed 's/.*ed at \(.*\)).*/\1/g')"
-log_must $ZPOOL offline $TESTPOOL $DISK1
-log_must $ZPOOL online $TESTPOOL $DISK1
+log_must zpool offline $TESTPOOL $DISK1
+log_must zpool online $TESTPOOL $DISK1
 new_action_date=$(initialize_prog_line $TESTPOOL $DISK1 | \
     sed 's/.*ed at \(.*\)).*/\1/g')
 [[ "$action_date" != "$new_action_date" ]] && \

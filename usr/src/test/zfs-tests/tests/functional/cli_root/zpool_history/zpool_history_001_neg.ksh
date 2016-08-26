@@ -51,17 +51,17 @@ set -A neg_opt "$TESTPOOL/$TESTCTR" "$TESTPOOL/$TESTVOL" "-t $TESTPOOL" \
 
 function cleanup
 {
-	datasetexists $clone && log_must $ZFS destroy $clone
-	datasetexists $snap && log_must $ZFS destroy $snap
+	datasetexists $clone && log_must zfs destroy $clone
+	datasetexists $snap && log_must zfs destroy $snap
 }
 
 log_onexit cleanup
 
-log_must $ZFS snapshot $snap
-log_must $ZFS clone $snap $clone
+log_must zfs snapshot $snap
+log_must zfs clone $snap $clone
 
 for opt in "${neg_opt[@]}"; do
-	log_mustnot eval "$ZPOOL history $opt > /dev/null"
+	log_mustnot eval "zpool history $opt > /dev/null"
 done
 
 log_pass "'zpool history' command line negation test passed."

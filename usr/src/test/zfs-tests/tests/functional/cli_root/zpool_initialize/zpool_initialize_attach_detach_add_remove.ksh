@@ -42,26 +42,26 @@
 DISK1="$(echo $DISKS | cut -d' ' -f1)"
 DISK2="$(echo $DISKS | cut -d' ' -f2)"
 
-log_must $ZPOOL create -f $TESTPOOL $DISK1
+log_must zpool create -f $TESTPOOL $DISK1
 
-log_must $ZPOOL initialize $TESTPOOL $DISK1
+log_must zpool initialize $TESTPOOL $DISK1
 progress="$(initialize_progress $TESTPOOL $DISK1)"
 [[ -z "$progress" ]] && log_fail "Initializing did not start"
 
-log_must $ZPOOL attach $TESTPOOL $DISK1 $DISK2
+log_must zpool attach $TESTPOOL $DISK1 $DISK2
 new_progress="$(initialize_progress $TESTPOOL $DISK1)"
 [[ "$progress" -le "$new_progress" ]] || \
         log_fail "Lost initializing progress on demotion to child vdev"
 progress="$new_progress"
 
-log_must $ZPOOL detach $TESTPOOL $DISK2
+log_must zpool detach $TESTPOOL $DISK2
 new_progress="$(initialize_progress $TESTPOOL $DISK1)"
 [[ "$progress" -le "$new_progress" ]] || \
         log_fail "Lost initializing progress on promotion to top vdev"
 progress="$new_progress"
 
-log_must $ZPOOL add $TESTPOOL $DISK2
-log_must $ZPOOL remove $TESTPOOL $DISK1
+log_must zpool add $TESTPOOL $DISK2
+log_must zpool remove $TESTPOOL $DISK1
 [[ -z "$(initialize_prog_line $TESTPOOL $DISK1)" ]] || \
         log_fail "Initializing continued after initiating removal"
 

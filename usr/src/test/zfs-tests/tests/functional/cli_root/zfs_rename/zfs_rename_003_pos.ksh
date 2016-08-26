@@ -44,7 +44,7 @@ verify_runnable "both"
 
 function cleanup
 {
-	datasetexists $snap && log_must $ZFS destroy $snap
+	datasetexists $snap && log_must zfs destroy $snap
 }
 
 log_onexit cleanup
@@ -52,14 +52,14 @@ log_onexit cleanup
 fs=$TESTPOOL/$TESTFS; snap=$fs@snap
 set -A newname "$fs@new-snap" "@new-snap" "new-snap"
 
-log_must $ZFS snapshot $snap
+log_must zfs snapshot $snap
 log_must datasetexists $snap
 
 typeset -i i=0
 while ((i < ${#newname[*]} )); do
-        log_must $ZFS rename $snap ${newname[$i]}
+        log_must zfs rename $snap ${newname[$i]}
 	log_must datasetexists ${snap%%@*}@${newname[$i]##*@}
-	log_must $ZFS rename ${snap%%@*}@${newname[$i]##*@} $snap
+	log_must zfs rename ${snap%%@*}@${newname[$i]##*@} $snap
 
 	((i += 1))
 done

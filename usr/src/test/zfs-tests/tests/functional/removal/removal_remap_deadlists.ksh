@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -24,50 +24,50 @@
 default_setup_noexit "$DISKS"
 log_onexit default_cleanup_noexit
 
-log_must $DD if=/dev/zero of=$TESTDIR/file bs=1024k count=300
+log_must dd if=/dev/zero of=$TESTDIR/file bs=1024k count=300
 
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap-pre1
-log_must $DD if=/dev/zero of=$TESTDIR/file bs=1024k count=100 \
+log_must zfs snapshot $TESTPOOL/$TESTFS@snap-pre1
+log_must dd if=/dev/zero of=$TESTDIR/file bs=1024k count=100 \
     conv=notrunc seek=100
 
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap-pre2
-log_must $DD if=/dev/zero of=$TESTDIR/file bs=1024k count=100 \
+log_must zfs snapshot $TESTPOOL/$TESTFS@snap-pre2
+log_must dd if=/dev/zero of=$TESTDIR/file bs=1024k count=100 \
     conv=notrunc seek=200
 
-log_must $ZPOOL remove $TESTPOOL $REMOVEDISK
-log_must wait_for_removal $TESTPOOL $ZDB -cd $TESTPOOL
+log_must zpool remove $TESTPOOL $REMOVEDISK
+log_must wait_for_removal $TESTPOOL zdb -cd $TESTPOOL
 log_mustnot vdevs_in_pool $TESTPOOL $REMOVEDISK
-log_must $ZDB -cd $TESTPOOL
+log_must zdb -cd $TESTPOOL
 
-log_must $ZFS remap $TESTPOOL/$TESTFS
-log_must $ZDB -cd $TESTPOOL
+log_must zfs remap $TESTPOOL/$TESTFS
+log_must zdb -cd $TESTPOOL
 
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap-post3
-log_must $ZDB -cd $TESTPOOL
+log_must zfs snapshot $TESTPOOL/$TESTFS@snap-post3
+log_must zdb -cd $TESTPOOL
 
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@snap-post4
-log_must $ZDB -cd $TESTPOOL
+log_must zfs snapshot $TESTPOOL/$TESTFS@snap-post4
+log_must zdb -cd $TESTPOOL
 
 #
 # Test case where block is moved from remap deadlist: blocks born before
 # snap-pre2 will be obsoleted.
 #
-log_must $ZFS destroy $TESTPOOL/$TESTFS@snap-pre2
-log_must $ZDB -cd $TESTPOOL
+log_must zfs destroy $TESTPOOL/$TESTFS@snap-pre2
+log_must zdb -cd $TESTPOOL
 
 #
 # Test case where we merge remap deadlists: blocks before snap-pre1 will
 # need to go on snap-post4's deadlist.
 #
-log_must $ZFS destroy $TESTPOOL/$TESTFS@snap-post3
-log_must $ZDB -cd $TESTPOOL
+log_must zfs destroy $TESTPOOL/$TESTFS@snap-post3
+log_must zdb -cd $TESTPOOL
 
-log_must $ZFS destroy $TESTPOOL/$TESTFS@snap-post4
+log_must zfs destroy $TESTPOOL/$TESTFS@snap-post4
 
 #
 # Test rollback.
 #
-log_must $ZFS rollback $TESTPOOL/$TESTFS@snap-pre1
-log_must $ZFS destroy $TESTPOOL/$TESTFS@snap-pre1
+log_must zfs rollback $TESTPOOL/$TESTFS@snap-pre1
+log_must zfs destroy $TESTPOOL/$TESTFS@snap-pre1
 
 log_pass "Remove and remap works with snapshots and deadlists."

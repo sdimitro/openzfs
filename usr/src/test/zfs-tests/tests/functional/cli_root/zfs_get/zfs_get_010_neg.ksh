@@ -49,7 +49,7 @@ set -A  badargs "a" "AB" "aBc" "2A" "a2b" "aB2" "-1" "-32" "-999"
 typeset -i i=0
 while (( i < ${#badargs[*]} ))
 do
-	log_mustnot eval "$ZFS get -d ${badargs[i]} $TESTPOOL/$TESTFS >/dev/null 2>&1"
+	log_mustnot eval "zfs get -d ${badargs[i]} $TESTPOOL/$TESTFS >/dev/null 2>&1"
 	(( i = i + 1 ))
 done
 

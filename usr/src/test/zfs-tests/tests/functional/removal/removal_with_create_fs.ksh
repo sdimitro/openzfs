@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,8 +28,8 @@ function callback
 {
 	typeset count=$1
 	if ((count == 0)); then
-		log_must $ZFS create $TESTPOOL/$TESTFS1
-		log_must $ZFS destroy $TESTPOOL/$TESTFS1
+		log_must zfs create $TESTPOOL/$TESTFS1
+		log_must zfs destroy $TESTPOOL/$TESTFS1
 	fi
 	return 0
 }

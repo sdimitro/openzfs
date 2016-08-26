@@ -44,7 +44,7 @@
 
 function check_for_export
 {
-	RESULT=$($ZPOOL list | $GREP $TESTPOOL.virt )
+	RESULT=$(zpool list | grep $TESTPOOL.virt )
 	if [ -z "$RESULT" ]
 	then
 		log_fail "A pool was exported!"
@@ -55,10 +55,10 @@ function check_for_export
 verify_runnable "global"
 
 
-log_mustnot $ZPOOL export $TESTPOOL.virt
+log_mustnot zpool export $TESTPOOL.virt
 check_for_export
 
-log_mustnot $ZPOOL export -f $TESTPOOL.virt
+log_mustnot zpool export -f $TESTPOOL.virt
 check_for_export
 
 log_pass "zpool export returns an error when run as a user"

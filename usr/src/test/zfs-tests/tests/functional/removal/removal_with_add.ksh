@@ -15,20 +15,20 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-/var/tmp}
-log_must $MKFILE 1g $TMPDIR/dsk1
-log_must $MKFILE 1g $TMPDIR/dsk2
+log_must mkfile 1g $TMPDIR/dsk1
+log_must mkfile 1g $TMPDIR/dsk2
 
 function cleanup
 {
 	default_cleanup_noexit
-	log_must $RM -f $TMPDIR/dsk1 $TMPDIR/dsk2
+	log_must rm -f $TMPDIR/dsk1 $TMPDIR/dsk2
 }
 
 default_setup_noexit "$DISKS"
@@ -38,10 +38,10 @@ function callback
 {
 	typeset count=$1
 	if ((count == 0)); then
-		log_mustnot $ZPOOL attach -f $TESTPOOL $TMPDIR/dsk1 $TMPDIR/dsk2
-		log_mustnot $ZPOOL add -f $TESTPOOL \
+		log_mustnot zpool attach -f $TESTPOOL $TMPDIR/dsk1 $TMPDIR/dsk2
+		log_mustnot zpool add -f $TESTPOOL \
 		    raidz $TMPDIR/dsk1 $TMPDIR/dsk2
-		log_must $ZPOOL add -f $TESTPOOL $TMPDIR/dsk1
+		log_must zpool add -f $TESTPOOL $TMPDIR/dsk1
 	fi
 
 	return 0

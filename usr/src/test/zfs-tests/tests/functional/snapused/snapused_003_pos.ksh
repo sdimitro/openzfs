@@ -48,12 +48,12 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rR $USEDTEST
+	log_must zfs destroy -rR $USEDTEST
 }
 
 log_onexit cleanup
 
-log_must $ZFS create $USEDTEST
+log_must zfs create $USEDTEST
 check_usedbydataset $USEDTEST
 
 typeset -i i=0
@@ -62,16 +62,16 @@ mntpnt=$(get_prop mountpoint $USEDTEST)
 while ((i < 5)); do
 	((r_size=(i+1)*16))
 
-	log_must $MKFILE 16M $mntpnt/file$i
-	log_must $MKFILE "$r_size"M $mntpnt/file_var$i
-	log_must $ZFS snapshot -r $USEDTEST@snap$i
+	log_must mkfile 16M $mntpnt/file$i
+	log_must mkfile "$r_size"M $mntpnt/file_var$i
+	log_must zfs snapshot -r $USEDTEST@snap$i
 
-	log_must $ZFS clone $USEDTEST@snap$i $USEDTEST/cln$i
-	log_must $ZFS set is:cloned=yes $USEDTEST/cln$i
+	log_must zfs clone $USEDTEST@snap$i $USEDTEST/cln$i
+	log_must zfs set is:cloned=yes $USEDTEST/cln$i
 
 	mntpnt_cln=$(get_prop mountpoint $USEDTEST/cln$i)
-	log_must $MKFILE 16M $mntpnt_cln/file_cln$i
-	log_must $MKFILE "$r_size"M $mntpnt_cln/file_cln_var$i
+	log_must mkfile 16M $mntpnt_cln/file_cln$i
+	log_must mkfile "$r_size"M $mntpnt_cln/file_cln_var$i
 
 	check_usedbydataset $USEDTEST
 

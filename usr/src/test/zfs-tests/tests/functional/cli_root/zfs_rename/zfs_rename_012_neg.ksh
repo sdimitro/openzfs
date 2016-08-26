@@ -51,14 +51,14 @@ datasets=("$TESTPOOL" "$TESTPOOL/$TESTFS" "$TESTPOOL/$TESTFS@$TESTSNAP"
 
 longname="$(gen_dataset_name 260 abcdefg)"
 
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@$TESTSNAP
+log_must zfs snapshot $TESTPOOL/$TESTFS@$TESTSNAP
 for ds in ${datasets[@]}; do
 	for opt in ${badopts[@]}; do
-		log_mustnot $ZFS rename $opt $ds ${ds}-new
+		log_mustnot zfs rename $opt $ds ${ds}-new
 	done
-	log_mustnot $ZFS rename $ds
-	log_mustnot $ZFS rename $ds ${ds}-new ${ds}-new1
-	log_mustnot $ZFS rename $ds ${ds}.$longname
+	log_mustnot zfs rename $ds
+	log_mustnot zfs rename $ds ${ds}-new ${ds}-new1
+	log_mustnot zfs rename $ds ${ds}.$longname
 done
 
 log_pass "'zfs rename' fails with illegal scenarios as expected."

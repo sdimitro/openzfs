@@ -46,19 +46,19 @@
 
 function cleanup
 {
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
 
 # the current size of the test pool
-typeset -i oldsize=`$ZFS get -pH -o value available $TESTPOOL`
+typeset -i oldsize=`zfs get -pH -o value available $TESTPOOL`
 
-log_must $ZPOOL add $TESTPOOL $META_DEVICE_PATH
-log_must $ZPOOL iostat -v | $GREP $META_DEVICE_ID
+log_must zpool add $TESTPOOL $META_DEVICE_PATH
+log_must zpool iostat -v | grep $META_DEVICE_ID
 
 # the size of the test pool after adding the extra device
-typeset -i newsize=`$ZFS get -pH -o value available $TESTPOOL`
+typeset -i newsize=`zfs get -pH -o value available $TESTPOOL`
 
 (( $oldsize >= $newsize )) && \
     log_fail "Pool space available ($oldsize) before adding a new device was "\
@@ -75,7 +75,7 @@ typeset bg=$TESTDIR/bigdirectory
 fill_fs $bg 20 25 $FILE_SIZE $FILE_COUNT
 retval=$?
 
-afterwritepoolavail=`$ZFS get -pH -o value available $TESTPOOL`
+afterwritepoolavail=`zfs get -pH -o value available $TESTPOOL`
 readonly ENOSPC=28
 
 (( $retval == $ENOSPC && $afterwritepoolavail < $oldsize)) && \

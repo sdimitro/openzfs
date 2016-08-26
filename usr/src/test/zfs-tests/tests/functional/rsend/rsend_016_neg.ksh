@@ -29,6 +29,6 @@
 verify_runnable "both"
 
 
-log_neg eval "$ZFS send -i \#bla $POOl/$FS@final > /dev/null"
+log_neg eval "zfs send -i \#bla $POOl/$FS@final > /dev/null"
 
 log_pass "Ensure that error conditions cause appropriate failures."

@@ -34,14 +34,14 @@
 
 function cleanup
 {
-	log_must $ZFS destroy $TESTFS
+	log_must zfs destroy $TESTFS
 }
 
 log_onexit cleanup
 
 export TESTFS=$PERFPOOL/testfs
 recreate_perfpool
-log_must $ZFS create $PERF_FS_OPTS $TESTFS
+log_must zfs create $PERF_FS_OPTS $TESTFS
 
 # Ensure the working set can be cached in the dbuf cache.
 export TOTAL_SIZE=$(($(get_max_dbuf_cache_size) * 3 / 4))
@@ -66,16 +66,16 @@ fi
 # of the available files.
 export NUMJOBS=$(get_max $PERF_NTHREADS)
 export FILE_SIZE=$((TOTAL_SIZE / NUMJOBS))
-log_must $FIO $FIO_SCRIPTS/mkfiles.fio
+log_must fio $FIO_SCRIPTS/mkfiles.fio
 
 # Set up the scripts and output files that will log performance data.
 lun_list=$(pool_to_lun_list $PERFPOOL)
 log_note "Collecting backend IO stats with lun list $lun_list"
 export collect_scripts=("dtrace -s $PERF_SCRIPTS/io.d $PERFPOOL $lun_list 1"
     "io" "dtrace -Cs $PERF_SCRIPTS/prefetch_io.d $PERFPOOL 1" "prefetch"
-    "$VMSTAT 1" "vmstat" "$MPSTAT 1" "mpstat" "$IOSTAT -xcnz 1" "iostat"
+    "vmstat 1" "vmstat" "mpstat 1" "mpstat" "iostat -xcnz 1" "iostat"
     "dtrace -s $PERF_SCRIPTS/profile.d" "profile" "kstat zfs:0 1" "kstat")
 
 log_note "Sequential cached reads with $PERF_RUNTYPE settings"
-do_fio_run sequential_reads.fio $FALSE $FALSE
+do_fio_run sequential_reads.fio false false
 log_pass "Measure IO stats during sequential cached read load"

@@ -46,7 +46,7 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS mount -a
+	log_must zfs mount -a
 }
 
 log_onexit cleanup

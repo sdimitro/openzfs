@@ -48,18 +48,18 @@ verify_runnable "global"
 function cleanup
 {
 	# cleanup SVM
-	$METASTAT $md_name > /dev/null 2>&1
+	metastat $md_name > /dev/null 2>&1
 	if [[ $? -eq 0 ]]; then
-		$SWAP -l | $GREP /dev/md/dsk/$md_name > /dev/null 2>&1
+		swap -l | grep /dev/md/dsk/$md_name > /dev/null 2>&1
 		if [[ $? -eq 0 ]]; then
-			$SWAP -d /dev/md/dsk/$md_name
+			swap -d /dev/md/dsk/$md_name
 		fi
-		$METACLEAR $md_name
+		metaclear $md_name
 	fi
 
-	$METADB | $GREP $mddb_dev > /dev/null 2>&1
+	metadb | grep $mddb_dev > /dev/null 2>&1
 	if [[ $? -eq 0 ]]; then
-		$METADB -df /dev/dsk/$mddb_dev
+		metadb -df /dev/dsk/$mddb_dev
 	fi
 
 	if poolexists $TESTPOOL; then
@@ -84,21 +84,21 @@ log_onexit cleanup
 #
 # use metadevice in swap to create pool, which should fail.
 #
-$METADB | $GREP $mddb_dev > /dev/null 2>&1
+metadb | grep $mddb_dev > /dev/null 2>&1
 if [[ $? -ne 0 ]]; then
-	log_must $METADB -af $mddb_dev
+	log_must metadb -af $mddb_dev
 fi
 
-$METASTAT $md_name > /dev/null 2>&1
+metastat $md_name > /dev/null 2>&1
 if [[ $? -eq 0 ]]; then
-	$METACLEAR $md_name
+	metaclear $md_name
 fi
 
-log_must $METAINIT $md_name 1 1 $md_dev
-log_must $SWAP -a $MD_DSK
+log_must metainit $md_name 1 1 $md_dev
+log_must swap -a $MD_DSK
 unset NOINUSE_CHECK
 for opt in "-n" "" "-f"; do
-	log_mustnot $ZPOOL create $opt $TESTPOOL $MD_DSK
+	log_mustnot zpool create $opt $TESTPOOL $MD_DSK
 done
 
 log_pass "'zpool create' passed as expected with inapplicable scenario."

@@ -45,14 +45,14 @@
 verify_runnable "global"
 
 
-log_must $ZPOOL detach $TESTPOOL $DISK2
-log_must $ZPOOL attach $TESTPOOL $DISK1 $DISK2
+log_must zpool detach $TESTPOOL $DISK2
+log_must zpool attach $TESTPOOL $DISK1 $DISK2
 log_must is_pool_resilvering $TESTPOOL
-log_mustnot $ZPOOL scrub $TESTPOOL
+log_mustnot zpool scrub $TESTPOOL
 
 # Allow the resilver to finish, or it will interfere with the next test.
 while ! is_pool_resilvered $TESTPOOL; do
-	$SLEEP 1
+	sleep 1
 done
 
 log_pass "Resilver prevent scrub from starting until the resilver completes"

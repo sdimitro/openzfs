@@ -56,7 +56,7 @@ set -A args "" "-D" "-Df" "-f" "-f $TESTPOOL" "-Df $TESTPOOL" "-a"
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_mustnot $ZPOOL import ${args[i]}
+	log_mustnot zpool import ${args[i]}
 	((i = i + 1))
 done
 

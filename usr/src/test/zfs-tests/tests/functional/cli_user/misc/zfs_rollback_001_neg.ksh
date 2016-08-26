@@ -45,7 +45,7 @@
 #
 
 
-log_mustnot $ZFS rollback $TESTPOOL/$TESTFS@snap
+log_mustnot zfs rollback $TESTPOOL/$TESTFS@snap
 
 # now verify the above command didn't actually do anything
 

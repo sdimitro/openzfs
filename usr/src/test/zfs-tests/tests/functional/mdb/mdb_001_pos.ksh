@@ -43,19 +43,19 @@
 
 function cleanup
 {
-	$RM -f $tmpfile
+	rm -f $tmpfile
 }
 
 verify_runnable "global"
 log_onexit cleanup
 
-tmpfile=$($MKTEMP)
-log_must $ZPOOL scrub $TESTPOOL
+tmpfile=$(mktemp)
+log_must zpool scrub $TESTPOOL
 
-typeset spa=$($MDB -ke "::spa" | awk "/$TESTPOOL/ {print \$1}")
-typeset off_ub=$($MDB -ke "::offsetof spa_t spa_uberblock | =J")
-typeset off_rbp=$($MDB -ke "::offsetof uberblock_t ub_rootbp | =J")
-typeset bp=$($MDB -ke "$spa + $off_ub + $off_rbp =J")
+typeset spa=$(mdb -ke "::spa" | awk "/$TESTPOOL/ {print \$1}")
+typeset off_ub=$(mdb -ke "::offsetof spa_t spa_uberblock | =J")
+typeset off_rbp=$(mdb -ke "::offsetof uberblock_t ub_rootbp | =J")
+typeset bp=$(mdb -ke "$spa + $off_ub + $off_rbp =J")
 
 # dcmds and walkers skipped due to being DEBUG only or difficult to run:
 # ::zfs_params
@@ -99,10 +99,10 @@ set -A dcmds "::arc" \
 
 i=0
 while ((i < ${#dcmds[*]})); do
-	log_must eval "$MDB -ke \"${dcmds[i]}\" >$tmpfile 2>&1"
+	log_must eval "mdb -ke \"${dcmds[i]}\" >$tmpfile 2>&1"
 
 	# mdb prefixes all errors with "mdb: " so we check the output.
-	log_mustnot $GREP -q "mdb:" $tmpfile
+	log_mustnot grep -q "mdb:" $tmpfile
 	((i++))
 done
 

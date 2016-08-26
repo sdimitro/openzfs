@@ -66,12 +66,12 @@ function cleanup
 	# Cleanup basedir, compared file and dir.
 
 	if [[ -f $ofile ]]; then
-		log_must $RM -f $ofile
+		log_must rm -f $ofile
 	fi
 
 	for dir in $odir $basedir ; do
 		if [[ -d $dir ]]; then
-			log_must $RM -rf $dir
+			log_must rm -rf $dir
 		fi
 	done
 }
@@ -121,8 +121,8 @@ function verify_inherit #<aclinherit> <object> [strategy]
 
 	typeset -i count=0 pass=0 passcnt=0 isinherit=0 maxnumber=4 step=0
 
-	log_must usr_exec $MKDIR -p $ndir3
-	log_must usr_exec $TOUCH $nfile1 $nfile2 $nfile3
+	log_must usr_exec mkdir -p $ndir3
+	log_must usr_exec touch $nfile1 $nfile2 $nfile3
 
 	# Get the files which inherited ACE.
 	if [[ $(get_substr $obj 1 1) == f ]]; then
@@ -255,8 +255,8 @@ function verify_inherit #<aclinherit> <object> [strategy]
 				aclcur=$(get_ACE $node $count compact)
 				aclcur=${aclcur#$count:}
 				if [[ -n $expect1 && $expect1 != $aclcur ]]; then
-					$LS -Vd $basedir
-					$LS -Vd $node
+					ls -Vd $basedir
+					ls -Vd $node
 					log_fail "$inherit $i #$count " \
 					    "ACE: $aclcur, expect to be " \
 					    "$expect1"
@@ -274,8 +274,8 @@ function verify_inherit #<aclinherit> <object> [strategy]
 					if [[ -n $expect2 && \
 					    $expect2 != $aclcur ]]; then
 
-						$LS -Vd $basedir
-						$LS -Vd $node
+						ls -Vd $basedir
+						ls -Vd $node
 						log_fail "$inherit $i " \
 						    "#$count ACE: $aclcur, " \
 						    "expect to be $expect2"
@@ -299,8 +299,8 @@ function verify_inherit #<aclinherit> <object> [strategy]
 			fi
 
 			if [[ $? -ne 0 ]]; then
-				$LS -Vd $basedir
-				$LS -Vd $node
+				ls -Vd $basedir
+				ls -Vd $node
 				log_fail "Unexpect acl: $node, $inherit ($str)"
 			fi
 		fi
@@ -319,7 +319,7 @@ typeset acls0 acls1 acls2 acls3
 # here we just simple test them separately.
 #
 
-log_must $ZFS set aclmode=passthrough $TESTPOOL/$TESTFS
+log_must zfs set aclmode=passthrough $TESTPOOL/$TESTFS
 
 for inherit in "${aclinherit_flag[@]}"; do
 
@@ -327,7 +327,7 @@ for inherit in "${aclinherit_flag[@]}"; do
 	# Set different value of aclinherit
 	#
 
-	log_must $ZFS set aclinherit=$inherit $TESTPOOL/$TESTFS
+	log_must zfs set aclinherit=$inherit $TESTPOOL/$TESTFS
 
 	for user in root $ZFS_ACL_STAFF1; do
 		log_must set_cur_usr $user
@@ -379,10 +379,10 @@ for inherit in "${aclinherit_flag[@]}"; do
 				# for comparison.
 				#
 
-				log_note "$user: $CHMOD $acl $basedir"
-				log_must usr_exec $MKDIR $basedir
-				log_must usr_exec $MKDIR $odir
-				log_must usr_exec $TOUCH $ofile
+				log_note "$user: chmod $acl $basedir"
+				log_must usr_exec mkdir $basedir
+				log_must usr_exec mkdir $odir
+				log_must usr_exec touch $ofile
 
 				i=5
 				while ((i >= 0)); do
@@ -391,14 +391,14 @@ for inherit in "${aclinherit_flag[@]}"; do
 				#
 				# Place on a directory should succeed.
 				#
-					log_must usr_exec $CHMOD A+$acl $basedir
+					log_must usr_exec chmod A+$acl $basedir
 
 					((i = i - 1))
 				done
 
 				verify_inherit $inherit $obj $str
 
-				log_must usr_exec $RM -rf $ofile $odir $basedir
+				log_must usr_exec rm -rf $ofile $odir $basedir
 			done
 		done
 	done

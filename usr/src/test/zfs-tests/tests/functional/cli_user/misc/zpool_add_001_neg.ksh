@@ -61,7 +61,7 @@ set -A args "add" "add -f" "add -n" \
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_mustnot $ZPOOL ${args[i]}
+	log_mustnot zpool ${args[i]}
 	((i = i + 1))
 done
 

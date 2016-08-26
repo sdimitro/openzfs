@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/grow_replicas/grow_replicas.cfg
@@ -55,10 +55,10 @@ else
 	    ${DISK1}s$SLICE
 fi
 
-$RM -rf $TESTDIR  || log_unresolved Could not remove $TESTDIR
-$MKDIR -p $TESTDIR || log_unresolved Could not create $TESTDIR
+rm -rf $TESTDIR  || log_unresolved Could not remove $TESTDIR
+mkdir -p $TESTDIR || log_unresolved Could not create $TESTDIR
 
-log_must $ZFS create $TESTPOOL/$TESTFS
-log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+log_must zfs create $TESTPOOL/$TESTFS
+log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 
 log_pass

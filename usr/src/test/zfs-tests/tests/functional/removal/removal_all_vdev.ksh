@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -26,7 +26,7 @@ log_onexit default_cleanup_noexit
 
 for disk in $DISKS; do
 	if [[ "$disk" != "$REMOVEDISK" ]]; then
-		log_must $ZPOOL remove $TESTPOOL $disk
+		log_must zpool remove $TESTPOOL $disk
 		log_must wait_for_removal $TESTPOOL
 		log_mustnot vdevs_in_pool $TESTPOOL $disk
 	fi
@@ -34,6 +34,6 @@ done
 
 log_must [ "x$(get_disklist $TESTPOOL)" = "x$REMOVEDISK" ]
 
-log_mustnot $ZPOOL remove $TESTPOOL $disk
+log_mustnot zpool remove $TESTPOOL $disk
 
 log_pass "Was not able to remove the last device in a pool."

@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -24,8 +24,8 @@
 function set_condense_delay # ticks
 {
 	typeset ticks=$1
-	$ECHO "zfs_condense_indirect_commit_entry_delay_ticks/W 0t$ticks" | \
-	    $MDB -kw
+	echo "zfs_condense_indirect_commit_entry_delay_ticks/W 0t$ticks" | \
+	    mdb -kw
 }
 
 function reset
@@ -40,18 +40,18 @@ log_onexit reset
 log_must set_condense_delay 100
 log_must set_min_bytes 1
 
-log_must $ZFS set recordsize=512 $TESTPOOL/$TESTFS
+log_must zfs set recordsize=512 $TESTPOOL/$TESTFS
 
 #
 # Create a large file so that we know some of the blocks will be on the
 # removed device, and hence eligible for remapping.
 #
-log_must $DD if=/dev/urandom of=$TESTDIR/file bs=1024k count=10
+log_must dd if=/dev/urandom of=$TESTDIR/file bs=1024k count=10
 
 #
 # Create a file in the other filesystem, which will not be remapped.
 #
-log_must $DD if=/dev/urandom of=$TESTDIR1/file bs=1024k count=10
+log_must dd if=/dev/urandom of=$TESTDIR1/file bs=1024k count=10
 
 #
 # Randomly rewrite some of blocks in the file so that there will be holes and
@@ -64,23 +64,23 @@ for i in {1..4096}; do
 	# would go through and we would not have as many allocations to
 	# fragment the file.
 	#
-	((i % 100 > 0 )) || $SYNC || log_fail "Could not sync."
+	((i % 100 > 0 )) || sync || log_fail "Could not sync."
         random_write $TESTDIR/file 512 || \
             log_fail "Could not random write."
 done
 
-log_must $ZPOOL remove $TESTPOOL $REMOVEDISK
+log_must zpool remove $TESTPOOL $REMOVEDISK
 log_must wait_for_removal $TESTPOOL
 log_mustnot vdevs_in_pool $TESTPOOL $REMOVEDISK
 
-log_must $ZFS remap $TESTPOOL/$TESTFS
-$SYNC
-$SLEEP 5
-$SYNC
-log_must $ZPOOL export $TESTPOOL
-$ZDB -e $TESTPOOL | $GREP 'Condensing indirect vdev' || \
+log_must zfs remap $TESTPOOL/$TESTFS
+sync
+sleep 5
+sync
+log_must zpool export $TESTPOOL
+zdb -e $TESTPOOL | grep 'Condensing indirect vdev' || \
     log_fail "Did not export during a condense."
-log_must $ZDB -e -cudi $TESTPOOL
-log_must $ZPOOL import $TESTPOOL
+log_must zdb -e -cudi $TESTPOOL
+log_must zpool import $TESTPOOL
 
 log_pass "Pool can be exported in the middle of a condense."

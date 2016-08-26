@@ -53,7 +53,7 @@ function cleanup
 	# Ensure we don't leave disks in the offline state
 	#
 	for disk in $DISKLIST; do
-		log_must $ZPOOL online $TESTPOOL $disk
+		log_must zpool online $TESTPOOL $disk
 		check_state $TESTPOOL $disk "online"
 		if [[ $? != 0 ]]; then
 			log_fail "Unable to online $disk"
@@ -61,14 +61,14 @@ function cleanup
 
 	done
 
-	$KILL $killpid >/dev/null 2>&1
-	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
+	kill $killpid >/dev/null 2>&1
+	[[ -e $TESTDIR ]] && log_must rm -rf $TESTDIR/*
 }
 
 
 log_onexit cleanup
 
-$FILE_TRUNC -f $((64 * 1024 * 1024)) -b 8192 -c 0 -r $TESTDIR/$TESTFILE1 &
+file_trunc -f $((64 * 1024 * 1024)) -b 8192 -c 0 -r $TESTDIR/$TESTFILE1 &
 typeset killpid="$! "
 
 disks=($DISKLIST)
@@ -78,14 +78,14 @@ disks=($DISKLIST)
 # all but one vdev offlined, whereas with raidz there can be only one.
 #
 pooltype='mirror'
-$ZPOOL list -v $TESTPOOL | $GREP raidz >/dev/null 2>&1 && pooltype='raidz'
+zpool list -v $TESTPOOL | grep raidz >/dev/null 2>&1 && pooltype='raidz'
 
 typeset -i i=0
 while [[ $i -lt ${#disks[*]} ]]; do
 	typeset -i j=0
 	if [[ $pooltype = 'mirror' ]]; then
 		# Hold one disk online, verify the others can be offlined.
-		log_must $ZPOOL online $TESTPOOL ${disks[$i]}
+		log_must zpool online $TESTPOOL ${disks[$i]}
 		check_state $TESTPOOL ${disks[$i]} "online" || \
 		    log_fail "Failed to set ${disks[$i]} online"
 		while [[ $j -lt ${#disks[*]} ]]; do
@@ -93,14 +93,14 @@ while [[ $i -lt ${#disks[*]} ]]; do
 				((j++))
 				continue
 			fi
-			log_must $ZPOOL offline $TESTPOOL ${disks[$j]}
+			log_must zpool offline $TESTPOOL ${disks[$j]}
 			check_state $TESTPOOL ${disks[$j]} "offline" || \
 			    log_fail "Failed to set ${disks[$j]} offline"
 			((j++))
 		done
 	elif [[ $pooltype = 'raidz' ]]; then
 		# Hold one disk offline, verify the others can't be offlined.
-		log_must $ZPOOL offline $TESTPOOL ${disks[$i]}
+		log_must zpool offline $TESTPOOL ${disks[$i]}
 		check_state $TESTPOOL ${disks[$i]} "offline" || \
 		    log_fail "Failed to set ${disks[$i]} offline"
 		while [[ $j -lt ${#disks[*]} ]]; do
@@ -108,22 +108,22 @@ while [[ $i -lt ${#disks[*]} ]]; do
 				((j++))
 				continue
 			fi
-			log_mustnot $ZPOOL offline $TESTPOOL ${disks[$j]}
+			log_mustnot zpool offline $TESTPOOL ${disks[$j]}
 			check_state $TESTPOOL ${disks[$j]} "online" || \
 			    log_fail "Failed to set ${disks[$j]} online"
 			check_state $TESTPOOL ${disks[$i]} "offline" || \
 			    log_fail "Failed to set ${disks[$i]} offline"
 			((j++))
 		done
-		log_must $ZPOOL online $TESTPOOL ${disks[$i]}
+		log_must zpool online $TESTPOOL ${disks[$i]}
 		check_state $TESTPOOL ${disks[$i]} "online" || \
 		    log_fail "Failed to set ${disks[$i]} online"
 	fi
 	((i++))
 done
 
-log_must $KILL $killpid
-$SYNC
+log_must kill $killpid
+sync
 
 typeset dir=$(get_device_dir $DISKS)
 verify_filesys "$TESTPOOL" "$TESTPOOL/$TESTFS" "$dir"

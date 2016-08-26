@@ -45,7 +45,7 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS set mountpoint=$oldmpt $fs
+	log_must zfs set mountpoint=$oldmpt $fs
 }
 
 log_onexit cleanup
@@ -54,10 +54,10 @@ fs=$TESTPOOL/$TESTFS
 oldmpt=$(get_prop mountpoint $fs)
 
 for propval in "legacy" "none"; do
-	log_must $ZFS set mountpoint=$propval $fs
+	log_must zfs set mountpoint=$propval $fs
 
-	log_mustnot $ZFS mount $fs
-	log_mustnot $ZFS share $fs
+	log_mustnot zfs mount $fs
+	log_mustnot zfs share $fs
 done
 
 log_pass "We cannot share or mount legacy filesystems as expected."

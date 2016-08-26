@@ -61,8 +61,8 @@ typeset assert_mesg="setting bootfs on a pool which was configured with the \
     whole disk works"
 
 create_pool "$TESTPOOL" "$DISK"
-log_must $ZFS create $EFI_BOOTFS
+log_must zfs create $EFI_BOOTFS
 
-log_must $ZPOOL set bootfs=$EFI_BOOTFS $TESTPOOL
+log_must zpool set bootfs=$EFI_BOOTFS $TESTPOOL
 
 log_pass $assert_mesg

@@ -49,7 +49,7 @@ log_onexit cleanup
 
 function test_unreadable_attr
 {
-	typeset initfiles=$($LS -R $INI_DIR/*)
+	typeset initfiles=$(ls -R $INI_DIR/*)
 
 	typeset -i i=0
 	while (( i < NUM_FILE )); do
@@ -57,7 +57,7 @@ function test_unreadable_attr
 		typeset -i j=0
 		while (( j < NUM_ATTR )); do
 			# chmod all the attribute files to '000'.
-			usr_exec $RUNAT $f $CHMOD 000 attribute.$j
+			usr_exec runat $f chmod 000 attribute.$j
 
 			(( j += 1 ))
 		done
@@ -66,12 +66,12 @@ function test_unreadable_attr
 		# Implement 'cp -@p' to the file whose attribute files
 		# models are '000'.
 		#
-		usr_exec $CP -@p $f $TST_DIR > /dev/null 2>&1
+		usr_exec cp -@p $f $TST_DIR > /dev/null 2>&1
 
-		typeset testfiles=$($LS -R $TST_DIR/*)
+		typeset testfiles=$(ls -R $TST_DIR/*)
 		typeset tf=$(getitem $i $testfiles)
-		typeset ls_attr=$(usr_exec $LS -@ $tf | \
-			$AWK '{print substr($1, 11, 1)}')
+		typeset ls_attr=$(usr_exec ls -@ $tf | \
+			awk '{print substr($1, 11, 1)}')
 
 		case $ZFS_ACL_CUR_USER in
 		root)

@@ -50,28 +50,28 @@ verify_runnable "global"
 function cleanup
 {
 	datasetexists $TESTPOOL/$TESTVOL1 && \
-		log_must $ZFS destroy -f $TESTPOOL/$TESTVOL1
+		log_must zfs destroy -f $TESTPOOL/$TESTVOL1
 }
 
 log_onexit cleanup
 
 typeset -i i=0
 while (( $i < ${#RW_VOL_PROP[*]} )); do
-	log_must $ZFS create -o ${RW_VOL_PROP[$i]} -V $VOLSIZE \
+	log_must zfs create -o ${RW_VOL_PROP[$i]} -V $VOLSIZE \
 		$TESTPOOL/$TESTVOL1
 	datasetexists $TESTPOOL/$TESTVOL1 || \
 		log_fail "zfs create -V size $TESTPOOL/$TESTVOL1 fail."
 	propertycheck $TESTPOOL/$TESTVOL1 ${RW_VOL_PROP[i]} || \
 		log_fail "${RW_VOL_PROP[i]} is failed to set."
-	log_must $ZFS destroy -f $TESTPOOL/$TESTVOL1
+	log_must zfs destroy -f $TESTPOOL/$TESTVOL1
 
-	log_must $ZFS create -s -o ${RW_VOL_PROP[$i]} -V $VOLSIZE \
+	log_must zfs create -s -o ${RW_VOL_PROP[$i]} -V $VOLSIZE \
 		$TESTPOOL/$TESTVOL1
 	datasetexists $TESTPOOL/$TESTVOL1 || \
 		log_fail "zfs create -s -V $TESTPOOL/$TESTVOL1 fail."
 	propertycheck $TESTPOOL/$TESTVOL1 ${RW_VOL_PROP[i]} || \
 		log_fail "${RW_VOL_PROP[i]} is failed to set."
-	log_must $ZFS destroy -f $TESTPOOL/$TESTVOL1
+	log_must zfs destroy -f $TESTPOOL/$TESTVOL1
 
 	(( i = i + 1 ))
 done

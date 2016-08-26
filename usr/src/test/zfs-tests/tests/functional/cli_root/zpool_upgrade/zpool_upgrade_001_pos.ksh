@@ -46,14 +46,14 @@
 verify_runnable "global"
 
 
-log_must $ZPOOL upgrade -v
+log_must zpool upgrade -v
 
 # We also check that the usage message contains a description of legacy
 # versions and a note about feature flags.
 
-log_must eval "$ZPOOL upgrade -v | $HEAD -1 | $GREP 'feature flags'"
+log_must eval "zpool upgrade -v | head -1 | grep 'feature flags'"
 
-$ZPOOL upgrade -v > /tmp/zpool-versions.$$
+zpool upgrade -v > /tmp/zpool-versions.$$
 
 #
 # Current output for 'zpool upgrade -v' has different indent space
@@ -63,8 +63,8 @@ $ZPOOL upgrade -v > /tmp/zpool-versions.$$
 #
 for version in {1..28}; do
 	log_note "Checking for a description of pool version $version."
-	log_must eval "$AWK '/^ $version / { print $1 }' /tmp/zpool-versions.$$ | $GREP $version"
+	log_must eval "awk '/^ $version / { print $1 }' /tmp/zpool-versions.$$ | grep $version"
 done
-$RM /tmp/zpool-versions.$$
+rm /tmp/zpool-versions.$$
 
 log_pass "Executing 'zpool upgrade -v' command succeeds."

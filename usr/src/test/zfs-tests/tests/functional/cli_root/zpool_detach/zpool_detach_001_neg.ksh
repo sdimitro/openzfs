@@ -61,7 +61,7 @@ typeset -i i=0
 
 while [[ $i -lt ${#args[*]} ]]; do
 
-	log_mustnot $ZPOOL detach ${args[$i]}
+	log_mustnot zpool detach ${args[$i]}
 
 	(( i = i + 1 ))
 done

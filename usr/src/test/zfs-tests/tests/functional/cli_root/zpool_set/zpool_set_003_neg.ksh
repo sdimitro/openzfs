@@ -45,8 +45,8 @@ verify_runnable "global"
 
 function cleanup
 {
-        $ZPOOL destroy $TESTPOOL
-        $RM /tmp/zpool_set_003.$$.dat
+        zpool destroy $TESTPOOL
+        rm /tmp/zpool_set_003.$$.dat
 }
 
 set -A props "available" "capacity" "guid"  "health"  "size" "used"
@@ -55,14 +55,14 @@ set -A vals  "100"       "10"       "12345" "HEALTHY" "10"   "10"
 log_onexit cleanup
 
 
-log_must $MKFILE $MINVDEVSIZE /tmp/zpool_set_003.$$.dat
-log_must $ZPOOL create $TESTPOOL /tmp/zpool_set_003.$$.dat
+log_must mkfile $MINVDEVSIZE /tmp/zpool_set_003.$$.dat
+log_must zpool create $TESTPOOL /tmp/zpool_set_003.$$.dat
 
 typeset -i i=0;
 while [ $i -lt "${#props[@]}" ]
 do
 	# try to set each property in the prop list with it's corresponding val
-        log_mustnot eval "$ZPOOL set ${props[$i]}=${vals[$i]} $TESTPOOL \
+        log_mustnot eval "zpool set ${props[$i]}=${vals[$i]} $TESTPOOL \
  > /dev/null 2>&1"
         i=$(( $i + 1))
 done

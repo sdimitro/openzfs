@@ -57,7 +57,7 @@ typeset -i i=0
 
 while [[ $i -lt ${#args[*]} ]]; do
 
-	log_must $ZPOOL status ${args[$i]}
+	log_must zpool status ${args[$i]}
 
 	(( i = i + 1 ))
 done

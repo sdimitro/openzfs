@@ -59,7 +59,7 @@ log_onexit cleanup
 for config in $CONFIGS
 do
 	create_old_pool $config
-	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${config}_NAME)
+	POOL_NAME=$(eval echo \$ZPOOL_VERSION_${config}_NAME)
 
 	default_check_zfs_upgrade $pool
 	destroy_upgraded_pool $config

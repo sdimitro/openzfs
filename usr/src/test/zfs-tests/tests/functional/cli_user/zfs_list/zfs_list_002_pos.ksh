@@ -95,80 +95,80 @@ LC_ALL=C; export LC_ALL
 
 # sort by creation
 verify_sort \
-	"$ZFS list -H -r -o name -s creation -t filesystem $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s creation -t filesystem $TESTPOOL/$TESTFS" \
 	"$fs_creation" "creation date"
 if is_global_zone ; then
 	verify_sort \
-	"$ZFS list -H -r -o name -s creation -t volume $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s creation -t volume $TESTPOOL/$TESTFS" \
 	"$vol_creation" "creation date"
 fi
 verify_sort \
-	"$ZFS list -H -r -o name -s creation -t snapshot $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s creation -t snapshot $TESTPOOL/$TESTFS" \
 	"$snap_creation" "creation date"
 
 # sort by checksum
 verify_sort \
-	"$ZFS list -H -r -o name -s checksum -t filesystem $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s checksum -t filesystem $TESTPOOL/$TESTFS" \
 	"$fs_cksum" "checksum"
 if is_global_zone ; then
 	verify_sort \
-	"$ZFS list -H -r -o name -s checksum -t volume $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s checksum -t volume $TESTPOOL/$TESTFS" \
 	"$vol_cksum" "checksum"
 fi
 verify_sort \
-	"$ZFS list -H -r -o name -s checksum -t snapshot $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s checksum -t snapshot $TESTPOOL/$TESTFS" \
 	"$snap_cksum" "checksum"
 verify_sort \
-	"$ZFS list -H -r -o name -S checksum -t snapshot $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -S checksum -t snapshot $TESTPOOL/$TESTFS" \
 	"$snap_cksum" "checksum"
 
 # sort by name
 verify_sort \
-	"$ZFS list -H -r -o name -s name -t filesystem $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s name -t filesystem $TESTPOOL/$TESTFS" \
 	"$fs_name" "name"
 if is_global_zone ; then
 	verify_sort \
-	"$ZFS list -H -r -o name -s name -t volume $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s name -t volume $TESTPOOL/$TESTFS" \
 	"$vol_name" "name"
 fi
 verify_sort \
-	"$ZFS list -H -r -o name -s name -t snapshot $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -s name -t snapshot $TESTPOOL/$TESTFS" \
 	"$snap_name" "name"
 
 # reverse sort by creation
 verify_reverse_sort \
-	"$ZFS list -H -r -o name -S creation -t filesystem $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -S creation -t filesystem $TESTPOOL/$TESTFS" \
 	"$fs_creation" "creation date"
 if is_global_zone ; then
 	verify_reverse_sort \
-	"$ZFS list -H -r -o name -S creation -t volume $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -S creation -t volume $TESTPOOL/$TESTFS" \
 	"$vol_creation" "creation date"
 fi
 verify_reverse_sort \
-	"$ZFS list -H -r -o name -S creation -t snapshot $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -S creation -t snapshot $TESTPOOL/$TESTFS" \
 	"$snap_creation" "creation date"
 
 # reverse sort by checksum
 verify_reverse_sort \
-	"$ZFS list -H -r -o name -S checksum -t filesystem $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -S checksum -t filesystem $TESTPOOL/$TESTFS" \
 	"$fs_rev_cksum" "checksum"
 if is_global_zone ; then
 	verify_reverse_sort \
-	"$ZFS list -H -r -o name -S checksum -t volume $TESTPOOL/$TESTFS" \
+	"zfs list -H -r -o name -S checksum -t volume $TESTPOOL/$TESTFS" \
 	"$vol_rev_cksum" "checksum"
 fi
 
 # reverse sort by name
 verify_reverse_sort \
-	"$ZFS list -H -r -o name -S name -t filesystem $TESTPOOL/$TESTFS"\
+	"zfs list -H -r -o name -S name -t filesystem $TESTPOOL/$TESTFS"\
 	"$fs_name" "name"
 if is_global_zone ; then
 	verify_reverse_sort \
-	"$ZFS list -H -r -o name -S name -t volume $TESTPOOL/$TESTFS"\
+	"zfs list -H -r -o name -S name -t volume $TESTPOOL/$TESTFS"\
 	"$vol_name" "name"
 fi
 verify_reverse_sort \
-	"$ZFS list -H -r -o name -S name -t snapshot $TESTPOOL/$TESTFS"\
+	"zfs list -H -r -o name -S name -t snapshot $TESTPOOL/$TESTFS"\
 	"$snap_name" "name"
 
 log_pass "The sort functionality in 'zfs list' works as expected."

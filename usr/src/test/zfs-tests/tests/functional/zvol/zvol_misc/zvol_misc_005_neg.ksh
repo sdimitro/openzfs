@@ -48,9 +48,9 @@ volsize=$(zfs get -H -o value volsize $TESTPOOL/$TESTVOL)
 
 function cleanup
 {
-	$SWAP -l | $GREP $voldev > /dev/null 2>&1
+	swap -l | grep $voldev > /dev/null 2>&1
 	if (( $? == 0 )) ; then
-		log_must $SWAP -d $voldev
+		log_must swap -d $voldev
 	fi
 
 	typeset dumpdev=$(get_dumpdevice)
@@ -66,12 +66,12 @@ voldev=/dev/zvol/dsk/$TESTPOOL/$TESTVOL
 savedumpdev=$(get_dumpdevice)
 
 # If device in swap list, it cannot be dump device
-log_must $SWAP -a $voldev
-log_mustnot $DUMPADM -d $voldev
-log_must $SWAP -d $voldev
+log_must swap -a $voldev
+log_mustnot dumpadm -d $voldev
+log_must swap -d $voldev
 
 # If device has dedicated as dump device, it cannot add into swap list
 safe_dumpadm $voldev
-log_mustnot $SWAP -a $voldev
+log_mustnot swap -a $voldev
 
 log_pass "A device cannot be dump and swap at the same time."

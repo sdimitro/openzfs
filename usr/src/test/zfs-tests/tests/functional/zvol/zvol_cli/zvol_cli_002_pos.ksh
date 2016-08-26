@@ -45,7 +45,7 @@ verify_runnable "global"
 function cleanup
 {
 	datasetexists $TESTPOOL/$LONGVOLNAME && \
-		$ZFS destroy $TESTPOOL/$LONGVOLNAME
+		zfs destroy $TESTPOOL/$LONGVOLNAME
 }
 
 log_onexit cleanup
@@ -53,7 +53,7 @@ log_onexit cleanup
 
 LONGVOLNAME="volumename50charslong_0123456789012345678901234567"
 
-log_must $ZFS create -V $VOLSIZE $TESTPOOL/$LONGVOLNAME
+log_must zfs create -V $VOLSIZE $TESTPOOL/$LONGVOLNAME
 
 datasetexists $TESTPOOL/$LONGVOLNAME || \
 	log_fail "Couldn't find long volume name"

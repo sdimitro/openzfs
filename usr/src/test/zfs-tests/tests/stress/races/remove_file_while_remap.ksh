@@ -42,18 +42,18 @@ TIMEOUT=500
 default_setup_noexit "$DISKS"
 log_onexit default_cleanup_noexit
 
-$SEQ -f "$TESTDIR/file%g" $NUMFILES | $XARGS $TOUCH || \
+seq -f "$TESTDIR/file%g" $NUMFILES | xargs touch || \
     log_fail "Unable to create test files."
 
 function remove_random_file
 {
 	typeset target=$TESTDIR/file$((RANDOM % NUMFILES))
-	if $RM $target 2>/dev/null; then
-		$TOUCH $target || log_note "Failure to re-create $target."
+	if rm $target 2>/dev/null; then
+		touch $target || log_note "Failure to re-create $target."
 	fi
 }
 
-log_must $TOUCH $TESTDIR/continue
+log_must touch $TESTDIR/continue
 for thread in $(seq $NUMTHREADS); do
 	(while [[ -f $TESTDIR/continue ]]; do
 		remove_random_file
@@ -63,11 +63,11 @@ done
 #
 # Remove the first disk to ensure there is something to remap.
 #
-log_must $ZPOOL remove $TESTPOOL ${DISKS/ */}
+log_must zpool remove $TESTPOOL ${DISKS/ */}
 
 start=$(current_epoch)
 while (($(current_epoch) < start + TIMEOUT)); do
-	$ZFS remap $TESTPOOL/$TESTFS || \
+	zfs remap $TESTPOOL/$TESTFS || \
 	    log_fail "Failure to remap $TESTPOOL/$TESTFS"
 done
 

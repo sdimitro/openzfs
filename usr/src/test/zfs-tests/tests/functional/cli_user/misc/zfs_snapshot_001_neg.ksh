@@ -44,7 +44,7 @@
 #
 
 
-log_mustnot $ZFS snapshot $TESTPOOL/$TESTFS@usersnap1
+log_mustnot zfs snapshot $TESTPOOL/$TESTFS@usersnap1
 
 # Now verify that the above command didn't actually do anything
 if datasetexists $TESTPOOL/$TESTFS@usersnap1

@@ -64,9 +64,9 @@ function set_n_check # data-set
 	orig_val=$(get_prop version $obj)
 
 	while (($i < ${#values[*]})); do
-		$ZFS set version=${values[$i]} $obj  > /dev/null 2>&1
+		zfs set version=${values[$i]} $obj  > /dev/null 2>&1
 		if [[ $? -eq 0 ]]; then
-			log_note "$ZFS set version=${values[$i]} $obj"
+			log_note "zfs set version=${values[$i]} $obj"
 			log_fail "The above version set returned 0!"
 		fi
 

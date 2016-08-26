@@ -48,7 +48,7 @@ set -A args "" "-?" "-f" "-o" \
 
 typeset -i i=1
 while [[ $i -lt ${#args[*]} ]]; do
-	log_mustnot $ZPOOL list ${args[i]}
+	log_mustnot zpool list ${args[i]}
 	((i = i + 1))
 done
 

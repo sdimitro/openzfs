@@ -123,7 +123,7 @@ function cleanup_all
 	done
 
 	[[ -d ${TEST_BASE_DIR%%/}/testroot$$ ]] && \
-		$RM -rf ${TEST_BASE_DIR%%/}/testroot$$
+		rm -rf ${TEST_BASE_DIR%%/}/testroot$$
 }
 
 function verify_all
@@ -167,17 +167,17 @@ log_must setup_all
 typeset opt
 for opt in "-a" "-fa"; do
 	export __ZFS_POOL_RESTRICT="$TESTPOOL"
-	log_must $ZFS $mountall
+	log_must zfs $mountall
 	unset __ZFS_POOL_RESTRICT
 
 	if [[ $opt == "-fa" ]]; then
 		mntpnt=$(get_prop mountpoint ${TESTPOOL}/${TESTCTR}/${TESTFS})
 		cd $mntpnt
-		log_mustnot $ZFS unmount -a
+		log_mustnot zfs unmount -a
 	fi
 
 	export __ZFS_POOL_RESTRICT="$TESTPOOL"
-	log_must $ZFS unmount $opt
+	log_must zfs unmount $opt
 	unset __ZFS_POOL_RESTRICT
 
 	if [[ $opt == "-fa" ]]; then

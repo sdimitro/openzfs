@@ -46,7 +46,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
@@ -54,6 +54,6 @@ log_onexit cleanup
 
 populate_dir $NUM_FILES
 
-log_mustnot $TUNEFS -m 80 /dev/dsk/${DISK}s0
+log_mustnot tunefs -m 80 /dev/dsk/${DISK}s0
 
 log_pass "tunefs(1M) returned an error as expected."

@@ -60,11 +60,11 @@ typeset spare_devs3="${disk}s${SLICE3}"
 typeset spare_devs4="${disk}s${SLICE4}"
 
 log_note "Check spare device which state go through active to inactive"
-log_must $ZPOOL create $TESTPOOL $spare_devs1 $spare_devs2 spare \
+log_must zpool create $TESTPOOL $spare_devs1 $spare_devs2 spare \
                  $spare_devs3 $spare_devs4
-log_must $ZPOOL replace $TESTPOOL $spare_devs2 $spare_devs3
-log_mustnot $ZPOOL remove $TESTPOOL $spare_devs3
-log_must $ZPOOL detach $TESTPOOL $spare_devs3
-log_must $ZPOOL remove $TESTPOOL $spare_devs3
+log_must zpool replace $TESTPOOL $spare_devs2 $spare_devs3
+log_mustnot zpool remove $TESTPOOL $spare_devs3
+log_must zpool detach $TESTPOOL $spare_devs3
+log_must zpool remove $TESTPOOL $spare_devs3
 
 log_pass "'zpool remove device passed as expected.'"

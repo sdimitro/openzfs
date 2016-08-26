@@ -47,13 +47,13 @@ unsupported@some_feature=readonly \
 
 function cleanup
 {
-	datasetexists $TESTPOOL && log_must $ZPOOL destroy $TESTPOOL
+	datasetexists $TESTPOOL && log_must zpool destroy $TESTPOOL
 }
 
 log_onexit cleanup
 
 for prop in $properties; do
-	log_mustnot $ZPOOL create -f -o "$prop" $TESTPOOL $DISKS
+	log_mustnot zpool create -f -o "$prop" $TESTPOOL $DISKS
 	log_mustnot datasetexists $TESTPOOL
 done
 

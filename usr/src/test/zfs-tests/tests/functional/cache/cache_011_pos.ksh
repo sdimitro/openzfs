@@ -47,7 +47,7 @@ verify_disk_count "$LDEV2"
 
 function cleanup {
 	if datasetexists $TESTPOOL ; then
-		log_must $ZPOOL destroy -f $TESTPOOL
+		log_must zpool destroy -f $TESTPOOL
 	fi
 }
 
@@ -55,13 +55,13 @@ log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"
 do
-	log_must $ZPOOL create $TESTPOOL $type $VDEV \
+	log_must zpool create $TESTPOOL $type $VDEV \
 		cache $LDEV spare $LDEV2
 
-	log_must $ZPOOL remove $TESTPOOL $LDEV
+	log_must zpool remove $TESTPOOL $LDEV
 	log_must display_status $TESTPOOL
 
-	log_must $ZPOOL destroy -f $TESTPOOL
+	log_must zpool destroy -f $TESTPOOL
 done
 
 log_pass "Remove cache device from pool with spare device should succeed"

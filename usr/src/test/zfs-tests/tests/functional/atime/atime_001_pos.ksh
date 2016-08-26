@@ -61,7 +61,7 @@ do
 		mtpt=$(snapshot_mountpoint $dst)
 		log_mustnot check_atime_updated $mtpt/$TESTFILE
 	else
-		log_must $ZFS set atime=on $dst
+		log_must zfs set atime=on $dst
 		log_must check_atime_updated $mtpt/$TESTFILE
 	fi
 done

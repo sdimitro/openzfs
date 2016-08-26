@@ -60,7 +60,7 @@ set -A args "create" "create -f" "create -n" \
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_mustnot $ZPOOL ${args[i]}
+	log_mustnot zpool ${args[i]}
 	((i = i + 1))
 done
 

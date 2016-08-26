@@ -42,13 +42,13 @@ verify_runnable "global"
 
 function cleanup
 {
-	datasetexists $TESTPOOL && log_must $ZPOOL destroy $TESTPOOL
+	datasetexists $TESTPOOL && log_must zpool destroy $TESTPOOL
 }
 
 function check_features
 {
-	for prop in $($ZPOOL get all $TESTPOOL | $AWK '$2 ~ /feature@/ { print $2 }'); do
-		state=$($ZPOOL list -Ho "$prop" $TESTPOOL)
+	for prop in $(zpool get all $TESTPOOL | awk '$2 ~ /feature@/ { print $2 }'); do
+		state=$(zpool list -Ho "$prop" $TESTPOOL)
                 if [[ "$state" != "disabled" ]]; then
 			log_fail "$prop is enabled on new pool"
 	        fi
@@ -58,11 +58,11 @@ function check_features
 log_onexit cleanup
 
 
-log_must $ZPOOL create -f -d $TESTPOOL $DISKS
+log_must zpool create -f -d $TESTPOOL $DISKS
 check_features
-log_must $ZPOOL destroy -f $TESTPOOL
+log_must zpool destroy -f $TESTPOOL
 
-log_must $ZPOOL create -f -o version=28 $TESTPOOL $DISKS
+log_must zpool create -f -o version=28 $TESTPOOL $DISKS
 check_features
 
 log_pass

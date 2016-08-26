@@ -51,7 +51,7 @@ set -A args \
 typeset -i i=0
 while (( i < ${#args[*]} ))
 do
-	log_mustnot $ZFS upgrade -V ${args[i]} $TESTPOOL/$TESTFS
+	log_mustnot zfs upgrade -V ${args[i]} $TESTPOOL/$TESTFS
 	((i = i + 1))
 done
 

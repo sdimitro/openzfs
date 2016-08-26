@@ -60,8 +60,8 @@ log_onexit cleanup
 create_pool "$TESTPOOL" "${disk}s${SLICE0}"
 log_must poolexists "$TESTPOOL"
 
-log_mustnot $ZPOOL add -f "$TESTPOOL" ${disk}s${SLICE1} ${disk}s${SLICE1}
-log_mustnot $ZPOOL add -f "$TESTPOOL" ${disk}s${SLICE0}
+log_mustnot zpool add -f "$TESTPOOL" ${disk}s${SLICE1} ${disk}s${SLICE1}
+log_mustnot zpool add -f "$TESTPOOL" ${disk}s${SLICE0}
 
 log_pass "'zpool add' get fail as expected if vdevs are the same or vdev is " \
 	"contained in the given pool."

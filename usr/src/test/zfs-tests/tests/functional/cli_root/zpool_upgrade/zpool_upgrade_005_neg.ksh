@@ -49,7 +49,7 @@ typeset -i i=0
 
 while [[ $i -lt ${#args[*]} ]]; do
 
-        log_mustnot $ZPOOL upgrade ${args[$i]} > /dev/null
+        log_mustnot zpool upgrade ${args[$i]} > /dev/null
 
         (( i = i + 1 ))
 done

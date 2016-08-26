@@ -56,7 +56,7 @@ while ((i < 10)); do
 	typeset value=$(user_property_value $len)
 
 	for dtst in $TESTPOOL $TESTPOOL/$TESTFS $TESTPOOL/$TESTVOL ; do
-		log_mustnot $ZFS set $user_prop=$value $dtst
+		log_mustnot zfs set $user_prop=$value $dtst
 		log_mustnot check_user_prop $dtst \"$user_prop\" \"$value\"
 	done
 

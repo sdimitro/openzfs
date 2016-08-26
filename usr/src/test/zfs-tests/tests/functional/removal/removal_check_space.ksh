@@ -15,15 +15,15 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-/tmp}
-log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk1
-log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk2
+log_must mkfile $MINVDEVSIZE $TMPDIR/dsk1
+log_must mkfile $MINVDEVSIZE $TMPDIR/dsk2
 DISKS="$TMPDIR/dsk1 $TMPDIR/dsk2"
 REMOVEDISK=$TMPDIR/dsk1
 
@@ -32,13 +32,13 @@ log_must default_setup_noexit "$DISKS"
 function cleanup
 {
 	default_cleanup_noexit
-	log_must $RM -f $DISKS
+	log_must rm -f $DISKS
 }
 log_onexit cleanup
 
 # Write a little more than half the pool.
-log_must $DD if=/dev/urandom of=/$TESTDIR/$TESTFILE0 bs=$((2**20)) \
+log_must dd if=/dev/urandom of=/$TESTDIR/$TESTFILE0 bs=$((2**20)) \
     count=$((MINVDEVSIZE / (1024 * 1024)))
-log_mustnot $ZPOOL remove $TESTPOOL $TMPDIR/dsk1
+log_mustnot zpool remove $TESTPOOL $TMPDIR/dsk1
 
 log_pass "Removal will not succeed if insufficient space."

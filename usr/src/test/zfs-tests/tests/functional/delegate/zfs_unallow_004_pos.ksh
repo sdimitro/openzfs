@@ -47,11 +47,11 @@ verify_runnable "both"
 log_onexit restore_root_datasets
 
 for dtst in $DATASETS ; do
-	log_must $ZFS allow -s @basic $LOCAL_DESC_SET $dtst
-	log_must $ZFS allow -u $STAFF1 @basic $dtst
+	log_must zfs allow -s @basic $LOCAL_DESC_SET $dtst
+	log_must zfs allow -u $STAFF1 @basic $dtst
 
 	log_must verify_perm $dtst $LOCAL_DESC_SET $STAFF1
-	log_must $ZFS unallow -s @basic $LOCAL_DESC_SET $dtst
+	log_must zfs unallow -s @basic $LOCAL_DESC_SET $dtst
 	log_must verify_noperm $dtst $LOCAL_DESC_SET $STAFF1
 done
 

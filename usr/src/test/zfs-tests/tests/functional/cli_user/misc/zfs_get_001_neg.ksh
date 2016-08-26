@@ -53,7 +53,7 @@ while [[ $i -lt ${#args[*]} ]]
 do
 	PROP=${props[$i]}
 	EXPECTED=${prop_vals[$i]}
-	ACTUAL=$( $ZFS get $PROP -o value -H snapdir $TESTPOOl/$TESTFS/prop )
+	ACTUAL=$( zfs get $PROP -o value -H snapdir $TESTPOOl/$TESTFS/prop )
 	if [ "$ACTUAL" != "$EXPECTED" ]
 	then
 		log_fail "Property $PROP value was $ACTUAL, expected $EXPECTED"

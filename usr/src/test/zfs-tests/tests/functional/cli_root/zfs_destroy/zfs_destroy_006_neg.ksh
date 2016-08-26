@@ -59,7 +59,7 @@ set -A args "" "-r" "-f" "-rf" "-fr" "$TESTPOOL" "-f $TESTPOOL" \
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_mustnot $ZFS destroy ${args[i]}
+	log_mustnot zfs destroy ${args[i]}
 	((i = i + 1))
 done
 

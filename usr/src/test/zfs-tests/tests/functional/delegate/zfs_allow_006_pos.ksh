@@ -49,21 +49,21 @@ verify_runnable "both"
 log_onexit restore_root_datasets
 
 fs1=$ROOT_TESTFS/fs1; fs2=$ROOT_TESTFS/fs2
-log_must $ZFS create $fs1
-log_must $ZFS create $fs2
+log_must zfs create $fs1
+log_must zfs create $fs2
 
 eval set -A dataset $DATASETS
 perms1="snapshot,checksum,reservation"
 
 for dtst in $DATASETS $fs1 $fs2; do
-	log_must $ZFS allow -s @basic $perms1 $dtst
-	log_must $ZFS allow $STAFF1 @basic $dtst
+	log_must zfs allow -s @basic $perms1 $dtst
+	log_must zfs allow $STAFF1 @basic $dtst
 	log_must verify_perm $dtst $perms1 $STAFF1
 done
 
 perms2="send,compression,userprop"
 for dtst in $DATASETS $fs1 $fs2; do
-	log_must $ZFS allow -s @basic $perms2 $dtst
+	log_must zfs allow -s @basic $perms2 $dtst
 	log_must verify_perm $dtst ${perms1},${perms2} $STAFF1
 done
 

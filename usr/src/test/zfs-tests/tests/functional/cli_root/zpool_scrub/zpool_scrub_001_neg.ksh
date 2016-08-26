@@ -54,7 +54,7 @@ set -A args "" "-?" "blah blah" "-%" "--?" "-*" "-=" \
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_mustnot $ZPOOL scrub ${args[i]}
+	log_mustnot zpool scrub ${args[i]}
 
 	((i = i + 1))
 done

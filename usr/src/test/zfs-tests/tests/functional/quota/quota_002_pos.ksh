@@ -56,10 +56,10 @@ verify_runnable "both"
 function cleanup
 {
         [[ -e $TESTDIR/$TESTFILE1 ]] && \
-            log_must $RM $TESTDIR/$TESTFILE1
+            log_must rm $TESTDIR/$TESTFILE1
 
 	[[ -e $TESTDIR/$TESTFILE2 ]] && \
-            log_must $RM $TESTDIR/$TESTFILE2
+            log_must rm $TESTDIR/$TESTFILE2
 }
 
 log_onexit cleanup

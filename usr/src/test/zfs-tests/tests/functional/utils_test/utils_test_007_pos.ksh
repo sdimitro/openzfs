@@ -48,9 +48,9 @@ function cleanup
 {
 	ismounted $TESTPOOL/$TESTFS
 	(( $? != 0 )) && \
-		log_must $ZFS mount $TESTPOOL/$TESTFS
+		log_must zfs mount $TESTPOOL/$TESTFS
 
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
@@ -58,14 +58,14 @@ log_onexit cleanup
 
 populate_dir $NUM_FILES
 
-log_must $ZFS unmount $TESTDIR
+log_must zfs unmount $TESTDIR
 
 if ! $(is_physical_device $DISK); then
-	log_must $FSTYP $DISK
+	log_must fstyp $DISK
 elif [[ $WRAPPER == "smi" ]]; then
-	log_must $FSTYP /dev/rdsk/${DISK}s2
+	log_must fstyp /dev/rdsk/${DISK}s2
 else
-	log_must $FSTYP /dev/rdsk/${DISK}s0
+	log_must fstyp /dev/rdsk/${DISK}s0
 fi
 
 log_pass "fstyp(1M) returned successfully."

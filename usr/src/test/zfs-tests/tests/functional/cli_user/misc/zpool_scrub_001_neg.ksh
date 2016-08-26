@@ -46,7 +46,7 @@
 verify_runnable "global"
 
 
-log_mustnot $ZPOOL scrub $TESTPOOL
-log_mustnot $ZPOOL scrub -s $TESTPOOL
+log_mustnot zpool scrub $TESTPOOL
+log_mustnot zpool scrub -s $TESTPOOL
 
 log_pass "zpool scrub returns an error when run as a user"

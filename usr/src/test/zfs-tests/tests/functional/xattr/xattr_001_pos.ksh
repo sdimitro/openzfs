@@ -48,13 +48,13 @@ function cleanup {
 
 	if [ -f $TESTDIR/myfile.$$ ]
 	then
-		log_must $RM $TESTDIR/myfile.$$
+		log_must rm $TESTDIR/myfile.$$
 	fi
 }
 
 log_onexit cleanup
 
-log_must $TOUCH $TESTDIR/myfile.$$
+log_must touch $TESTDIR/myfile.$$
 create_xattr $TESTDIR/myfile.$$ passwd /etc/passwd
 verify_write_xattr $TESTDIR/myfile.$$ passwd
 delete_xattr $TESTDIR/myfile.$$ passwd

@@ -48,9 +48,9 @@ verify_runnable "global"
 function cleanup
 {
 	poolexists $TESTPOOL1 && \
-		log_must $ZPOOL destroy -f $TESTPOOL1
+		log_must zpool destroy -f $TESTPOOL1
 	[[ -e $file ]] && \
-		log_must $RM -f $file
+		log_must rm -f $file
 }
 
 log_onexit cleanup
@@ -58,8 +58,8 @@ log_onexit cleanup
 # Create another pool for negative testing, which clears pool error
 # with vdev device not in the pool vdev devices.
 file=$TESTDIR/file.$$
-log_must $MKFILE $FILESIZE $file
-log_must $ZPOOL create $TESTPOOL1 $file
+log_must mkfile $FILESIZE $file
+log_must zpool create $TESTPOOL1 $file
 
 set -A args "" "-?" "--%" "-1234567" "0.0001" "0.7644" "-0.7644" \
 		"blah" "blah $DISK" "$TESTPOOL c0txdx" "$TESTPOOL $file" \
@@ -67,7 +67,7 @@ set -A args "" "-?" "--%" "-1234567" "0.0001" "0.7644" "-0.7644" \
 
 typeset -i i=0
 while (( i < ${#args[*]} )); do
-	log_mustnot $ZPOOL clear ${args[i]}
+	log_mustnot zpool clear ${args[i]}
 
 	((i = i + 1))
 done

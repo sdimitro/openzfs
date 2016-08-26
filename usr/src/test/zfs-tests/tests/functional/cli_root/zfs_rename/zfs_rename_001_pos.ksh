@@ -90,7 +90,7 @@ done
 
 #verify the data integrity in zvol
 if is_global_zone; then
-	log_must eval "$DD if=${VOL_R_PATH}-new of=$VOLDATA bs=$BS count=$CNT >/dev/null 2>&1"
+	log_must eval "dd if=${VOL_R_PATH}-new of=$VOLDATA bs=$BS count=$CNT >/dev/null 2>&1"
 	if ! cmp_data $VOLDATA $DATA ; then
 		log_fail "$VOLDATA gets corrupted after rename operation."
 	fi
@@ -100,7 +100,7 @@ fi
 typeset -i i=0
 while ((i < ${#dataset[*]} )); do
 	if datasetexists ${dataset[i]}-new ; then
-                log_must $ZFS rename ${dataset[i]}-new ${dataset[i]}
+                log_must zfs rename ${dataset[i]}-new ${dataset[i]}
 	fi
         ((i = i + 1))
 done

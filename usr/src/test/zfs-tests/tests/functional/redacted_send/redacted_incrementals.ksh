@@ -44,7 +44,7 @@ log_onexit redacted_cleanup $sendfs $recvfs $POOL2/rfs
 
 # Setup a redacted send using a redaction list at varying depth.
 typeset snaps=$POOL/rm@snap,$POOL/stride3@snap,$POOL/stride5@snap
-log_must eval "$ZFS send --redact \"$snaps\" $sendfs@snap0 book1 >$stream"
+log_must eval "zfs send --redact \"$snaps\" $sendfs@snap0 book1 >$stream"
 log_must eval "zfs receive $POOL2/rfs <$stream"
 
 # Verify receipt of normal incrementals to redaction list members.
@@ -130,7 +130,7 @@ log_must zfs snapshot $POOL/write2@snap
 
 # Setup a redacted send using a redaction list at varying depth.
 snaps=$POOL/rm@snap,$POOL/stride3@snap,$POOL/stride5@snap
-log_must eval "$ZFS send --redact \"$snaps\" $sendfs@snap0 book7 >$stream"
+log_must eval "zfs send --redact \"$snaps\" $sendfs@snap0 book7 >$stream"
 log_must eval "zfs receive $POOL2/rfs <$stream"
 
 # Verify we can receive a redacted incremental sending from the bookmark.

@@ -47,11 +47,11 @@ verify_runnable "both"
 function cleanup
 {
 	if [[ -d $basedir ]]; then
-		log_must $RM -rf $basedir
+		log_must rm -rf $basedir
 	fi
 }
-$ZPOOL upgrade -v
-$ZPOOL upgrade -v | $GREP "passthrough-x aclinherit" > /dev/null 2>&1
+zpool upgrade -v
+zpool upgrade -v | grep "passthrough-x aclinherit" > /dev/null 2>&1
 if (($? != 0)); then
 	log_unsupported "passthrough-x aclinherit not supported."
 fi
@@ -85,21 +85,21 @@ function verify_inherit # <object>
 	ndir1=$obj/ndir1; ndir2=$ndir1/ndir2
 	nfile1=$ndir1/nfile1.c; nfile2=$ndir1/nfile2
 
-	log_must usr_exec $MKDIR -p $ndir1
+	log_must usr_exec mkdir -p $ndir1
 
 	typeset -i i=0
 	while ((i < ${#aces[*]})); do
 		if ((i < 3)); then
-			log_must usr_exec $CHMOD A$i=${aces[i]} $ndir1
+			log_must usr_exec chmod A$i=${aces[i]} $ndir1
 		else
-			log_must usr_exec $CHMOD A$i+${aces[i]} $ndir1
+			log_must usr_exec chmod A$i+${aces[i]} $ndir1
 		fi
 		((i = i + 1))
 	done
-	log_must usr_exec $MKDIR -p $ndir2
-	log_must usr_exec $TOUCH $nfile1
+	log_must usr_exec mkdir -p $ndir2
+	log_must usr_exec touch $nfile1
 
-	$CAT > $nfile1 <<EOF
+	cat > $nfile1 <<EOF
 #include <stdlib.h>
 #include <stdio.h>
 int main()
@@ -133,8 +133,8 @@ EOF
 # here we just simple test them separately.
 #
 
-log_must $ZFS set aclmode=passthrough $TESTPOOL/$TESTFS
-log_must $ZFS set aclinherit=passthrough-x $TESTPOOL/$TESTFS
+log_must zfs set aclmode=passthrough $TESTPOOL/$TESTFS
+log_must zfs set aclinherit=passthrough-x $TESTPOOL/$TESTFS
 
 for user in root $ZFS_ACL_STAFF1; do
 	log_must set_cur_usr $user

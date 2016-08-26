@@ -47,11 +47,11 @@ function cleanup
 {
 	typeset dir=$(get_device_dir $DISKS)
 	datasetexists "$TESTPOOL/$TESTFS" || \
-		log_must $ZPOOL import -d $dir $TESTPOOL
+		log_must zpool import -d $dir $TESTPOOL
 
 	ismounted "$TESTPOOL/$TESTFS"
 	(( $? != 0 )) && \
-	    log_must $ZFS mount $TESTPOOL/$TESTFS
+	    log_must zfs mount $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
@@ -61,7 +61,7 @@ set -A args "" "-f" "-? $TESTPOOL" "-QWERTYUIO $TESTPOOL"
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_mustnot $ZPOOL export ${args[i]}
+	log_mustnot zpool export ${args[i]}
 	((i = i + 1))
 done
 

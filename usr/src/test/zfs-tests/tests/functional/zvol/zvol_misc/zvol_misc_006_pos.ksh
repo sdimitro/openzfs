@@ -60,12 +60,12 @@ log_onexit cleanup
 voldev=/dev/zvol/dsk/$TESTPOOL/$TESTVOL
 savedumpdev=$(get_dumpdevice)
 
-typeset oblksize=$($ZFS get -H -o value volblocksize $TESTPOOL/$TESTVOL)
+typeset oblksize=$(zfs get -H -o value volblocksize $TESTPOOL/$TESTVOL)
 log_note "original $TESTPOOL/$TESTVOL volblocksize=$oblksize"
 
 safe_dumpadm $voldev
 
-typeset blksize=$($ZFS get -H -o value volblocksize $TESTPOOL/$TESTVOL)
+typeset blksize=$(zfs get -H -o value volblocksize $TESTPOOL/$TESTVOL)
 
 if [[ $blksize != "128K" ]]; then
 	log_fail "ZFS volume $TESTPOOL/$TESTVOL volblocksize=$blksize"

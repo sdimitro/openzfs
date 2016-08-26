@@ -71,7 +71,7 @@ function do_unmount_multiple #options #expect
 		j=0
 		while (( j < ${#dev[*]} )); do
 			unmounted ${dev[j]} || \
-				log_must $ZFS $unmountforce ${dev[j]}
+				log_must zfs $unmountforce ${dev[j]}
 
 			do_unmount "${cmd[i]}" "$opt" \
 				"${dev[j]}" $expect
@@ -92,5 +92,5 @@ while (( i <  ${#options[*]} )); do
 	((i = i + 1))
 done
 
-log_pass "'$ZFS $unmountcmd [-f] <filesystem|mountpoint>' " \
+log_pass "'zfs $unmountcmd [-f] <filesystem|mountpoint>' " \
 	"with an unmounted filesystem failed with return code 1."

@@ -56,13 +56,13 @@ function cleanup
 
         for file in $CPATH1 $CPATH2 ; do
                 if [[ -f $file ]] ; then
-                        log_must $RM $file
+                        log_must rm $file
                 fi
         done
 
 	if [ -d $TESTDIR ]
 	then
-		$RMDIR $TESTDIR
+		rmdir $TESTDIR
 	fi
 }
 
@@ -79,7 +79,7 @@ set -A opts "none" "none" \
 
 
 while (( i < ${#opts[*]} )); do
-	log_must $ZPOOL create -o altroot=$TESTDIR -o cachefile=${opts[i]} \
+	log_must zpool create -o altroot=$TESTDIR -o cachefile=${opts[i]} \
 		$TESTPOOL $DISKS
 	if [[ ${opts[i]} != none ]]; then
 		log_must pool_in_cache $TESTPOOL ${opts[i]}
@@ -92,7 +92,7 @@ while (( i < ${#opts[*]} )); do
 		log_fail "cachefile property not set as expected. " \
 			"Expect: ${opts[((i+1))]}, Current: $PROP"
 	fi
-	log_must $ZPOOL destroy $TESTPOOL
+	log_must zpool destroy $TESTPOOL
 	(( i = i + 2 ))
 done
 

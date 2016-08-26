@@ -57,7 +57,7 @@ for dtst in $DATASETS ; do
 	typeset -i i=0
 
 	while ((i < ${#invalid_perms[@]})); do
-		log_mustnot $ZFS allow $STAFF1 ${invalid_perms[$i]} $dtst
+		log_mustnot zfs allow $STAFF1 ${invalid_perms[$i]} $dtst
 
 		((i += 1))
 	done

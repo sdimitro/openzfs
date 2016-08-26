@@ -70,7 +70,7 @@ function do_unmount_multiple #options #expect
 		j=0
 		while (( j < ${#dev[*]} )); do
 			log_note "Make sure ${dev[j]} is not in 'zfs list'"
-			log_mustnot $ZFS list ${dev[j]}
+			log_mustnot zfs list ${dev[j]}
 
 			do_unmount "${cmd[i]}" "$opt" \
 				"${dev[j]}" $expect
@@ -91,5 +91,5 @@ while (( i <  ${#options[*]} )); do
 	((i = i + 1))
 done
 
-log_pass "'$ZFS $unmountcmd [-f] <filesystem|mountpoint>' " \
+log_pass "'zfs $unmountcmd [-f] <filesystem|mountpoint>' " \
 	"whose name is not in 'zfs list' failed with return code 1."

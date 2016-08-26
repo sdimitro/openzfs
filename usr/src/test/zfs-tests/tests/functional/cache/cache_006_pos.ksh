@@ -52,7 +52,7 @@ log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"
 do
-	log_must $ZPOOL create $TESTPOOL $type $VDEV \
+	log_must zpool create $TESTPOOL $type $VDEV \
 		cache $LDEV $LDEV2
 	ldev=$(random_get $LDEV $LDEV2)
 	log_must verify_cache_device \
@@ -61,8 +61,8 @@ do
 	#
 	# Nomal export/import operating
 	#
-	log_must $ZPOOL export $TESTPOOL
-	log_must $ZPOOL import -d $VDIR $TESTPOOL
+	log_must zpool export $TESTPOOL
+	log_must zpool import -d $VDIR $TESTPOOL
 	log_must display_status $TESTPOOL
 	ldev=$(random_get $LDEV $LDEV2)
 	log_must verify_cache_device \
@@ -71,14 +71,14 @@ do
 	#
 	# Destroy the pool and import again
 	#
-	log_must $ZPOOL destroy $TESTPOOL
-	log_must $ZPOOL import -Df -d $VDIR $TESTPOOL
+	log_must zpool destroy $TESTPOOL
+	log_must zpool import -Df -d $VDIR $TESTPOOL
 	log_must display_status $TESTPOOL
 	ldev=$(random_get $LDEV $LDEV2)
 	log_must verify_cache_device \
 		$TESTPOOL $ldev 'ONLINE'
 
-	log_must $ZPOOL destroy -f $TESTPOOL
+	log_must zpool destroy -f $TESTPOOL
 done
 
 log_pass "Exporting and importing pool with cache devices passes."

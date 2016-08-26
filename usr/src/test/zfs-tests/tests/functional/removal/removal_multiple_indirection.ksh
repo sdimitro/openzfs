@@ -15,15 +15,15 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-/tmp}
-log_must $MKFILE $(($MINVDEVSIZE * 2)) $TMPDIR/dsk1
-log_must $MKFILE $(($MINVDEVSIZE * 2)) $TMPDIR/dsk2
+log_must mkfile $(($MINVDEVSIZE * 2)) $TMPDIR/dsk1
+log_must mkfile $(($MINVDEVSIZE * 2)) $TMPDIR/dsk2
 DISKS="$TMPDIR/dsk1 $TMPDIR/dsk2"
 REMOVEDISK=$TMPDIR/dsk1
 
@@ -32,7 +32,7 @@ log_must default_setup_noexit "$DISKS"
 function cleanup
 {
 	default_cleanup_noexit
-	log_must $RM -f $DISKS
+	log_must rm -f $DISKS
 }
 
 log_onexit cleanup
@@ -40,24 +40,24 @@ log_onexit cleanup
 FILE_CONTENTS="Leeloo Dallas mul-ti-pass."
 
 echo $FILE_CONTENTS  >$TESTDIR/$TESTFILE0
-log_must [ "x$($CAT $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
 
 for i in {1..10}; do
-	log_must $ZPOOL remove $TESTPOOL $TMPDIR/dsk1
+	log_must zpool remove $TESTPOOL $TMPDIR/dsk1
 	log_must wait_for_removal $TESTPOOL
 	log_mustnot vdevs_in_pool $TESTPOOL $TMPDIR/dsk1
-	log_must $ZPOOL add $TESTPOOL $TMPDIR/dsk1
+	log_must zpool add $TESTPOOL $TMPDIR/dsk1
 
-	log_must $DD if=$TESTDIR/$TESTFILE0 of=/dev/null
-	log_must [ "x$($CAT $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+	log_must dd if=$TESTDIR/$TESTFILE0 of=/dev/null
+	log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
 
-	log_must $ZPOOL remove $TESTPOOL $TMPDIR/dsk2
+	log_must zpool remove $TESTPOOL $TMPDIR/dsk2
 	log_must wait_for_removal $TESTPOOL
 	log_mustnot vdevs_in_pool $TESTPOOL $TMPDIR/dsk2
-	log_must $ZPOOL add $TESTPOOL $TMPDIR/dsk2
+	log_must zpool add $TESTPOOL $TMPDIR/dsk2
 
-	log_must $DD if=$TESTDIR/$TESTFILE0 of=/dev/null
-	log_must [ "x$($CAT $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+	log_must dd if=$TESTDIR/$TESTFILE0 of=/dev/null
+	log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
 done
 
 log_pass "File contents transfered completely from one disk to another."

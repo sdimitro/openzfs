@@ -14,7 +14,7 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 export REMOVEDISK=${DISKS%% *}
@@ -53,20 +53,20 @@ function wait_for_removal # pool [callback args]
 function indirect_vdev_mapping_size # pool
 {
 	typeset pool=$1
-	$ZDB -P $pool | $GREP 'indirect vdev' | \
-	    $SED -E 's/.*\(([0-9]+) in memory\).*/\1/g'
+	zdb -P $pool | grep 'indirect vdev' | \
+	    sed -E 's/.*\(([0-9]+) in memory\).*/\1/g'
 }
 
 function random_write # file write_size
 {
 	typeset file=$1
 	typeset block_size=$2
-	typeset file_size=$($STAT -c%s $file 2>/dev/null)
+	typeset file_size=$(stat -c%s $file 2>/dev/null)
 	typeset nblocks=$((file_size / block_size))
 
 	[[ -w $file ]] || return 1
 
-	$DD if=/dev/urandom of=$file conv=notrunc \
+	dd if=/dev/urandom of=$file conv=notrunc \
 	    bs=$block_size count=1 seek=$((RANDOM % nblocks)) >/dev/null 2>&1
 }
 
@@ -102,8 +102,8 @@ function start_random_writer # file
 function set_min_bytes # bytes
 {
 	typeset bytes=$1
-	$ECHO "zfs_condense_min_mapping_bytes/W 0t$bytes" | \
-	    $MDB -kw
+	echo "zfs_condense_min_mapping_bytes/W 0t$bytes" | \
+	    mdb -kw
 }
 
 #
@@ -121,7 +121,7 @@ function test_removal_with_operation # callback [count]
 	# To ensure that the removal takes a while, we fragment the pool
 	# by writing random blocks and continue to do during the removal.
 	#
-	log_must $MKFILE 1g $TESTDIR/$TESTFILE0
+	log_must mkfile 1g $TESTDIR/$TESTFILE0
 	for i in $(seq $((2**10))); do
 		random_write $TESTDIR/$TESTFILE0 $((2**12)) || \
 		    log_fail "Could not write to $TESTDIR/$TESTFILE0."
@@ -129,11 +129,11 @@ function test_removal_with_operation # callback [count]
 	start_random_writer $TESTDIR/$TESTFILE0 1g
 	killpid=$!
 
-	log_must $ZPOOL remove $TESTPOOL $REMOVEDISK
+	log_must zpool remove $TESTPOOL $REMOVEDISK
 	log_must wait_for_removal $TESTPOOL \
 	    _test_removal_with_operation_cb $operation
 	log_mustnot vdevs_in_pool $TESTPOOL $REMOVEDISK
-	log_must $ZDB -cd $TESTPOOL
+	log_must zdb -cd $TESTPOOL
 
 	kill $killpid
 	wait

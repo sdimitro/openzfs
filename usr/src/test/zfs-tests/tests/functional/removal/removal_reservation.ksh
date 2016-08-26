@@ -15,15 +15,15 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-/var/tmp}
-log_must $MKFILE 1g $TMPDIR/dsk1
-log_must $MKFILE 1g $TMPDIR/dsk2
+log_must mkfile 1g $TMPDIR/dsk1
+log_must mkfile 1g $TMPDIR/dsk2
 DISKS="$TMPDIR/dsk1 $TMPDIR/dsk2"
 REMOVEDISK=$TMPDIR/dsk1
 
@@ -32,15 +32,15 @@ default_setup_noexit "$DISKS"
 function cleanup
 {
 	default_cleanup_noexit
-	log_must $RM -f $DISKS
+	log_must rm -f $DISKS
 }
 
 log_onexit cleanup
 
-log_must $ZFS set compression=off $TESTPOOL/$TESTFS
+log_must zfs set compression=off $TESTPOOL/$TESTFS
 
 # Write a little under half the pool.
-log_must $FILE_WRITE -o create -f $TESTDIR/$TESTFILE1 -b $((2**20)) -c $((2**9))
+log_must file_write -o create -f $TESTDIR/$TESTFILE1 -b $((2**20)) -c $((2**9))
 
 #
 # Start a writing thread to ensure the removal will take a while.
@@ -55,14 +55,14 @@ function callback
 	(( callback_count == 1 )) || return 0
 
 	# Attempt to write more than the new pool will be able to handle.
-	$FILE_WRITE -o create -f $TESTDIR/$TESTFILE2 -b $((2**20)) -c $((2**9))
+	file_write -o create -f $TESTDIR/$TESTFILE2 -b $((2**20)) -c $((2**9))
 	zret=$?
 	ENOSPC=28
 	log_note "file_write returned $zret"
 	(( $zret == $ENOSPC )) || log_fail "Did not get ENOSPC during removal."
 }
 
-log_must $ZPOOL remove $TESTPOOL $REMOVEDISK
+log_must zpool remove $TESTPOOL $REMOVEDISK
 log_must wait_for_removal $TESTPOOL callback
 
 log_pass "Removal properly sets reservation."

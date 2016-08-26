@@ -87,7 +87,7 @@ typeset -i i=0
 
 while [[ $i -lt ${#args[*]} ]]; do
 
-	log_mustnot $ZPOOL offline ${args[$i]}
+	log_mustnot zpool offline ${args[$i]}
 
 	(( i = i + 1 ))
 done

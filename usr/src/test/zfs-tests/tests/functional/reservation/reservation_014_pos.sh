@@ -52,7 +52,7 @@ function cleanup
 	#
 	# Note we don't destroy $TESTFS as it's used by other tests
 	for obj in $OBJ_LIST ; do
-		datasetexists $obj && log_must $ZFS destroy -f $obj
+		datasetexists $obj && log_must zfs destroy -f $obj
 	done
 
 	log_must zero_reservation $TESTPOOL/$TESTFS
@@ -71,8 +71,8 @@ else
 	((sparse_vol_set_size = space_avail * 4))
 	sparse_vol_set_size=$(floor_volsize $sparse_vol_set_size)
 
-	log_must $ZFS create -V $vol_set_size $TESTPOOL/$TESTVOL
-	log_must $ZFS create -s -V $sparse_vol_set_size $TESTPOOL/$TESTVOL2
+	log_must zfs create -V $vol_set_size $TESTPOOL/$TESTVOL
+	log_must zfs create -s -V $sparse_vol_set_size $TESTPOOL/$TESTVOL2
 fi
 
 for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
@@ -91,7 +91,7 @@ for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
 	# space in the pool, whichever is smaller.
 	#
 	if [[ $obj == $TESTPOOL/$TESTFS ]]; then
-		log_must $ZFS set quota=$quota_set_size $obj
+		log_must zfs set quota=$quota_set_size $obj
 		((resv_set_size = quota_set_size + RESV_SIZE))
 
 	elif [[ $obj == $TESTPOOL/$TESTVOL2 ]] ; then
@@ -105,7 +105,7 @@ for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
 
 	orig_quota=`get_prop quota $obj`
 
-	log_mustnot $ZFS set reservation=$resv_set_size $obj
+	log_mustnot zfs set reservation=$resv_set_size $obj
 	new_quota=`get_prop quota $obj`
 
 	if [[ $orig_quota != $new_quota ]]; then
@@ -114,7 +114,7 @@ for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
 	fi
 
 	if [[ $obj == $TESTPOOL/$TESTFS ]]; then
-		log_must $ZFS set quota=none $obj
+		log_must zfs set quota=none $obj
 	fi
 done
 

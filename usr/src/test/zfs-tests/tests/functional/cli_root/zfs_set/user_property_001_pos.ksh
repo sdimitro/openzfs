@@ -57,7 +57,7 @@ while ((i < 10)); do
 	typeset value=$(user_property_value $len)
 
 	for dtst in $TESTPOOL $TESTPOOL/$TESTFS $TESTPOOL/$TESTVOL; do
-		log_must eval "$ZFS set $user_prop='$value' $dtst"
+		log_must eval "zfs set $user_prop='$value' $dtst"
 		log_must eval "check_user_prop $dtst $user_prop '$value'"
 	done
 

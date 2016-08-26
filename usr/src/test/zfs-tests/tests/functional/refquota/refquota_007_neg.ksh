@@ -38,9 +38,9 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
@@ -49,13 +49,13 @@ TESTFILE='testfile'
 FS=$TESTPOOL/$TESTFS
 
 mntpnt=$(get_prop mountpoint $FS)
-log_must $MKFILE 20M $mntpnt/$TESTFILE
-log_must $ZFS snapshot $FS@snap20M
-log_must $RM $mntpnt/$TESTFILE
+log_must mkfile 20M $mntpnt/$TESTFILE
+log_must zfs snapshot $FS@snap20M
+log_must rm $mntpnt/$TESTFILE
 
-log_must $SYNC
+log_must sync
 
-log_must $ZFS set refquota=10M $FS
-log_mustnot $ZFS rollback $FS@snap20M
+log_must zfs set refquota=10M $FS
+log_mustnot zfs rollback $FS@snap20M
 
 log_pass "The rollback to the snapshot was restricted by refquota."

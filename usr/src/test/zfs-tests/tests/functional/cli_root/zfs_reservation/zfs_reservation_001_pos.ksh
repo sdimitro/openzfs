@@ -48,16 +48,16 @@ RESERVATION="reserve"
 function cleanup
 {
 	if datasetexists $TESTPOOL/$RESERVATION ; then
-		log_must $ZFS unmount $TESTPOOL/$RESERVATION
-		log_must $ZFS destroy $TESTPOOL/$RESERVATION
+		log_must zfs unmount $TESTPOOL/$RESERVATION
+		log_must zfs destroy $TESTPOOL/$RESERVATION
 	fi
 }
 
 log_onexit cleanup
 
 
-log_must $ZFS create $TESTPOOL/$RESERVATION
+log_must zfs create $TESTPOOL/$RESERVATION
 
-log_mustnot $ZFS set reservation=18446744073709551615 $TESTPOOL/$RESERVATION
+log_mustnot zfs set reservation=18446744073709551615 $TESTPOOL/$RESERVATION
 
 log_pass "Unable to set a reservation > 2^64 - 1"

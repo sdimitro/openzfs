@@ -50,15 +50,15 @@ verify_runnable "global"
 
 log_onexit cleanup
 
-log_must $ZFS set devices=on $TESTPOOL/$TESTFS
+log_must zfs set devices=on $TESTPOOL/$TESTFS
 
 #
 # Separately create block device file and character device file, then try to
 # open them and make sure it succeed.
 #
 create_dev_file b $TESTDIR/$TESTFILE1
-log_must $DD if=$TESTDIR/$TESTFILE1 of=$TESTDIR/$TESTFILE1.out count=1
+log_must dd if=$TESTDIR/$TESTFILE1 of=$TESTDIR/$TESTFILE1.out count=1
 create_dev_file c $TESTDIR/$TESTFILE2
-log_must $DD if=$TESTDIR/$TESTFILE2 of=$TESTDIR/$TESTFILE2.out count=1
+log_must dd if=$TESTDIR/$TESTFILE2 of=$TESTDIR/$TESTFILE2.out count=1
 
 log_pass "Setting devices=on on file system and testing it pass."

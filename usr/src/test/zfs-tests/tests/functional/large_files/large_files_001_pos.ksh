@@ -47,6 +47,6 @@ verify_runnable "both"
 
 
 log_note "Invoke 'largest_file' with $TESTDIR/bigfile"
-log_must $LARGEST_FILE $TESTDIR/bigfile
+log_must largest_file $TESTDIR/bigfile
 
 log_pass "Successfully created a file to the maximum allowable size."

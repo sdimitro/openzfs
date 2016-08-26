@@ -41,27 +41,27 @@ verify_runnable "both"
 
 function cleanup
 {
-        log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-        log_must $ZFS create $TESTPOOL/$TESTFS
-        log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+        log_must zfs destroy -rf $TESTPOOL/$TESTFS
+        log_must zfs create $TESTPOOL/$TESTFS
+        log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
 
 TESTFILE='testfile'
 FS=$TESTPOOL/$TESTFS
-log_must $ZFS create $FS/$TESTSUBFS1
-log_must $ZFS create $FS/$TESTSUBFS2
+log_must zfs create $FS/$TESTSUBFS1
+log_must zfs create $FS/$TESTSUBFS2
 
 mntpnt1=$(get_prop mountpoint $FS/$TESTSUBFS1)
 mntpnt2=$(get_prop mountpoint $FS/$TESTSUBFS2)
 
-log_must $MKFILE 20M $mntpnt1/$TESTFILE
-log_must $ZFS snapshot $FS/$TESTSUBFS1@snap20m
+log_must mkfile 20M $mntpnt1/$TESTFILE
+log_must zfs snapshot $FS/$TESTSUBFS1@snap20m
 
-log_must $ZFS set refquota=10M $FS/$TESTSUBFS2
-log_mustnot eval "$ZFS send $FS/$TESTSUBFS1@snap20m |" \
-        "$ZFS receive -F $FS/$TESTSUBFS2"
+log_must zfs set refquota=10M $FS/$TESTSUBFS2
+log_mustnot eval "zfs send $FS/$TESTSUBFS1@snap20m |" \
+        "zfs receive -F $FS/$TESTSUBFS2"
 
 log_pass "ZFS receive does not override refquota"
 

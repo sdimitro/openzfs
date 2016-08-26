@@ -52,7 +52,7 @@ set -A args  "" "create $TESTPOOL/$TESTFS" \
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_mustnot $ZFS ${args[i]}
+	log_mustnot zfs ${args[i]}
 	((i = i + 1))
 done
 

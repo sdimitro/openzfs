@@ -15,34 +15,34 @@
 #
 
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-/tmp}
-log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk1
-log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk2
-log_must $MKFILE $MINVDEVSIZE $TMPDIR/dsk3
+log_must mkfile $MINVDEVSIZE $TMPDIR/dsk1
+log_must mkfile $MINVDEVSIZE $TMPDIR/dsk2
+log_must mkfile $MINVDEVSIZE $TMPDIR/dsk3
 DISKS="$TMPDIR/dsk1 mirror $TMPDIR/dsk2 $TMPDIR/dsk3"
 
 function cleanup
 {
 	default_cleanup_noexit
-	log_must $RM -f $DISKS
+	log_must rm -f $DISKS
 }
 
 log_must default_setup_noexit "$DISKS"
 log_onexit cleanup
 
 # Attempt to remove the non mirrored disk.
-log_mustnot $ZPOOL remove $TESTPOOL $TMPDIR/dsk1
+log_mustnot zpool remove $TESTPOOL $TMPDIR/dsk1
 
 # Attempt to remove one of the disks in the mirror.
-log_mustnot $ZPOOL remove $TESTPOOL $TMPDIR/dsk2
+log_mustnot zpool remove $TESTPOOL $TMPDIR/dsk2
 
 # Attempt to remove the mirror.
-log_mustnot $ZPOOL remove $TESTPOOL mirror-1
+log_mustnot zpool remove $TESTPOOL mirror-1
 
 log_pass "Removal will not succeed if there is a top level mirror."

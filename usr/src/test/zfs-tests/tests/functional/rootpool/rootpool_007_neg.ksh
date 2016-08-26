@@ -45,7 +45,7 @@
 verify_runnable "global"
 
 function cleanup {
-	log_must $ZFS set compression=$orig_compress $rootfs
+	log_must zfs set compression=$orig_compress $rootfs
 }
 
 log_onexit cleanup
@@ -62,7 +62,7 @@ set -A gtype "gzip" "gzip-1" "gzip-2" "gzip-3" "gzip-4" "gzip-5" \
 
 typeset -i i=0
 while (( i < ${#gtype[@]} )); do
-	log_mustnot $ZFS set compression=${gtype[i]} $rootfs
+	log_mustnot zfs set compression=${gtype[i]} $rootfs
 	(( i += 1 ))
 done
 

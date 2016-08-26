@@ -48,16 +48,16 @@ verify_runnable "both"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/tar$$.tar
-	$RM -rf $TESTDIR/$BNAME
+	rm -rf $TESTDIR/tar$$.tar
+	rm -rf $TESTDIR/$BNAME
 }
 
 log_onexit cleanup
 
-prepare $DNAME "$TAR cf $TESTDIR/tar$$.tar $BNAME"
+prepare $DNAME "tar cf $TESTDIR/tar$$.tar $BNAME"
 (( $? != 0 )) && log_fail "Unable to create src archive"
 
-migrate $TESTDIR $SUMA $SUMB "$TAR xf $TESTDIR/tar$$.tar"
+migrate $TESTDIR $SUMA $SUMB "tar xf $TESTDIR/tar$$.tar"
 (( $? != 0 )) && log_fail "Uable to successfully migrate test file from" \
     "ZFS fs to ZFS fs"
 

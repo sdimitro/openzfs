@@ -49,15 +49,15 @@ if ! is_global_zone ; then
 	TESTPOOL=${TESTPOOL%%/*}
 fi
 
-typeset tmpfile=$($MKTEMP)
+typeset tmpfile=$(mktemp)
 
-log_must eval "$ZPOOL get all $TESTPOOL >$tmpfile"
-log_must $GREP -q "^NAME" $tmpfile
+log_must eval "zpool get all $TESTPOOL >$tmpfile"
+log_must grep -q "^NAME" $tmpfile
 
 for prop in $(get_pool_props); do
-	log_must eval "$ZPOOL get "$prop" $TESTPOOL"
-	log_must $GREP -q "^NAME" $tmpfile
-	log_must $GREP -q "$prop" $tmpfile
+	log_must eval "zpool get "$prop" $TESTPOOL"
+	log_must grep -q "^NAME" $tmpfile
+	log_must grep -q "$prop" $tmpfile
 done
 
 log_pass "Zpool get all works as expected"

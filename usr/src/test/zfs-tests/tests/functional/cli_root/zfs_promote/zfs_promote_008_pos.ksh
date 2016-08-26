@@ -46,10 +46,10 @@ verify_runnable "global"
 function cleanup
 {
 	if snapexists $csnap; then
-		log_must $ZFS promote $vol
+		log_must zfs promote $vol
 	fi
 
-	log_must $ZFS destroy -rR $snap
+	log_must zfs destroy -rR $snap
 }
 
 log_onexit cleanup
@@ -60,11 +60,11 @@ clone=$TESTPOOL/volclone
 csnap=$clone@$TESTSNAP
 
 if ! snapexists $snap ; then
-	log_must $ZFS snapshot $snap
-	log_must $ZFS clone $snap $clone
+	log_must zfs snapshot $snap
+	log_must zfs clone $snap $clone
 fi
 
-log_must $ZFS promote $clone
+log_must zfs promote $clone
 
 # verify the 'promote' operation
 ! snapexists $csnap && \

@@ -24,6 +24,7 @@
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
 #
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
@@ -68,7 +69,7 @@ set -A args  "" "create" "create -s" "create -V" "create -s -V" \
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_mustnot $ZFS ${args[i]}
+	log_mustnot zfs ${args[i]}
 	((i = i + 1))
 done
 

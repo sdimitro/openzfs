@@ -43,7 +43,7 @@
 #
 #
 
-log_mustnot $ZFS clone $TESTPOOL/$TESTFS@snap $TESTPOOL/$TESTFS.myclone
+log_mustnot zfs clone $TESTPOOL/$TESTFS@snap $TESTPOOL/$TESTFS.myclone
 
 # check to see that the above command really did nothing
 if datasetexists $TESTPOOL/$TESTFS.myclone

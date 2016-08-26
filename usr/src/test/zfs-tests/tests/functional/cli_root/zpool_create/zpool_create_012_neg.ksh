@@ -52,14 +52,14 @@ function cleanup
 	fi
 
 }
-typeset swap_disks=`$SWAP -l | $GREP "c[0-9].*d[0-9].*s[0-9]" | \
-            $AWK '{print $1}'`
+typeset swap_disks=`swap -l | grep "c[0-9].*d[0-9].*s[0-9]" | \
+            awk '{print $1}'`
 
 log_onexit cleanup
 
 for sdisk in $swap_disks; do
 	for opt in "-n" "" "-f"; do
-		log_mustnot $ZPOOL create $opt $TESTPOOL $sdisk
+		log_mustnot zpool create $opt $TESTPOOL $sdisk
 	done
 done
 

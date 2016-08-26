@@ -44,7 +44,7 @@
 #
 
 
-log_mustnot $ZFS promote $TESTPOOL/$TESTFS/clone
+log_mustnot zfs promote $TESTPOOL/$TESTFS/clone
 
 # Now verify that the above command didn't do anything
 if datasetexists $TESTPOOL/$TESTFS/clone@snap

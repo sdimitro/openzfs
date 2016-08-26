@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -35,22 +35,22 @@
 verify_runnable "global"
 
 ismounted $TESTPOOL/$TESTFS
-(( $? == 0 )) && log_must $ZFS umount -f $TESTDIR
+(( $? == 0 )) && log_must zfs umount -f $TESTDIR
 destroy_pool $TESTPOOL
 
-$METASTAT $META_DEVICE_ID > /dev/null 2>&1
+metastat $META_DEVICE_ID > /dev/null 2>&1
 if (( $? == 0 )); then
 	log_note "Clearing meta device ($META_DEVICE_ID)"
-	$METACLEAR -f $META_DEVICE_ID > /dev/null 2>&1
+	metaclear -f $META_DEVICE_ID > /dev/null 2>&1
 fi
 
 typeset metadb=""
 typeset i=""
 
-metadb=`$METADB | $CUT -f6 | $GREP dev | $UNIQ`
+metadb=`metadb | cut -f6 | grep dev | uniq`
 for i in $metadb; do
 	log_note "Clearing meta db ($i)"
-	$METADB -fd $i > /dev/null 2>&1
+	metadb -fd $i > /dev/null 2>&1
 done
 
 # recreate and destroy a zpool over the disks to restore the partitions to

@@ -51,7 +51,7 @@ set -A datasets \
 typeset -i i=0
 while (( i < ${#datasets[*]} ))
 do
-	log_mustnot $ZFS unshare ${datasets[i]}
+	log_mustnot zfs unshare ${datasets[i]}
 
 	((i = i + 1))
 done

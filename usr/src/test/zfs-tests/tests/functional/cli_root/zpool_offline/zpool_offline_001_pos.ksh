@@ -55,7 +55,7 @@ function cleanup
 	# Ensure we don't leave disks in the offline state
 	#
 	for disk in $DISKLIST; do
-		log_must $ZPOOL online $TESTPOOL $disk
+		log_must zpool online $TESTPOOL $disk
 		check_state $TESTPOOL $disk "online"
 		if [[ $? != 0 ]]; then
 			log_fail "Unable to online $disk"
@@ -78,13 +78,13 @@ for disk in $DISKLIST; do
 	i=0
 	while [[ $i -lt ${#args[*]} ]]; do
 		if (( j < num )) ; then
-			log_must $ZPOOL offline ${args[$i]} $TESTPOOL $disk
+			log_must zpool offline ${args[$i]} $TESTPOOL $disk
 			check_state $TESTPOOL $disk "offline"
 			if [[ $? != 0 ]]; then
 				log_fail "$disk of $TESTPOOL did not match offline state"
 			fi
 		else
-			log_mustnot $ZPOOL offline ${args[$i]} $TESTPOOL $disk
+			log_mustnot zpool offline ${args[$i]} $TESTPOOL $disk
 			check_state $TESTPOOL $disk "online"
 			if [[ $? != 0 ]]; then
 				log_fail "$disk of $TESTPOOL did not match online state"
@@ -105,7 +105,7 @@ for disk in $DISKLIST; do
         i=0
         while [[ $i -lt $iters ]]; do
 		index=`expr $RANDOM % ${#args[*]}`
-                log_must $ZPOOL offline ${args[$index]} $TESTPOOL $disk
+                log_must zpool offline ${args[$index]} $TESTPOOL $disk
                 check_state $TESTPOOL $disk "offline"
                 if [[ $? != 0 ]]; then
                         log_fail "$disk of $TESTPOOL is not offline."
@@ -114,7 +114,7 @@ for disk in $DISKLIST; do
                 (( i = i + 1 ))
         done
 
-	log_must $ZPOOL online $TESTPOOL $disk
+	log_must zpool online $TESTPOOL $disk
 	check_state $TESTPOOL $disk "online"
 	if [[ $? != 0 ]]; then
 		log_fail "$disk of $TESTPOOL did not match online state"

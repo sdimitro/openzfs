@@ -24,7 +24,7 @@
 
 
 freq=$(get_cpu_freq)
-for isa in $($ISAINFO); do
+for isa in $(isainfo); do
 	log_must $STF_SUITE/tests/functional/checksum/skein_test.$isa $freq
 done
 

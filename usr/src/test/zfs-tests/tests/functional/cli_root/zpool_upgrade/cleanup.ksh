@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -34,9 +34,9 @@
 
 function destroy_upgraded_pools {
 	for config in $CONFIGS; do
-		POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_NAME)
-		POOL_FILES=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_FILES)
-		poolexists $POOL_NAME && log_must $ZPOOL destroy -f $POOL_NAME
+		POOL_NAME=$(eval echo \$ZPOOL_VERSION_${VERSION}_NAME)
+		POOL_FILES=$(eval echo \$ZPOOL_VERSION_${VERSION}_FILES)
+		poolexists $POOL_NAME && log_must zpool destroy -f $POOL_NAME
 	done
 }
 

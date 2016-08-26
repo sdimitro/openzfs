@@ -46,11 +46,11 @@ verify_runnable "both"
 function cleanup
 {
 	if snapexists $TESTPOOL/$TESTFS@$TESTSNAP; then
-		log_must $ZFS destroy $TESTPOOL/$TESTFS@$TESTSNAP
+		log_must zfs destroy $TESTPOOL/$TESTFS@$TESTSNAP
 	fi
 
 	if is_global_zone && datasetexists $TESTPOOL/$TESTVOL; then
-		log_must $ZFS destroy $TESTPOOL/$TESTVOL
+		log_must zfs destroy $TESTPOOL/$TESTVOL
 	fi
 }
 
@@ -60,21 +60,21 @@ fs=$TESTPOOL/$TESTFS
 set -A badargs "A" "-A" "-" "-x" "-?" "=" "-o *" "-a"
 
 for arg in "${badargs[@]}"; do
-	log_mustnot eval "$ZFS mount $arg $fs >/dev/null 2>&1"
+	log_mustnot eval "zfs mount $arg $fs >/dev/null 2>&1"
 done
 
 #verify that zfs mount fails with invalid dataset
 for opt in "-o abc" "-O"; do
-	log_mustnot eval "$ZFS mount $opt /$fs >/dev/null 2>&1"
+	log_mustnot eval "zfs mount $opt /$fs >/dev/null 2>&1"
 done
 
 #verify that zfs mount fails with volume and snapshot
-log_must $ZFS snapshot $TESTPOOL/$TESTFS@$TESTSNAP
-log_mustnot eval "$ZFS mount $TESTPOOL/$TESTFS@$TESTSNAP >/dev/null 2>&1"
+log_must zfs snapshot $TESTPOOL/$TESTFS@$TESTSNAP
+log_mustnot eval "zfs mount $TESTPOOL/$TESTFS@$TESTSNAP >/dev/null 2>&1"
 
 if is_global_zone; then
-	log_must $ZFS create -V 10m $TESTPOOL/$TESTVOL
-	log_mustnot eval "$ZFS mount $TESTPOOL/$TESTVOL >/dev/null 2>&1"
+	log_must zfs create -V 10m $TESTPOOL/$TESTVOL
+	log_mustnot eval "zfs mount $TESTPOOL/$TESTVOL >/dev/null 2>&1"
 fi
 
 log_pass "zfs mount fails with bad parameters as expected."

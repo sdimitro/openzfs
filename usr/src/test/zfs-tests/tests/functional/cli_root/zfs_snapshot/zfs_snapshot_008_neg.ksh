@@ -43,7 +43,7 @@ function cleanup
 {
 	for pool in $SNAPPOOL1 $SNAPPOOL2 ; do
 		if poolexists $pool ; then
-			log_must $ZPOOL destroy -f $pool
+			log_must zpool destroy -f $pool
 		fi
 	done
 
@@ -56,12 +56,12 @@ function cleanup
 
 log_onexit cleanup
 
-log_must $MKFILE $MINVDEVSIZE $SNAPDEV1
-log_must $MKFILE $MINVDEVSIZE $SNAPDEV2
+log_must mkfile $MINVDEVSIZE $SNAPDEV1
+log_must mkfile $MINVDEVSIZE $SNAPDEV2
 
-log_must $ZPOOL create $SNAPPOOL1 $SNAPDEV1
-log_must $ZPOOL create $SNAPPOOL2 $SNAPDEV2
+log_must zpool create $SNAPPOOL1 $SNAPDEV1
+log_must zpool create $SNAPPOOL2 $SNAPDEV2
 
-log_mustnot $ZFS snapshot $SNAPPOOL1@snap1 $SNAPPOOL2@snap2
+log_mustnot zfs snapshot $SNAPPOOL1@snap1 $SNAPPOOL2@snap2
 
 log_pass "'zfs snapshot pool1@snap1 pool2@snap2' should fail since snapshots are in different pools."

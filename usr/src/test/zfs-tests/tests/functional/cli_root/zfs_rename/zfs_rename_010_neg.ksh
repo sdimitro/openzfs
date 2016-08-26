@@ -53,7 +53,7 @@ fi
 for opts in "-r" "-r -p"; do
 	typeset -i i=0
 	while ((i < ${#datasets[@]})); do
-		log_mustnot $ZFS rename $opts ${datasets[$i]} \
+		log_mustnot zfs rename $opts ${datasets[$i]} \
 			${datasets[$i]}-new
 
 		# Check datasets, make sure none of them was renamed.

@@ -24,6 +24,7 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
 #
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
@@ -48,7 +49,7 @@ function cleanup
 	typeset -i j=0
 	while [[ $j -lt ${#size[*]} ]]; do
 		datasetexists $TESTPOOL/${LONGFSNAME}${size[j]} && \
-		    log_must $ZFS destroy $TESTPOOL/${LONGFSNAME}${size[j]}
+		    log_must zfs destroy $TESTPOOL/${LONGFSNAME}${size[j]}
 		((j = j + 1))
 	done
 }
@@ -59,7 +60,7 @@ log_onexit cleanup
 
 typeset -i j=0
 while (( $j < ${#size[*]} )); do
-	typeset cmdline="$ZFS create -s -V ${size[j]} \
+	typeset cmdline="zfs create -s -V ${size[j]} \
 			 $TESTPOOL/${LONGFSNAME}${size[j]}"
 
 	str=$(eval $cmdline 2>&1)

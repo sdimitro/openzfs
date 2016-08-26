@@ -57,7 +57,7 @@ TESTFILE='testfile-threadsappend'
 # This test should be run on a multi-processor system because otherwise the FS
 # will not be concurrently used by the threads
 #
-NCPUS=`$PSRINFO | $WC -l`
+NCPUS=`psrinfo | wc -l`
 if [[ -z $NCPUS || $NCPUS -le 1 ]]; then
 	 log_fail "This test should be executed on a multi-processor system."
 fi
@@ -71,7 +71,7 @@ log_must $THREADSAPPEND ${TESTDIR}/${TESTFILE}
 #
 # Check the size of the resulting file
 #
-SIZE=`$LS -l ${TESTDIR}/${TESTFILE} | $AWK '{print $5}'`
+SIZE=`ls -l ${TESTDIR}/${TESTFILE} | awk '{print $5}'`
 if [[ $SIZE -ne $FILE_SIZE ]]; then
 	log_fail "'The length of ${TESTDIR}/${TESTFILE}' doesnt equal 1310720."
 fi

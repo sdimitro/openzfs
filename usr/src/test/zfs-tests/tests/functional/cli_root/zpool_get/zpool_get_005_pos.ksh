@@ -50,13 +50,13 @@ typeset -i i=0
 
 while [[ $i -lt "${#properties[@]}" ]]; do
 	log_note "Checking for parsable ${properties[$i]} property"
-	log_must eval "$ZPOOL get -p ${properties[$i]} $TESTPOOL >/tmp/value.$$"
-	$GREP "${properties[$i]}" /tmp/value.$$ >/dev/null 2>&1
+	log_must eval "zpool get -p ${properties[$i]} $TESTPOOL >/tmp/value.$$"
+	grep "${properties[$i]}" /tmp/value.$$ >/dev/null 2>&1
 	if [[ $? -ne 0 ]]; then
 		log_fail "${properties[$i]} not seen in output"
 	fi
 
-	typeset v=$($GREP "${properties[$i]}" /tmp/value.$$ | $AWK '{print $3}')
+	typeset v=$(grep "${properties[$i]}" /tmp/value.$$ | awk '{print $3}')
 
 	log_note "${properties[$i]} has a value of $v"
 
@@ -74,5 +74,5 @@ while [[ $i -lt "${#properties[@]}" ]]; do
 	i=$(( $i + 1 ))
 done
 
-$RM /tmp/value.$$
+rm /tmp/value.$$
 log_pass "Zpool get returns parsable values for all known parsable properties"

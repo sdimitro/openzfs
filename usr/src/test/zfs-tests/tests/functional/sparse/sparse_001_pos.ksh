@@ -47,7 +47,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
+	[[ -e $TESTDIR ]] && log_must rm -rf $TESTDIR/*
 }
 
 
@@ -70,8 +70,8 @@ options="$options -r "
 
 [[ -n "$options" ]] && options_display=$options
 
-log_note "Invoking $FILE_TRUNC with: $options_display"
-log_must $FILE_TRUNC $options $TESTDIR/$TESTFILE
+log_note "Invoking file_trunc with: $options_display"
+log_must file_trunc $options $TESTDIR/$TESTFILE
 
 typeset dir=$(get_device_dir $DISKS)
 verify_filesys "$TESTPOOL" "$TESTPOOL/$TESTFS" "$dir"

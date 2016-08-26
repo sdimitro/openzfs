@@ -61,16 +61,16 @@ typeset perms2="checksum,send,userprop"
 #
 childfs=$ROOT_TESTFS/childfs
 grandchild=$childfs/grandchild
-log_must $ZFS create $childfs
-log_must $ZFS create $grandchild
+log_must zfs create $childfs
+log_must zfs create $grandchild
 
 #
 # Setting different permissions to the same set on two level.
 # But only assign the user at one level.
 #
-log_must $ZFS allow -s @set $perms1 $ROOT_TESTFS
-log_must $ZFS allow -s @set $perms2 $childfs
-log_must $ZFS allow $STAFF1 @set $childfs
+log_must zfs allow -s @set $perms1 $ROOT_TESTFS
+log_must zfs allow -s @set $perms2 $childfs
+log_must zfs allow $STAFF1 @set $childfs
 
 #
 # Verify only perms2 is valid to user on the level which he was assigned.
@@ -85,7 +85,7 @@ done
 # Delegate @set to STAFF1 on ROOT_TESTFS, verify $perms1 will not be appended
 # to its descendent datasets since it is masked
 #
-log_must $ZFS allow $STAFF1 @set $ROOT_TESTFS
+log_must zfs allow $STAFF1 @set $ROOT_TESTFS
 log_must verify_perm $ROOT_TESTFS $perms1 $STAFF1
 for fs in $childfs $grandchild ; do
 	log_must verify_noperm $fs $perms1 $STAFF1
@@ -93,7 +93,7 @@ for fs in $childfs $grandchild ; do
 done
 
 # Remove the mask, $perms1 will be allowed to its descendent datasets
-log_must $ZFS unallow -s @set $childfs
+log_must zfs unallow -s @set $childfs
 for fs in $childfs $grandchild ; do
 	log_must verify_noperm $fs $perms2 $STAFF1
 	log_must verify_perm $fs $perms1 $STAFF1

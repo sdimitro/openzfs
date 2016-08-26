@@ -49,7 +49,7 @@ verify_runnable "both"
 function cleanup
 {
 	if snapexists $SNAPFS ; then
-		log_must $ZFS destroy -Rf $SNAPFS
+		log_must zfs destroy -Rf $SNAPFS
 	fi
 }
 
@@ -58,7 +58,7 @@ log_onexit cleanup
 typeset -i i=0
 typeset opts=""
 
-log_must $ZFS snapshot $SNAPFS
+log_must zfs snapshot $SNAPFS
 
 while (( $i < ${#RW_FS_PROP[*]} )); do
         if [[ ${RW_FS_PROP[$i]} != *"checksum"* ]]; then
@@ -67,7 +67,7 @@ while (( $i < ${#RW_FS_PROP[*]} )); do
 	(( i = i + 1 ))
 done
 
-log_must $ZFS clone $opts $SNAPFS $TESTPOOL/$TESTCLONE
+log_must zfs clone $opts $SNAPFS $TESTPOOL/$TESTCLONE
 datasetexists $TESTPOOL/$TESTCLONE || \
 	log_fail "zfs create $TESTPOOL/$TESTCLONE fail."
 

@@ -52,7 +52,7 @@ typeset -i i=1
 
 while [[ $i -lt ${#args[*]} ]]; do
 
-	log_mustnot $ZPOOL status ${args[$i]}
+	log_mustnot zpool status ${args[$i]}
 
 	(( i = i + 1 ))
 done

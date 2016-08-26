@@ -45,8 +45,8 @@
 
 function check_for_offline
 {
-	RESULT=$($ZPOOL status -v $TESTPOOL.virt | $GREP disk-1.dat \
-		 | $GREP OFFLINE )
+	RESULT=$(zpool status -v $TESTPOOL.virt | grep disk-1.dat \
+		 | grep OFFLINE )
 	if [ -n "$RESULT" ]
 	then
 		log_fail "A disk was taken offline!"
@@ -56,10 +56,10 @@ function check_for_offline
 verify_runnable "global"
 
 
-log_mustnot $ZPOOL offline $TESTPOOL.virt /$TESTDIR/disk-1.dat
+log_mustnot zpool offline $TESTPOOL.virt /$TESTDIR/disk-1.dat
 check_for_offline
 
-log_mustnot $ZPOOL offline -t $TESTPOOL.virt /$TESTDIR/disk-1.dat
+log_mustnot zpool offline -t $TESTPOOL.virt /$TESTDIR/disk-1.dat
 check_for_offline
 
 log_pass "zpool offline returns an error when run as a user"

@@ -168,7 +168,7 @@ log_must zfs create overflow/testfs
 log_must zpool export overflow
 ID=$(zpool import -d /tmp | awk "/^     id: / {id = \$2}
     {if(\$1 == \"$VDEV_FILE\") print id}")
-[[ -n $ID ]] || log_fail "Couldn't find pool id"
-log_mustnot zpool import -d /tmp $(echo $ID) $(python -c "print 'c' * 250")
+[[ -n id ]] || log_fail "Couldn't find pool id"
+log_mustnot zpool import -d /tmp $(echo id) $(python -c "print 'c' * 250")
 
 log_pass "Successfully imported and renamed a ZPOOL"

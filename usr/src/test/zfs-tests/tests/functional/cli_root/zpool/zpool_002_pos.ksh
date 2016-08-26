@@ -48,10 +48,10 @@ function cleanup
 	unset ZFS_ABORT
 
 	if [[ -d $corepath ]]; then
-		$RM -rf $corepath
+		rm -rf $corepath
 	fi
 	if poolexists $pool; then
-		log_must $ZPOOL destroy -f $pool
+		log_must zpool destroy -f $pool
 	fi
 }
 
@@ -60,16 +60,16 @@ log_onexit cleanup
 #preparation work for testing
 corepath=$TESTDIR/core
 if [[ -d $corepath ]]; then
-	$RM -rf $corepath
+	rm -rf $corepath
 fi
-$MKDIR $corepath
+mkdir $corepath
 
 pool=pool.$$
 vdev1=$TESTDIR/file1
 vdev2=$TESTDIR/file2
 vdev3=$TESTDIR/file3
 for vdev in $vdev1 $vdev2 $vdev3; do
-	$MKFILE $MINVDEVSIZE $vdev
+	mkfile $MINVDEVSIZE $vdev
 done
 
 set -A cmds "create $pool mirror $vdev1 $vdev2" "list $pool" "iostat $pool" \
@@ -83,16 +83,16 @@ set -A badparams "" "create" "destroy" "add" "remove" "list *" "iostat" "status"
 		"online" "offline" "clear" "attach" "detach" "replace" "scrub" \
 		"import" "export" "upgrade" "history -?" "get" "set"
 
-$COREADM -p ${corepath}/core.%f
+coreadm -p ${corepath}/core.%f
 export ZFS_ABORT=yes
 
 for subcmd in "${cmds[@]}" "${badparams[@]}"; do
-	$ZPOOL $subcmd >/dev/null 2>&1
+	zpool $subcmd >/dev/null 2>&1
 	corefile=${corepath}/core.zpool
 	if [[ ! -e $corefile ]]; then
-		log_fail "$ZPOOL $subcmd cannot generate core file  with ZFS_ABORT set."
+		log_fail "zpool $subcmd cannot generate core file  with ZFS_ABORT set."
 	fi
-	$RM -f $corefile
+	rm -f $corefile
 done
 
 log_pass "With ZFS_ABORT set, zpool command can abort and generate core file as expected."

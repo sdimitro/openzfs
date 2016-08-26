@@ -48,12 +48,12 @@ fs=$TESTPOOL/$TESTFS
 set -A badargs "A" "-A" "-" "-x" "-?" "=" "-a *" "-a"
 
 for arg in "${badargs[@]}"; do
-	log_mustnot eval "$ZFS share $arg $fs >/dev/null 2>&1"
+	log_mustnot eval "zfs share $arg $fs >/dev/null 2>&1"
 done
 
 #zfs share failed when missing arguments or invalid datasetname
 for obj in "" "/$fs"; do
-	log_mustnot eval "$ZFS share $obj >/dev/null 2>&1"
+	log_mustnot eval "zfs share $obj >/dev/null 2>&1"
 done
 
 log_pass "zfs share fails with bad parameters as expected."

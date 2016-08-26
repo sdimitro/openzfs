@@ -46,17 +46,17 @@ verify_runnable "global"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
 
 
 populate_dir $NUM_FILES
-inode_num=`$LS -li $TESTDIR/$TESTFILE.0 | $AWK '{print $1}'`
+inode_num=`ls -li $TESTDIR/$TESTFILE.0 | awk '{print $1}'`
 [[ -z $inode_num ]] && \
     log_fail "Failed to determine inode of file: $TESTDIR/$TESTFILE.0"
 
-log_mustnot $ECHO ":inode $inode_num" | $FSDB /dev/rdsk/${DISK}s0
+log_mustnot echo ":inode $inode_num" | fsdb /dev/rdsk/${DISK}s0
 
 log_pass "fsdb(1M) returned an error as expected."

@@ -50,18 +50,18 @@ function cleanup
 	typeset dir=$(get_device_dir $DISKS)
 
 	datasetexists "$TESTPOOL/$TESTFS" || \
-		log_must $ZPOOL import -d $dir $TESTPOOL
+		log_must zpool import -d $dir $TESTPOOL
 
 	ismounted "$TESTPOOL/$TESTFS"
 	(( $? != 0 )) && \
-	    log_must $ZFS mount $TESTPOOL/$TESTFS
+	    log_must zfs mount $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
 
 
-log_must $ZFS umount $TESTDIR
-log_must $ZPOOL export $TESTPOOL
+log_must zfs umount $TESTDIR
+log_must zpool export $TESTPOOL
 
 poolexists $TESTPOOL && \
         log_fail "$TESTPOOL unexpectedly found in 'zpool list' output."

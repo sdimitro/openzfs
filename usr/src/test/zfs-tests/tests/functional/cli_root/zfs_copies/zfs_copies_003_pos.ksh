@@ -52,7 +52,7 @@ function cleanup
 	fi
 
 	if datasetexists $vol; then
-		log_must $ZFS destroy $vol
+		log_must zfs destroy $vol
 	fi
 }
 

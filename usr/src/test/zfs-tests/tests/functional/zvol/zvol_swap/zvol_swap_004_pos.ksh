@@ -46,7 +46,7 @@ verify_runnable "global"
 
 
 typeset -i min max mem
-((mem = $($KSTAT -p ::arcstats:c_max | $AWK '{print $2}') / 4))
+((mem = $(kstat -p ::arcstats:c_max | awk '{print $2}') / 4))
 ((min = 2 * 1024 * 1024 * 1024))
 ((max = 16 * 1024 * 1024 * 1024))
 
@@ -57,8 +57,8 @@ for vbs in 8192 16384 32768 65536 131072; do
 		swapname="/dev/zvol/dsk/$vol"
 
 		# Create a sparse volume to test larger sizes
-		log_must $ZFS create -s -b $vbs -V $volsize $vol
-		log_must $SWAP -a $swapname
+		log_must zfs create -s -b $vbs -V $volsize $vol
+		log_must swap -a $swapname
 
 		if ((mem <= min)); then		# volsize should be 2G
 			new_volsize=$(get_prop volsize $vol)
@@ -74,8 +74,8 @@ for vbs in 8192 16384 32768 65536 131072; do
 			    "Unexpected volsize: $new_volsize"
 		fi
 
-		log_must $SWAP -d $swapname
-		log_must $ZFS destroy $vol
+		log_must swap -d $swapname
+		log_must zfs destroy $vol
 	done
 done
 

@@ -43,6 +43,6 @@
 #
 
 
-log_mustnot $DD if=/dev/urandom of=/dev/zfs count=1024
+log_mustnot dd if=/dev/urandom of=/dev/zfs count=1024
 
 log_pass "Writing random data into /dev/zfs should do no harm."

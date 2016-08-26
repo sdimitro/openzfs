@@ -50,7 +50,7 @@ do
 	do
 		for logtype in "raidz" "raidz1" "raidz2"
 		do
-			log_mustnot $ZPOOL create $TESTPOOL $type $VDEV \
+			log_mustnot zpool create $TESTPOOL $type $VDEV \
 				$spare $SDEV log $logtype $LDEV $LDEV2
 			ldev=$(random_get $LDEV $LDEV2)
 			log_mustnot verify_slog_device \

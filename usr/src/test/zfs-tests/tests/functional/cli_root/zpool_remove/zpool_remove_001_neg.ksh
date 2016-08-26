@@ -58,7 +58,7 @@ function check_remove
         typeset dev
 
         for dev in $devs; do
-                log_mustnot $ZPOOL remove $dev
+                log_mustnot zpool remove $dev
         done
 
         destroy_pool $pool
@@ -84,7 +84,7 @@ log_onexit cleanup
 
 typeset -i i=0
 while [[ $i -lt ${#create_args[*]} ]]; do
-	log_must $ZPOOL create $TESTPOOL ${create_args[i]}
+	log_must zpool create $TESTPOOL ${create_args[i]}
 	check_remove $TESTPOOL "${verify_disks[i]}"
 	(( i = i + 1))
 done

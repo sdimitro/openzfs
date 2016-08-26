@@ -43,13 +43,13 @@ verify_runnable "global"
 
 function cleanup
 {
-	datasetexists $TESTPOOL && log_must $ZPOOL destroy $TESTPOOL
+	datasetexists $TESTPOOL && log_must zpool destroy $TESTPOOL
 }
 
 function check_features
 {
-	for state in $($ZPOOL get all $TESTPOOL | \
-	    $AWK '$2 ~ /feature@/ { print $3 }'); do
+	for state in $(zpool get all $TESTPOOL | \
+	    awk '$2 ~ /feature@/ { print $3 }'); do
 		if [[ "$state" != "enabled" && "$state" != "active" ]]; then
 			log_fail "some features are not enabled on new pool"
 	        fi
@@ -59,11 +59,11 @@ function check_features
 log_onexit cleanup
 
 
-log_must $ZPOOL create -f $TESTPOOL $DISKS
+log_must zpool create -f $TESTPOOL $DISKS
 check_features
-log_must $ZPOOL destroy -f $TESTPOOL
+log_must zpool destroy -f $TESTPOOL
 
-log_must $ZPOOL create -f -o feature@async_destroy=enabled $TESTPOOL $DISKS
+log_must zpool create -f -o feature@async_destroy=enabled $TESTPOOL $DISKS
 check_features
 
 log_pass "'zpool create' creates pools with all features enabled"

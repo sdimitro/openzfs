@@ -58,12 +58,12 @@ for user in root $ZFS_ACL_STAFF1; do
 	log_must create_files $TESTDIR
 	log_must cksum_files $INI_DIR BEFORE_FCKSUM BEFORE_ACKSUM
 
-	initfiles=$($LS -R $INI_DIR/*)
+	initfiles=$(ls -R $INI_DIR/*)
 	typeset -i i=0
 	while ((i < NUM_FILE)); do
 		f=$(getitem $i $initfiles)
 
-		usr_exec $CP -@p $f $TST_DIR
+		usr_exec cp -@p $f $TST_DIR
 
 		((i += 1))
 	done

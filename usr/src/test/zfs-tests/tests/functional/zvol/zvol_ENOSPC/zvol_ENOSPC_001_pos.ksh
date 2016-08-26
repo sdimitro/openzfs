@@ -49,7 +49,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
@@ -61,7 +61,7 @@ BLOCKSZ=$(( 1024 * 1024 ))
 NUM_WRITES=40
 
 while (( 1 )); do
-        $FILE_WRITE -o create -f $TESTDIR/testfile$$.$fn \
+        file_write -o create -f $TESTDIR/testfile$$.$fn \
             -b $BLOCKSZ -c $NUM_WRITES
         retval=$?
         if (( $retval != 0 )); then

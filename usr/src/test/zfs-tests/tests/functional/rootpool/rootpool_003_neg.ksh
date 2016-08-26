@@ -51,10 +51,10 @@ verify_runnable "global"
 typeset rootpool=$(get_rootpool)
 typeset rootfs=$(get_rootfs)
 
-log_mustnot $ZFS rename $rootfs $rootpool/newfs
-log_mustnot $ZFS rename -f $rootfs $rootpool/newfs
+log_mustnot zfs rename $rootfs $rootpool/newfs
+log_mustnot zfs rename -f $rootfs $rootpool/newfs
 
-log_mustnot $ZFS destroy $rootfs
-log_mustnot $ZFS destroy -f $rootfs
+log_mustnot zfs destroy $rootfs
+log_mustnot zfs destroy -f $rootfs
 
 log_pass "system related filesystems can not be renamed or destroyed"

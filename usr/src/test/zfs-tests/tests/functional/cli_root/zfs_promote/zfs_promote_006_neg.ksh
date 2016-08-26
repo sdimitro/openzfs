@@ -59,7 +59,7 @@ set -A args "" \
 function cleanup
 {
 	if datasetexists $clone; then
-		log_must $ZFS destroy $clone
+		log_must zfs destroy $clone
 	fi
 
 	if snapexists $snap; then
@@ -71,12 +71,12 @@ log_onexit cleanup
 
 snap=$TESTPOOL/$TESTFS@$TESTSNAP
 clone=$TESTPOOL/$TESTCLONE
-log_must $ZFS snapshot $snap
-log_must $ZFS clone $snap $clone
+log_must zfs snapshot $snap
+log_must zfs clone $snap $clone
 
 typeset -i i=0
 while (( i < ${#args[*]} )); do
-	log_mustnot $ZFS promote ${args[i]}
+	log_mustnot zfs promote ${args[i]}
 
 	(( i = i + 1 ))
 done

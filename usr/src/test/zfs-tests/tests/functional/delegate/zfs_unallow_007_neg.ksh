@@ -47,16 +47,16 @@ verify_runnable "both"
 log_onexit restore_root_datasets
 
 perm1="atime,devices"; perm2="compression,checksum"
-log_must $ZFS create $SUBFS
-log_must $ZFS allow $STAFF1 $perm1 $ROOT_TESTFS
-log_must $ZFS allow $STAFF1 $perm2 $SUBFS
+log_must zfs create $SUBFS
+log_must zfs allow $STAFF1 $perm1 $ROOT_TESTFS
+log_must zfs allow $STAFF1 $perm2 $SUBFS
 
 log_must verify_perm $SUBFS ${perm1},${perm2} $STAFF1
 #
 # Athrough unallow the permissions which don't exists on the specific dataset
 # return 0, the inherited permissions can't be removed in fact.
 #
-log_must $ZFS unallow -u $STAFF1 $perm1 $SUBFS
+log_must zfs unallow -u $STAFF1 $perm1 $SUBFS
 log_must verify_perm $SUBFS ${perm1},${perm2} $STAFF1
 
 log_pass "Verify zfs unallow won't remove inherited permissions passed."

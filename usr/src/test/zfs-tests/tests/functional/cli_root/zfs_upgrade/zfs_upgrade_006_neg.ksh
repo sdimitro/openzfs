@@ -50,7 +50,7 @@ set -A args "" "-?" "-A" "-R" "-b" "-c" "-d" "--invalid" \
 
 typeset -i i=1
 while (( i < ${#args[*]} )); do
-	log_mustnot $ZFS upgrade ${args[i]}
+	log_mustnot zfs upgrade ${args[i]}
 	((i = i + 1))
 done
 

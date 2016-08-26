@@ -51,24 +51,24 @@ log_onexit cleanup
 
 
 log_note "overwrite to $QFS to make it exceed userquota"
-log_must $ZFS set userquota@$QUSER1=$UQUOTA_SIZE $QFS
-log_must $ZFS set groupquota@$QGROUP=$GQUOTA_SIZE $QFS
+log_must zfs set userquota@$QUSER1=$UQUOTA_SIZE $QFS
+log_must zfs set groupquota@$QGROUP=$GQUOTA_SIZE $QFS
 
 mkmount_writable $QFS
-log_must user_run $QUSER1 $MKFILE $UQUOTA_SIZE $QFILE
-$SYNC
+log_must user_run $QUSER1 mkfile $UQUOTA_SIZE $QFILE
+sync
 
-log_must eval "$ZFS get -p userused@$QUSER1 $QFS >/dev/null 2>&1"
-log_must eval "$ZFS get -p groupused@$GROUPUSED $QFS >/dev/null 2>&1"
+log_must eval "zfs get -p userused@$QUSER1 $QFS >/dev/null 2>&1"
+log_must eval "zfs get -p groupused@$GROUPUSED $QFS >/dev/null 2>&1"
 
-log_mustnot user_run $QUSER1 $MKFILE 1 $OFILE
+log_mustnot user_run $QUSER1 mkfile 1 $OFILE
 
-log_must $RM -f $QFILE
+log_must rm -f $QFILE
 
 log_note "overwrite to $QFS to make it exceed userquota"
-log_mustnot user_run $QUSER1 $MKFILE $GQUOTA_SIZE $QFILE
+log_mustnot user_run $QUSER1 mkfile $GQUOTA_SIZE $QFILE
 
-log_must eval "$ZFS get -p userused@$QUSER1 $QFS >/dev/null 2>&1"
-log_must eval "$ZFS get -p groupused@$GROUPUSED $QFS >/dev/null 2>&1"
+log_must eval "zfs get -p userused@$QUSER1 $QFS >/dev/null 2>&1"
+log_must eval "zfs get -p groupused@$GROUPUSED $QFS >/dev/null 2>&1"
 
 log_pass "overwrite any of the {user|group}quota size, it fail as expect"

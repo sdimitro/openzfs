@@ -48,8 +48,8 @@
 verify_runnable "global"
 
 
-log_must $ZFS set compression=off $TESTPOOL/$TESTFS
-$FILE_WRITE -o create -f $TESTDIR/$TESTFILE1 \
+log_must zfs set compression=off $TESTPOOL/$TESTFS
+file_write -o create -f $TESTDIR/$TESTFILE1 \
         -b $BLOCK_SIZE -c $WRITE_COUNT -d 0
 
 typeset -i zret=$?
@@ -66,17 +66,17 @@ fi
 # $DISK will be set if we're using slices on one disk
 #
 if [[ -n $DISK ]]; then
-        log_must $ZPOOL add $TESTPOOL $POOLTYPE $DISK"s"$SLICE3 \
+        log_must zpool add $TESTPOOL $POOLTYPE $DISK"s"$SLICE3 \
             $DISK"s"$SLICE4
 else
         [[ -z $DISK2 || -z $DISK3 ]] && \
             log_unsupported "No spare disks available."
-        log_must $ZPOOL add -f $TESTPOOL $POOLTYPE $DISK2"s"$SLICE \
+        log_must zpool add -f $TESTPOOL $POOLTYPE $DISK2"s"$SLICE \
 	    $DISK3"s"$SLICE
 fi
 
-log_must $FILE_WRITE -o append -f $TESTDIR/$TESTFILE1 \
+log_must file_write -o append -f $TESTDIR/$TESTFILE1 \
         -b $BLOCK_SIZE -c $SMALL_WRITE_COUNT -d 0
 
-log_must $ZFS inherit compression $TESTPOOL/$TESTFS
+log_must zfs inherit compression $TESTPOOL/$TESTFS
 log_pass "TESTPOOL mirror/raidz successfully grown"

@@ -57,10 +57,10 @@ log_onexit cleanup
 unmounted $TESTPOOL/$TESTFS || \
 	log_must cleanup
 
-log_must $ZFS $mountcmd $TESTPOOL/$TESTFS
+log_must zfs $mountcmd $TESTPOOL/$TESTFS
 
 log_note "Make sure the filesystem $TESTPOOL/$TESTFS is mounted"
 mounted $TESTPOOL/$TESTFS || \
 	log_fail Filesystem $TESTPOOL/$TESTFS is unmounted
 
-log_pass "'$ZFS $mountcmd <filesystem>' succeeds as root."
+log_pass "'zfs $mountcmd <filesystem>' succeeds as root."

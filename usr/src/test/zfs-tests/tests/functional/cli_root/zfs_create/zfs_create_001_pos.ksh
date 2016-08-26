@@ -24,6 +24,7 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
 #
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
@@ -47,7 +48,7 @@ function cleanup
 	typeset -i i=0
 	while (( $i < ${#datasets[*]} )); do
 		datasetexists ${datasets[$i]} && \
-			log_must $ZFS destroy -f ${datasets[$i]}
+			log_must zfs destroy -f ${datasets[$i]}
 		((i = i + 1))
 	done
 }
@@ -60,7 +61,7 @@ set -A datasets "$TESTPOOL/$TESTFS1" "$TESTPOOL/$LONGFSNAME" "$TESTPOOL/..." \
 
 typeset -i i=0
 while (( $i < ${#datasets[*]} )); do
-	log_must $ZFS create ${datasets[$i]}
+	log_must zfs create ${datasets[$i]}
 	datasetexists ${datasets[$i]} || \
 		log_fail "zfs create ${datasets[$i]} fail."
 	((i = i + 1))

@@ -42,25 +42,25 @@
 #
 
 function cleanup {
-	log_must $RM $TESTDIR/myfile.$$
+	log_must rm $TESTDIR/myfile.$$
 }
 
 function get_pool_size {
 	poolname=$1
-	psize=$($ZPOOL list -H -o allocated $poolname)
+	psize=$(zpool list -H -o allocated $poolname)
 	if [[ $psize == *[mM] ]]
 	then
-		returnvalue=$($ECHO $psize | $SED -e 's/m//g' -e 's/M//g')
+		returnvalue=$(echo $psize | sed -e 's/m//g' -e 's/M//g')
 		returnvalue=$((returnvalue * 1024))
 	else
-		returnvalue=$($ECHO $psize | $SED -e 's/k//g' -e 's/K//g')
+		returnvalue=$(echo $psize | sed -e 's/k//g' -e 's/K//g')
 	fi
 	echo $returnvalue
 }
 
 log_onexit cleanup
 
-log_must $TOUCH $TESTDIR/myfile.$$
+log_must touch $TESTDIR/myfile.$$
 
 POOL_SIZE=0
 NEW_POOL_SIZE=0
@@ -72,12 +72,12 @@ then
 	POOL_SIZE=$(get_pool_size $TESTPOOL)
 fi
 
-FS_SIZE=$($ZFS get -p -H -o value used $TESTPOOL/$TESTFS)
+FS_SIZE=$(zfs get -p -H -o value used $TESTPOOL/$TESTFS)
 
-log_must $RUNAT $TESTDIR/myfile.$$ $MKFILE 200m xattr
+log_must runat $TESTDIR/myfile.$$ mkfile 200m xattr
 
 #Make sure the newly created file is counted into zpool usage
-log_must $SYNC
+log_must sync
 
 # now check to see if our pool disk usage has increased
 if is_global_zone
@@ -90,7 +90,7 @@ then
 fi
 
 # also make sure our filesystem usage has increased
-NEW_FS_SIZE=$($ZFS get -p -H -o value used $TESTPOOL/$TESTFS)
+NEW_FS_SIZE=$(zfs get -p -H -o value used $TESTPOOL/$TESTFS)
 (($NEW_FS_SIZE <= $FS_SIZE)) && \
     log_fail "The new filesystem size $NEW_FS_SIZE was less \
     than or equal to the old filesystem size $FS_SIZE."

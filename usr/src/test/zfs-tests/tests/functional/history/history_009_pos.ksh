@@ -106,7 +106,7 @@ while ((i < ${#array[@]})); do
 	subcmd=${array[$i]}
 	options=${array[((i + 1))]}
 
-	run_and_verify "$ZFS $subcmd $options $testfs" "-i"
+	run_and_verify "zfs $subcmd $options $testfs" "-i"
 	((i += 2))
 done
 

@@ -51,7 +51,7 @@ function cleanup
 
 	for val in 1 2 3; do
 		if datasetexists $TESTPOOL/fs_$val; then
-			log_must $ZFS destroy $TESTPOOL/fs_$val
+			log_must zfs destroy $TESTPOOL/fs_$val
 		fi
 	done
 }
@@ -59,15 +59,15 @@ function cleanup
 log_onexit cleanup
 
 for val in 1 2 3; do
-	log_must $ZFS create -o copies=$val $TESTPOOL/fs_$val
+	log_must zfs create -o copies=$val $TESTPOOL/fs_$val
 
-	log_must $MKFILE $FILESIZE /$TESTPOOL/fs_$val/$FILE
+	log_must mkfile $FILESIZE /$TESTPOOL/fs_$val/$FILE
 done
 
 #
 # Sync up the filesystem
 #
-$SYNC
+sync
 
 #
 # Verify 'zfs list' can correctly list the space charged
@@ -81,21 +81,21 @@ done
 
 log_note "Verify 'ls -s' can correctly list the space charged."
 for val in 1 2 3; do
-	blks=`$LS -ls /$TESTPOOL/fs_$val/$FILE | $AWK '{print $1}'`
+	blks=`ls -ls /$TESTPOOL/fs_$val/$FILE | awk '{print $1}'`
 	(( used = blks * 512 / (1024 * 1024) ))
 	check_used $used $val
 done
 
 log_note "Verify df(1M) can corectly display the space charged."
 for val in 1 2 3; do
-	used=`$DF -F zfs -h /$TESTPOOL/fs_$val/$FILE | $GREP $TESTPOOL/fs_$val \
-		| $AWK '{print $3}'`
+	used=`df -F zfs -h /$TESTPOOL/fs_$val/$FILE | grep $TESTPOOL/fs_$val \
+		| awk '{print $3}'`
 	check_used $used $val
 done
 
 log_note "Verify du(1) can correctly display the space charged."
 for val in 1 2 3; do
-	used=`$DU -h /$TESTPOOL/fs_$val/$FILE | $AWK '{print $1}'`
+	used=`du -h /$TESTPOOL/fs_$val/$FILE | awk '{print $1}'`
 	check_used $used $val
 done
 

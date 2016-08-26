@@ -59,10 +59,10 @@ log_onexit cleanup
 create_pool "$TESTPOOL" mirror "${disk}s${SLICE0}" "${disk}s${SLICE1}"
 log_must poolexists "$TESTPOOL"
 
-log_mustnot $ZPOOL add "$TESTPOOL" ${disk}s${SLICE3}
+log_mustnot zpool add "$TESTPOOL" ${disk}s${SLICE3}
 log_mustnot vdevs_in_pool "$TESTPOOL" "${disk}s${SLICE3}"
 
-log_must $ZPOOL add -f "$TESTPOOL" ${disk}s${SLICE3}
+log_must zpool add -f "$TESTPOOL" ${disk}s${SLICE3}
 log_must vdevs_in_pool "$TESTPOOL" "${disk}s${SLICE3}"
 
 log_pass "'zpool add -f <pool> <vdev> ...' executes successfully."

@@ -60,7 +60,7 @@ do
 	if [[ $dst == $TESTPOOL/$TESTFS@$TESTSNAP ]]; then
 		mtpt=$(snapshot_mountpoint $dst)
 	else
-		log_must $ZFS set atime=off $dst
+		log_must zfs set atime=off $dst
 	fi
 
 	log_mustnot check_atime_updated $mtpt/$TESTFILE

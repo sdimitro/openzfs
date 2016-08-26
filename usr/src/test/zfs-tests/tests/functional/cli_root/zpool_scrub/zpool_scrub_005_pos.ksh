@@ -45,16 +45,16 @@
 verify_runnable "global"
 
 
-log_must $ZPOOL scrub $TESTPOOL
-log_must $ZPOOL detach $TESTPOOL $DISK2
-log_must $ZPOOL attach $TESTPOOL $DISK1 $DISK2
+log_must zpool scrub $TESTPOOL
+log_must zpool detach $TESTPOOL $DISK2
+log_must zpool attach $TESTPOOL $DISK1 $DISK2
 
 while ! is_pool_resilvered $TESTPOOL; do
-	$SLEEP 1
+	sleep 1
 done
 
-log_must $ZPOOL scrub $TESTPOOL
-log_must $ZPOOL detach $TESTPOOL $DISK1
-log_must $ZPOOL attach $TESTPOOL $DISK2 $DISK1
+log_must zpool scrub $TESTPOOL
+log_must zpool detach $TESTPOOL $DISK1
+log_must zpool attach $TESTPOOL $DISK2 $DISK1
 
 log_pass "When scrubbing, detach device should not break system."

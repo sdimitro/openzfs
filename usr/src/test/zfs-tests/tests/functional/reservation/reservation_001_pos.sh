@@ -54,7 +54,7 @@ verify_runnable "both"
 function cleanup
 {
 	for obj in $OBJ_LIST; do
-		datasetexists $obj && log_must $ZFS destroy -f $obj
+		datasetexists $obj && log_must zfs destroy -f $obj
 	done
 }
 
@@ -77,10 +77,10 @@ else
 	# setting a reservation upon it (i.e. the size of the volume)
 	# which we reset back to zero initially.
 	#
-	log_must $ZFS create -V $vol_set_size $TESTPOOL/$TESTVOL
-	log_must $ZFS set reservation=none $TESTPOOL/$TESTVOL
-	log_must $ZFS set refreservation=none $TESTPOOL/$TESTVOL
-	log_must $ZFS create -s -V $sparse_vol_set_size $TESTPOOL/$TESTVOL2
+	log_must zfs create -V $vol_set_size $TESTPOOL/$TESTVOL
+	log_must zfs set reservation=none $TESTPOOL/$TESTVOL
+	log_must zfs set refreservation=none $TESTPOOL/$TESTVOL
+	log_must zfs create -s -V $sparse_vol_set_size $TESTPOOL/$TESTVOL2
 fi
 
 
@@ -98,7 +98,7 @@ for obj in $TESTPOOL/$TESTFS $OBJ_LIST; do
 	[[ $obj == $TESTPOOL/$TESTVOL ]] && \
 	    ((resv_size_set = vol_set_size - RESV_DELTA))
 
-	log_must $ZFS set reservation=$resv_size_set $obj
+	log_must zfs set reservation=$resv_size_set $obj
 
 	resv_size_get=`get_prop reservation $obj`
 	if [[ $resv_size_set != $resv_size_get ]]; then

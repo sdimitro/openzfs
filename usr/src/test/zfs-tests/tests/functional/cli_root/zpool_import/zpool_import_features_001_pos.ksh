@@ -46,22 +46,22 @@ function cleanup
 {
 	poolexists $TESTPOOL1 && destroy_pool $TESTPOOL1
 
-	log_must $RM $VDEV0
-	log_must $MKFILE $FILE_SIZE $VDEV0
+	log_must rm $VDEV0
+	log_must mkfile $FILE_SIZE $VDEV0
 }
 
 log_onexit cleanup
 
-log_must $ZPOOL create $TESTPOOL1 $VDEV0
-log_must $ZPOOL export $TESTPOOL1
+log_must zpool create $TESTPOOL1 $VDEV0
+log_must zpool export $TESTPOOL1
 
 for feature in $features; do
-	log_must $ZHACK -d $DEVICE_DIR feature enable $TESTPOOL1 $feature
+	log_must zhack -d $DEVICE_DIR feature enable $TESTPOOL1 $feature
 done
 
-log_must $ZPOOL import -d $DEVICE_DIR $TESTPOOL1
+log_must zpool import -d $DEVICE_DIR $TESTPOOL1
 for feature in $features; do
-	state=$($ZPOOL list -Ho unsupported@$feature $TESTPOOL1)
+	state=$(zpool list -Ho unsupported@$feature $TESTPOOL1)
         if [[ "$state" != "inactive" ]]; then
 		log_fail "unsupported@$feature is '$state'"
         fi

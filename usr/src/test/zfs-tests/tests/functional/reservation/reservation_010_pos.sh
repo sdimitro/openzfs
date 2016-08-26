@@ -54,15 +54,15 @@ verify_runnable "both"
 function cleanup
 {
 	datasetexists $TESTPOOL/$TESTFS1 && \
-	    log_must $ZFS destroy $TESTPOOL/$TESTFS1
+	    log_must zfs destroy $TESTPOOL/$TESTFS1
 
-	[[ -e $TESTDIR/$TESTFILE1 ]] && log_must $RM -rf $TESTDIR/$TESTFILE1
-	[[ -e $TESTDIR/$TESTFILE2 ]] && log_must $RM -rf $TESTDIR/$TESTFILE2
+	[[ -e $TESTDIR/$TESTFILE1 ]] && log_must rm -rf $TESTDIR/$TESTFILE1
+	[[ -e $TESTDIR/$TESTFILE2 ]] && log_must rm -rf $TESTDIR/$TESTFILE2
 }
 
 log_onexit cleanup
 
-log_must $ZFS create $TESTPOOL/$TESTFS1
+log_must zfs create $TESTPOOL/$TESTFS1
 
 space_avail=`get_prop available $TESTPOOL`
 
@@ -74,7 +74,7 @@ space_avail=`get_prop available $TESTPOOL`
 #
 ((resv_size_set = space_avail - RESV_FREE_SPACE))
 
-log_must $ZFS set reservation=$resv_size_set $TESTPOOL/$TESTFS1
+log_must zfs set reservation=$resv_size_set $TESTPOOL/$TESTFS1
 
 space_avail_still=`get_prop available $TESTPOOL`
 
@@ -83,15 +83,15 @@ write_count=`expr $fill_size / $BLOCK_SIZE`
 
 # Now fill up the filesystem (which doesn't have a reservation set
 # and thus will use up whatever free space is left in the pool).
-$FILE_WRITE -o create -f $TESTDIR/$TESTFILE1 -b $BLOCK_SIZE -c $write_count -d 0
+file_write -o create -f $TESTDIR/$TESTFILE1 -b $BLOCK_SIZE -c $write_count -d 0
 ret=$?
 if (($ret != $ENOSPC)); then
 	log_fail "Did not get ENOSPC as expected (got $ret)."
 fi
 
-log_must $ZFS destroy -f $TESTPOOL/$TESTFS1
+log_must zfs destroy -f $TESTPOOL/$TESTFS1
 
-log_must $FILE_WRITE -o create -f $TESTDIR/$TESTFILE2 -b $PAGESIZE \
+log_must file_write -o create -f $TESTDIR/$TESTFILE2 -b pagesize \
     -c 1000 -d 0
 
 log_pass "Destroying top level filesystem with reservation allows more data " \

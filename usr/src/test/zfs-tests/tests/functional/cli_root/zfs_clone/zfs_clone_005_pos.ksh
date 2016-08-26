@@ -49,21 +49,21 @@ verify_runnable "global"
 function cleanup
 {
 	if snapexists $SNAPFS1 ; then
-		log_must $ZFS destroy -Rf $SNAPFS1
+		log_must zfs destroy -Rf $SNAPFS1
 	fi
 }
 
 log_onexit cleanup
 
-log_must $ZFS snapshot $SNAPFS1
+log_must zfs snapshot $SNAPFS1
 typeset -i i=0
 while (( $i < ${#RW_VOL_CLONE_PROP[*]} )); do
-	log_must $ZFS clone -o ${RW_VOL_CLONE_PROP[$i]} $SNAPFS1 $TESTPOOL/$TESTCLONE
+	log_must zfs clone -o ${RW_VOL_CLONE_PROP[$i]} $SNAPFS1 $TESTPOOL/$TESTCLONE
 	datasetexists $TESTPOOL/$TESTCLONE || \
 		log_fail "zfs clone $TESTPOOL/$TESTCLONE fail."
 	propertycheck $TESTPOOL/$TESTCLONE ${RW_VOL_CLONE_PROP[i]} || \
 		log_fail "${RW_VOL_CLONE_PROP[i]} is failed to set."
-	log_must $ZFS destroy -f $TESTPOOL/$TESTCLONE
+	log_must zfs destroy -f $TESTPOOL/$TESTCLONE
 
 	(( i = i + 1 ))
 done

@@ -55,7 +55,7 @@ verify_runnable "both"
 function cleanup
 {
 	[[ -e $TESTDIR/$TESTFILE1 ]] && \
-	    log_must $RM $TESTDIR/$TESTFILE1
+	    log_must rm $TESTDIR/$TESTFILE1
 	#
 	# Need to allow time for space to be released back to
 	# pool, otherwise next test will fail trying to set a

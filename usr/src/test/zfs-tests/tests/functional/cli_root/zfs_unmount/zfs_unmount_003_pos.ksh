@@ -72,7 +72,7 @@ function do_unmount_multiple #options #expect #mountpoint
 		j=0
 		while (( j < ${#dev[*]} )); do
 			[[ -n $mopt ]] && \
-				log_must $ZFS set mountpoint=$mopt ${dev[0]}
+				log_must zfs set mountpoint=$mopt ${dev[0]}
 
 			do_unmount "${cmd[i]}" "$opt" \
 				"${dev[j]}" $expect
@@ -100,6 +100,6 @@ while (( i < ${#mopts[*]} )); do
 	((i = i + 1))
 done
 
-log_pass "'$ZFS $unmountcmd [-f] <filesystem|mountpoint>' " \
+log_pass "'zfs $unmountcmd [-f] <filesystem|mountpoint>' " \
 	"whose mountpoint property is 'legacy' or 'none' " \
 	"will fail with return code 1."

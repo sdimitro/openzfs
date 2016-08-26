@@ -46,7 +46,7 @@ verify_runnable "global"
 options="-i -l -il -li -lil -ili -lli -iill -liil"
 
 for opt in $options; do
-	log_must eval "$ZPOOL history $opt $TESTPOOL > /dev/null 2>&1"
+	log_must eval "zpool history $opt $TESTPOOL > /dev/null 2>&1"
 done
 
 log_pass "Verify zpool history can handle options [-il] passed."

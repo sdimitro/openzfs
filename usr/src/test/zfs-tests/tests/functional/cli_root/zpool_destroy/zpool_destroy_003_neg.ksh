@@ -48,7 +48,7 @@ set -A args "" "-f" "-? $TESTPOOL" "nonexistent_pool" \
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_mustnot $ZPOOL destroy ${args[i]}
+	log_mustnot zpool destroy ${args[i]}
 	((i = i + 1))
 done
 

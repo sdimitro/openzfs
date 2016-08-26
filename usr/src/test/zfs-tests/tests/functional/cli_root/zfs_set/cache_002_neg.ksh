@@ -54,7 +54,7 @@ do
 	while (( i < ${#dataset[@]} )); do
 		j=0
 		while (( j < ${#values[@]} )); do
-			log_mustnot $ZFS set $propname=${values[j]} ${dataset[i]}
+			log_mustnot zfs set $propname=${values[j]} ${dataset[i]}
 			(( j += 1 ))
 		done
 		(( i += 1 ))

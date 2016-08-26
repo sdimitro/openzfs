@@ -25,7 +25,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -42,21 +42,21 @@
 function create_old_pool
 {
 	VERSION=$1
-	POOL_FILES=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_FILES)
-	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_NAME)
+	POOL_FILES=$(eval echo \$ZPOOL_VERSION_${VERSION}_FILES)
+	POOL_NAME=$(eval echo \$ZPOOL_VERSION_${VERSION}_NAME)
 
 	log_note "Creating $POOL_NAME from $POOL_FILES"
 	for pool_file in $POOL_FILES; do
-		log_must $BZCAT \
+		log_must bzcat \
 		    $STF_SUITE/tests/functional/cli_root/zpool_upgrade/blockfiles/$pool_file.bz2 \
 		    >/$TESTPOOL/$pool_file
 	done
-	log_must $ZPOOL import -d /$TESTPOOL $POOL_NAME
+	log_must zpool import -d /$TESTPOOL $POOL_NAME
 
 	# Now put some random contents into the pool.
 	COUNT=0
 	while [ $COUNT -lt 1024 ]; do
-		$DD if=/dev/urandom of=/$POOL_NAME/random.$COUNT \
+		dd if=/dev/urandom of=/$POOL_NAME/random.$COUNT \
 		count=1 bs=1024 > /dev/null 2>&1
 		COUNT=$(( $COUNT + 1 ))
 	done
@@ -70,32 +70,32 @@ function create_old_pool
 # $1 a version number we can use to get information about the pool
 function check_upgrade {
 	VERSION=$1
-	POOL_FILES=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_FILES)
-	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_NAME)
+	POOL_FILES=$(eval echo \$ZPOOL_VERSION_${VERSION}_FILES)
+	POOL_NAME=$(eval echo \$ZPOOL_VERSION_${VERSION}_NAME)
 
 	log_note "Checking if we can upgrade from ZFS version ${VERSION}."
 	PRE_UPGRADE_CHECKSUM=$(check_pool $POOL_NAME pre )
-	log_must $ZPOOL upgrade $POOL_NAME > /dev/null
+	log_must zpool upgrade $POOL_NAME > /dev/null
 	POST_UPGRADE_CHECKSUM=$(check_pool $POOL_NAME post )
 
 	log_note "Checking that there are no differences between checksum output"
-	log_must $DIFF $PRE_UPGRADE_CHECKSUM $POST_UPGRADE_CHECKSUM
-	$RM $PRE_UPGRADE_CHECKSUM $POST_UPGRADE_CHECKSUM
+	log_must diff $PRE_UPGRADE_CHECKSUM $POST_UPGRADE_CHECKSUM
+	rm $PRE_UPGRADE_CHECKSUM $POST_UPGRADE_CHECKSUM
 }
 
 # A function to destroy an upgraded pool, plus the files it was based on.
 # $1 a version number we can use to get information about the pool
 function destroy_upgraded_pool {
 	VERSION=$1
-	POOL_FILES=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_FILES)
-	POOL_NAME=$(eval $ECHO \$ZPOOL_VERSION_${VERSION}_NAME)
+	POOL_FILES=$(eval echo \$ZPOOL_VERSION_${VERSION}_FILES)
+	POOL_NAME=$(eval echo \$ZPOOL_VERSION_${VERSION}_NAME)
 
 	if poolexists $POOL_NAME; then
-		log_must $ZPOOL destroy $POOL_NAME
+		log_must zpool destroy $POOL_NAME
 	fi
 	for file in $POOL_FILES; do
 		if [ -e /$TESTPOOL/$file ]; then
-			$RM /$TESTPOOL/$file
+			rm /$TESTPOOL/$file
 		fi
 	done
 }
@@ -109,7 +109,7 @@ function destroy_upgraded_pool {
 function check_pool { # pool state
 	POOL=$1
 	STATE=$2
-	$FIND /$POOL -type f -exec $CKSUM {} + > \
+	find /$POOL -type f -exec cksum {} + > \
 		/$TESTPOOL/pool-checksums.$POOL.$STATE
 	echo /$TESTPOOL/pool-checksums.$POOL.$STATE
 }
@@ -124,7 +124,7 @@ function check_poolversion { # pool version
 	VERSION=$2
 
 	# check version using zdb
-	ACTUAL=$($ZDB -C $POOL | $SED -n 's/version: \(.*\)$/\1/p')
+	ACTUAL=$(zdb -C $POOL | sed -n 's/version: \(.*\)$/\1/p')
 
 	if [ $ACTUAL != $VERSION ]
 	then
@@ -132,8 +132,8 @@ function check_poolversion { # pool version
 	fi
 
 	# check version using zpool upgrade
-	ACTUAL=$($ZPOOL upgrade | $GREP $POOL$ | \
-	 $AWK '{print $1}' | $SED -e 's/ //g')
+	ACTUAL=$(zpool upgrade | grep $POOL$ | \
+	 awk '{print $1}' | sed -e 's/ //g')
 	if [ $ACTUAL != $VERSION ]
 	then
 		log_fail "$POOL reported version $ACTUAL, expected $VERSION"

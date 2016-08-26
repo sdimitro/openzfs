@@ -45,7 +45,7 @@ verify_runnable "both"
 
 function cleanup {
 	if is_global_zone; then
-		log_must $ZFS set sharenfs=off $TESTPOOL/$TESTFS
+		log_must zfs set sharenfs=off $TESTPOOL/$TESTFS
 	fi
 }
 
@@ -60,9 +60,9 @@ typeset -i i=0
 while (( i < ${#badopts[*]} ))
 do
 	log_note "Setting sharenfs=${badopts[i]} $i "
-	log_mustnot $ZFS set sharenfs="${badopts[i]}" $TESTPOOL/$TESTFS
+	log_mustnot zfs set sharenfs="${badopts[i]}" $TESTPOOL/$TESTFS
 
-	$SHARE | $GREP $option > /dev/null 2>&1
+	share | grep $option > /dev/null 2>&1
 	if (( $? == 0 )); then
 		log_fail "An invalid setting '$option' was propagated."
 	fi
@@ -75,7 +75,7 @@ do
 	#
 	if is_global_zone; then
 		log_note "Resetting sharenfs option"
-		log_must $ZFS set sharenfs=off $TESTPOOL/$TESTFS
+		log_must zfs set sharenfs=off $TESTPOOL/$TESTFS
 	fi
 
 	((i = i + 1))

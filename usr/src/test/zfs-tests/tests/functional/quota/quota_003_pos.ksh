@@ -55,7 +55,7 @@ verify_runnable "both"
 function cleanup
 {
 	[[ -e $TESTDIR1/$TESTFILE1 ]] && \
-	    log_must $RM $TESTDIR1/$TESTFILE1
+	    log_must rm $TESTDIR1/$TESTFILE1
 
 	#
         # Need to allow time for space to be released back to

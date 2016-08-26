@@ -68,12 +68,12 @@ function set_n_check # data-set
 		j=0
 		while (( $j < ${#suffix[*]} )); do
 
-			$ZFS set \
+			zfs set \
 				reservation=${values[$i]}${suffix[$j]} $obj \
 				> /dev/null 2>&1
 			if [ $? -eq 0 ]
 			then
-				log_note "$ZFS set \
+				log_note "zfs set \
 				reservation=${values[$i]}${suffix[$j]} $obj"
 				log_fail "The above reservation set returned 0!"
 			fi

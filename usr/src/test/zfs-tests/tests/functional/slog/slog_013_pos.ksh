@@ -47,28 +47,28 @@ verify_runnable "global"
 function cleanup_testenv
 {
 	cleanup
-	[[ -n $lofidev ]] && $LOFIADM -d $lofidev
+	[[ -n $lofidev ]] && lofiadm -d $lofidev
 }
 
 verify_disk_count "$DISKS" 2
 log_onexit cleanup_testenv
 
 dsk1=${DISKS%% *}
-log_must $ZPOOL create $TESTPOOL ${DISKS#$dsk1}
+log_must zpool create $TESTPOOL ${DISKS#$dsk1}
 
 # Add nomal disk
-log_must $ZPOOL add $TESTPOOL log $dsk1
+log_must zpool add $TESTPOOL log $dsk1
 log_must verify_slog_device $TESTPOOL $dsk1 'ONLINE'
 # Add nomal file
-log_must $ZPOOL add $TESTPOOL log $LDEV
+log_must zpool add $TESTPOOL log $LDEV
 ldev=$(random_get $LDEV)
 log_must verify_slog_device $TESTPOOL $ldev 'ONLINE'
 
 # Add lofi device
 lofidev=${LDEV2%% *}
-log_must $LOFIADM -a $lofidev
-lofidev=$($LOFIADM $lofidev)
-log_must $ZPOOL add $TESTPOOL log $lofidev
+log_must lofiadm -a $lofidev
+lofidev=$(lofiadm $lofidev)
+log_must zpool add $TESTPOOL log $lofidev
 log_must verify_slog_device $TESTPOOL $lofidev 'ONLINE'
 
 log_pass "Verify slog device can be disk, file, lofi device or any device " \

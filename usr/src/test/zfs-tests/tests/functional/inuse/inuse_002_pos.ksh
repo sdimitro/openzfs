@@ -50,15 +50,15 @@ function cleanup
 
 	poolexists $TESTPOOL2 && destroy_pool $TESTPOOL2
 
-	$METASTAT d99 > /dev/null 2>&1
-	(( $? == 0 )) && $METACLEAR -f d99
+	metastat d99 > /dev/null 2>&1
+	(( $? == 0 )) && metaclear -f d99
 
 	typeset metadb=""
 	typeset i=""
 
-	metadb=`$METADB | $CUT -f6 | $GREP dev | $UNIQ`
+	metadb=`metadb | cut -f6 | grep dev | uniq`
 	for i in $metadb; do
-		$METADB -fd $i > /dev/null 2>&1
+		metadb -fd $i > /dev/null 2>&1
 	done
 
 	#
@@ -86,26 +86,26 @@ for num in 0 1 2; do
 done
 
 log_note "Configuring metadb with $FS_SIDE1"
-log_must $METADB -a -f -c 3 $FS_SIDE1
+log_must metadb -a -f -c 3 $FS_SIDE1
 
 log_note "Configure d99 with $FS_SIDE0"
-log_must $METAINIT d99 1 1 $FS_SIDE0
+log_must metainit d99 1 1 $FS_SIDE0
 
 unset NOINUSE_CHECK
 log_note "Attempt to zpool the device in use by SVM"
-log_mustnot $ZPOOL create $TESTPOOL1 $FS_SIDE0
+log_mustnot zpool create $TESTPOOL1 $FS_SIDE0
 log_mustnot poolexists $TESTPOOL1
 
 log_note "Attempt to take device in use by SVM as spare device"
-log_mustnot $ZPOOL create $TESTPOOL1 $FS_SIDE2 spare $FS_SIDE0
+log_mustnot zpool create $TESTPOOL1 $FS_SIDE2 spare $FS_SIDE0
 log_mustnot poolexists $TESTPOOL1
 
 log_note "Attempt to zpool a metadb device in use by SVM"
-log_mustnot $ZPOOL create $TESTPOOL2 $FS_SIDE1
+log_mustnot zpool create $TESTPOOL2 $FS_SIDE1
 log_mustnot poolexists $TESTPOOL2
 
 log_note "Attempt to take device in use by SVM as spare device"
-log_mustnot $ZPOOL create $TESTPOOL2 $FS_SIDE2 spare $FS_SIDE1
+log_mustnot zpool create $TESTPOOL2 $FS_SIDE2 spare $FS_SIDE1
 log_mustnot poolexists $TESTPOOL2
 
 log_pass "Unable to zpool a device in use by SVM"

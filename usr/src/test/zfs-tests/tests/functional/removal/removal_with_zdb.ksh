@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -26,7 +26,7 @@ zdbout=${TMPDIR:-/tmp}/zdbout.$$
 function cleanup
 {
 	default_cleanup_noexit
-	log_must $RM -f $zdbout
+	log_must rm -f $zdbout
 }
 
 default_setup_noexit "$DISKS"
@@ -36,22 +36,22 @@ function callback
 {
 	typeset count=$1
 	if (( count == 0 )); then
-		if ! $KSH -c "$ZDB -cudi $TESTPOOL >$zdbout 2>&1"; then
-			log_note "Output: $ZDB -cudi $TESTPOOL"
-			$CAT $zdbout
-			log_fail "$ZDB detected errors."
+		if ! ksh -c "zdb -cudi $TESTPOOL >$zdbout 2>&1"; then
+			log_note "Output: zdb -cudi $TESTPOOL"
+			cat $zdbout
+			log_fail "zdb detected errors."
 		fi
-		log_note "$ZDB -cudi $TESTPOOL >zdbout 2>&1"
+		log_note "zdb -cudi $TESTPOOL >zdbout 2>&1"
 	fi
 	return 0
 }
 
 test_removal_with_operation callback
 
-if ! $KSH -c "$ZDB -cudi $TESTPOOL >$zdbout 2>&1"; then
-	log_note "Output: $ZDB -cudi $TESTPOOL"
-	$CAT $zdbout
-	log_fail "$ZDB detected errors."
+if ! ksh -c "zdb -cudi $TESTPOOL >$zdbout 2>&1"; then
+	log_note "Output: zdb -cudi $TESTPOOL"
+	cat $zdbout
+	log_fail "zdb detected errors."
 fi
 
 log_pass "Can use zdb during removal"

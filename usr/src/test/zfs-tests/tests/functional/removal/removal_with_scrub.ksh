@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -28,7 +28,7 @@ function callback
 {
 	typeset count=$1
 	if ((count == 0)); then
-		log_must $ZPOOL scrub $TESTPOOL
+		log_must zpool scrub $TESTPOOL
 	fi
 	return 0
 }

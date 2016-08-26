@@ -47,10 +47,10 @@ log_onexit restore_root_datasets
 
 log_must setup_unallow_testenv
 
-log_must $ZFS unallow -d $STAFF2 $ROOT_TESTFS
+log_must zfs unallow -d $STAFF2 $ROOT_TESTFS
 log_must verify_noperm $SUBFS $DESC_SET $STAFF2
 
-log_must $ZFS unallow -d $OTHER1 $ROOT_TESTFS
+log_must zfs unallow -d $OTHER1 $ROOT_TESTFS
 log_must verify_noperm $SUBFS $LOCAL_DESC_SET $OTHER1
 log_must verify_perm $ROOT_TESTFS $LOCAL_DESC_SET $OTHER1
 

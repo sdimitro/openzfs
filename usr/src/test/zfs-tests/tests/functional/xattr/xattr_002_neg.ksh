@@ -42,14 +42,14 @@
 
 function cleanup {
 
-	log_must $RM $TESTDIR/myfile.$$
+	log_must rm $TESTDIR/myfile.$$
 
 }
 
 log_onexit cleanup
 
 # create a file
-log_must $TOUCH $TESTDIR/myfile.$$
-log_mustnot eval "$CAT $TESTDIR/myfile.$$ not-here.txt > /dev/null 2>&1"
+log_must touch $TESTDIR/myfile.$$
+log_mustnot eval "cat $TESTDIR/myfile.$$ not-here.txt > /dev/null 2>&1"
 
 log_pass "A read of a non-existent xattr fails"

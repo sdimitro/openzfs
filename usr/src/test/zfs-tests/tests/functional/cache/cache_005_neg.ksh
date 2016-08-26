@@ -50,15 +50,15 @@ log_onexit cleanup
 
 for type in "" "mirror" "raidz" "raidz2"
 do
-	log_must $ZPOOL create $TESTPOOL $type $VDEV \
+	log_must zpool create $TESTPOOL $type $VDEV \
 		cache $LDEV
 	sdev=$(random_get $LDEV)
 	tdev=$(random_get $LDEV2)
-	log_mustnot $ZPOOL replace $TESTPOOL $sdev $tdev
+	log_mustnot zpool replace $TESTPOOL $sdev $tdev
 	log_must verify_cache_device $TESTPOOL $sdev 'ONLINE'
 	log_must check_vdev_state $TESTPOOL $tdev ""
 
-	log_must $ZPOOL destroy -f $TESTPOOL
+	log_must zpool destroy -f $TESTPOOL
 done
 
 log_pass "Replacing a cache device fails."

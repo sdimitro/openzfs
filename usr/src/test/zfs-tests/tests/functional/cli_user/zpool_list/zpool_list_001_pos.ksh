@@ -54,7 +54,7 @@ set -A args "list $TESTPOOL" "list -H $TESTPOOL" "list" "list -H" \
 
 typeset -i i=0
 while [[ $i -lt ${#args[*]} ]]; do
-	log_must $ZPOOL ${args[i]}
+	log_must zpool ${args[i]}
 
 	((i = i + 1))
 done

@@ -46,7 +46,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	$RM -rf $TESTDIR/*
+	rm -rf $TESTDIR/*
 }
 
 log_onexit cleanup
@@ -54,6 +54,6 @@ log_onexit cleanup
 
 populate_dir $NUM_FILES
 
-log_mustnot $FF -F zfs /dev/rdsk/${DISK}s0
+log_mustnot ff -F zfs /dev/rdsk/${DISK}s0
 
 log_pass "ff(1M) returned an error as expected."

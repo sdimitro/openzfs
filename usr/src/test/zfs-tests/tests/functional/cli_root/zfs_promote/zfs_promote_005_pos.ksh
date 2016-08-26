@@ -46,13 +46,13 @@ verify_runnable "both"
 function cleanup
 {
 	if datasetexists $fssnap ; then
-		datasetexists $clone && log_must $ZFS destroy $clone
-		log_must $ZFS destroy $fssnap
+		datasetexists $clone && log_must zfs destroy $clone
+		log_must zfs destroy $fssnap
 	fi
 	if datasetexists $clone ; then
-		log_must $ZFS promote $fs
-		log_must $ZFS destroy $clone
-		log_must $ZFS destroy $fssnap
+		log_must zfs promote $fs
+		log_must zfs destroy $clone
+		log_must zfs destroy $fssnap
 	fi
 }
 
@@ -62,11 +62,11 @@ fs=$TESTPOOL/$TESTFS
 clone=$TESTPOOL/$TESTCLONE
 fssnap=$fs@fssnap
 
-log_must $ZFS snapshot $fssnap
-log_must $ZFS clone $fssnap $clone
-log_must $ZFS unmount $fs
-log_must $ZFS promote $clone
-log_must $ZFS unmount $clone
-log_must $ZFS promote $fs
+log_must zfs snapshot $fssnap
+log_must zfs clone $fssnap $clone
+log_must zfs unmount $fs
+log_must zfs promote $clone
+log_must zfs unmount $clone
+log_must zfs promote $fs
 
 log_pass "Unmount original fs, 'zfs promote' passed."

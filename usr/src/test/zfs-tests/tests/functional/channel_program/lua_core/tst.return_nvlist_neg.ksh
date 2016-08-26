@@ -14,8 +14,6 @@
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-verify_runnable "global"
-
 . $STF_SUITE/tests/functional/channel_program/channel_common.kshlib
 
 #
@@ -25,7 +23,7 @@ verify_runnable "global"
 #       cause the script to fail (but not panic).
 #
 
-verify_runnable "both"
+verify_runnable "global"
 
 set -A args "function() return 1 end" \
 	"{[{}]=true}" \

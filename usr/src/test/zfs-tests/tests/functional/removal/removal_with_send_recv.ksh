@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -29,9 +29,9 @@ function callback
 	typeset count=$1
 	if ((count == 0)); then
 		create_snapshot $TESTPOOL/$TESTFS $TESTSNAP
-		log_must $KSH -o pipefail -c \
-		    "$ZFS send $TESTPOOL/$TESTFS@$TESTSNAP | \
-		    $ZFS recv $TESTPOOL/$TESTFS1"
+		log_must ksh -o pipefail -c \
+		    "zfs send $TESTPOOL/$TESTFS@$TESTSNAP | \
+		    zfs recv $TESTPOOL/$TESTFS1"
 	fi
 	return 0
 }

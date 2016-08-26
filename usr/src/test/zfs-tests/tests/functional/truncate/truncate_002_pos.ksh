@@ -46,20 +46,20 @@ verify_runnable "both"
 
 function cleanup
 {
-	[[ -e $TESTDIR ]] && log_must $RM -rf $TESTDIR/*
-	[[ -f $srcfile ]] && $RM -f $srcfile
+	[[ -e $TESTDIR ]] && log_must rm -rf $TESTDIR/*
+	[[ -f $srcfile ]] && rm -f $srcfile
 }
 
 
 srcfile="/tmp/cosmo.$$"
-log_must $DD if=/dev/urandom of=$srcfile bs=1024k count=1
+log_must dd if=/dev/urandom of=$srcfile bs=1024k count=1
 
 log_onexit cleanup
-log_must $CP $srcfile $TESTDIR/$TESTFILE
-log_must $CP /dev/null $TESTDIR/$TESTFILE
-log_must $SYNC
+log_must cp $srcfile $TESTDIR/$TESTFILE
+log_must cp /dev/null $TESTDIR/$TESTFILE
+log_must sync
 if [[ -s $TESTDIR/$TESTFILE ]]; then
-	log_note "$($LS -l $TESTDIR/$TESTFILE)"
+	log_note "$(ls -l $TESTDIR/$TESTFILE)"
 	log_fail "testfile not truncated"
 fi
 

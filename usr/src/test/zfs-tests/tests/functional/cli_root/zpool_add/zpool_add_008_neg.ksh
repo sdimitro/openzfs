@@ -63,7 +63,7 @@ log_must poolexists "$TESTPOOL"
 
 typeset -i i=0
 while (( $i < ${#args[*]} )); do
-	log_mustnot $ZPOOL add ${args[i]}
+	log_mustnot zpool add ${args[i]}
 	((i = i + 1))
 done
 

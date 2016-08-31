@@ -388,7 +388,8 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_WRITTEN, "written", 0, PROP_READONLY,
 	    ZFS_TYPE_DATASET, "<size>", "WRITTEN");
 	zprop_register_number(ZFS_PROP_LOGICALUSED, "logicalused", 0,
-	    PROP_READONLY, ZFS_TYPE_DATASET, "<size>", "LUSED");
+	    PROP_READONLY, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME, "<size>",
+	    "LUSED");
 	zprop_register_number(ZFS_PROP_LOGICALREFERENCED, "logicalreferenced",
 	    0, PROP_READONLY, ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK,
 	    "<size>", "LREFER");

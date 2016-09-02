@@ -282,8 +282,13 @@ msg (string)
 Debug message to be printed.
 .Ed
 .It Em zfs.get_prop(dataset, property)
-Returns a string containing the property value for the given dataset. Throws a
-Lua error if the dataset is invalid or the property doesn't exist.
+Returns two values. First, a string, number or table containing the property
+value for the given dataset. Second, a string containing the source of the
+property (i.e. the name of the dataset in which it was set or nil if it is
+readonly). Throws a Lua error if the dataset is invalid or the property doesn't
+exist. Note that Lua only supports int64 number types whereas ZFS number
+properties are uint64. This means very large values (like guid) may wrap around
+and appear negative.
 .Pp
 dataset (string)
 .Bd -ragged -compact -offset "xxxx"
@@ -292,7 +297,11 @@ Filesystem or snapshot path to retrieve properties from.
 .Pp
 property (string)
 .Bd -ragged -compact -offset "xxxx"
-Name of property to retrieve. Must be a user property.
+Name of property to retrieve. All filesystem, snapshot and volume
+properties are supported except for 'mounted' and 'iscsioptions.' Also
+supports the 'written@snap' and 'written#bookmark' properties and
+the '<user|group><quota|used>@id' properties, though the id must be
+in numeric form.
 .Ed
 .El
 .Bl -tag -width "xx"
@@ -387,6 +396,14 @@ Iterate through all user properties for the given dataset.
 dataset (string)
 .Bd -ragged -compact -offset "xxxx"
 Must be a valid filesystem, snapshot, or volume.
+.Ed
+.It Em zfs.list.system_properties(dataset)
+Returns an array of strings, the names of the valid system (non-user defined)
+properties for the given dataset. Throws a Lua error if the dataset is invalid.
+.Pp
+dataset (string)
+.Bd -ragged -compact -offset "xxxx"
+Must be a valid filesystem, snapshot or volume.
 .Ed
 .El
 .El

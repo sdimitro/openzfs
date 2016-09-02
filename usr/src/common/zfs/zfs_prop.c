@@ -548,8 +548,11 @@ zfs_prop_written(const char *name)
 {
 	static const char *prop_prefix = "written@";
 	static const char *book_prefix = "written#";
-	return (strncmp(name, prop_prefix, strlen(prop_prefix)) == 0 ||
-	    strncmp(name, book_prefix, strlen(book_prefix)) == 0);
+	ASSERT3S(ZFS_WRITTEN_PROP_PREFIX_LEN, ==, strlen(prop_prefix));
+	ASSERT3S(ZFS_WRITTEN_PROP_PREFIX_LEN, ==, strlen(book_prefix));
+
+	return (strncmp(name, prop_prefix, ZFS_WRITTEN_PROP_PREFIX_LEN) == 0 ||
+	    strncmp(name, book_prefix, ZFS_WRITTEN_PROP_PREFIX_LEN) == 0);
 }
 
 /*
@@ -597,6 +600,15 @@ zfs_prop_readonly(zfs_prop_t prop)
 {
 	return (zfs_prop_table[prop].pd_attr == PROP_READONLY ||
 	    zfs_prop_table[prop].pd_attr == PROP_ONETIME);
+}
+
+/*
+ * Returns TRUE if the property is visible (not hidden).
+ */
+boolean_t
+zfs_prop_visible(zfs_prop_t prop)
+{
+	return (zfs_prop_table[prop].pd_visible);
 }
 
 /*

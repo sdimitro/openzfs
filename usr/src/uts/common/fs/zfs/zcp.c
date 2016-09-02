@@ -24,26 +24,16 @@
 #include <sys/dsl_prop.h>
 #include <sys/dsl_synctask.h>
 #include <sys/dsl_dataset.h>
-
 #include <sys/zcp.h>
 #include <sys/zcp_iter.h>
+#include <sys/zcp_prop.h>
 #include <sys/zcp_global.h>
-
-#define	ZCP_RUN_INFO_KEY "runinfo"
 
 uint64_t zfs_lua_check_timeout_instruction_interval = 100;
 uint64_t zfs_lua_max_timeout = SEC2NSEC(10);
 uint64_t zfs_lua_max_memlimit = 1024 * 1024 * 100;
 
 static int zcp_nvpair_value_to_lua(lua_State *, nvpair_t *, char *, int);
-
-typedef int (zcp_lib_func_t)(lua_State *);
-typedef struct zcp_lib_info {
-	const char *name;
-	zcp_lib_func_t *func;
-	const zcp_arg_t pargs[4];
-	const zcp_arg_t kwargs[2];
-} zcp_lib_info_t;
 
 typedef struct zcp_alloc_arg {
 	boolean_t	aa_must_succeed;
@@ -383,6 +373,18 @@ zcp_nvpair_value_to_lua(lua_State *state, nvpair_t *pair,
 		}
 		break;
 	}
+	case DATA_TYPE_UINT64_ARRAY: {
+		uint64_t *intarr;
+		uint_t nelem;
+		(void) nvpair_value_uint64_array(pair, &intarr, &nelem);
+		lua_newtable(state);
+		for (int i = 0; i < nelem; i++) {
+			(void) lua_pushinteger(state, i + 1);
+			(void) lua_pushinteger(state, intarr[i]);
+			(void) lua_settable(state, -3);
+		}
+		break;
+	}
 	case DATA_TYPE_INT64_ARRAY: {
 		int64_t *intarr;
 		uint_t nelem;
@@ -407,16 +409,10 @@ zcp_nvpair_value_to_lua(lua_State *state, nvpair_t *pair,
 	return (err);
 }
 
-/*
- * Note: will longjmp (via lua_error()) on error.
- * Assumes that the dsname is argument #1 (for error reporting purposes).
- */
-dsl_dataset_t *
-zcp_dataset_hold(lua_State *state, dsl_pool_t *dp, const char *dsname,
-    void *tag)
+int
+zcp_dataset_hold_error(lua_State *state, dsl_pool_t *dp, const char *dsname,
+    int error)
 {
-	dsl_dataset_t *ds;
-	int error = dsl_dataset_hold(dp, dsname, tag, &ds);
 	if (error == ENOENT) {
 		(void) zcp_argerror(state, 1, "no such dataset '%s'", dsname);
 		return (NULL); /* not reached; zcp_argerror will longjmp */
@@ -435,79 +431,21 @@ zcp_dataset_hold(lua_State *state, dsl_pool_t *dp, const char *dsname,
 		    error, dsname);
 		return (NULL); /* not reached; luaL_error will longjmp */
 	}
-	return (ds);
+	return (NULL);
 }
 
-static int zcp_get_prop(lua_State *);
-static zcp_lib_info_t zcp_get_prop_info = {
-	.name = "get_prop",
-	.func = zcp_get_prop,
-	.pargs = {
-	    { .za_name = "dataset", .za_lua_type = LUA_TSTRING},
-	    { .za_name = "property", .za_lua_type =  LUA_TSTRING},
-	    {NULL, NULL}
-	},
-	.kwargs = {
-	    {NULL, NULL}
-	}
-};
-
-static int
-zcp_get_prop(lua_State *state)
+/*
+ * Note: will longjmp (via lua_error()) on error.
+ * Assumes that the dsname is argument #1 (for error reporting purposes).
+ */
+dsl_dataset_t *
+zcp_dataset_hold(lua_State *state, dsl_pool_t *dp, const char *dsname,
+    void *tag)
 {
-	int error;
-	char *buf;
-	const char *dataset_name;
-	const char *property_name;
-	dsl_pool_t *dp = zcp_run_info(state)->zri_pool;
-	char setpoint[MAXNAMELEN];
-	zcp_lib_info_t *libinfo = &zcp_get_prop_info;
-
-	zcp_parse_args(state, libinfo->name, libinfo->pargs, libinfo->kwargs);
-
-	dataset_name = lua_tostring(state, 1);
-	property_name = lua_tostring(state, 2);
-
-	if (!zfs_prop_user(property_name)) {
-		return (zcp_argerror(state, 2,
-		    "'%s' is not a valid user property name",
-		    property_name));
-	}
-
-	/*
-	 * zcp_dataset_hold will either successfully return the requested
-	 * dataset or throw a lua error and longjmp out of the zfs.get_prop call
-	 * without returning.
-	 */
-	dsl_dataset_t *ds = zcp_dataset_hold(state, dp, dataset_name, FTAG);
-	if (ds == NULL)
-		return (1); /* not reached; zcp_dataset_hold() longjmp'd */
-
-	buf = kmem_alloc(ZAP_MAXVALUELEN, KM_SLEEP);
-	error = dsl_prop_get_ds(ds, property_name, 1, sizeof (buf),
-	    buf, setpoint);
-	dsl_dataset_rele(ds, FTAG);
-
-	if (error == ENOENT) {
-		lua_pushnil(state);
-		lua_pushnil(state);
-	} else if (error == EIO) {
-		kmem_free(buf, ZAP_MAXVALUELEN);
-		return (luaL_error(state,
-		    "I/O error while retrieving property '%s' on dataset '%s'",
-		    property_name, dataset_name));
-	} else if (error != 0) {
-		kmem_free(buf, ZAP_MAXVALUELEN);
-		return (luaL_error(state, "unexpected error %d while "
-		    "retrieving property '%s' on dataset '%s'",
-		    error, property_name, dataset_name));
-	} else {
-		(void) lua_pushstring(state, buf);
-		(void) lua_pushstring(state, setpoint);
-	}
-
-	kmem_free(buf, ZAP_MAXVALUELEN);
-	return (2);
+	dsl_dataset_t *ds;
+	int error = dsl_dataset_hold(dp, dsname, tag, &ds);
+	(void) zcp_dataset_hold_error(state, dp, dsname, error);
+	return (ds);
 }
 
 static int zcp_debug(lua_State *);
@@ -896,8 +834,7 @@ zcp_eval(const char *poolname, const char *program, uint64_t timeout,
 	lua_setfield(state, -2, "check");
 	VERIFY3U(1, ==, zcp_load_synctask_lib(state, B_TRUE));
 	lua_setfield(state, -2, "sync");
-	lua_pushcclosure(state, zcp_get_prop_info.func, 0);
-	lua_setfield(state, -2, zcp_get_prop_info.name);
+	VERIFY3U(1, ==, zcp_load_get_lib(state));
 	lua_pushcclosure(state, zcp_debug_info.func, 0);
 	lua_setfield(state, -2, zcp_debug_info.name);
 	lua_pushcclosure(state, zcp_exists_info.func, 0);

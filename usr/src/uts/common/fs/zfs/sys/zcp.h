@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#define	ZCP_RUN_INFO_KEY "runinfo"
+
 extern uint64_t zfs_lua_max_timeout;
 extern uint64_t zfs_lua_max_memlimit;
 
@@ -40,6 +42,7 @@ int zcp_eval(const char *, const char *, uint64_t, uint64_t, nvpair_t *,
     nvlist_t *);
 
 int zcp_load_list_lib(lua_State *);
+
 int zcp_load_synctask_lib(lua_State *, boolean_t);
 
 typedef struct zcp_run_info {
@@ -105,9 +108,19 @@ typedef struct zcp_arg {
 void zcp_parse_args(lua_State *, const char *, const zcp_arg_t *,
     const zcp_arg_t *);
 int zcp_nvlist_to_lua(lua_State *, nvlist_t *, char *, int);
-
+int zcp_dataset_hold_error(lua_State *, dsl_pool_t *, const char *, int);
 struct dsl_dataset *zcp_dataset_hold(lua_State *, dsl_pool_t *,
     const char *, void *);
+
+typedef int (zcp_lib_func_t)(lua_State *);
+typedef struct zcp_lib_info {
+	const char *name;
+	zcp_lib_func_t *func;
+	const zcp_arg_t pargs[4];
+	const zcp_arg_t kwargs[2];
+} zcp_lib_info_t;
+
+int zcp_nvlist_to_lua(lua_State *, nvlist_t *, char *, int);
 
 #ifdef	__cplusplus
 }

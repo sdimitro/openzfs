@@ -450,6 +450,51 @@ file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.destroy_snap \
     mode=0555
 file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_count_and_limit \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_index_props \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_index_props.out \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_index_props.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_mountpoint \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_neg \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_number_props \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_number_props.out \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_number_props.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_string_props \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_string_props.out \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_string_props.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_type \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_userquota \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_written \
+    mode=0555
+file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_children \
     mode=0555
 file \
@@ -457,6 +502,9 @@ file \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_snapshots \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_system_props \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.parse_args_neg \

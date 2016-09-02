@@ -29,6 +29,7 @@
 #include <sys/dmu_objset.h>
 #include <sys/zap.h>
 #include <sys/dsl_dir.h>
+#include <sys/zcp_prop.h>
 
 #include <sys/zcp.h>
 
@@ -413,6 +414,72 @@ zcp_props_list(lua_State *state)
 	return (1);
 }
 
+
+/*
+ * Populate nv with all valid properties and their values for the given
+ * dataset.
+ */
+static void
+zcp_dataset_props(dsl_dataset_t *ds, nvlist_t *nv)
+{
+	for (int prop = ZFS_PROP_TYPE; prop < ZFS_NUM_PROPS; prop++) {
+		/* Do not display hidden props */
+		if (!zfs_prop_visible(prop))
+			continue;
+		/* Do not display props not valid for this dataset */
+		if (!prop_valid_for_ds(ds, prop))
+			continue;
+		fnvlist_add_boolean(nv, zfs_prop_to_name(prop));
+	}
+}
+
+static int zcp_system_props_list(lua_State *);
+static zcp_list_info_t zcp_system_props_list_info = {
+	.name = "system_properties",
+	.func = zcp_system_props_list,
+	.pargs = {
+	    { .za_name = "dataset", .za_lua_type = LUA_TSTRING},
+	    {NULL, NULL}
+	},
+	.kwargs = {
+	    {NULL, NULL}
+	}
+};
+
+/*
+ * Get a list of all visble properties and their values for a given dataset.
+ * Returned on the stack as a Lua table.
+ */
+static int
+zcp_system_props_list(lua_State *state)
+{
+	int error;
+	char errbuf[128];
+	const char *dataset_name;
+	dsl_pool_t *dp = zcp_run_info(state)->zri_pool;
+	zcp_list_info_t *libinfo = &zcp_system_props_list_info;
+	zcp_parse_args(state, libinfo->name, libinfo->pargs, libinfo->kwargs);
+	dataset_name = lua_tostring(state, 1);
+	nvlist_t *nv = fnvlist_alloc();
+
+	dsl_dataset_t *ds = zcp_dataset_hold(state, dp, dataset_name, FTAG);
+	if (ds == NULL)
+		return (1); /* not reached; zcp_dataset_hold() longjmp'd */
+
+	/* Get the names of all valid properties for this dataset */
+	zcp_dataset_props(ds, nv);
+	dsl_dataset_rele(ds, FTAG);
+
+	/* push list as lua table */
+	error = zcp_nvlist_to_lua(state, nv, errbuf, sizeof (errbuf));
+	nvlist_free(nv);
+	if (error != 0) {
+		return (luaL_error(state,
+		    "Error returning nvlist: %s", errbuf));
+	}
+	return (1);
+}
+
 static int
 zcp_list_func(lua_State *state)
 {
@@ -432,6 +499,7 @@ zcp_load_list_lib(lua_State *state)
 		&zcp_snapshots_list_info,
 		&zcp_props_list_info,
 		&zcp_clones_list_info,
+		&zcp_system_props_list_info,
 		NULL
 	};
 

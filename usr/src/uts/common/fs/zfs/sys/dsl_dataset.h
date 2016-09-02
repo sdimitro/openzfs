@@ -339,7 +339,39 @@ void dsl_dataset_block_remapped(dsl_dataset_t *ds, uint64_t vdev,
     uint64_t offset, uint64_t size, uint64_t birth, dmu_tx_t *tx);
 
 void dsl_dataset_dirty(dsl_dataset_t *ds, dmu_tx_t *tx);
+
+int get_clones_stat_impl(dsl_dataset_t *ds, nvlist_t *val);
+char *get_receive_resume_stats_impl(dsl_dataset_t *ds);
+char *get_child_receive_stats(dsl_dataset_t *ds);
+uint64_t dsl_get_refratio(dsl_dataset_t *ds);
+uint64_t dsl_get_logicalreferenced(dsl_dataset_t *ds);
+uint64_t dsl_get_compressratio(dsl_dataset_t *ds);
+uint64_t dsl_get_used(dsl_dataset_t *ds);
+uint64_t dsl_get_creation(dsl_dataset_t *ds);
+uint64_t dsl_get_creationtxg(dsl_dataset_t *ds);
+uint64_t dsl_get_refquota(dsl_dataset_t *ds);
+uint64_t dsl_get_refreservation(dsl_dataset_t *ds);
+uint64_t dsl_get_guid(dsl_dataset_t *ds);
+uint64_t dsl_get_unique(dsl_dataset_t *ds);
+uint64_t dsl_get_objsetid(dsl_dataset_t *ds);
+uint64_t dsl_get_userrefs(dsl_dataset_t *ds);
+uint64_t dsl_get_defer_destroy(dsl_dataset_t *ds);
+uint64_t dsl_get_mooch_byteswap(dsl_dataset_t *ds);
+uint64_t dsl_get_referenced(dsl_dataset_t *ds);
+uint64_t dsl_get_numclones(dsl_dataset_t *ds);
+uint64_t dsl_get_inconsistent(dsl_dataset_t *ds);
+uint64_t dsl_get_redacted(dsl_dataset_t *ds);
+uint64_t dsl_get_available(dsl_dataset_t *ds);
+int dsl_get_written(dsl_dataset_t *ds, uint64_t *written);
+int dsl_get_prev_snap(dsl_dataset_t *ds, char *snap);
+void dsl_get_redact_snaps(dsl_dataset_t *ds, nvlist_t *propval);
+int dsl_get_mountpoint(dsl_dataset_t *ds, const char *dsname, char *value,
+    char *source);
+
+void get_clones_stat(dsl_dataset_t *ds, nvlist_t *nv);
+
 void dsl_dataset_stats(dsl_dataset_t *os, nvlist_t *nv);
+
 void dsl_dataset_fast_stat(dsl_dataset_t *ds, dmu_objset_stats_t *stat);
 void dsl_dataset_space(dsl_dataset_t *ds,
     uint64_t *refdbytesp, uint64_t *availbytesp,

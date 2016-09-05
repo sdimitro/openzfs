@@ -411,11 +411,11 @@ get_special_prop(lua_State *state, dsl_dataset_t *ds, const char *dsname,
 		break;
 	case ZFS_PROP_FILESYSTEM_COUNT:
 		error = dsl_dir_get_filesystem_count(ds->ds_dir, &numval);
-		strcpy(setpoint, "");
+		(void) strcpy(setpoint, "");
 		break;
 	case ZFS_PROP_SNAPSHOT_COUNT:
 		error = dsl_dir_get_snapshot_count(ds->ds_dir, &numval);
-		strcpy(setpoint, "");
+		(void) strcpy(setpoint, "");
 		break;
 	case ZFS_PROP_REMAPTXG:
 		error = dsl_dir_get_remaptxg(ds->ds_dir, &numval);
@@ -458,7 +458,7 @@ get_special_prop(lua_State *state, dsl_dataset_t *ds, const char *dsname,
 			    sizeof (numval), 1, &numval);
 		}
 		if (error == 0)
-			strcpy(setpoint, dsname);
+			(void) strcpy(setpoint, dsname);
 
 		break;
 	case ZFS_PROP_VOLBLOCKSIZE: {

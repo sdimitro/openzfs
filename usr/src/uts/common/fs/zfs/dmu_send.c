@@ -1351,8 +1351,7 @@ send_traverse_thread(void *arg)
 		st_arg->error_code = err;
 	data = kmem_zalloc(sizeof (*data), KM_SLEEP);
 	data->eos_marker = B_TRUE;
-	bqueue_enqueue(&st_arg->q, data, sizeof (*data));
-	bqueue_flush(&st_arg->q);
+	bqueue_enqueue_flush(&st_arg->q, data, sizeof (*data));
 }
 
 /*
@@ -1370,7 +1369,7 @@ redact_record_merge_enqueue(bqueue_t *q, struct send_redact_record **build,
 	if (new->eos_marker) {
 		if (*build != NULL)
 			bqueue_enqueue(q, *build, sizeof (*build));
-		bqueue_enqueue(q, new, sizeof (*new));
+		bqueue_enqueue_flush(q, new, sizeof (*new));
 		return;
 	}
 	if (*build == NULL) {
@@ -1547,7 +1546,6 @@ redact_traverse_thread(void *arg)
 	data = kmem_zalloc(sizeof (*data), KM_SLEEP);
 	data->eos_marker = B_TRUE;
 	redact_record_merge_enqueue(&st_arg->q, &st_arg->current_record, data);
-	bqueue_flush(&st_arg->q);
 }
 
 static inline void
@@ -1894,8 +1892,7 @@ redact_merge_thread(void *arg)
 	}
 	record = kmem_zalloc(sizeof (struct send_redact_record), KM_SLEEP);
 	record->eos_marker = B_TRUE;
-	bqueue_enqueue(&mt_arg->q, record, sizeof (*record));
-	bqueue_flush(&mt_arg->q);
+	bqueue_enqueue_flush(&mt_arg->q, record, sizeof (*record));
 }
 
 /*
@@ -2502,8 +2499,7 @@ send_merge_thread(void *arg)
 	smt_arg->error = err;
 	from_data = kmem_zalloc(sizeof (struct send_block_record), KM_SLEEP);
 	from_data->eos_marker = B_TRUE;
-	bqueue_enqueue(&smt_arg->q, from_data, sizeof (*from_data));
-	bqueue_flush(&smt_arg->q);
+	bqueue_enqueue_flush(&smt_arg->q, from_data, sizeof (*from_data));
 }
 
 struct send_prefetch_thread_arg {
@@ -2674,8 +2670,7 @@ send_prefetch_thread(void *arg)
 		data = bqueue_dequeue(inq);
 	}
 
-	bqueue_enqueue(outq, data, 1);
-	bqueue_flush(outq);
+	bqueue_enqueue_flush(outq, data, 1);
 }
 
 struct dmu_send_params {

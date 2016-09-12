@@ -1983,8 +1983,7 @@ dmu_recv_stream(dmu_recv_cookie_t *drc, int cleanup_fd,
 		    KM_SLEEP);
 	}
 	drc->drc_next_rrd->eos_marker = B_TRUE;
-	bqueue_enqueue(&rwa.q, drc->drc_next_rrd, 1);
-	bqueue_flush(&rwa.q);
+	bqueue_enqueue_flush(&rwa.q, drc->drc_next_rrd, 1);
 
 	mutex_enter(&rwa.mutex);
 	while (!rwa.done) {

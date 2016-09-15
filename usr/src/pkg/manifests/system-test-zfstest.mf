@@ -178,6 +178,7 @@ file path=opt/zfs-tests/bin/readmmap mode=0555
 file path=opt/zfs-tests/bin/rename_dir mode=0555
 file path=opt/zfs-tests/bin/rm_lnkcnt_zero_file mode=0555
 file path=opt/zfs-tests/bin/zfstest mode=0555
+file path=opt/zfs-tests/callbacks/timeout_cleanup mode=0555
 file path=opt/zfs-tests/callbacks/zfs_dbgmsg mode=0555
 file path=opt/zfs-tests/include/commands.cfg mode=0444
 file path=opt/zfs-tests/include/default.cfg mode=0444

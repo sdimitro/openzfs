@@ -9,16 +9,16 @@
 .\" http://www.illumos.org/license/CDDL.
 .\"
 .\"
-.\" Copyright (c) 2012 by Delphix. All rights reserved.
+.\" Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 .\"
-.TH run 1 "23 Sep 2012"
+.TH run 1 "30 Aug 2016"
 .SH NAME
 run \- find, execute, and log the results of tests
 .SH SYNOPSIS
 .LP
 .nf
-\fBrun\fR [\fB-dgq] [\fB-o\fR \fIoutputdir\fR] [\fB-pP\fR \fIscript\fR] [\fB-t\fR \fIseconds\fR] [\fB-uxX\fR \fIusername\fR]
-    \fIpathname\fR ...
+\fBrun\fR [\fB-dgqrs] [\fB-C\fR \fIcleanup_script\fR] [\fB-o\fR \fIoutputdir\fR] [\fB-pP\fR \fIscript\fR]
+    [\fB-t\fR \fIseconds\fR] [\fB-uxX\fR \fIusername\fR] \fIpathname\fR ...
 .fi
 
 .LP
@@ -29,7 +29,7 @@ run \- find, execute, and log the results of tests
 
 .LP
 .nf
-\fBrun\fR \fB-c\fR \fIrunfile\fR [\fB-dq\fR]
+\fBrun\fR \fB-c\fR \fIrunfile\fR [\fB-C\fR \fIcleanup_script\fR] [\fB-dqrs\fR]
 .fi
 
 .LP
@@ -177,7 +177,7 @@ absolute path is required. This option is only valid for test groups, and each
 .ad
 .sp .6
 .RS 4n
-A timeout value of \fIn\fR seconds.
+A timeout value of \fIn\fR seconds. A value of 0 means wait indefinitely.
 .RE
 .sp
 .ne 2
@@ -194,6 +194,15 @@ Execute the test or test group as \fIusername\fR.
 .LP
 The following options are available for the \fBrun\fR command.
 .sp
+.ne 2
+.na
+\fB-C\fR \fIcleanup_script\fR
+.ad
+.RS 6n
+Specify a \fIcleanup_script\fR to be executed after any test that is killed
+because it has exceeded its timeout.
+.RE
+
 .ne 2
 .na
 \fB-c\fR \fIrunfile\fR
@@ -253,10 +262,28 @@ Print only the results sumary to the standard output.
 
 .ne 2
 .na
+\fB-r\fR
+.ad
+.RS 6n
+Randomize the execution order of tests within each test group.
+.RE
+
+.ne 2
+.na
+\fB-s\fR
+.ad
+.RS 6n
+Immediately stop execution if any test does not complete with a PASS result,
+preserving state.
+.RE
+
+.ne 2
+.na
 \fB-t\fR \fIn\fR
 .ad
 .RS 6n
-Specify a timeout value of \fIn\fR seconds per test.
+Specify a timeout value of \fIn\fR seconds per test. A value of 0 means wait
+indefinitely.
 .RE
 
 .ne 2

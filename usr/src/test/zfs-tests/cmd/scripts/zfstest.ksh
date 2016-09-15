@@ -21,6 +21,7 @@ export NOINUSE_CHECK=1
 export STF_SUITE="/opt/zfs-tests"
 export STF_TOOLS="/opt/test-runner/stf"
 export PATHDIR=""
+export TR_STOP_ON_FAILURE=false
 runner="/opt/test-runner/bin/run"
 auto_detect=false
 
@@ -32,6 +33,27 @@ function fail
 {
 	echo $1
 	exit ${2:-1}
+}
+
+function usage
+{
+	typeset msg="$*"
+	typeset prog=${0##*/}
+	[[ -n "$msg" ]] && echo "$msg" 2>&1
+	cat <<EOF 2>/dev/null
+Usage:
+    $prog [-aqrs] -c runfile
+    $prog -h
+Options:
+    -a         Find free disks on the system, and use them all
+    -C script  Upon test failure (due to timeout only) run this script
+    -c runfile Use the runfile to determine what tests to run
+    -h         This usage message
+    -q         Print no output to the console during testing
+    -r         Randomize the order of tests in each test group
+    -s         Stop on failure, preserving state
+EOF
+       exit 2
 }
 
 function find_disks
@@ -124,17 +146,31 @@ constrain_path
 export PATH=$PATHDIR
 
 verify_id
-while getopts ac:q c; do
+while getopts aC:c:hqrs c; do
 	case $c in
 	'a')
 		auto_detect=true
+		;;
+	'C')
+		[[ -x $OPTARG ]] || fail "File not executable: $OPTARG"
+		runner_args+=" -C $OPTARG"
 		;;
 	'c')
 		runfile=$OPTARG
 		[[ -f $runfile ]] || fail "Cannot read file: $runfile"
 		;;
+	'h')
+		usage
+		;;
 	'q')
-		quiet='-q'
+		runner_args+=' -q'
+		;;
+	'r')
+		runner_args+=' -r'
+		;;
+	's')
+		runner_args+=' -s'
+		export TR_STOP_ON_FAILURE=true
 		;;
 	esac
 done
@@ -166,7 +202,7 @@ num_disks=$(echo $DISKS | awk '{print NF}')
 [[ $num_disks -lt 3 ]] && fail "Not enough disks to run ZFS Test Suite"
 
 # Ensure user has only basic privileges.
-ppriv -s EIP=basic -e $runner $quiet -c $runfile
+ppriv -s EIP=basic -e $runner $runner_args -c $runfile
 ret=$?
 
 rm -rf $PATHDIR || fail "Couldn't remove $PATHDIR"

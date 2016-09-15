@@ -10,11 +10,11 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 .PARALLEL: $(SUBDIRS)
 
-SUBDIRS = contrib/include include
+SUBDIRS = contrib/include
 
 include $(SRC)/test/Makefile.com

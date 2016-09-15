@@ -94,7 +94,9 @@ log_must check_quota "userquota@$QUSER1" $TESTPOOL/fs-clone "$UQUOTA_SIZE"
 log_must check_quota "groupquota@$QGROUP" $TESTPOOL/fs-clone "$GQUOTA_SIZE"
 
 log_note "zfs send receive can not change the previously set user|group quota"
-log_must zfs send $TESTPOOL/fs-clone@snap | zfs receive $TESTPOOL/fs-rev
+log_must eval "zfs send $TESTPOOL/fs-clone@snap >/var/tmp/fs-clone-stream.$$"
+log_must eval "zfs receive $TESTPOOL/fs-rev </var/tmp/fs-clone-stream.$$"
+log_must rm /var/tmp/fs-clone-stream.$$
 
 log_must eval "zfs list -r -o userquota@$QUSER1,groupquota@$QGROUP \
 	$TESTPOOL >/dev/null 2>&1"

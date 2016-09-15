@@ -26,7 +26,17 @@
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
-. ${STF_TOOLS}/include/stf.shlib
+STF_PASS=0
+STF_FAIL=1
+STF_UNRESOLVED=2
+STF_NOTINUSE=3
+STF_UNSUPPORTED=4
+STF_UNTESTED=5
+STF_UNINITIATED=6
+STF_NORESULT=7
+STF_WARNING=8
+STF_TIMED_OUT=9
+STF_OTHER=10
 
 # Output a comment
 #
@@ -34,19 +44,7 @@
 
 function log_note
 {
-	_printline NOTE: "$@"
-}
-
-# Execute and print command with status where success equals non-zero result
-#
-# $@ - command to execute
-#
-# return 0 if command fails, otherwise return 1
-
-function log_neg
-{
-	log_neg_expect ""  "$@"
-	return $?
+	echo "NOTE: $@"
 }
 
 # Execute a positive test and exit $STF_FAIL is test fails
@@ -77,78 +75,50 @@ function log_mustnot
 
 function log_mustnot_expect
 {
-	log_neg_expect "$@"
-	(( $? != 0 )) && log_fail
+	typeset tmp_out=$(mktemp)
+	typeset tmp_err=$(mktemp)
+	typeset key=$1
+	shift
+
+	echo "Running: \"$@\""
+	"$@" >$tmp_out 2>$tmp_err
+	typeset ret=$?
+
+	if [[ -s $tmp_out ]]; then
+		echo "stdout:"
+		cat $tmp_out
+	fi
+
+	if [[ -s $tmp_err ]]; then
+		echo "stderr:"
+		cat $tmp_err
+	fi
+
+	[[ $ret -eq 0 ]] && echo "ERROR: \"$@\" unexpectedly exited $status"
+
+	if ! grep -q "$key" $tmp_err; then
+		echo "ERROR: \"$key\" not found in command stderr"
+		ret=0
+	fi
+
+	rm -f $tmp_out $tmp_err
+	[[ $ret -eq 0 ]] && log_fail
 }
 
 # Execute and print command with status where success equals non-zero result
-# or output includes expected keyword
 #
-# $1 - keyword expected
-# $2-$@ - command to execute
+# $@ - command to execute
 #
-# return 0 if command fails, or the output contains the keyword expected,
-# return 1 otherwise
+# return 0 if command fails, return 1 otherwise
 
-function log_neg_expect
+function log_neg
 {
-	typeset out=""
-	typeset logfile="/tmp/log.$$"
-	typeset ret=1
-	typeset expect=$1
-	shift
-
-	while [[ -e $logfile ]]; do
-		logfile="$logfile.$$"
-	done
-
-	"$@" 2>$logfile
+	echo "Running: \"$@\""
+	"$@"
 	typeset status=$?
-	out="/usr/bin/cat $logfile"
 
-	# unexpected status
-	if (( $status == 0 )); then
-		 print -u2 $($out)
-		_printerror "$@" "unexpectedly exited $status"
-	# missing binary
-	elif (( $status == 127 )); then
-		print -u2 $($out)
-		_printerror "$@" "unexpectedly exited $status (File not found)"
-	# bus error - core dump
-	elif (( $status == 138 )); then
-		print -u2 $($out)
-		_printerror "$@" "unexpectedly exited $status (Bus Error)"
-	# segmentation violation - core dump
-	elif (( $status == 139 )); then
-		print -u2 $($out)
-		_printerror "$@" "unexpectedly exited $status (SEGV)"
-	else
-		$out | /usr/bin/egrep -i "internal error|assertion failed" \
-			> /dev/null 2>&1
-		# internal error or assertion failed
-		if (( $? == 0 )); then
-			print -u2 $($out)
-			_printerror "$@" "internal error or assertion failure" \
-				" exited $status"
-		elif [[ -n $expect ]] ; then
-			$out | /usr/bin/grep -i "$expect" > /dev/null 2>&1
-			if (( $? == 0 )); then
-				ret=0
-			else
-				print -u2 $($out)
-				_printerror "$@" "unexpectedly exited $status"
-			fi
-		else
-			ret=0
-		fi
-
-		if (( $ret == 0 )); then
-			[[ -n $LOGAPI_DEBUG ]] && print $($out)
-			_printsuccess "$@" "exited $status"
-		fi
-	fi
-	_recursive_output $logfile "false"
-	return $ret
+	[[ $status -eq 0 ]] && echo "ERROR: \"$@\" unexpectedly exited $status"
+	return $(($status == 0))
 }
 
 # Execute and print command with status where success equals zero result
@@ -159,35 +129,10 @@ function log_neg_expect
 
 function log_pos
 {
-	typeset out=""
-	typeset logfile="/tmp/log.$$"
-
-	while [[ -e $logfile ]]; do
-		logfile="$logfile.$$"
-	done
-
-	"$@" 2>$logfile
+	echo "Running: \"$@\""
+	"$@"
 	typeset status=$?
-	out="/usr/bin/cat $logfile"
-
-	if (( $status != 0 )) ; then
-		print -u2 $($out)
-		_printerror "$@" "exited $status"
-	else
-		$out | /usr/bin/egrep -i "internal error|assertion failed" \
-			> /dev/null 2>&1
-		# internal error or assertion failed
-		if [[ $? -eq 0 ]]; then
-			print -u2 $($out)
-			_printerror "$@" "internal error or assertion failure" \
-				" exited $status"
-			status=1
-		else
-			[[ -n $LOGAPI_DEBUG ]] && print $($out)
-			_printsuccess "$@"
-		fi
-	fi
-	_recursive_output $logfile "false"
+	[[ $? -ne 0 ]] && echo "ERROR: \"$@\" exited $status"
 	return $status
 }
 
@@ -316,7 +261,7 @@ function _execute_testfail_callbacks
 	typeset callback
 
 	print "$TESTFAIL_CALLBACKS:" | while read -d ":" callback; do
-		if [[ -n "$callback" ]] ; then
+		if [[ -n "$callback" ]]; then
 			log_note "Performing test-fail callback ($callback)"
 			$callback
 		fi
@@ -330,66 +275,27 @@ function _execute_testfail_callbacks
 
 function _endlog
 {
-	typeset logfile="/tmp/log.$$"
-	_recursive_output $logfile
+	typeset exitcode=$1
+	shift
 
-	if [[ $1 == $STF_FAIL ]] ; then
+	if $TR_STOP_ON_FAILURE; then
+		if [[ $exitcode -ne $STF_PASS ]]; then
+			log_note "Exiting without running callback or cleanup."
+			exit $exitcode
+		fi
+	fi
+
+	if [[ $exitcode -eq $STF_FAIL ]]; then
 		_execute_testfail_callbacks
 	fi
 
-	if [[ -n $_CLEANUP ]] ; then
+	if [[ -n $_CLEANUP ]]; then
 		typeset cleanup=$_CLEANUP
 		log_onexit ""
 		log_note "Performing local cleanup via log_onexit ($cleanup)"
 		$cleanup
 	fi
-	typeset exitcode=$1
-	shift
-	(( ${#@} > 0 )) && _printline "$@"
+
+	(( ${#@} > 0 )) && echo "$@"
 	exit $exitcode
-}
-
-# Output a formatted line
-#
-# $@ - message text
-
-function _printline
-{
-	print "$@"
-}
-
-# Output an error message
-#
-# $@ - message text
-
-function _printerror
-{
-	_printline ERROR: "$@"
-}
-
-# Output a success message
-#
-# $@ - message text
-
-function _printsuccess
-{
-	_printline SUCCESS: "$@"
-}
-
-# Output logfiles recursively
-#
-# $1 - start file
-# $2 - indicate whether output the start file itself, default as yes.
-
-function _recursive_output #logfile
-{
-	typeset logfile=$1
-
-	while [[ -e $logfile ]]; do
-		if [[ -z $2 || $logfile != $1 ]]; then
-			/usr/bin/cat $logfile
-		fi
-		/usr/bin/rm -f $logfile
-		logfile="$logfile.$$"
-        done
 }

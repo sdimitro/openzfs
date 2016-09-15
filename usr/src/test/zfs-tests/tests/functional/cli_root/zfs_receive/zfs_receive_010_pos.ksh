@@ -47,9 +47,9 @@ rfs=$TESTPOOL/$TESTFS/base/rfs
 
 function make_object
 {
-	local objnum=$1
-	local mntpnt=$2
-	local type=$3
+	typeset objnum=$1
+	typeset mntpnt=$2
+	typeset type=$3
 	if [[ $type == "file" ]]; then
 		dd if=/dev/urandom of=${mntpnt}/f$objnum bs=512 count=16
 	elif [[ $type == "hole1" ]]; then
@@ -65,11 +65,11 @@ function make_object
 
 function create_pair
 {
-	local objnum=$1
-	local mntpnt1=$2
-	local mntpnt2=$3
-	local type1=$4
-	local type2=$5
+	typeset objnum=$1
+	typeset mntpnt1=$2
+	typeset mntpnt2=$3
+	typeset type1=$4
+	typeset type2=$5
 	make_object $objnum $mntpnt1 $type1
 	make_object $objnum $mntpnt2 $type2
 }
@@ -133,8 +133,7 @@ dd if=/dev/urandom of=$mntpnt/f18 bs=128k count=64
 touch $mntpnt2/f18
 
 # Remove objects that are intended to be missing.
-rm $mntpnt/h17
-rm $mntpnt2/h*
+rm -f $mntpnt/h17 $mntpnt2/h*
 
 # Add empty objects to $fs to exercise dmu_traverse code
 for i in {1..100}; do
@@ -144,15 +143,14 @@ done
 log_must zfs snapshot $fs@s1
 log_must zfs snapshot $fs2@s1
 
-log_must zfs send $fs@s1 > /tmp/zr010p
-log_must zfs send $fs2@s1 > /tmp/zr010p2
-
+log_must eval "zfs send $fs@s1 >/tmp/zr010p"
+log_must eval "zfs send $fs2@s1 >/tmp/zr010p2"
 
 #
 # Test that, when we receive a full send as a clone of itself,
 # nop-write saves us all the space used by data blocks.
 #
-cat /tmp/zr010p | log_must zfs receive -o origin=$fs@s1 $rfs
+log_must eval "zfs receive -o origin=$fs@s1 $rfs </tmp/zr010p"
 size=$(get_prop used $rfs)
 size2=$(get_prop used $fs)
 if [[ $size -ge $(($size2 / 10)) ]] then
@@ -162,7 +160,7 @@ fi
 log_must zfs destroy -fr $rfs
 
 # Correctness testing: receive each full send as a clone of the other fiesystem.
-cat /tmp/zr010p | log_must zfs receive -o origin=$fs2@s1 $rfs
+log_must eval "zfs receive -o origin=$fs2@s1 $rfs </tmp/zr010p"
 mntpnt_old=$(get_prop mountpoint $fs)
 mntpnt_new=$(get_prop mountpoint $rfs)
 log_must diff -r $mntpnt_old $mntpnt_new

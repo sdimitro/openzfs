@@ -47,16 +47,7 @@ verify_runnable "global"
 
 POOL_NAME=unclean_export
 POOL_FILE=unclean_export.dat
-
-function uncompress_pool
-{
-
-	log_note "Creating pool from $POOL_FILE"
-	log_must bzcat \
-	    $STF_SUITE/tests/functional/cli_root/zpool_import/blockfiles/$POOL_FILE.bz2 \
-	    > /$TESTPOOL/$POOL_FILE
-	return 0
-}
+DIR="$STF_SUITE/tests/functional/cli_root/zpool_import/blockfiles"
 
 function cleanup
 {
@@ -67,7 +58,7 @@ function cleanup
 
 log_onexit cleanup
 
-uncompress_pool
+log_must eval "bzcat $DIR/$POOL_FILE.bz2 >/$TESTPOOL/$POOL_FILE"
 log_mustnot zpool import -d /$TESTPOOL $POOL_NAME
 log_must zpool import -d /$TESTPOOL -f $POOL_NAME
 

@@ -336,11 +336,17 @@ get_zfs_dataset(sa_handle_impl_t impl_handle, char *path,
 	cutpath = path + strspn(path, "/");
 
 	assert(impl_handle->zfs_libhandle != NULL);
-	if ((handle_from_path = zfs_open(impl_handle->zfs_libhandle, cutpath,
-	    ZFS_TYPE_FILESYSTEM)) != NULL)
-		if ((ret = verify_zfs_handle(handle_from_path, path,
-		    search_mnttab)) != NULL)
+	libzfs_print_on_error(impl_handle->zfs_libhandle, B_FALSE);
+	handle_from_path = zfs_open(impl_handle->zfs_libhandle, cutpath,
+	    ZFS_TYPE_FILESYSTEM);
+	libzfs_print_on_error(impl_handle->zfs_libhandle, B_TRUE);
+	if (handle_from_path != NULL) {
+		ret = verify_zfs_handle(handle_from_path, path, search_mnttab);
+		zfs_close(handle_from_path);
+		if (ret != NULL) {
 			return (ret);
+		}
+	}
 	/*
 	 * Couldn't find a filesystem optimistically, check all the handles we
 	 * can.

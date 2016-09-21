@@ -492,10 +492,10 @@ lzc_send(const char *snapname, const char *from, int fd,
 
 int
 lzc_send_redacted(const char *snapname, const char *from, int fd,
-    enum lzc_send_flags flags, const char *redactbook)
+    enum lzc_send_flags flags, lzc_redact_params_t *lrpp)
 {
 	return (lzc_send_resume_redacted(snapname, from, fd, flags, 0, 0,
-	    redactbook));
+	    lrpp));
 }
 
 int
@@ -521,7 +521,7 @@ lzc_send_resume(const char *snapname, const char *from, int fd,
 int
 lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
-    const char *redactbook)
+    lzc_redact_params_t *lrpp)
 {
 	nvlist_t *args;
 	int err;
@@ -540,8 +540,17 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 		fnvlist_add_uint64(args, "resume_object", resumeobj);
 		fnvlist_add_uint64(args, "resume_offset", resumeoff);
 	}
-	if (redactbook != NULL)
-		fnvlist_add_string(args, "redactbook", redactbook);
+	if (lrpp != NULL) {
+		if (lrpp->lrp_type == LRP_LIST) {
+			fnvlist_add_nvlist(args, "redactsnaps",
+			    lrpp->lrp_u.lro_list.lrol_redactsnaps);
+			fnvlist_add_string(args, "redactbook",
+			    lrpp->lrp_u.lro_list.lrol_book_to_create);
+		} else if (lrpp->lrp_type == LRP_BOOKMARK) {
+			fnvlist_add_string(args, "redactlist_book",
+			    lrpp->lrp_u.lro_bookmark.lrob_book_to_redact_with);
+		}
+	}
 
 	err = lzc_ioctl(ZFS_IOC_SEND_NEW, snapname, args, NULL);
 	nvlist_free(args);
@@ -567,7 +576,7 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 int
 lzc_send_space_resume_redacted(const char *snapname, const char *from,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
-    uint64_t resume_bytes, const char *redactbook, int fd, uint64_t *spacep)
+    uint64_t resume_bytes, lzc_redact_params_t *lrpp, int fd, uint64_t *spacep)
 {
 	nvlist_t *args;
 	nvlist_t *result;
@@ -587,8 +596,17 @@ lzc_send_space_resume_redacted(const char *snapname, const char *from,
 		fnvlist_add_uint64(args, "resume_offset", resumeoff);
 		fnvlist_add_uint64(args, "bytes", resume_bytes);
 	}
-	if (redactbook != NULL)
-		fnvlist_add_string(args, "redactbook", redactbook);
+	if (lrpp != NULL) {
+		if (lrpp->lrp_type == LRP_LIST) {
+			fnvlist_add_nvlist(args, "redact_snaps",
+			    lrpp->lrp_u.lro_list.lrol_redactsnaps);
+			fnvlist_add_string(args, "redactbook",
+			    lrpp->lrp_u.lro_list.lrol_book_to_create);
+		} else if (lrpp->lrp_type == LRP_BOOKMARK) {
+			fnvlist_add_string(args, "redactlist_book",
+			    lrpp->lrp_u.lro_bookmark.lrob_book_to_redact_with);
+		}
+	}
 	if (fd != -1)
 		fnvlist_add_int32(args, "fd", fd);
 
@@ -977,20 +995,5 @@ lzc_initialize(const char *poolname, pool_initialize_func_t cmd_type,
 
 	fnvlist_free(args);
 
-	return (error);
-}
-
-/*
- * Create a redaction bookmark named bookname by redacting snapshot with respect
- * to all the snapshots in snapnv.
- */
-int
-lzc_redact(const char *snapshot, const char *bookname, nvlist_t *snapnv)
-{
-	nvlist_t *args = fnvlist_alloc();
-	fnvlist_add_string(args, "bookname", bookname);
-	fnvlist_add_nvlist(args, "snapnv", snapnv);
-	int error = lzc_ioctl(ZFS_IOC_REDACT, snapshot, args, NULL);
-	fnvlist_free(args);
 	return (error);
 }

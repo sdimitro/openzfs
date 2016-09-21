@@ -1518,7 +1518,7 @@ lzc_flags_from_sendflags(const sendflags_t *flags)
 static int
 estimate_size(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
     uint64_t resumeobj, uint64_t resumeoff, uint64_t bytes,
-    const char *redactbook, char *errbuf)
+    lzc_redact_params_t *lrpp, char *errbuf)
 {
 	uint64_t size;
 	FILE *fout = flags->dryrun ? stdout : stderr;
@@ -1544,7 +1544,7 @@ estimate_size(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 
 	err = lzc_send_space_resume_redacted(zhp->zfs_name, from,
 	    lzc_flags_from_sendflags(flags), resumeobj, resumeoff, bytes,
-	    redactbook, fd, &size);
+	    lrpp, fd, &size);
 
 	if (flags->progress) {
 		void *status = NULL;
@@ -1606,14 +1606,11 @@ redact_snaps_equal(const uint64_t *snaps1, uint64_t num_snaps1,
 /*
  * Check that the list of redaction snapshots in the bookmark matches the send
  * we're resuming, and return whether or not it's complete.
- *
- * Note that the caller needs to free the contents of *bookname with free() if
- * this function returns successfully.
  */
 static int
-find_redact_book(libzfs_handle_t *hdl, const char *path,
+get_book_snaps(libzfs_handle_t *hdl, const char *redact_book, const char *path,
     const uint64_t *redact_snap_guids, int num_redact_snaps,
-    char **bookname)
+    boolean_t *complete)
 {
 	char errbuf[1024];
 	int error = 0;
@@ -1627,8 +1624,10 @@ find_redact_book(libzfs_handle_t *hdl, const char *path,
 	fnvlist_add_boolean(props, "redact_snaps");
 	error = lzc_get_bookmarks(path, props, &bmarks);
 	nvlist_free(props);
-	if (error != 0) {
-		if (error == ESRCH) {
+
+	if (error != 0 || !nvlist_exists(bmarks, redact_book)) {
+		fnvlist_free(bmarks);
+		if (error == ESRCH || !nvlist_exists(bmarks, redact_book)) {
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "nonexistent redaction bookmark provided"));
 		} else if (error == ENOENT) {
@@ -1640,47 +1639,38 @@ find_redact_book(libzfs_handle_t *hdl, const char *path,
 		}
 		return (zfs_error(hdl, EZFS_BADPROP, errbuf));
 	}
-	nvpair_t *pair;
-	for (pair = nvlist_next_nvpair(bmarks, NULL); pair;
-	    pair = nvlist_next_nvpair(bmarks, pair)) {
 
-		nvlist_t *bmark = fnvpair_value_nvlist(pair);
-		nvlist_t *vallist = fnvlist_lookup_nvlist(bmark,
-		    "redact_snaps");
-		uint_t len = 0;
-		uint64_t *bmarksnaps = fnvlist_lookup_uint64_array(vallist,
-		    ZPROP_VALUE, &len);
-		if (redact_snaps_equal(redact_snap_guids,
-		    num_redact_snaps, bmarksnaps, len)) {
-			break;
-		}
-	}
-	if (pair == NULL)  {
-		fnvlist_free(bmarks);
-		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-		    "no appropriate redaction bookmark exists"));
-		return (zfs_error(hdl, EZFS_BADPROP, errbuf));
-	}
-	char *name = nvpair_name(pair);
-	nvlist_t *bmark = fnvpair_value_nvlist(pair);
-	nvlist_t *vallist = fnvlist_lookup_nvlist(bmark, "redact_complete");
-	boolean_t complete = fnvlist_lookup_boolean_value(vallist,
+	nvlist_t *bmark = fnvlist_lookup_nvlist(bmarks, redact_book);
+	nvlist_t *vallist = fnvlist_lookup_nvlist(bmark,
+	    "redact_complete");
+	*complete = fnvlist_lookup_boolean_value(vallist,
 	    ZPROP_VALUE);
-	if (!complete) {
+	fnvlist_free(vallist);
+
+	uint_t len = 0;
+	vallist = fnvlist_lookup_nvlist(bmark, "redact_snaps");
+	uint64_t *bmarksnaps = fnvlist_lookup_uint64_array(vallist,
+	    ZPROP_VALUE, &len);
+
+	/*
+	 * We have two lists of redaction snapshots; one from the resume
+	 * token, and one from the bookmark the user provided to us.  Check that
+	 * the redaction snapshots match.
+	 */
+	if (!redact_snaps_equal(redact_snap_guids,
+	    num_redact_snaps, bmarksnaps, len)) {
 		fnvlist_free(bmarks);
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-		    "incomplete redaction bookmark provided"));
+		    "incorrect redaction bookmark provided"));
 		return (zfs_error(hdl, EZFS_BADPROP, errbuf));
 	}
-	*bookname = strndup(name, ZFS_MAX_DATASET_NAME_LEN);
-	ASSERT3P(*bookname, !=, NULL);
 	fnvlist_free(bmarks);
 	return (0);
 }
 
 int
 zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
-    const char *resume_token)
+    const char *resume_token, const char *redact_book)
 {
 	char errbuf[1024];
 	char *toname;
@@ -1692,7 +1682,8 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 	enum lzc_send_flags lzc_flags = 0;
 	uint64_t *redact_snap_guids = NULL;
 	int num_redact_snaps = 0;
-	char *redact_book = NULL;
+	lzc_redact_params_t lrp = {0};
+	boolean_t free_list = B_FALSE;
 
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
 	    "cannot resume send"));
@@ -1770,7 +1761,14 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 
 	if (nvlist_lookup_uint64_array(resume_nvl, "redact_snaps",
 	    &redact_snap_guids, (uint_t *)&num_redact_snaps) == 0) {
+		int error_num = 0;
 		char path[ZFS_MAX_DATASET_NAME_LEN];
+
+		if (redact_book == NULL) {
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "no redaction bookmark provided"));
+			return (zfs_error(hdl, EZFS_BADPROP, errbuf));
+		}
 
 		(void) strlcpy(path, toname, sizeof (path));
 		char *at = strchr(path, '@');
@@ -1778,9 +1776,48 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 
 		*at = '\0';
 
-		if ((error = find_redact_book(hdl, path, redact_snap_guids,
-		    num_redact_snaps, &redact_book)) != 0) {
+		boolean_t complete;
+		if ((error = get_book_snaps(hdl, redact_book, path,
+		    redact_snap_guids, num_redact_snaps, &complete)) != 0) {
 			return (error);
+		}
+
+		/*
+		 * If the bookmark is complete, we'll use it to calculate
+		 * redaction instead of the snapshots.  If it's not, we'll treat
+		 * it as the redaction bookmark being created by this send, and
+		 * fill it in as we go.
+		 */
+		if (complete) {
+			lrp.lrp_type = LRP_BOOKMARK;
+			lrp.lrp_u.lro_bookmark.lrob_book_to_redact_with =
+			    redact_book;
+		} else {
+			nvlist_t **snaps =
+			    &lrp.lrp_u.lro_list.lrol_redactsnaps;
+			lrp.lrp_u.lro_list.lrol_book_to_create = redact_book;
+			lrp.lrp_type = LRP_LIST;
+			free_list = B_TRUE;
+			*snaps = fnvlist_alloc();
+			char redact_name[ZFS_MAX_DATASET_NAME_LEN];
+			for (int i = 0; i < num_redact_snaps; i++) {
+				error = guid_to_name(hdl, toname,
+				    redact_snap_guids[i], B_TRUE, redact_name);
+				if (error != 0) {
+					error_num = i;
+					break;
+				}
+				fnvlist_add_boolean(*snaps, redact_name);
+			}
+
+			if (error != 0) {
+				fnvlist_free(*snaps);
+				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+				    "redaction snapshot with guid %llx no "
+				    "longer exists"),
+				    (longlong_t)redact_snap_guids[error_num]);
+				return (zfs_error(hdl, EZFS_NOENT, errbuf));
+			}
 		}
 	}
 
@@ -1797,7 +1834,7 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 		if (lzc_flags & LZC_SEND_FLAG_EMBED_DATA)
 			tmpflags.embed_data = B_TRUE;
 		error = estimate_size(zhp, fromname, outfd, &tmpflags,
-		    resumeobj, resumeoff, bytes, redact_book, errbuf);
+		    resumeobj, resumeoff, bytes, &lrp, errbuf);
 	}
 
 	if (!flags->dryrun) {
@@ -1817,17 +1854,17 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 			error = pthread_create(&tid, NULL,
 			    send_progress_thread, &pa);
 			if (error != 0) {
-				if (redact_book != NULL)
-					free(redact_book);
+				if (free_list) {
+					fnvlist_free(lrp.lrp_u.lro_list.
+					    lrol_redactsnaps);
+				}
 				zfs_close(zhp);
 				return (error);
 			}
 		}
 
 		error = lzc_send_resume_redacted(zhp->zfs_name, fromname, outfd,
-		    lzc_flags, resumeobj, resumeoff, redact_book);
-		if (redact_book != NULL)
-			free(redact_book);
+		    lzc_flags, resumeobj, resumeoff, &lrp);
 
 		if (flags->progress) {
 			void *status = NULL;
@@ -1842,6 +1879,8 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 				return (zfs_standard_error(hdl, error, errbuf));
 			}
 		}
+		if (free_list)
+			fnvlist_free(lrp.lrp_u.lro_list.lrol_redactsnaps);
 
 		char errbuf[1024];
 		(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
@@ -1878,6 +1917,9 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 		default:
 			return (zfs_standard_error(hdl, errno, errbuf));
 		}
+	} else {
+		if (free_list)
+			fnvlist_free(lrp.lrp_u.lro_list.lrol_redactsnaps);
 	}
 
 	zfs_close(zhp);
@@ -2315,7 +2357,7 @@ snapshot_is_before(zfs_handle_t *earlier, zfs_handle_t *later)
 
 int
 zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
-    const char *redactbook)
+    lzc_redact_params_t *lrpp)
 {
 	int err;
 	libzfs_handle_t *hdl = zhp->zfs_hdl;
@@ -2354,8 +2396,21 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 	 * Perform size estimate if verbose was specified.
 	 */
 	if (flags->verbosity != 0) {
-		err = estimate_size(zhp, from, fd, flags, 0, 0, 0, redactbook,
+		err = estimate_size(zhp, from, fd, flags, 0, 0, 0, lrpp,
 		    errbuf);
+		if (!flags->dryrun && lrpp != NULL &&
+		    lrpp->lrp_type == LRP_LIST) {
+			const char *bookmark =
+			    lrpp->lrp_u.lro_list.lrol_book_to_create;
+			/*
+			 * We just created the redaction bookmark when we did
+			 * the estimate, so we should change to using
+			 * LRP_BOOKMARK.
+			 */
+			lrpp->lrp_type = LRP_BOOKMARK;
+			lrpp->lrp_u.lro_bookmark.lrob_book_to_redact_with =
+			    bookmark;
+		}
 		if (err != 0)
 			return (err);
 	}
@@ -2399,7 +2454,7 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 	}
 
 	err = lzc_send_redacted(zhp->zfs_name, from, fd,
-	    lzc_flags_from_sendflags(flags), redactbook);
+	    lzc_flags_from_sendflags(flags), lrpp);
 
 	if (flags->progress) {
 		void *status = NULL;
@@ -2449,6 +2504,39 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 			    "target is busy; if a filesystem, "
 			    "it must not be mounted"));
 			return (zfs_error(hdl, EZFS_BUSY, errbuf));
+		case EEXIST: {
+			const char *redactbook;
+			if (lrpp->lrp_type == LRP_LIST) {
+				redactbook =
+				    lrpp->lrp_u.lro_list.lrol_book_to_create;
+			} else {
+				redactbook = lrpp->lrp_u.lro_bookmark.
+				    lrob_book_to_redact_with;
+			}
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "redaction bookmark (%s) provided already exists"),
+			    redactbook);
+			return (zfs_error(hdl, EZFS_EXISTS, errbuf));
+		}
+		case ENAMETOOLONG:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "provided bookmark name cannot be used, final name"
+			    "would be too long"));
+			return (zfs_error(hdl, EZFS_NAMETOOLONG, errbuf));
+		case E2BIG:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "too many redaction snapshots specified"));
+			return (zfs_error(hdl, EZFS_TOOMANY, errbuf));
+		case EINVAL:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "redaction snapshot must be descendent of tosnap"));
+			return (zfs_error(hdl, EZFS_CROSSTARGET, errbuf));
+		case EALREADY:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "attempted to redact redacted dataset or with"
+			    "respect to redacted dataset"));
+			return (zfs_error(hdl, EZFS_BADBACKUP, errbuf));
+
 		case EDQUOT:
 		case EFBIG:
 		case EIO:

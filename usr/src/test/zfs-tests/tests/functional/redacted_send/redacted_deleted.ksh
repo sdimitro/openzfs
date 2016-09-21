@@ -33,7 +33,6 @@ typeset ds_name="deleted"
 typeset sendfs="$POOL/$ds_name"
 typeset recvfs="$POOL2/$ds_name"
 typeset clone="$POOL/${ds_name}_clone"
-typeset clone2="$POOL/${ds_name}_clone2"
 typeset tmpdir="$(get_prop mountpoint $POOL)/tmp"
 typeset stream=$(mktemp $tmpdir/stream.XXXX)
 setup_dataset $ds_name ''
@@ -57,8 +56,7 @@ log_must rm $clone_mnt/f1
 log_must zfs snapshot $clone@snap1
 # Close file descriptor 5
 exec 5>&-
-log_must zfs redact $sendfs@snap book1 $clone@snap1
-log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
+log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book1 >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must mount_redacted -f $recvfs
 #
@@ -76,23 +74,11 @@ log_must zfs destroy -R $recvfs
 # is a redaction bookmark that contains references to that file, does not
 # result in records for that file.
 #
-log_must zfs clone  $sendfs@snap $clone2
-typeset clone2_mnt="$(get_prop mountpoint $clone2)"
-log_must rm -rf $clone2_mnt/*
-log_must zfs snapshot $clone2@snap
-log_must zfs redact $sendfs@snap book2 $clone2@snap
-log_must zfs destroy -R $clone2
-log_must eval "zfs send --redact book2 $sendfs@snap >$stream"
+log_must eval "zfs send --redact '' $sendfs@snap book2 >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must rm $send_mnt/f1
 log_must zfs snapshot $sendfs@snap2
-log_must zfs clone  $sendfs@snap2 $clone2
-typeset clone2_mnt="$(get_prop mountpoint $clone2)"
-log_must rm $clone2_mnt/*
-log_must zfs snapshot $clone2@snap
-log_must zfs redact $sendfs@snap2 book3 $clone2@snap
-log_must zfs destroy -R $clone2
-log_must eval "zfs send -i $sendfs#book2 --redact book3 $sendfs@snap2 >$stream"
+log_must eval "zfs send -i $sendfs#book2 --redact '' $sendfs@snap2 book3 >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must mount_redacted -f $recvfs
 log_must diff <(ls $send_mnt) <(ls $recv_mnt)

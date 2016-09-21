@@ -34,7 +34,6 @@
 #include <sys/spa.h>
 #include <sys/objlist.h>
 #include <sys/dsl_bookmark.h>
-#include <sys/dmu_redact.h>
 
 #define	BEGINNV_REDACT_SNAPS		"redact_snaps"
 #define	BEGINNV_REDACT_FROM_SNAPS	"redact_from_snaps"
@@ -48,11 +47,11 @@ struct avl_tree;
 struct dmu_replay_record;
 struct dmu_send_outparams;
 
-int
-dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
-    boolean_t large_block_ok, boolean_t compressok, uint64_t resumeobj,
-    uint64_t resumeoff, const char *redactbook, int outfd, offset_t *off,
-    struct dmu_send_outparams *dsop);
+int dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
+    boolean_t large_block_ok, boolean_t compressok,
+    uint64_t resumeobj, uint64_t resumeoff,
+    nvlist_t *redactsnaps, const char *redactbook, const char *redactlist_book,
+    int outfd, offset_t *off, struct dmu_send_outparams *dso);
 int dmu_send_estimate_fast(struct dsl_dataset *ds, struct dsl_dataset *fromds,
     zfs_bookmark_phys_t *frombook, boolean_t stream_compressed,
     uint64_t *sizep);
@@ -66,5 +65,32 @@ typedef struct dmu_send_outparams {
 	void			*dso_arg;
 	boolean_t		dso_dryrun;
 } dmu_send_outparams_t;
+
+#define	REDACT_BLOCK_MAX_COUNT (1ULL << 48)
+
+inline uint64_t
+redact_block_get_size(redact_block_phys_t *rbp)
+{
+	return (BF64_GET_SB((rbp)->rbp_size_count, 48, 16, SPA_MINBLOCKSHIFT,
+	    0));
+}
+
+inline void
+redact_block_set_size(redact_block_phys_t *rbp, uint64_t size)
+{
+	BF64_SET_SB((rbp)->rbp_size_count, 48, 16, SPA_MINBLOCKSHIFT, 0, size);
+}
+
+inline uint64_t
+redact_block_get_count(redact_block_phys_t *rbp)
+{
+	return (BF64_GET_SB((rbp)->rbp_size_count, 0, 48, 0, 1));
+}
+
+inline void
+redact_block_set_count(redact_block_phys_t *rbp, uint64_t count)
+{
+	BF64_SET_SB((rbp)->rbp_size_count, 0, 48, 0, 1, count);
+}
 
 #endif /* _DMU_SEND_H */

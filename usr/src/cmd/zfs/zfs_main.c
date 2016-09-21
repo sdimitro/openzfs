@@ -107,7 +107,6 @@ static int zfs_do_mooch(int argc, char **argv);
 static int zfs_do_bookmark(int argc, char **argv);
 static int zfs_do_remap(int argc, char **argv);
 static int zfs_do_channel_program(int argc, char **argv);
-static int zfs_do_redact(int argc, char **argv);
 
 /*
  * Enable a reasonable set of defaults for libumem debugging on DEBUG builds.
@@ -158,7 +157,6 @@ typedef enum {
 	HELP_REMAP,
 	HELP_BOOKMARK,
 	HELP_CHANNEL_PROGRAM,
-	HELP_REDACT
 } zfs_help_t;
 
 typedef struct zfs_command {
@@ -215,7 +213,6 @@ static zfs_command_t command_table[] = {
 	{ "diff",	zfs_do_diff,		HELP_DIFF		},
 	{ "mooch",	zfs_do_mooch,		HELP_MOOCH		},
 	{ "remap",	zfs_do_remap,		HELP_REMAP		},
-	{ "redact",	zfs_do_redact,		HELP_REDACT		}
 };
 
 #define	NCOMMAND	(sizeof (command_table) / sizeof (command_table[0]))
@@ -278,9 +275,12 @@ get_usage(zfs_help_t idx)
 		    "<snapshot>\n"
 		    "\tsend [-nvLe] [-i snapshot|bookmark] "
 		    "<filesystem|volume|snapshot>\n"
+		    "\tsend --redact snapshot[,...] [-DnPpvLec] "
+		    "[-i bookmark] <snapshot> <bookmark_name>\n"
 		    "\tsend [-DnPpvLec] [-i bookmark|snapshot] "
-		    "--redact <bookmark> <snapshot>\n"
-		    "\tsend [-nvPe] -t <receive_resume_token>]\n"));
+		    "--redact-bookmark <bookmark> <snapshot>\n"
+		    "\tsend [-nvPe] -t <receive_resume_token> [bookmark_name]"
+		    "\n"));
 	case HELP_SET:
 		return (gettext("\tset <property=value> ... "
 		    "<filesystem|volume|snapshot> ...\n"));
@@ -346,9 +346,6 @@ get_usage(zfs_help_t idx)
 		return (gettext("\tprogram [-t <timeout (ms)>] "
 		    "[-m <memory limit (b)>] <pool> <program file> "
 		    "[lua args...]\n"));
-	case HELP_REDACT:
-		return (gettext("\tredact <snapshot> <bookmark> "
-		    "<redaction_snapshot> ..."));
 	}
 
 	abort();
@@ -3325,73 +3322,6 @@ zfs_do_promote(int argc, char **argv)
 	return (ret);
 }
 
-static int
-zfs_do_redact(int argc, char **argv)
-{
-	char *snap = NULL;
-	char *bookname = NULL;
-	char **rsnaps = NULL;
-	int numrsnaps = 0;
-	argv++;
-	argc--;
-	if (argc < 3) {
-		(void) fprintf(stderr, gettext("too few arguments"));
-		usage(B_FALSE);
-	}
-
-	snap = argv[0];
-	bookname = argv[1];
-	rsnaps = argv + 2;
-	numrsnaps = argc - 2;
-
-	nvlist_t *rsnapnv = fnvlist_alloc();
-
-	for (int i = 0; i < numrsnaps; i++) {
-		fnvlist_add_boolean(rsnapnv, rsnaps[i]);
-	}
-
-	int err = lzc_redact(snap, bookname, rsnapnv);
-	fnvlist_free(rsnapnv);
-
-	switch (err) {
-	case 0:
-		break;
-	case ENOENT:
-		(void) fprintf(stderr,
-		    gettext("provided snapshot does not exist"), snap);
-		break;
-	case EEXIST:
-		(void) fprintf(stderr, gettext("specified redaction bookmark "
-		    "(%s) provided already exists"), bookname);
-		break;
-	case ENAMETOOLONG:
-		(void) fprintf(stderr, gettext("provided bookmark name cannot "
-		    "be used, final name would be too long"));
-		break;
-	case E2BIG:
-		(void) fprintf(stderr, gettext("too many redaction snapshots "
-		    "specified"));
-		break;
-	case EINVAL:
-		(void) fprintf(stderr, gettext("redaction snapshot must be "
-		    "descendent of snapshot being redacted"));
-		break;
-	case EALREADY:
-		(void) fprintf(stderr, gettext("attempted to redact redacted "
-		    "dataset or with respect to redacted dataset"));
-		break;
-	case ENOTSUP:
-		(void) fprintf(stderr, gettext("redaction bookmarks feature "
-		    "not enabled"));
-		break;
-	default:
-		(void) fprintf(stderr, gettext("internal error: %s"),
-		    strerror(errno));
-	}
-
-	return (err);
-}
-
 /*
  * zfs rollback [-rRf] <snapshot>
  *
@@ -3769,7 +3699,44 @@ usage:
 	return (-1);
 }
 
+/*
+ * Note: This function modifies snaps by replacing every comma with a null
+ * terminator to break it into substrings.
+ */
+static nvlist_t *
+parsesnaps(char *snaps)
+{
+	char *cur;
+	nvlist_t *list = NULL;
+
+	ASSERT3P(snaps, !=, NULL);
+
+	if (nvlist_alloc(&list, NV_UNIQUE_NAME, 0) != 0)
+		nomem();
+
+	if (snaps[0] == '\0')
+		return (list);
+
+	while ((cur = strsep(&snaps, ",")) != NULL) {
+		if (strlen(cur) == 0) {
+			(void) fprintf(stderr,
+			    gettext("Error: Empty snapshot name.\n"));
+			nvlist_free(list);
+			return (NULL);
+		} else if (strchr(cur, '@') == NULL) {
+			(void) fprintf(stderr, gettext("Error: Must redact "
+			    "with respect to a snapshot of a clone.\n"));
+			nvlist_free(list);
+			return (NULL);
+		}
+		(void) nvlist_add_boolean(list, cur);
+	}
+
+	return (list);
+}
+
 #define	REDACT_OPT	1024
+#define	REDACTB_OPT	1025
 /*
  * Send a backup stream to stdout.
  */
@@ -3784,11 +3751,12 @@ zfs_do_send(int argc, char **argv)
 	sendflags_t flags = { 0 };
 	int c, err;
 	nvlist_t *dbgnv = NULL;
-	char *redactbook = NULL;
+	lzc_redact_params_t lrp = {0};
 
 	struct option long_options[] = {
 		{"replicate",	no_argument,		NULL, 'R'},
-		{"redact-bookmark",	required_argument, NULL, REDACT_OPT},
+		{"redact",	required_argument,	NULL, REDACT_OPT},
+		{"redact-bookmark",	required_argument, NULL, REDACTB_OPT},
 		{"props",	no_argument,		NULL, 'p'},
 		{"parsable",	no_argument,		NULL, 'P'},
 		{"dedup",	no_argument,		NULL, 'D'},
@@ -3819,9 +3787,17 @@ zfs_do_send(int argc, char **argv)
 		case 'R':
 			flags.replicate = B_TRUE;
 			break;
-			break;
 		case REDACT_OPT:
-			redactbook = optarg;
+			lrp.lrp_type = LRP_LIST;
+			lrp.lrp_u.lro_list.lrol_redactsnaps =
+			    parsesnaps(optarg);
+			if (lrp.lrp_u.lro_list.lrol_redactsnaps == NULL)
+				usage(B_FALSE);
+			break;
+		case REDACTB_OPT:
+			lrp.lrp_type = LRP_BOOKMARK;
+			lrp.lrp_u.lro_bookmark.lrob_book_to_redact_with =
+			    optarg;
 			break;
 		case 'p':
 			flags.props = B_TRUE;
@@ -3900,15 +3876,26 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		if (fromname != NULL || flags.replicate || flags.props ||
-		    flags.dedup || redactbook != NULL) {
+		    flags.dedup || lrp.lrp_type != LRP_UNDEFINED) {
 			(void) fprintf(stderr,
 			    gettext("invalid flags combined with -t\n"));
 			usage(B_FALSE);
 		}
-		if (argc > 0) {
+		if (argc > 1) {
 			(void) fprintf(stderr, gettext("too many arguments\n"));
 			usage(B_FALSE);
 		}
+	} else if (lrp.lrp_type == LRP_LIST) {
+		if (argc < 2) {
+			(void) fprintf(stderr,
+			    gettext("missing bookmark argument\n"));
+			usage(B_FALSE);
+		}
+		if (argc > 2) {
+			(void) fprintf(stderr, gettext("too many arguments\n"));
+			usage(B_FALSE);
+		}
+		lrp.lrp_u.lro_list.lrol_book_to_create = argv[1];
 	} else {
 		if (argc < 1) {
 			(void) fprintf(stderr,
@@ -3921,6 +3908,19 @@ zfs_do_send(int argc, char **argv)
 		}
 	}
 
+	if (lrp.lrp_type == LRP_LIST) {
+		const char *redactbook = lrp.lrp_u.lro_list.lrol_book_to_create;
+		char *off = strrchr(redactbook, '#');
+		if ((off != NULL && off != redactbook) ||
+		    strchr(redactbook, '@') != NULL) {
+			(void) fprintf(stderr,
+			    gettext("invalid redaction bookmark name"));
+			usage(B_FALSE);
+		}
+		if (off != NULL && off == redactbook)
+			lrp.lrp_u.lro_list.lrol_book_to_create++;
+	}
+
 	if (!flags.dryrun && isatty(STDOUT_FILENO)) {
 		(void) fprintf(stderr,
 		    gettext("Error: Stream can not be written to a terminal.\n"
@@ -3930,7 +3930,7 @@ zfs_do_send(int argc, char **argv)
 
 	if (resume_token != NULL) {
 		return (zfs_send_resume(g_zfs, &flags, STDOUT_FILENO,
-		    resume_token));
+		    resume_token, argv[0]));
 	}
 
 	/*
@@ -3939,7 +3939,7 @@ zfs_do_send(int argc, char **argv)
 	if (!(flags.replicate || flags.doall)) {
 		char frombuf[ZFS_MAX_DATASET_NAME_LEN];
 
-		if (redactbook != NULL) {
+		if (lrp.lrp_type != LRP_UNDEFINED) {
 			if (strchr(argv[0], '@') == NULL) {
 				(void) fprintf(stderr, gettext("Error: Cannot "
 				    "do a redacted send to a filesystem.\n"));
@@ -3980,7 +3980,7 @@ zfs_do_send(int argc, char **argv)
 			fromname = frombuf;
 		}
 		err = zfs_send_one(zhp, fromname, STDOUT_FILENO, &flags,
-		    redactbook);
+		    (lrp.lrp_type != LRP_UNDEFINED ? &lrp : NULL));
 		zfs_close(zhp);
 		return (err != 0);
 	}
@@ -3992,7 +3992,7 @@ zfs_do_send(int argc, char **argv)
 		return (1);
 	}
 
-	if (redactbook != NULL) {
+	if (lrp.lrp_type != LRP_UNDEFINED) {
 		(void) fprintf(stderr, gettext("Error: multiple snapshots "
 		    "cannot be sent redacted.\n"));
 		return (1);

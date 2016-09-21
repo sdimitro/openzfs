@@ -46,8 +46,7 @@ log_onexit redacted_cleanup $sendfs $recvfs
 log_must dd if=/dev/urandom of=$clone_mnt/f1 bs=32k count=3 seek=8 conv=notrunc
 log_must zfs snapshot $clone@snap1
 
-log_must zfs redact $sendfs@snap book1 $clone@snap1
-log_must eval "zfs send -L --redact book1 $sendfs@snap >$stream"
+log_must eval "zfs send -L --redact $clone@snap1 $sendfs@snap book1 >$stream"
 log_must stream_has_features $stream redacted large_blocks
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE11"

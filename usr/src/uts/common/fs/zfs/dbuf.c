@@ -2443,21 +2443,32 @@ dbuf_create(dnode_t *dn, uint8_t level, uint64_t blkid,
 
 /*
  * This function returns a block pointer and information about the object,
- * given a dnode and a block.  This is a publicly accessible version of
- * dbuf_findbp that only returns some information, rather than the
- * dbuf.  Note that the dnode passed in must be held, and the dn_struct_rwlock
- * should be locked as (at least) a reader.
+ * given the data in a zbookmark_phys_t.
+ *
+ * This is different from dbuf_findbp in two ways: dbuf_findbp takes a
+ * dnode instead of an objset and object number, and dbuf_findbp returns with a
+ * dbuf held, while this just fills in the provided fields.
  */
 int
-dbuf_dnode_findbp(dnode_t *dn, uint64_t level, uint64_t blkid,
+dbuf_bookmark_findbp(objset_t *os, const zbookmark_phys_t *zb,
     blkptr_t *bp, uint16_t *datablkszsec, uint8_t *indblkshift)
 {
+	dnode_t *dn = NULL;
 	dmu_buf_impl_t *dbp = NULL;
 	blkptr_t *bp2;
 	int err = 0;
-	ASSERT(RW_LOCK_HELD(&dn->dn_struct_rwlock));
 
-	err = dbuf_findbp(dn, level, blkid, B_FALSE, &dbp, &bp2);
+	if (zb->zb_object == 0) {
+		zrl_add(&os->os_meta_dnode.dnh_zrlock);
+		dn = os->os_meta_dnode.dnh_dnode;
+	} else {
+		err = dnode_hold(os, zb->zb_object, FTAG, &dn);
+		if (err != 0)
+			return (err);
+	}
+	rw_enter(&dn->dn_struct_rwlock, RW_READER);
+	err = dbuf_findbp(dn, zb->zb_level, zb->zb_blkid, B_FALSE, &dbp, &bp2);
+	rw_exit(&dn->dn_struct_rwlock);
 	if (err == 0) {
 		*bp = *bp2;
 		if (dbp != NULL)
@@ -2467,6 +2478,11 @@ dbuf_dnode_findbp(dnode_t *dn, uint64_t level, uint64_t blkid,
 		if (indblkshift != NULL)
 			*indblkshift = dn->dn_phys->dn_indblkshift;
 	}
+
+	if (zb->zb_object != 0)
+		dnode_rele(dn, FTAG);
+	else
+		zrl_remove(&os->os_meta_dnode.dnh_zrlock);
 
 	return (err);
 }

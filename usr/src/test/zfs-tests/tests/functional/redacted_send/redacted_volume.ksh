@@ -46,8 +46,7 @@ log_must zfs clone $sendvol@snap $clone
 log_must zfs snapshot $clone@snap
 
 echo "zfs_allow_redacted_dataset_mount/W 1" | sudo mdb -kw
-log_must zfs redact $sendvol@snap book1 $clone@snap
-log_must eval "zfs send --redact book1 $sendvol@snap >$stream"
+log_must eval "zfs send --redact $clone@snap $sendvol@snap book1 >$stream"
 log_must eval "zfs recv $recvvol <$stream"
 log_must dd if=$send_file of=$tmpdir/send.dd bs=8k count=64
 log_must dd if=$recv_file of=$tmpdir/recv.dd bs=8k count=64
@@ -56,8 +55,7 @@ log_must zfs destroy -R $recvvol
 
 log_must dd if=/dev/urandom of=$clone_file bs=8k count=32
 log_must zfs snapshot $clone@snap1
-log_must zfs redact $sendvol@snap book2 $clone@snap1
-log_must eval "zfs send --redact book2 $sendvol@snap >$stream"
+log_must eval "zfs send --redact $clone@snap1 $sendvol@snap book2 >$stream"
 log_must eval "zfs recv $recvvol <$stream"
 for off in {0..31}; do
 	log_mustnot dd if=$recv_file of=/dev/null bs=8k seek=$off

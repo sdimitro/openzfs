@@ -60,15 +60,15 @@ log_must zfs create -o recsize=512 $POOL2/512
 log_must zfs create -o recsize=1m $POOL2/1m
 
 # Do the sends and verify the contents.
-log_must zfs redact $POOL/512@snap book1 $POOL/1mclone@snap
-log_must eval "zfs send --redact book1 $POOL/512@snap>$stream"
+log_must eval "zfs send --redact $POOL/1mclone@snap $POOL/512@snap \
+    book1 >$stream"
 log_must eval "zfs recv $POOL2/512/recva <$stream"
 compare_files $POOL/512 $POOL2/512/recva "f1" "$RANGE13"
 log_must eval "zfs recv $POOL2/1m/recvb <$stream"
 compare_files $POOL/512 $POOL2/1m/recvb "f1" "$RANGE13"
 
-log_must zfs redact $POOL/1m@snap book2 $POOL/512clone@snap
-log_must eval "zfs send --redact book2 $POOL/1m@snap >$stream"
+log_must eval "zfs send --redact $POOL/512clone@snap $POOL/1m@snap \
+    book2 >$stream"
 log_must eval "zfs recv $POOL2/512/recvc <$stream"
 compare_files $POOL/1m $POOL2/512/recvc "f1" "$RANGE11"
 log_must eval "zfs recv $POOL2/1m/recvd <$stream"

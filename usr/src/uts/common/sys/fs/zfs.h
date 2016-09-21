@@ -934,7 +934,6 @@ typedef enum zfs_ioc {
 	ZFS_IOC_REMAP,
 	ZFS_IOC_CHANNEL_PROGRAM,
 	ZFS_IOC_POOL_INITIALIZE,
-	ZFS_IOC_REDACT,
 	ZFS_IOC_LAST
 } zfs_ioc_t;
 

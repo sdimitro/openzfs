@@ -57,8 +57,7 @@ log_must dd if=/dev/urandom of=$clone_mnt/dir1/contents2 bs=512 count=1 \
 log_must dd if=/dev/urandom of=$clone_mnt/dir1/empty bs=512 count=1
 log_must zfs snapshot $clone@snap1
 
-log_must zfs redact $sendfs@snap book1 $clone@snap
-log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
+log_must eval "zfs send --redact $clone@snap $sendfs@snap book1 >$stream"
 log_must eval "zfs receive $recvfs <$stream"
 log_mustnot ismounted $recvfs
 log_mustnot mount_redacted $recvfs
@@ -66,8 +65,7 @@ log_mustnot ismounted $recvfs
 log_must mount_redacted -f $recvfs
 log_must ismounted $recvfs
 
-log_must zfs redact $sendvol@snap book2 $clonevol@snap
-log_must eval "zfs send --redact book2 $sendvol@snap >$stream"
+log_must eval "zfs send --redact $clonevol@snap $sendvol@snap book2 >$stream"
 log_must eval "zfs receive $recvvol <$stream"
 [[ -c $recv_vol_file ]] && log_fail "Volume device file should not exist."
 echo "zfs_allow_redacted_dataset_mount/W 1" | log_must mdb -kw

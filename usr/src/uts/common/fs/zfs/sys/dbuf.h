@@ -309,7 +309,7 @@ void dbuf_free_range(struct dnode *dn, uint64_t start, uint64_t end,
 
 void dbuf_new_size(dmu_buf_impl_t *db, int size, dmu_tx_t *tx);
 
-int dbuf_dnode_findbp(dnode_t *dn, uint64_t level, uint64_t blkid,
+int dbuf_bookmark_findbp(objset_t *os, const zbookmark_phys_t *zb,
     blkptr_t *bp, uint16_t *datablkszsec, uint8_t *indblkshift);
 
 #define	DB_DNODE(_db)		((_db)->db_dnode_handle->dnh_dnode)

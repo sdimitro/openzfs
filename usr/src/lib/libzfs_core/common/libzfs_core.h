@@ -49,6 +49,7 @@ int lzc_get_bookmark_props(const char *, nvlist_t **);
 int lzc_destroy_bookmarks(nvlist_t *, nvlist_t **);
 int lzc_initialize(const char *, pool_initialize_func_t, nvlist_t *,
     nvlist_t **);
+int lzc_redact(const char *, const char *, nvlist_t *);
 
 int lzc_snaprange_space(const char *, const char *, uint64_t *);
 
@@ -62,38 +63,19 @@ enum lzc_send_flags {
 	LZC_SEND_FLAG_COMPRESS = 1 << 2
 };
 
-typedef struct lzc_redact_params {
-	enum {LRP_UNDEFINED = 0, LRP_LIST, LRP_BOOKMARK} lrp_type;
-	union {
-		struct lro_list {
-			/* List of snapshots to redact with respect to. */
-			nvlist_t *lrol_redactsnaps;
-			/* Name of redaction bookmark to create. */
-			const char *lrol_book_to_create;
-		} lro_list;
-		struct lro_bookmark {
-			/*
-			 * Name of redaction bookmark that already contains a
-			 * redaction list and redaction snapshots.
-			 */
-			const char *lrob_book_to_redact_with;
-		} lro_bookmark;
-	} lrp_u;
-} lzc_redact_params_t;
-
 int lzc_send(const char *, const char *, int, enum lzc_send_flags);
 int lzc_send_resume(const char *, const char *, int,
     enum lzc_send_flags, uint64_t, uint64_t);
 int lzc_send_redacted(const char *, const char *, int, enum lzc_send_flags,
-    lzc_redact_params_t *);
+    const char *);
 int lzc_send_resume_redacted(const char *, const char *, int,
-    enum lzc_send_flags, uint64_t, uint64_t, lzc_redact_params_t *);
+    enum lzc_send_flags, uint64_t, uint64_t, const char *);
 int lzc_receive(const char *, nvlist_t *, const char *, boolean_t, int);
 int lzc_receive_resumable(const char *, nvlist_t *, const char *,
     boolean_t, int);
 int lzc_send_space(const char *, const char *, enum lzc_send_flags, uint64_t *);
 int lzc_send_space_resume_redacted(const char *, const char *,
-    enum lzc_send_flags, uint64_t, uint64_t, uint64_t, lzc_redact_params_t *,
+    enum lzc_send_flags, uint64_t, uint64_t, uint64_t, const char *,
     int, uint64_t *);
 uint64_t lzc_send_progress(int);
 

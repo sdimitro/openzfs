@@ -43,8 +43,9 @@ typeset recv_mnt="/$POOL2/$ds_name"
 log_onexit redacted_cleanup $sendfs $recvfs $POOL2/rfs
 
 # Setup a redacted send using a redaction list at varying depth.
-typeset snaps=$POOL/rm@snap,$POOL/stride3@snap,$POOL/stride5@snap
-log_must eval "zfs send --redact \"$snaps\" $sendfs@snap0 book1 >$stream"
+log_must zfs redact $sendfs@snap0 book1 $POOL/rm@snap $POOL/stride3@snap \
+     $POOL/stride5@snap
+log_must eval "zfs send --redact book1 $sendfs@snap0 >$stream"
 log_must eval "zfs receive $POOL2/rfs <$stream"
 
 # Verify receipt of normal incrementals to redaction list members.
@@ -61,23 +62,13 @@ log_mustnot eval "zfs recv $POOL2/rhole@snap <$stream"
 
 # Verify we can receive an intermediate clone redacted with respect to a
 # subset of the original redaction list.
-log_must eval "zfs send -i $sendfs@snap0 --redact $POOL/rm@snap \
-    $POOL/int@snap book2 >$stream"
+log_must zfs redact $POOL/int@snap book2 $POOL/rm@snap
+log_must eval "zfs send -i $sendfs@snap0 --redact book2 $POOL/int@snap >$stream"
 log_must eval "zfs recv $POOL2/rint <$stream"
-compare_files $POOL/int $POOL2/rint "f2" "$RANGE3"
+compare_files $POOL/int $POOL2/rint "f1" "$RANGE0"
+compare_files $POOL/int $POOL2/rint "f2" "$RANGE15"
+compare_files $POOL/int $POOL2/rint "d1/f1" "$RANGE16"
 log_must mount_redacted -f $POOL2/rint
-log_must diff -r /$POOL2/rint/d1 /$POOL/int/d1
-log_must diff  /$POOL2/rint/f1 /$POOL/int/f1
-
-# Which includes the empty redaction list.
-log_must eval "zfs send -i $sendfs@snap0 --redact '' $POOL/int@snap \
-    book3 >$stream"
-log_must eval "zfs recv $POOL2/rint1 <$stream"
-compare_files $POOL/int $POOL2/rint1 "f2" "$RANGE3"
-log_must mount_redacted -f $POOL2/rint1
-log_must diff -r /$POOL2/rint1/d1 /$POOL/int/d1
-log_must diff /$POOL2/rint1/f1 /$POOL/int/f1
-log_must zfs destroy -R $POOL2/rint1
 
 # Verify we can receive grandchildren on the child.
 log_must eval "zfs send -i $POOL/int@snap $POOL/rm@snap >$stream"
@@ -90,14 +81,13 @@ log_mustnot eval "zfs recv $POOL2/rwrite<$stream"
 
 # Verify we cannot receive an intermediate clone that isn't redacted with
 # respect to a subset of the original redaction list.
-log_must eval "zfs send -i $sendfs@snap0 --redact \
-    $POOL/rm@snap,$POOL/write@snap $POOL/int@snap book4 >$stream"
+log_must zfs redact $POOL/int@snap book4 $POOL/rm@snap $POOL/write@snap
+log_must eval "zfs send -i $sendfs@snap0 --redact book4 $POOL/int@snap >$stream"
 log_mustnot eval "zfs recv $POOL2/rint <$stream"
-log_must eval "zfs send -i $sendfs@snap0 --redact $POOL/write@snap \
-    $POOL/int@snap book5 >$stream"
+log_must zfs redact $POOL/int@snap book5 $POOL/write@snap
+log_must eval "zfs send -i $sendfs@snap0 --redact book5 $POOL/int@snap >$stream"
 log_mustnot eval "zfs recv $POOL2/rint <$stream"
-log_mustnot eval "zfs send -i $sendfs@snap0 --redact $POOL/hole@snap \
-    $POOL/int@snap book6 >$stream"
+log_mustnot zfs redact $POOL/int@snap book6 $POOL/hole@snap
 
 # Verify we can receive a full clone of the grandchild on the child.
 log_must eval "zfs send $POOL/write@snap >$stream"
@@ -129,13 +119,14 @@ log_must dd if=/dev/urandom of=$mntpnt/f2 bs=128k count=16 conv=notrunc
 log_must zfs snapshot $POOL/write2@snap
 
 # Setup a redacted send using a redaction list at varying depth.
-snaps=$POOL/rm@snap,$POOL/stride3@snap,$POOL/stride5@snap
-log_must eval "zfs send --redact \"$snaps\" $sendfs@snap0 book7 >$stream"
+log_must zfs redact $sendfs@snap0 book7 $POOL/rm@snap $POOL/stride3@snap \
+     $POOL/stride5@snap
+log_must eval "zfs send --redact book7 $sendfs@snap0 >$stream"
 log_must eval "zfs receive $POOL2/rfs <$stream"
 
 # Verify we can receive a redacted incremental sending from the bookmark.
-log_must eval "zfs send -i $sendfs#book7 --redact $POOL/write1@snap \
-    $sendfs@snap1 book8 >$stream"
+log_must zfs redact $sendfs@snap1 book8 $POOL/write1@snap
+log_must eval "zfs send -i $sendfs#book7 --redact book8 $sendfs@snap1 >$stream"
 log_must eval "zfs receive $POOL2/rfs <$stream"
 # The stride3 and stride5 snaps redact 3 128k blocks at block offsets 0 15 and
 # 30 of f2. The write1 snap only covers the first two of those three blocks.
@@ -153,8 +144,8 @@ log_must diff -r /$POOL/hole1 /$POOL2/rhole1
 
 # Verify we can receive an intermediate clone redacted with respect to a
 # non-subset if we send from the bookmark.
-log_must eval "zfs send -i $sendfs#book7 --redact $POOL/write2@snap \
-    $POOL/int@snap book9 >$stream"
+log_must zfs redact $POOL/int@snap book9 $POOL/write2@snap
+log_must eval "zfs send -i $sendfs#book7 --redact book9 $POOL/int@snap >$stream"
 log_must eval "zfs receive $POOL2/rint <$stream"
 compare_files $sendfs $POOL2/rint "f2" "$RANGE12"
 

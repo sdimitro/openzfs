@@ -58,12 +58,11 @@ done
 
 # The limit isn't necessarily 32 snapshots. The maximum number of snapshots in
 # the redacted list is determined in dsl_bookmark_create_redacted_check().
-redaction_list=$(echo $clone{1..32}@snap | sed 's/ /,/g')
-log_must eval "zfs send --redact $redaction_list $sendfs@snap book1 >$stream"
+log_must zfs redact $sendfs@snap book1 $clone{1..32}@snap
+log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f2" "$RANGE8"
 
-redaction_list+=",$(echo $clone{33..64}@snap | sed 's/ /,/g')"
-log_mustnot eval "zfs send --redact $redaction_list $sendfs@snap book2 >$stream"
+log_mustnot zfs redact $sendfs@snap book2 $clone{1..64}@snap
 
 log_pass "Redacted send can deal with a large redaction list."

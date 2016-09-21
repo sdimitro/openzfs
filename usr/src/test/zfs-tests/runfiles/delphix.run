@@ -466,7 +466,7 @@ tests = ['quota_001_pos', 'quota_002_pos', 'quota_003_pos', 'quota_004_pos',
     'quota_005_pos', 'quota_006_neg']
 
 [/opt/zfs-tests/tests/functional/redacted_send]
-tests = ['redacted_booksend', 'redacted_compressed', 'redacted_contents',
+tests = ['redacted_compressed', 'redacted_contents',
     'redacted_disabled_feature', 'redacted_deleted', 'redacted_embedded',
     'redacted_holes', 'redacted_incrementals', 'redacted_largeblocks',
     'redacted_many_clones', 'redacted_mixed_recsize', 'redacted_mounts',

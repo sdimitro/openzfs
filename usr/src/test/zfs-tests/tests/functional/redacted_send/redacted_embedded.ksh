@@ -46,7 +46,8 @@ typeset recsize send_obj recv_obj
 
 log_onexit redacted_cleanup $sendfs $recvfs
 
-log_must eval "zfs send -e --redact $clone@snap $sendfs@snap book1 >$stream"
+log_must zfs redact $sendfs@snap book1 $clone@snap
+log_must eval "zfs send -e --redact book1 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must stream_has_features $stream redacted embed_data
 
@@ -73,7 +74,8 @@ for recsize in 512 2048 8192; do
 	log_must dd if=/dev/urandom of=$clone_mnt/$recsize bs=$recsize count=1
 done
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send -e --redact $clone@snap1 $sendfs@snap book2 >$stream"
+log_must zfs redact $sendfs@snap book2 $clone@snap1
+log_must eval "zfs send -e --redact book2 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must stream_has_features $stream redacted embed_data
 

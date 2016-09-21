@@ -31,17 +31,21 @@
 
 ds_name="sizes"
 typeset sendfs="$POOL/$ds_name"
+typeset clone="$POOL/${ds_name}_clone2"
 setup_dataset $ds_name "-o compress=lz4"
 typeset tmpdir="$(get_prop mountpoint $POOL)/tmp"
 typeset size=$(mktemp $tmpdir/size.XXXX)
 typeset size2=$(mktemp $tmpdir/size.XXXX)
 
-log_onexit redacted_cleanup $sendfs
-
-log_must eval "zfs send -nvP --redact '' $sendfs@snap book | \
+log_onexit redacted_cleanup $sendfs $clone
+log_must zfs clone $sendfs@snap $clone
+typeset clone_mnt="$(get_prop mountpoint $clone)"
+log_must rm -rf $clone_mnt/*
+log_must zfs snapshot $clone@snap
+log_must zfs redact $sendfs@snap book $clone@snap
+log_must eval "zfs send -nvP --redact book $sendfs@snap | \
     grep '^size' | awk '{print \$2}' >$size"
-log_must zfs destroy ${sendfs}#book
-log_must eval "zfs send --redact '' $sendfs@snap book | wc --bytes \
+log_must eval "zfs send --redact book $sendfs@snap | wc --bytes \
     >$size2"
 bytes1=$(cat $size | tr -d '[[:space:]]')
 bytes2=$(cat $size2 | tr -d '[[:space:]]')

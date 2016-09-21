@@ -2191,8 +2191,6 @@ file path=opt/zfs-tests/tests/functional/redacted_send/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted.cfg mode=0444
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted.kshlib \
     mode=0444
-file path=opt/zfs-tests/tests/functional/redacted_send/redacted_booksend \
-    mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted_compressed \
     mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted_contents \

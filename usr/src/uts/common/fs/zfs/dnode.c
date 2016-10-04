@@ -1612,7 +1612,13 @@ dnode_dirty_l1range(dnode_t *dn, uint64_t start_blkid, uint64_t end_blkid,
 	for (; db != NULL; db = AVL_NEXT(&dn->dn_dbufs, db)) {
 		if (db->db_level != 1 || db->db_blkid >= end_blkid)
 			break;
-		ASSERT(db->db_dirtycnt > 0);
+		/*
+		 * If the dbuf is evicting, we can't have marked it dirty in the
+		 * previous loop, and the dirty count will always be zero.  If
+		 * it isn't, we should have dirtied it in the previous loop.
+		 */
+		if (db->db_state != DB_EVICTING)
+			ASSERT(db->db_dirtycnt > 0);
 	}
 #endif
 	mutex_exit(&dn->dn_dbufs_mtx);

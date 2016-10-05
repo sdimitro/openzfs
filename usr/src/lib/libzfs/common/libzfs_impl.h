@@ -203,6 +203,7 @@ void namespace_clear(libzfs_handle_t *);
  */
 
 extern int zfs_init_libshare(libzfs_handle_t *, int);
+extern int zfs_init_libshare_arg(libzfs_handle_t *, int, void *);
 extern void zfs_uninit_libshare(libzfs_handle_t *);
 extern int zfs_parse_options(char *, zfs_share_proto_t);
 

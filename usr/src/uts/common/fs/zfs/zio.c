@@ -2488,8 +2488,10 @@ static boolean_t
 zio_ddt_collision(zio_t *zio, ddt_t *ddt, ddt_entry_t *dde)
 {
 	spa_t *spa = zio->io_spa;
+	boolean_t do_raw = (zio->io_flags & ZIO_FLAG_RAW);
 
-	ASSERT0(zio->io_flags & ZIO_FLAG_RAW);
+	/* We should never get a raw, override zio */
+	ASSERT(!(zio->io_bp_override && do_raw));
 
 	/*
 	 * Note: we compare the original data, not the transformed data,
@@ -2512,6 +2514,7 @@ zio_ddt_collision(zio_t *zio, ddt_t *ddt, ddt_entry_t *dde)
 		if (ddp->ddp_phys_birth != 0) {
 			arc_buf_t *abuf = NULL;
 			arc_flags_t aflags = ARC_FLAG_WAIT;
+			int zio_flags = ZIO_FLAG_CANFAIL | ZIO_FLAG_SPECULATIVE;
 			blkptr_t blk = *zio->io_bp;
 			int error;
 
@@ -2519,10 +2522,24 @@ zio_ddt_collision(zio_t *zio, ddt_t *ddt, ddt_entry_t *dde)
 
 			ddt_exit(ddt);
 
+			/*
+			 * Intuitively, it would make more sense to compare
+			 * io_abd than io_orig_abd in the raw case since you
+			 * don't want to look at any transformations that have
+			 * happened to the data. However, for raw I/Os the
+			 * data will actually be the same in io_abd and
+			 * io_orig_abd, so all we have to do is issue this as
+			 * a raw ARC read.
+			 */
+			if (do_raw) {
+				zio_flags |= ZIO_FLAG_RAW;
+				ASSERT0(abd_cmp(zio->io_abd, zio->io_orig_abd));
+				ASSERT3P(zio->io_transform_stack, ==, NULL);
+			}
+
 			error = arc_read(NULL, spa, &blk,
 			    arc_getbuf_func, &abuf, ZIO_PRIORITY_SYNC_READ,
-			    ZIO_FLAG_CANFAIL | ZIO_FLAG_SPECULATIVE,
-			    &aflags, &zio->io_bookmark);
+			    zio_flags, &aflags, &zio->io_bookmark);
 
 			if (error == 0) {
 				if (arc_buf_size(abuf) != zio->io_orig_size ||
@@ -2637,7 +2654,7 @@ zio_ddt_write(zio_t *zio)
 	ASSERT(BP_GET_DEDUP(bp));
 	ASSERT(BP_GET_CHECKSUM(bp) == zp->zp_checksum);
 	ASSERT(BP_IS_HOLE(bp) || zio->io_bp_override);
-	ASSERT0(zio->io_flags & ZIO_FLAG_RAW);
+	ASSERT(!(zio->io_bp_override && (zio->io_flags & ZIO_FLAG_RAW)));
 
 	ddt_enter(ddt);
 	dde = ddt_lookup(ddt, bp, B_TRUE);

@@ -2379,6 +2379,7 @@ file path=opt/zfs-tests/tests/functional/rsend/send-c_lz4_disabled mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/send-c_mixed_compression \
     mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/send-c_props mode=0555
+file path=opt/zfs-tests/tests/functional/rsend/send-c_recv_dedup mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/send-c_recv_lz4_disabled \
     mode=0555
 file path=opt/zfs-tests/tests/functional/rsend/send-c_resume mode=0555

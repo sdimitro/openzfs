@@ -141,9 +141,11 @@ usage(void)
 	    "       %s -E [-A] word0:word1:...:word15\n"
 	    "       %s -S [-PA] [-e [-p path...]] [-U config] poolname\n"
 	    "       %s -l [-uA] device\n"
-	    "       %s -C [-A] [-U config]\n\n",
+	    "       %s -C [-A] [-U config]\n"
+	    "       %s [-v] bookmark\n"
+	    "\n",
 	    cmdname, cmdname, cmdname, cmdname, cmdname, cmdname,
-	    cmdname, cmdname);
+	    cmdname, cmdname, cmdname);
 
 	(void) fprintf(stderr, "    Dataset name must include at least one "
 	    "separator character '/' or '@'\n");
@@ -1694,113 +1696,124 @@ dump_full_bpobj(bpobj_t *bpo, char *name, int indent)
 	}
 }
 
+static int
+dump_bookmark(dsl_pool_t *dp, char *name, boolean_t print_redact,
+    boolean_t print_list)
+{
+	int err = 0;
+	zfs_bookmark_phys_t prop;
+	objset_t *mos = dp->dp_spa->spa_meta_objset;
+	err = dsl_bookmark_lookup(dp, name, NULL, &prop);
+
+	if (err != 0) {
+		return (err);
+	}
+
+	(void) printf("\t#%s: ", strchr(name, '#') + 1);
+	(void) printf("{guid: %llx creation_txg: %llu creation_time: "
+	    "%llu redaction_obj: %llu}\n", (u_longlong_t)prop.zbm_guid,
+	    (u_longlong_t)prop.zbm_creation_txg,
+	    (u_longlong_t)prop.zbm_creation_time,
+	    (u_longlong_t)prop.zbm_redaction_obj);
+
+	IMPLY(print_list, print_redact);
+	if (!print_redact || prop.zbm_redaction_obj == 0)
+		return (0);
+
+	redaction_list_t *rl;
+	VERIFY0(dsl_redaction_list_hold_obj(dp,
+	    prop.zbm_redaction_obj, FTAG, &rl));
+
+	redaction_list_phys_t *rlp = rl->rl_phys;
+	(void) printf("\tRedacted:\n\t\tProgress: ");
+	if (rlp->rlp_last_object != UINT64_MAX ||
+	    rlp->rlp_last_blkid != UINT64_MAX) {
+		(void) printf("%llu %llu (incomplete)\n",
+		    (u_longlong_t)rlp->rlp_last_object,
+		    (u_longlong_t)rlp->rlp_last_blkid);
+	} else {
+		(void) printf("complete\n");
+	}
+	(void) printf("\t\tSnapshots: [");
+	for (int i = 0; i < rlp->rlp_num_snaps; i++) {
+		if (i > 0)
+			(void) printf(", ");
+		(void) printf("%0llu",
+		    (u_longlong_t)rlp->rlp_snaps[i]);
+	}
+	(void) printf("]\n\t\tLength: %llu\n",
+	    (u_longlong_t)rlp->rlp_num_entries);
+
+	if (!print_list) {
+		dsl_redaction_list_rele(rl, FTAG);
+		return (0);
+	}
+
+	if (rlp->rlp_num_entries == 0) {
+		dsl_redaction_list_rele(rl, FTAG);
+		(void) printf("\t\tRedaction List: []\n\n");
+		return (0);
+	}
+
+	redact_block_phys_t *rbp_buf;
+	uint64_t size;
+	dmu_object_info_t doi;
+
+	VERIFY0(dmu_object_info(mos, prop.zbm_redaction_obj, &doi));
+	size = doi.doi_max_offset;
+	rbp_buf = kmem_alloc(size, KM_SLEEP);
+
+	err = dmu_read(mos, prop.zbm_redaction_obj, 0, size,
+	    rbp_buf, 0);
+	if (err != 0) {
+		dsl_redaction_list_rele(rl, FTAG);
+		kmem_free(rbp_buf, size);
+		return (err);
+	}
+
+	(void) printf("\t\tRedaction List: [{object: %llx, offset: "
+	    "%llx, blksz: %x, count: %llx}",
+	    (u_longlong_t)rbp_buf[0].rbp_object,
+	    (u_longlong_t)rbp_buf[0].rbp_blkid,
+	    (uint_t)(redact_block_get_size(&rbp_buf[0])),
+	    (u_longlong_t)redact_block_get_count(&rbp_buf[0]));
+
+	for (size_t i = 1; i < rlp->rlp_num_entries; i++) {
+		(void) printf(",\n\t\t{object: %llx, offset: %llx, "
+		    "blksz: %x, count: %llx}",
+		    (u_longlong_t)rbp_buf[i].rbp_object,
+		    (u_longlong_t)rbp_buf[i].rbp_blkid,
+		    (uint_t)(redact_block_get_size(&rbp_buf[i])),
+		    (u_longlong_t)redact_block_get_count(&rbp_buf[i]));
+	}
+	dsl_redaction_list_rele(rl, FTAG);
+	kmem_free(rbp_buf, size);
+	(void) printf("]\n\n");
+	return (0);
+}
+
 static void
 dump_bookmarks(objset_t *os, const char *osname, int verbosity)
 {
 	zap_cursor_t zc;
 	zap_attribute_t attr;
 	dsl_dataset_t *ds = dmu_objset_ds(os);
+	dsl_pool_t *dp = spa_get_dsl(os->os_spa);
 	objset_t *mos = os->os_spa->spa_meta_objset;
 	if (verbosity < 4)
 		return;
+	VERIFY0(dsl_pool_hold(osname, FTAG, &dp));
 
 	for (zap_cursor_init(&zc, mos, ds->ds_bookmarks_obj);
 	    zap_cursor_retrieve(&zc, &attr) == 0;
 	    zap_cursor_advance(&zc)) {
 		char buf[ZFS_MAX_DATASET_NAME_LEN];
-		zfs_bookmark_phys_t prop;
-		dsl_pool_t *dp;
-
 		(void) snprintf(buf, sizeof (buf), "%s#%s", osname,
 		    attr.za_name);
-		VERIFY0(dsl_pool_hold(buf, FTAG, &dp));
-		VERIFY0(dsl_bookmark_lookup(dp, buf, NULL, &prop));
-
-		(void) printf("\t#%s: ", attr.za_name);
-		(void) printf("{guid: %llx creation_txg: %llu creation_time: "
-		    "%llu redaction_obj: %llu}\n", (u_longlong_t)prop.zbm_guid,
-		    (u_longlong_t)prop.zbm_creation_txg,
-		    (u_longlong_t)prop.zbm_creation_time,
-		    (u_longlong_t)prop.zbm_redaction_obj);
-
-		if (verbosity < 5 || prop.zbm_redaction_obj == 0) {
-			dsl_pool_rele(dp, FTAG);
-			continue;
-		}
-
-		redaction_list_t *rl;
-		VERIFY0(dsl_redaction_list_hold_obj(dp,
-		    prop.zbm_redaction_obj, FTAG, &rl));
-
-		redaction_list_phys_t *rlp = rl->rl_phys;
-		(void) printf("\tRedacted:\n\t\tProgress: ");
-		if (rlp->rlp_last_object != UINT64_MAX ||
-		    rlp->rlp_last_blkid != UINT64_MAX) {
-			(void) printf("%llu %llu (incomplete)\n",
-			    (u_longlong_t)rlp->rlp_last_object,
-			    (u_longlong_t)rlp->rlp_last_blkid);
-		} else {
-			(void) printf("complete\n");
-		}
-		(void) printf("\t\tSnapshots: [");
-		for (int i = 0; i < rlp->rlp_num_snaps; i++) {
-			if (i > 0)
-				(void) printf(", ");
-			(void) printf("%0llu",
-			    (u_longlong_t)rlp->rlp_snaps[i]);
-		}
-		(void) printf("]\n\t\tLength: %llu\n",
-		    (u_longlong_t)rlp->rlp_num_entries);
-
-		if (verbosity < 6 || prop.zbm_redaction_obj == 0) {
-			dsl_redaction_list_rele(rl, FTAG);
-			dsl_pool_rele(dp, FTAG);
-			continue;
-		}
-
-		redact_block_phys_t *rbp_buf;
-		uint64_t size;
-		dmu_object_info_t doi;
-
-		VERIFY0(dmu_object_info(mos, prop.zbm_redaction_obj, &doi));
-		size = doi.doi_max_offset;
-		rbp_buf = kmem_alloc(size, KM_SLEEP);
-
-		int err = dmu_read(mos, prop.zbm_redaction_obj, 0, size,
-		    rbp_buf, 0);
-		if (err != 0) {
-			dsl_redaction_list_rele(rl, FTAG);
-			(void) printf("got error %u from dmu_read\n", err);
-			kmem_free(rbp_buf, size);
-			continue;
-		}
-
-		if (size == 0) {
-			dsl_redaction_list_rele(rl, FTAG);
-			(void) printf("\t\tRedaction List: []\n\n");
-			continue;
-		}
-		(void) printf("\t\tRedaction List: [{object: %llx, offset: "
-		    "%llx, blksz: %x, count: %llx}",
-		    (u_longlong_t)rbp_buf[0].rbp_object,
-		    (u_longlong_t)rbp_buf[0].rbp_blkid,
-		    (uint_t)(redact_block_get_size(&rbp_buf[0])),
-		    (u_longlong_t)redact_block_get_count(&rbp_buf[0]));
-
-		for (size_t i = 1; i < rlp->rlp_num_entries; i++) {
-			(void) printf(",\n\t\t{object: %llx, offset: %llx, "
-			    "blksz: %x, count: %llx}",
-			    (u_longlong_t)rbp_buf[i].rbp_object,
-			    (u_longlong_t)rbp_buf[i].rbp_blkid,
-			    (uint_t)(redact_block_get_size(&rbp_buf[i])),
-			    (u_longlong_t)redact_block_get_count(&rbp_buf[i]));
-		}
-		dsl_redaction_list_rele(rl, FTAG);
-		dsl_pool_rele(dp, FTAG);
-		(void) printf("]\n\n");
-		kmem_free(rbp_buf, size);
+		(void) dump_bookmark(dp, buf, verbosity >= 5, verbosity >= 6);
 	}
 	zap_cursor_fini(&zc);
+	dsl_pool_rele(dp, FTAG);
 }
 
 static void
@@ -4638,6 +4651,20 @@ main(int argc, char **argv)
 					    FTAG, policy, NULL);
 				}
 			}
+		} else if (strpbrk(target, "#") != NULL) {
+			dsl_pool_t *dp;
+			error = dsl_pool_hold(target, FTAG, &dp);
+			if (error != 0) {
+				fatal("can't dump '%s': %s", target,
+				    strerror(error));
+			}
+			error = dump_bookmark(dp, target, B_TRUE, verbose > 1);
+			dsl_pool_rele(dp, FTAG);
+			if (error != 0) {
+				fatal("can't dump '%s': %s", target,
+				    strerror(error));
+			}
+			return (error);
 		} else {
 			/*
 			 * We can't own an objset if it's redacted.  Therefore,

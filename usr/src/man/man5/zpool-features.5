@@ -446,6 +446,29 @@ on a top-level vdev, and will never return to being \fBenabled\fR.
 .sp
 .ne 2
 .na
+\fB\fBobsolete_counts\fR\fR
+.ad
+.RS 4n
+.TS
+l l .
+GUID	com.delphix:obsolete_counts
+READ\-ONLY COMPATIBLE	yes
+DEPENDENCIES	device_removal
+.TE
+
+This feature is an enhancement of device_removal, which will over time
+reduce the memory used to track removed devices.  When indirect blocks
+are freed or remapped, we note that their part of the indirect mapping
+is "obsolete", i.e. no longer needed.  See also the \fBzfs remap\fR
+subcommand in \fBzfs\fR(1M).
+
+This feature becomes \fBactive\fR when the "zpool remove" command is
+used on a top-level vdev, and will never return to being \fBenabled\fR.
+
+.RE
+.sp
+.ne 2
+.na
 \fB\fBmooch_byteswap\fR\fR
 .ad
 .RS 4n

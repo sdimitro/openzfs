@@ -21,6 +21,10 @@
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
  */
+/*
+ * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ */
+
 
 /*
  * XML document manipulation routines
@@ -580,9 +584,7 @@ lxml_store_value(value_t *v, element_t type, const xmlChar *value)
 	case SC_USTRING:
 		scf_type = lxml_element_to_type(type);
 
-		if ((v->sc_u.sc_string = strdup((char *)value)) == NULL)
-			uu_die(gettext("string duplication failed (%s)\n"),
-			    strerror(errno));
+		v->sc_u.sc_string = safe_strdup((const char *)value);
 		if (lxml_validate_string_value(scf_type,
 		    v->sc_u.sc_string) != 0)
 			uu_die(gettext("illegal value \"%s\" for "
@@ -1370,7 +1372,7 @@ lxml_get_entity_stability(entity_t *entity, xmlNodePtr rstr)
 	if (((stabval = xmlGetProp(rstr, (xmlChar *)value_attr)) == NULL) ||
 	    (*stabval == 0)) {
 		uu_warn(gettext("no stability value found\n"));
-		stabval = (xmlChar *)strdup("External");
+		stabval = (xmlChar *)safe_strdup("External");
 	}
 
 	pg = internal_pgroup_find_or_create(entity, (char *)scf_pg_general,
@@ -1438,8 +1440,7 @@ lxml_get_paramval(pgroup_t *pgrp, const char *propname, xmlNodePtr pval)
 	char *value;
 	char *prop;
 
-	if ((prop = strdup(propname)) == NULL)
-		uu_die(gettext("Out of memory.\n"));
+	prop = safe_strdup(propname);
 
 	value = (char *)xmlGetProp(pval, (xmlChar *)value_attr);
 	if (value == NULL || *value == '\0')
@@ -1455,8 +1456,7 @@ lxml_get_parameter(pgroup_t *pgrp, const char *propname, xmlNodePtr param)
 {
 	property_t *p = internal_property_new();
 
-	if ((p->sc_property_name = strdup(propname)) == NULL)
-		uu_die(gettext("Out of memory.\n"));
+	p->sc_property_name = safe_strdup(propname);
 	p->sc_value_type = SCF_TYPE_ASTRING;
 
 	(void) lxml_get_value(p, SC_ASTRING, param);
@@ -1707,8 +1707,7 @@ lxml_get_loctext(entity_t *service, pgroup_t *pg, xmlNodePtr loctext,
 	/*
 	 * Remove leading and trailing whitespace.
 	 */
-	if ((stripped = strdup((const char *)cursor->content)) == NULL)
-		uu_die(gettext("Out of memory\n"));
+	stripped = safe_strdup((const char *)cursor->content);
 
 	for (; isspace(*stripped); stripped++)
 		;
@@ -1958,8 +1957,6 @@ lxml_label_to_groupname(const char *prefix, const char *in)
 		(void) strncpy(out + piece_len, "..", 2);
 
 		(void) strcpy(out + piece_len + 2, out + (len - piece_len));
-
-		len = strlen(out);
 	}
 
 	/*
@@ -1969,8 +1966,6 @@ lxml_label_to_groupname(const char *prefix, const char *in)
 		if (!(isalnum(*cp) || *cp == '_' || *cp == '-'))
 			*cp = '_';
 	}
-
-	*cp = '\0';
 
 	return (out);
 }
@@ -2035,9 +2030,7 @@ seps_to_prop_values(property_t **p, xmlChar *seps)
 		v->sc_type = (*p)->sc_value_type;
 		v->sc_free = lxml_free_str;
 		val_str[0] = *seps;
-		v->sc_u.sc_string = strdup(val_str);
-		if (v->sc_u.sc_string == NULL)
-			uu_die(gettext("Out of memory\n"));
+		v->sc_u.sc_string = safe_strdup(val_str);
 		internal_attach_value(*p, v);
 	}
 }
@@ -2087,8 +2080,8 @@ lxml_get_tm_manpage(entity_t *service, xmlNodePtr manpage)
 	xmlChar *section;
 
 	/*
-	 * Fetch title attribute, convert to something sanitized, and create
-	 * property group.
+	 * Fetch title and section attributes, convert to something sanitized,
+	 * and create property group.
 	 */
 	title = xmlGetProp(manpage, (xmlChar *)title_attr);
 	if (title == NULL)
@@ -2100,15 +2093,30 @@ lxml_get_tm_manpage(entity_t *service, xmlNodePtr manpage)
 	}
 
 	name = safe_malloc(max_scf_name_len + 1);
-	(void) snprintf(name, max_scf_name_len + 1, "%s_%s", title, section);
-	pgname = (char *)lxml_label_to_groupname(SCF_PG_TM_MAN_PREFIX, name);
 
+	/* Find existing property group with underscore separators */
+	(void) snprintf(name, max_scf_name_len + 1, "%s_%s", title, section);
+	pgname = lxml_label_to_groupname(SCF_PG_TM_MAN_PREFIX, name);
+	pg = internal_pgroup_find(service, pgname, SCF_GROUP_TEMPLATE);
+
+	uu_free(pgname);
+	(void) snprintf(name, max_scf_name_len + 1, "%s%s", title, section);
+	pgname = lxml_label_to_groupname(SCF_PG_TM_MAN_PREFIX, name);
+
+	if (pg == NULL) {
+		pg = internal_pgroup_find_or_create(service, pgname,
+		    SCF_GROUP_TEMPLATE);
+	} else {
+		/* Rename property group */
+		free((char *)pg->sc_pgroup_name);
+		pg->sc_pgroup_name = safe_strdup(pgname);
+	}
+
+	uu_free(pgname);
 	free(name);
 	xmlFree(section);
 	xmlFree(title);
 
-	pg = internal_pgroup_find_or_create(service, pgname,
-	    (char *)SCF_GROUP_TEMPLATE);
 
 	/*
 	 * Each attribute is an astring property within the group.
@@ -2144,6 +2152,8 @@ lxml_get_tm_doclink(entity_t *service, xmlNodePtr doc_link)
 
 	pg = internal_pgroup_find_or_create(service, pgname,
 	    (char *)SCF_GROUP_TEMPLATE);
+
+	uu_free(pgname);
 	xmlFree(name);
 
 	/*
@@ -3683,7 +3693,7 @@ lxml_get_bundle_file(bundle_t *bundle, const char *filename, svccfg_op_t op)
 		return (-1);
 	}
 
-	document->name = strdup(filename);
+	document->name = safe_strdup(filename);
 
 	/*
 	 * Verify that this is a document type we understand.

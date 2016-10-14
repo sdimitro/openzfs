@@ -10,11 +10,17 @@
  */
 
 /*
- * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2015, Joyent, Inc. All rights reserved.
  */
 
-/* LINTLIBRARY */
-/* PROTOLIB1 */
+struct mrbig {
+	char toomany[100000];
+};
 
-#include <sys/ksynch.h>
-#include <fakekernel.h>
+this struct mrbig mrbig;
+
+BEGIN
+{
+	this->mrbig.toomany[0] = '!';
+	exit(0);
+}

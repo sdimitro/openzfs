@@ -134,7 +134,7 @@ typedef struct ddulrt_arg {
 
 /* ARGSUSED */
 static void
-dsl_dir_evict(void *dbu)
+dsl_dir_evict_async(void *dbu)
 {
 	dsl_dir_t *dd = dbu;
 	dsl_pool_t *dp = dd->dd_pool;
@@ -241,7 +241,8 @@ dsl_dir_hold_obj(dsl_pool_t *dp, uint64_t ddobj,
 			dmu_buf_rele(origin_bonus, FTAG);
 		}
 
-		dmu_buf_init_user(&dd->dd_dbu, dsl_dir_evict, &dd->dd_dbuf);
+		dmu_buf_init_user(&dd->dd_dbu, NULL, dsl_dir_evict_async,
+		    &dd->dd_dbuf);
 		winner = dmu_buf_set_user_ie(dbuf, &dd->dd_dbu);
 		if (winner != NULL) {
 			if (dd->dd_parent)

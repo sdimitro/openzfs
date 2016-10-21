@@ -62,7 +62,8 @@ typeset bp=$(mdb -ke "$spa + $off_ub + $off_rbp =J")
 # ::refcount
 # ::walk zms_freelist
 
-set -A dcmds "::arc" \
+set -A dcmds "::abuf_find 1 2" \
+	"::arc" \
 	"::arc -b" \
 	"::arc_compression_stats" \
 	"$bp ::blkptr" \

@@ -816,76 +816,82 @@ dbufs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	return (DCMD_OK);
 }
 
-typedef struct abuf_find_data {
-	dva_t dva;
-	mdb_ctf_id_t id;
-} abuf_find_data_t;
+typedef struct mdb_buf_hash_table {
+	uint64_t ht_mask;
+	uintptr_t ht_table;
+} mdb_buf_hash_table_t;
 
-/* ARGSUSED */
-static int
-abuf_find_cb(uintptr_t addr, const void *unknown, void *arg)
-{
-	abuf_find_data_t *data = arg;
-	dva_t dva;
-
-	if (GETMEMBID(addr, &data->id, b_dva, dva)) {
-		return (WALK_ERR);
-	}
-
-	if (dva.dva_word[0] == data->dva.dva_word[0] &&
-	    dva.dva_word[1] == data->dva.dva_word[1]) {
-		mdb_printf("%#lr\n", addr);
-	}
-	return (WALK_NEXT);
-}
+typedef struct mdb_abuf_hdr_t {
+	dva_t b_dva;
+	uintptr_t b_hash_next;
+} mdb_abuf_hdr_t;
 
 /* ARGSUSED */
 static int
 abuf_find(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
-	abuf_find_data_t data;
+	mdb_buf_hash_table_t bht;
 	GElf_Sym sym;
-	int i;
-	const char *syms[] = {
-		"ARC_mru",
-		"ARC_mru_ghost",
-		"ARC_mfu",
-		"ARC_mfu_ghost",
-	};
+	dva_t target_dva;
+	uint64_t ht_size;
+	size_t ht_alloc_size;
+	uintptr_t *table;
+
+	const char *ht_sym_name = "buf_hash_table";
 
 	if (argc != 2)
 		return (DCMD_USAGE);
 
-	for (i = 0; i < 2; i ++) {
+	for (int i = 0; i < 2; i ++) {
 		switch (argv[i].a_type) {
 		case MDB_TYPE_STRING:
-			data.dva.dva_word[i] = mdb_strtoull(argv[i].a_un.a_str);
+			target_dva.dva_word[i] =
+			    mdb_strtoull(argv[i].a_un.a_str);
 			break;
 		case MDB_TYPE_IMMEDIATE:
-			data.dva.dva_word[i] = argv[i].a_un.a_val;
+			target_dva.dva_word[i] = argv[i].a_un.a_val;
 			break;
 		default:
 			return (DCMD_USAGE);
 		}
 	}
 
-	if (mdb_ctf_lookup_by_name(ZFS_STRUCT "arc_buf_hdr", &data.id) == -1) {
-		mdb_warn("couldn't find struct arc_buf_hdr");
+	if (mdb_lookup_by_obj(ZFS_OBJ_NAME, ht_sym_name, &sym)) {
+		mdb_warn("can't find symbol %s", ht_sym_name);
 		return (DCMD_ERR);
 	}
 
-	for (i = 0; i < sizeof (syms) / sizeof (syms[0]); i++) {
-		if (mdb_lookup_by_obj(ZFS_OBJ_NAME, syms[i], &sym)) {
-			mdb_warn("can't find symbol %s", syms[i]);
-			return (DCMD_ERR);
-		}
-
-		if (mdb_pwalk("list", abuf_find_cb, &data, sym.st_value) != 0) {
-			mdb_warn("can't walk %s", syms[i]);
-			return (DCMD_ERR);
-		}
+	if (mdb_ctf_vread(&bht, "buf_hash_table_t", "mdb_buf_hash_table_t",
+	    sym.st_value, 0) == -1) {
+		return (DCMD_ERR);
 	}
 
+	ht_size = bht.ht_mask + 1;
+	ht_alloc_size = ht_size * sizeof (void *);
+
+	table = mdb_zalloc(ht_alloc_size, UM_SLEEP | UM_GC);
+	if (mdb_vread(table, ht_alloc_size, bht.ht_table) == -1) {
+		mdb_warn("couldn't read 'ht_table' at %p", bht.ht_table);
+		return (DCMD_ERR);
+	}
+
+	for (uint64_t i = 0; i < ht_size; i++) {
+		mdb_abuf_hdr_t abh;
+
+		for (uintptr_t abhp = table[i];
+		    abhp != 0;
+		    abhp = abh.b_hash_next) {
+			if (mdb_ctf_vread(&abh, "arc_buf_hdr_t",
+			    "mdb_abuf_hdr_t", abhp, 0) == -1) {
+				return (DCMD_ERR);
+			}
+
+			if (abh.b_dva.dva_word[0] == target_dva.dva_word[0] &&
+			    abh.b_dva.dva_word[1] == target_dva.dva_word[1]) {
+				mdb_printf("%#lr\n", abhp);
+			}
+		}
+	}
 	return (DCMD_OK);
 }
 

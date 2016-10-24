@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc.  All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -600,6 +600,11 @@ mac_client_link_state(mac_client_impl_t *mcip)
  * Return the statistics of a MAC client. These statistics are different
  * then the statistics of the underlying MAC which are returned by
  * mac_stat_get().
+ *
+ * Note that for things based on the tx and rx stats, mac will end up clobbering
+ * those stats when the underlying set of rings in the srs changes. As such, we
+ * need to source not only the current set, but also the historical set when
+ * returning to the client, lest our counters appear to go backwards.
  */
 uint64_t
 mac_client_stat_get(mac_client_handle_t mch, uint_t stat)
@@ -608,13 +613,15 @@ mac_client_stat_get(mac_client_handle_t mch, uint_t stat)
 	mac_impl_t 		*mip = mcip->mci_mip;
 	flow_entry_t 		*flent = mcip->mci_flent;
 	mac_soft_ring_set_t 	*mac_srs;
-	mac_rx_stats_t		*mac_rx_stat;
-	mac_tx_stats_t		*mac_tx_stat;
+	mac_rx_stats_t		*mac_rx_stat, *old_rx_stat;
+	mac_tx_stats_t		*mac_tx_stat, *old_tx_stat;
 	int i;
 	uint64_t val = 0;
 
 	mac_srs = (mac_soft_ring_set_t *)(flent->fe_tx_srs);
 	mac_tx_stat = &mac_srs->srs_tx.st_stat;
+	old_rx_stat = &mcip->mci_misc_stat.mms_defunctrxlanestats;
+	old_tx_stat = &mcip->mci_misc_stat.mms_defuncttxlanestats;
 
 	switch (stat) {
 	case MAC_STAT_LINK_STATE:
@@ -646,12 +653,15 @@ mac_client_stat_get(mac_client_handle_t mch, uint_t stat)
 		break;
 	case MAC_STAT_OBYTES:
 		val = mac_tx_stat->mts_obytes;
+		val += old_tx_stat->mts_obytes;
 		break;
 	case MAC_STAT_OPACKETS:
 		val = mac_tx_stat->mts_opackets;
+		val += old_tx_stat->mts_opackets;
 		break;
 	case MAC_STAT_OERRORS:
 		val = mac_tx_stat->mts_oerrors;
+		val += old_tx_stat->mts_oerrors;
 		break;
 	case MAC_STAT_IPACKETS:
 		for (i = 0; i < flent->fe_rx_srs_cnt; i++) {
@@ -660,6 +670,8 @@ mac_client_stat_get(mac_client_handle_t mch, uint_t stat)
 			val += mac_rx_stat->mrs_intrcnt +
 			    mac_rx_stat->mrs_pollcnt + mac_rx_stat->mrs_lclcnt;
 		}
+		val += old_rx_stat->mrs_intrcnt + old_rx_stat->mrs_pollcnt +
+		    old_rx_stat->mrs_lclcnt;
 		break;
 	case MAC_STAT_RBYTES:
 		for (i = 0; i < flent->fe_rx_srs_cnt; i++) {
@@ -669,6 +681,8 @@ mac_client_stat_get(mac_client_handle_t mch, uint_t stat)
 			    mac_rx_stat->mrs_pollbytes +
 			    mac_rx_stat->mrs_lclbytes;
 		}
+		val += old_rx_stat->mrs_intrbytes + old_rx_stat->mrs_pollbytes +
+		    old_rx_stat->mrs_lclbytes;
 		break;
 	case MAC_STAT_IERRORS:
 		for (i = 0; i < flent->fe_rx_srs_cnt; i++) {
@@ -676,6 +690,7 @@ mac_client_stat_get(mac_client_handle_t mch, uint_t stat)
 			mac_rx_stat = &mac_srs->srs_rx.sr_stat;
 			val += mac_rx_stat->mrs_ierrors;
 		}
+		val += old_rx_stat->mrs_ierrors;
 		break;
 	default:
 		val = mac_driver_stat_default(mip, stat);

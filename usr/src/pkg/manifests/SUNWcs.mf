@@ -486,6 +486,7 @@ file path=lib/svc/manifest/milestone/multi-user.xml group=sys mode=0444
 file path=lib/svc/manifest/milestone/name-services.xml group=sys mode=0444
 file path=lib/svc/manifest/milestone/network.xml group=sys mode=0444
 file path=lib/svc/manifest/milestone/single-user.xml group=sys mode=0444
+file path=lib/svc/manifest/milestone/ssh.xml group=sys mode=0444
 file path=lib/svc/manifest/milestone/sysconfig.xml group=sys mode=0444
 file path=lib/svc/manifest/network/dhcp-client.xml group=sys mode=0444
 file path=lib/svc/manifest/network/dlmgmt.xml group=sys mode=0444

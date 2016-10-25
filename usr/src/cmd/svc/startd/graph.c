@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2015, Syneto S.R.L. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -268,6 +269,7 @@ static const char * const console_login_fmri = CONSOLE_LOGIN_FMRI;
 static const char * const single_user_fmri = SCF_MILESTONE_SINGLE_USER;
 static const char * const multi_user_fmri = SCF_MILESTONE_MULTI_USER;
 static const char * const multi_user_svr_fmri = SCF_MILESTONE_MULTI_USER_SERVER;
+static const char * const ssh_fmri = SCF_MILESTONE_SSH;
 
 
 /*
@@ -531,7 +533,7 @@ graph_walk_dependents(graph_vertex_t *v, void (*func)(graph_vertex_t *, void *),
 
 static void
 graph_walk_dependencies(graph_vertex_t *v, void (*func)(graph_vertex_t *,
-	void *), void *arg)
+    void *), void *arg)
 {
 	graph_edge_t *e;
 
@@ -5088,6 +5090,8 @@ target_milestone_as_runlevel()
 		return ('S');
 	else if (strcmp(milestone->gv_name, multi_user_svr_fmri) == 0)
 		return ('3');
+	else if (strcmp(milestone->gv_name, ssh_fmri) == 0)
+		return ('S');
 
 #ifndef NDEBUG
 	(void) fprintf(stderr, "%s:%d: Unknown milestone name \"%s\".\n",
@@ -5571,7 +5575,8 @@ dgraph_set_milestone(const char *fmri, scf_handle_t *h, boolean_t norepository)
 
 		if (strcmp(cfmri, single_user_fmri) != 0 &&
 		    strcmp(cfmri, multi_user_fmri) != 0 &&
-		    strcmp(cfmri, multi_user_svr_fmri) != 0) {
+		    strcmp(cfmri, multi_user_svr_fmri) != 0 &&
+		    strcmp(cfmri, ssh_fmri) != 0) {
 			startd_free((void *)cfmri, max_scf_fmri_size);
 reject:
 			log_framework(LOG_WARNING,

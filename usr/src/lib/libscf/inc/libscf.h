@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_LIBSCF_H
@@ -224,6 +225,8 @@ typedef struct scf_tmpl_error scf_tmpl_error_t;
  */
 #define	SCF_MILESTONE_SINGLE_USER \
 	((const char *) "svc:/milestone/single-user:default")
+#define	SCF_MILESTONE_SSH \
+	((const char *) "svc:/milestone/ssh:default")
 #define	SCF_MILESTONE_MULTI_USER \
 	((const char *) "svc:/milestone/multi-user:default")
 #define	SCF_MILESTONE_MULTI_USER_SERVER \

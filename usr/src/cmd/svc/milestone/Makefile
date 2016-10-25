@@ -20,7 +20,7 @@
 #
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 #
 
 include ../../Makefile.cmd
@@ -60,6 +60,7 @@ MAINMILESTONES= \
 	name-services.xml \
 	network.xml \
 	single-user.xml \
+	ssh.xml \
 	sysconfig.xml
 
 MAINMANIFESTS= $(MAINMILESTONES:%=$(ROOTSVCMILESTONE)/%)

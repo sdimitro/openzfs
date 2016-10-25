@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2015, Joyent, Inc.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -796,6 +797,9 @@ noscfout:
 			    strcmp(mp, "multi-user-server") == 0) {
 				(void) strcpy(st->st_subgraph,
 				    "milestone/multi-user-server:default");
+			} else if (strcmp(mp, "ssh") == 0) {
+				(void) strcpy(st->st_subgraph,
+				    "milestone/ssh:default");
 			} else if (strcmp(mp, "none") == 0) {
 				(void) strcpy(st->st_subgraph, "none");
 			} else {

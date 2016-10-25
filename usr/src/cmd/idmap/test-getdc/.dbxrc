@@ -1,3 +1,4 @@
+
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -10,12 +11,13 @@
 #
 
 #
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
 #
 
-include $(SRC)/Makefile.master
+set -o emacs
 
-ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TARGETDIR = $(ROOTOPTPKG)/tests/functional/interop
+setenv ROOT ${CODEMGR_WS}/proto/root_i386
+setenv LD_LIBRARY_PATH ${ROOT}/usr/lib:${ROOT}/lib
 
-include $(SRC)/test/zfs-tests/Makefile.com
+loadobject -load ${ROOT}/usr/lib/libadutils.so.1
+debug ./test-getdc

@@ -173,8 +173,7 @@
 .Nm
 .Cm send
 .Op Fl DLPcenpv
-.Oo Fl i Ar snapshot Ns
-.No | Ns Ar bookmark
+.Oo Fl i Ar snapshot Ns | Ns Ar bookmark
 .Oc
 .Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot
 .Nm
@@ -286,7 +285,7 @@
 .Ar snapshot Ar snapshot Ns | Ns Ar filesystem
 .Nm
 .Cm mooch
-.Fl f Ar clone_file No Ns = Ns Ar origin_file Nm ... Ar clone_directory
+.Fl f Ar clone_file Ns = Ns Ar origin_file Nm ... Ar clone_directory
 .Nm
 .Cm program
 .Op Fl t Ar timeout
@@ -616,7 +615,7 @@ created. See also the
 property.
 .It Sy receive_resume_token
 For filesystems or volumes which have saved partially-completed state from
-.Sy zfs receive Fl s No Ns , this opaque token can be provided to Sy zfs send Fl t
+.Sy zfs receive Fl s Ns , this opaque token can be provided to Sy zfs send Fl t
 .No to resume and complete the Sy zfs receive.
 .It Sy redact_snaps
 For bookmarks, this is the list of snapshot guids the bookmark contains a redaction
@@ -825,7 +824,7 @@ or
 in which case it will be interpreted as a bookmark or snapshot in the same
 filesystem as this dataset. The
 .Em bookmark No or Em snapshot No may be a full bookmark or snapshot name
-.No Po e.g. Em filesystem Ns # Ns Em bookmark Pc ,
+.Po e.g. Em filesystem Ns # Ns Em bookmark Pc ,
 which for clones may be a bookmark or snapshot in the origin's filesystem
 .Pq or the origin of the origin's filesystem, etc.
 .El
@@ -975,8 +974,7 @@ command.
 This property is not inherited.
 .It Xo
 .Sy checksum Ns = Ns Sy on Ns | Ns Sy off Ns | Ns Sy fletcher2 Ns | Ns
-.Sy fletcher4 Ns | Ns Sy sha256 Ns | Ns Sy noparity Ns | Ns Sy sha512 Ns | Ns Sy skein
-.No Ns | Ns Sy edonr
+.Sy fletcher4 Ns | Ns Sy sha256 Ns | Ns Sy noparity Ns | Ns Sy sha512 Ns | Ns Sy skein Ns | Ns Sy edonr
 .Xc
 Controls the checksum used to verify data integrity. The default value is
 .Sy on ,
@@ -1665,7 +1663,7 @@ administrators can use them to annotate datasets
 .Pq file systems, volumes, and snapshots .
 .Pp
 User property names must contain a colon
-.No Po Ns Sy \&:  Ns Pc
+.Pq Qq Sy \&:
 character to distinguish them from native properties. They may contain lowercase
 letters, numbers, and the following punctuation characters: colon
 .Pq Qq Sy \&: ,
@@ -2704,7 +2702,7 @@ active on the sending system, then the receiving system must have that feature
 enabled as well. If the
 .Sy large_blocks No feature is enabled on the sending system but the Fl L
 option is not supplied in conjunction with
-.Fl c No Ns , then the data will be decompressed before sending so it can be split
+.Fl c Ns , then the data will be decompressed before sending so it can be split
 into smaller block sizes.
 .It Fl e, -embed
 Generate a more compact stream by using
@@ -2744,7 +2742,7 @@ origin, etc.
 .Nm
 .Cm send
 .Fl -redact
-.No Qo Qc Ns | Ns Ar snapshot Ns Op , Ns Ar snapshot Ns
+.Qo Qc Ns | Ns Ar snapshot Ns Op , Ns Ar snapshot Ns
 .No ...
 .Op Fl LPce
 .br
@@ -3325,7 +3323,7 @@ Display the path's inode change time as the first column of output.
 .Op Ar arg1 Ns No , ...
 .Xc
 Executes
-.Ar script No as a ZFS channel program on Ar pool No Ns . The ZFS channel
+.Ar script No as a ZFS channel program on Ar pool Ns . The ZFS channel
 program interface allows ZFS administrative operations to be run
 programmatically via a Lua script. The entire script is executed atomically,
 with no other administrative operations taking effect concurrently. A library

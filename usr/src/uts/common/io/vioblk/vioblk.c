@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2012, Alexey Zaytsev <alexey.zaytsev@gmail.com>
- * Copyright (c) 2014, Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2015, Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
@@ -432,12 +432,29 @@ static void
 vioblk_driveinfo(void *arg, bd_drive_t *drive)
 {
 	struct vioblk_softc *sc = (void *)arg;
+	size_t d_serial_len = 0;
 
 	drive->d_qsize = sc->sc_vq->vq_num;
 	drive->d_removable = B_FALSE;
 	drive->d_hotpluggable = B_TRUE;
 	drive->d_target = 0;
 	drive->d_lun = 0;
+
+	drive->d_vendor = "Virtio";
+	drive->d_vendor_len = strlen(drive->d_vendor);
+
+	drive->d_product = "Block Device";
+	drive->d_product_len = strlen(drive->d_product);
+
+	char *devidstr = ddi_devid_str_encode(sc->devid, NULL);
+	if (devidstr != NULL) {
+		d_serial_len = strlen(devidstr);
+	}
+	drive->d_serial = devidstr;
+	drive->d_serial_len = d_serial_len;
+
+	drive->d_revision = "0000";
+	drive->d_revision_len = strlen(drive->d_revision);
 }
 
 static int

@@ -21,7 +21,7 @@
 
 #
 # Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012, Joyent, Inc. All rights reserved.
+# Copyright (c) 2013, Joyent, Inc. All rights reserved.
 # Copyright 2012 Nexenta Systems, Inc. All rights reserved.
 #
 
@@ -168,6 +168,7 @@ VGATEXT_OBJS += vgatext.o vgasubr.o
 #	Kernel linker
 #
 KRTLD_OBJS +=		\
+	bootfsops.o	\
 	bootrd.o	\
 	ufsops.o	\
 	hsfs.o		\

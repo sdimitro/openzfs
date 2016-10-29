@@ -2947,18 +2947,18 @@ snapshot as described in the paragraph above.
 Do not actually receive the stream. This can be useful in conjunction with the
 .Fl v
 option to verify the name the receive operation would use.
-.It Fl u
-File system that is associated with the received stream is not mounted.
-.It Fl v
-Print verbose information about the stream and the time required to perform the
-receive operation.
-.It Fl o Ar origin=<snapshot>
+.It Fl o Sy origin Ns = Ns Ar snapshot
 Forces the stream to be received as a clone of the given snapshot.
 If the stream is a full send stream, this will create the filesystem
 described by the stream as a clone of the specified snapshot. Which
 snapshot was specified will not affect the success or failure of the
 receive, as long as the snapshot does exist.  If the stream is an
 incremental send stream, all the normal verification will be performed.
+.It Fl u
+File system that is associated with the received stream is not mounted.
+.It Fl v
+Print verbose information about the stream and the time required to perform the
+receive operation.
 .It Fl s
 If the receive is interrupted, save the partially received state, rather
 than deleting it.  Interruption may be due to premature termination of

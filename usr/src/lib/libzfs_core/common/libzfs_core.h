@@ -84,6 +84,9 @@ typedef struct lzc_redact_params {
 int lzc_send(const char *, const char *, int, enum lzc_send_flags);
 int lzc_send_resume(const char *, const char *, int,
     enum lzc_send_flags, uint64_t, uint64_t);
+
+struct dmu_replay_record;
+
 int lzc_send_redacted(const char *, const char *, int, enum lzc_send_flags,
     lzc_redact_params_t *);
 int lzc_send_resume_redacted(const char *, const char *, int,
@@ -91,6 +94,8 @@ int lzc_send_resume_redacted(const char *, const char *, int,
 int lzc_receive(const char *, nvlist_t *, const char *, boolean_t, int);
 int lzc_receive_resumable(const char *, nvlist_t *, const char *,
     boolean_t, int);
+int lzc_receive_with_header(const char *, nvlist_t *, const char *, boolean_t,
+    boolean_t, int, const struct dmu_replay_record *);
 int lzc_send_space(const char *, const char *, enum lzc_send_flags, uint64_t *);
 int lzc_send_space_resume_redacted(const char *, const char *,
     enum lzc_send_flags, uint64_t, uint64_t, uint64_t, lzc_redact_params_t *,

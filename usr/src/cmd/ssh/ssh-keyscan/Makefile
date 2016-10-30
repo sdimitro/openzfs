@@ -32,6 +32,8 @@ SRCS	= $(OBJS:.o=.c)
 include ../../Makefile.cmd
 include ../Makefile.ssh-common
 
+DIRS= $(ROOTLIBSUNSSH)
+
 LDLIBS += $(SSH_COMMON_LDLIBS) -lsocket -lnsl
 
 # libcrypto and libz have no lint library, so we can only use it when building
@@ -48,6 +50,12 @@ all: $(PROG)
 $(PROG): $(OBJS) ../libssh/$(MACH)/libssh.a ../libopenbsd-compat/$(MACH)/libopenbsd-compat.a
 	$(LINK.c) $(OBJS) -o $@ $(LDLIBS) $(DYNFLAGS)
 	$(POST_PROCESS)
+
+$(DIRS):
+	$(INS.dir)
+
+$(ROOTBIN)/ssh-keyscan: $(ROOTLIBSUNSSH)/ssh-keyscan
+	-$(RM) $@; $(SYMLINK) ../lib/sunssh/ssh-keyscan $@
 
 clean:
 	$(RM) -f $(OBJS) $(PROG)

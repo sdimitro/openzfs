@@ -32,6 +32,8 @@ SRCS	= $(OBJS:.o=.c)
 include ../../Makefile.cmd
 include ../Makefile.ssh-common
 
+DIRS= $(ROOTLIBSUNSSH)
+
 LDLIBS += $(SSH_COMMON_LDLIBS) -lsocket
 
 # libcrypto has no lint library, so we can only use it when building
@@ -49,7 +51,13 @@ $(PROG): $(OBJS) ../libssh/$(MACH)/libssh.a ../libopenbsd-compat/$(MACH)/libopen
 	$(LINK.c) $(OBJS) -o $@ $(LDLIBS) $(DYNFLAGS)
 	$(POST_PROCESS)
 
-install: all $(ROOTPROG)
+$(DIRS):
+	$(INS.dir)
+
+$(ROOTBIN)/ssh-add: $(ROOTLIBSUNSSH)/ssh-add
+	-$(RM) $@; $(SYMLINK) ../lib/sunssh/ssh-add $@
+
+install: all $(DIRS) $(ROOTPROG)
 
 clean:
 	$(RM) -f $(OBJS) $(PROG)

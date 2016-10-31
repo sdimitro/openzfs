@@ -24,13 +24,12 @@
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#
 
 #
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 # Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.kshlib
 
 #
@@ -51,12 +50,10 @@ function cleanup
 
 log_onexit cleanup
 
-# $CONFIGS gets set in the .cfg script
-for config in $CONFIGS
-do
+for config in $CONFIGS; do
     create_old_pool $config
     check_upgrade $config
     destroy_upgraded_pool $config
 done
 
-log_pass "Import pools of all versions - zpool upgrade on each pools works"
+log_pass "Import pools of all versions - zpool upgrade on each pool works"

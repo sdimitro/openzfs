@@ -27,15 +27,15 @@
 
 #
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.kshlib
 
 #
 # DESCRIPTION:
 #
-# Zpool upgrade -V shouldn't be able to upgrade a pool to an unknown version
+# zpool upgrade -V shouldn't be able to upgrade a pool to an unknown version
 #
 # STRATEGY:
 # 1. Take an existing pool
@@ -52,16 +52,13 @@ function cleanup
 
 # Create a version 2 pool
 typeset -i config=2
+typeset -n pool_name=ZPOOL_VERSION_${config}_NAME
+
 create_old_pool $config
-pool=$(eval echo \$ZPOOL_VERSION_${config}_NAME)
-
-# Attempt to upgrade it
-log_mustnot zpool upgrade -V 999 $pool
+log_mustnot zpool upgrade -V 999 $pool_name
 log_mustnot zpool upgrade -V 999
-
-# Verify we're still on the old version
-check_poolversion $pool $config
+check_poolversion $pool_name $config
 destroy_upgraded_pool $config
 
-log_pass \
- "Zpool upgrade -V shouldn't be able to upgrade a pool to an unknown version"
+log_pass "zpool upgrade -V shouldn't be able to upgrade a pool to" \
+    "unknown version"

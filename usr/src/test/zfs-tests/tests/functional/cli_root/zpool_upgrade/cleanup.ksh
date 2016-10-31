@@ -27,19 +27,13 @@
 
 #
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/cli_root/zpool_upgrade/zpool_upgrade.kshlib
 
-function destroy_upgraded_pools {
-	for config in $CONFIGS; do
-		POOL_NAME=$(eval echo \$ZPOOL_VERSION_${VERSION}_NAME)
-		POOL_FILES=$(eval echo \$ZPOOL_VERSION_${VERSION}_FILES)
-		poolexists $POOL_NAME && log_must zpool destroy -f $POOL_NAME
-	done
-}
-
-destroy_upgraded_pools
+for config in $CONFIGS; do
+	destroy_upgraded_pool $config
+done
 
 default_cleanup

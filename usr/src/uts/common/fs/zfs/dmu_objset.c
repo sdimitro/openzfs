@@ -2135,6 +2135,7 @@ dmu_objset_find_dp(dsl_pool_t *dp, uint64_t ddobj,
 		 * thread suffices. For now, stay single threaded.
 		 */
 		dmu_objset_find_dp_impl(dcp);
+		mutex_destroy(&err_lock);
 
 		return (error);
 	}
@@ -2146,6 +2147,8 @@ dmu_objset_find_dp(dsl_pool_t *dp, uint64_t ddobj,
 	    INT_MAX, 0);
 	if (tq == NULL) {
 		kmem_free(dcp, sizeof (*dcp));
+		mutex_destroy(&err_lock);
+
 		return (SET_ERROR(ENOMEM));
 	}
 	dcp->dc_tq = tq;

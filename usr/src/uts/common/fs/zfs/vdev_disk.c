@@ -777,6 +777,7 @@ vdev_disk_io_start(zio_t *zio)
 		return;
 	}
 
+	ASSERT(zio->io_type == ZIO_TYPE_READ || zio->io_type == ZIO_TYPE_WRITE);
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 
 	vb = kmem_alloc(sizeof (vdev_buf_t), KM_SLEEP);

@@ -24,6 +24,7 @@
  * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright 2014 HybridCluster. All rights reserved.
+ * Copyright 2016 RackTop Systems.
  */
 
 #include <sys/dmu.h>
@@ -103,6 +104,9 @@ int redact_sync_bufsize = 1024;
  * Use this to override the recordsize calculation for fast zfs send estimates.
  */
 uint64_t zfs_override_estimate_recordsize = 8192;
+
+/* Set this tunable to FALSE to disable setting of DRR_FLAG_FREERECORDS */
+int zfs_send_set_freerecords_bit = B_TRUE;
 
 static inline boolean_t
 overflow_multiply(uint64_t a, uint64_t b, uint64_t *c)
@@ -2805,7 +2809,8 @@ create_begin_record(struct dmu_send_params *dspp, objset_t *os,
 		drrb->drr_flags |= DRR_FLAG_CLONE;
 	if (dsl_dataset_phys(dspp->to_ds)->ds_flags & DS_FLAG_CI_DATASET)
 		drrb->drr_flags |= DRR_FLAG_CI_DATA;
-	drrb->drr_flags |= DRR_FLAG_FREERECORDS;
+	if (zfs_send_set_freerecords_bit)
+		drrb->drr_flags |= DRR_FLAG_FREERECORDS;
 
 	dsl_dataset_name(to_ds, drrb->drr_toname);
 	if (!to_ds->ds_is_snapshot) {

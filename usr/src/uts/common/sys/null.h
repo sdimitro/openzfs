@@ -10,9 +10,20 @@
  */
 
 /*
- * Copyright 2016 <contributor>
+ * Copyright 2014-2016 PALO, Richard.
  */
 
-/*
- * Describe the purpose of this file.
- */
+#ifndef _SYS_NULL_H
+#define	_SYS_NULL_H
+
+#ifndef	NULL
+
+#if defined(_LP64)
+#define	NULL	0L
+#else
+#define	NULL	0
+#endif
+
+#endif	/* NULL */
+
+#endif	/* _SYS_NULL_H */

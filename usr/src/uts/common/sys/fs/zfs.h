@@ -81,7 +81,8 @@ typedef enum dmu_objset_type {
  * by the change.  Properties must be registered in zfs_prop_init().
  */
 typedef enum {
-	ZFS_PROP_TYPE,
+	ZFS_PROP_BAD = -1,
+	ZFS_PROP_TYPE = 0,
 	ZFS_PROP_CREATION,
 	ZFS_PROP_USED,
 	ZFS_PROP_AVAILABLE,

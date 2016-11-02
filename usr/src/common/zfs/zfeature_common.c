@@ -130,6 +130,16 @@ zfeature_depends_on(spa_feature_t fid, spa_feature_t check)
 	return (B_FALSE);
 }
 
+static boolean_t
+deps_contains_feature(const spa_feature_t *deps, const spa_feature_t feature)
+{
+	for (int i = 0; deps[i] != SPA_FEATURE_NONE; i++)
+		if (deps[i] == feature)
+			return (B_TRUE);
+
+	return (B_FALSE);
+}
+
 static void
 zfeature_register(spa_feature_t fid, const char *guid, const char *name,
     const char *desc, zfeature_flags_t flags, zfeature_type_t type,
@@ -147,6 +157,9 @@ zfeature_register(spa_feature_t fid, const char *guid, const char *name,
 
 	if (deps == NULL)
 		deps = nodeps;
+
+	VERIFY(((flags & ZFEATURE_FLAG_PER_DATASET) == 0) ||
+	    (deps_contains_feature(deps, SPA_FEATURE_EXTENSIBLE_DATASET)));
 
 	feature->fi_feature = fid;
 	feature->fi_guid = guid;
@@ -216,8 +229,8 @@ zpool_feature_init(void)
 	    bookmarks_deps);
 
 	static const spa_feature_t filesystem_limits_deps[] = {
-	    SPA_FEATURE_EXTENSIBLE_DATASET,
-	    SPA_FEATURE_NONE
+		SPA_FEATURE_EXTENSIBLE_DATASET,
+		SPA_FEATURE_NONE
 	};
 	zfeature_register(SPA_FEATURE_FS_SS_LIMIT,
 	    "com.joyent:filesystem_limits", "filesystem_limits",

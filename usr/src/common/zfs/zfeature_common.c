@@ -256,18 +256,32 @@ zpool_feature_init(void)
 	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN,
 	    large_blocks_deps);
 
+	static const spa_feature_t sha512_deps[] = {
+		SPA_FEATURE_EXTENSIBLE_DATASET,
+		SPA_FEATURE_NONE
+	};
 	zfeature_register(SPA_FEATURE_SHA512,
 	    "org.illumos:sha512", "sha512",
 	    "SHA-512/256 hash algorithm.",
-	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN, NULL);
+	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN, sha512_deps);
+
+	static const spa_feature_t skein_deps[] = {
+		SPA_FEATURE_EXTENSIBLE_DATASET,
+		SPA_FEATURE_NONE
+	};
 	zfeature_register(SPA_FEATURE_SKEIN,
 	    "org.illumos:skein", "skein",
 	    "Skein hash algorithm.",
-	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN, NULL);
+	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN, skein_deps);
+
+	static const spa_feature_t edonr_deps[] = {
+		SPA_FEATURE_EXTENSIBLE_DATASET,
+		SPA_FEATURE_NONE
+	};
 	zfeature_register(SPA_FEATURE_EDONR,
 	    "org.illumos:edonr", "edonr",
 	    "Edon-R hash algorithm.",
-	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN, NULL);
+	    ZFEATURE_FLAG_PER_DATASET, ZFEATURE_TYPE_BOOLEAN, edonr_deps);
 
 	static const spa_feature_t obsolete_counts_deps[] = {
 		SPA_FEATURE_EXTENSIBLE_DATASET,

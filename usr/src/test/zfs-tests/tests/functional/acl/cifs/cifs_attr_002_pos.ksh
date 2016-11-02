@@ -27,6 +27,7 @@
 
 #
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright 2016 Nexenta Systems, Inc.
 #
 
 . $STF_SUITE/tests/functional/acl/acl_common.kshlib
@@ -49,8 +50,7 @@ verify_runnable "global"
 
 function cleanup
 {
-	rm -f $mntpt/file $mntpt/dir || log_fail
-	    "$(ls -d/ c $mntpt/file $mntpt/dir)"
+	rm -rf $mntpt/file $mntpt/dir >/dev/null 2>&1
 
 	log_must cp $orig_user_attr /etc/user_attr
 	log_must rm -f $orig_user_attr

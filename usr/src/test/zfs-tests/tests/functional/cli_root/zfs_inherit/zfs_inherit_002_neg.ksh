@@ -56,8 +56,7 @@ set -A badopts "r" "R" "-R" "-rR" "-a" "-" "-?" "-1" "-2" "-v" "-n"
 set -A props "recordsize" "mountpoint" "sharenfs" "checksum" "compression" \
     "atime" "devices" "exec" "setuid" "readonly" "zoned" "snapdir" "aclmode" \
     "aclinherit" "xattr" "copies"
-set -A illprops "shareiscsi" "recordsiz" "mountpont" "sharen" "compres" \
-    "atme" "???" "***" "blah"
+set -A illprops "recordsiz" "mountpont" "sharen" "compres" "atme" "blah"
 
 log_must zfs snapshot $TESTPOOL/$TESTFS@$TESTSNAP
 

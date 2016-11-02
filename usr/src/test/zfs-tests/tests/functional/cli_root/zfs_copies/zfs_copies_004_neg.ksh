@@ -44,7 +44,7 @@
 verify_runnable "both"
 
 
-set -A badval 0 01 02 03 0 -1 -2 -3 10 20 30 4 5 6 ? * blah
+set -A badval 0 01 02 03 0 -1 -2 -3 10 20 30 4 5 6 blah
 
 for val in ${badval[@]}; do
 	log_mustnot zfs create -o copies=$val $TESTPOOL/$TESTFS1

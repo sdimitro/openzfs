@@ -35,8 +35,8 @@
 extern "C" {
 #endif
 
-#define	NET_TX_RING_SIZE_DEFAULT  __RING_SIZE((netif_tx_sring_t *)0, PAGESIZE)
-#define	NET_RX_RING_SIZE_DEFAULT  __RING_SIZE((netif_rx_sring_t *)0, PAGESIZE)
+#define	NET_TX_RING_SIZE_DEFAULT  __CONST_RING_SIZE(netif_tx, PAGESIZE)
+#define	NET_RX_RING_SIZE_DEFAULT  __CONST_RING_SIZE(netif_rx, PAGESIZE)
 
 #define	NET_TX_RING_SIZE_MAX  \
 	__RING_SIZE((netif_tx_sring_t *)0, (PAGESIZE) * 16)

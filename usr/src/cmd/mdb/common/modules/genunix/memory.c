@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2015 Joyent, Inc.
  * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
@@ -451,6 +452,7 @@ typedef struct memstat {
 	uint64_t	ms_vnode;	/* Pages of named (vnode) memory  */
 	uint64_t	ms_exec;	/* Pages of exec/library memory	  */
 	uint64_t	ms_cachelist;	/* Pages on the cachelist (free)  */
+	uint64_t	ms_bootpages;	/* Pages on the bootpages list    */
 	uint64_t	ms_balloon;	/* Pages allocated to NULL vnode  */
 	uint64_t	ms_free;	/* Pages on the freelist	  */
 	uint64_t	ms_other;	/* Uncategorized pages		  */
@@ -475,7 +477,9 @@ memstat_callback(page_t *page, page_t *pp, memstat_t *stats)
 {
 	struct vnode *vp = &stats->ms_vn;
 
-	if (pp->p_vnode == stats->ms_unused_vp)
+	if (PP_ISBOOTPAGES(pp))
+		stats->ms_bootpages++;
+	else if (pp->p_vnode == stats->ms_unused_vp)
 		stats->ms_free++;
 	else if (pp->p_vnode == NULL && PP_ISFREE(pp))
 		stats->ms_free++;
@@ -585,11 +589,19 @@ memstat(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	    (uint64_t)stats.ms_kmem * PAGESIZE / (1024 * 1024),
 	    MS_PCT_TOTAL(stats.ms_kmem));
 
-	if (stats.ms_zfs_data != 0)
+	if (stats.ms_bootpages != 0) {
+		mdb_printf("Boot pages       %16llu  %16llu  %3lu%%\n",
+		    stats.ms_bootpages,
+		    (uint64_t)stats.ms_bootpages * PAGESIZE / (1024 * 1024),
+		    MS_PCT_TOTAL(stats.ms_bootpages));
+	}
+
+	if (stats.ms_zfs_data != 0) {
 		mdb_printf("ZFS File Data    %16llu  %16llu  %3lu%%\n",
 		    stats.ms_zfs_data,
 		    (uint64_t)stats.ms_zfs_data * PAGESIZE / (1024 * 1024),
 		    MS_PCT_TOTAL(stats.ms_zfs_data));
+	}
 
 	mdb_printf("Anon             %16llu  %16llu  %3lu%%\n",
 	    stats.ms_anon,

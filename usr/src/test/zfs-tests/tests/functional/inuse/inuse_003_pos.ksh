@@ -97,8 +97,6 @@ for num in 0 1 2; do
 	disk=${slice%s*}
 	slice=${slice##*s}
 	log_must set_partition $slice "" $FS_SIZE $disk
-	saved_disk=$disk
-	saved_slice=$slice
 done
 
 log_note "Make a ufs filesystem on source $rawdisk1"

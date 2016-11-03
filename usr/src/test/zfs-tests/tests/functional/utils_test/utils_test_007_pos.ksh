@@ -62,8 +62,6 @@ log_must zfs unmount $TESTDIR
 
 if ! $(is_physical_device $DISK); then
 	log_must fstyp $DISK
-elif [[ $WRAPPER == "smi" ]]; then
-	log_must fstyp /dev/rdsk/${DISK}s2
 else
 	log_must fstyp /dev/rdsk/${DISK}s0
 fi

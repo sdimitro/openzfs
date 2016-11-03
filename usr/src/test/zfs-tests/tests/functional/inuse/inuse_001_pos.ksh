@@ -66,12 +66,7 @@ PREVDUMPDEV=`dumpadm | grep "Dump device" | awk '{print $3}'`
 log_note "Zero $FS_DISK0 and place free space in to slice 0"
 log_must cleanup_devices $FS_DISK0
 
-if [[ $WRAPPER == *"smi"* ]]; then
-	diskslice="/dev/dsk/${FS_DISK0}s2"
-else
-	diskslice="/dev/dsk/${FS_DISK0}s0"
-fi
-
+diskslice="/dev/dsk/${FS_DISK0}s0"
 log_note "Configuring $diskslice as dump device"
 log_must dumpadm -d $diskslice > /dev/null
 

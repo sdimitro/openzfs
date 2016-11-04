@@ -5079,6 +5079,18 @@ spa_export_common(char *pool, int new_state, nvlist_t **oldconfig,
 		}
 
 		/*
+		 * We're about to export or destroy this pool. Make sure
+		 * we stop all initializtion activity here before we
+		 * set the spa_final_txg. This will ensure that all
+		 * dirty data resulting from the initialization is
+		 * committed to disk before we unload the pool.
+		 */
+		if (spa->spa_root_vdev != NULL) {
+			vdev_initialize_stop_all(spa->spa_root_vdev,
+			    VDEV_INITIALIZE_ACTIVE);
+		}
+
+		/*
 		 * We want this to be reflected on every label,
 		 * so mark them all dirty.  spa_unload() will do the
 		 * final sync that pushes these changes out.

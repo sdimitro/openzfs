@@ -54,7 +54,7 @@ static boolean_t
 vdev_initialize_should_stop(vdev_t *vd)
 {
 	return (vd->vdev_initialize_exit_wanted || !vdev_writeable(vd) ||
-	    vd->vdev_detached || vd->vdev_removing);
+	    vd->vdev_detached || vd->vdev_top->vdev_removing);
 }
 
 static void
@@ -73,13 +73,13 @@ vdev_initialize_zap_update_sync(void *arg, dmu_tx_t *tx)
 	kmem_free(arg, sizeof (uint64_t));
 
 	vdev_t *vd = spa_lookup_by_guid(tx->tx_pool->dp_spa, guid, B_FALSE);
-	if (vd == NULL || !vdev_is_concrete(vd))
+	if (vd == NULL || vd->vdev_top->vdev_removing || !vdev_is_concrete(vd))
 		return;
 
 	uint64_t last_offset = vd->vdev_initialize_offset[txg & TXG_MASK];
 	vd->vdev_initialize_offset[txg & TXG_MASK] = 0;
 
-	ASSERT(vd->vdev_leaf_zap != 0);
+	VERIFY(vd->vdev_leaf_zap != 0);
 
 	objset_t *mos = vd->vdev_spa->spa_meta_objset;
 
@@ -711,12 +711,8 @@ vdev_initialize_stop(vdev_t *vd, vdev_initializing_state_t tgt_state)
 	vd->vdev_initialize_exit_wanted = B_FALSE;
 }
 
-/*
- * Convenience function to stop initializing of a vdev tree and set all
- * initialize thread pointers to NULL.
- */
-void
-vdev_initialize_stop_all(vdev_t *vd, vdev_initializing_state_t tgt_state)
+static void
+vdev_initialize_stop_all_impl(vdev_t *vd, vdev_initializing_state_t tgt_state)
 {
 	if (vd->vdev_ops->vdev_op_leaf && vdev_is_concrete(vd)) {
 		mutex_enter(&vd->vdev_initialize_lock);
@@ -726,7 +722,22 @@ vdev_initialize_stop_all(vdev_t *vd, vdev_initializing_state_t tgt_state)
 	}
 
 	for (uint64_t i = 0; i < vd->vdev_children; i++) {
-		vdev_initialize_stop_all(vd->vdev_child[i], tgt_state);
+		vdev_initialize_stop_all_impl(vd->vdev_child[i], tgt_state);
+	}
+}
+
+/*
+ * Convenience function to stop initializing of a vdev tree and set all
+ * initialize thread pointers to NULL.
+ */
+void
+vdev_initialize_stop_all(vdev_t *vd, vdev_initializing_state_t tgt_state)
+{
+	vdev_initialize_stop_all_impl(vd, tgt_state);
+
+	if (vd->vdev_spa->spa_sync_on) {
+		/* Make sure that our state has been synced to disk */
+		txg_wait_synced(spa_get_dsl(vd->vdev_spa), 0);
 	}
 }
 

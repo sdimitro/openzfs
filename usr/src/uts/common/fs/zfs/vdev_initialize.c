@@ -649,11 +649,20 @@ vdev_initialize_thread(void *arg)
 	ASSERT(vd->vdev_initialize_thread != NULL ||
 	    vd->vdev_initialize_inflight == 0);
 
+	/*
+	 * Drop the vdev_initialize_lock while we sync out the
+	 * txg since it's possible that a device might be trying to
+	 * come online and must check to see if it needs to restart an
+	 * initialization. That thread will be holding the spa_config_lock
+	 * which would prevent the txg_wait_synced from completing.
+	 */
+	mutex_exit(&vd->vdev_initialize_lock);
+	txg_wait_synced(spa_get_dsl(spa), 0);
+	mutex_enter(&vd->vdev_initialize_lock);
+
 	vd->vdev_initialize_thread = NULL;
 	cv_broadcast(&vd->vdev_initialize_cv);
 	mutex_exit(&vd->vdev_initialize_lock);
-
-	txg_wait_synced(spa_get_dsl(spa), 0);
 }
 
 /*

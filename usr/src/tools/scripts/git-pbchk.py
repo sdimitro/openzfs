@@ -153,9 +153,7 @@ def git_file_list(parent, paths=None):
 
     ret = set()
     for fname in p:
-        res = git("diff %s HEAD %s" % (parent, fname))
-        empty = not res.readline()
-        if fname and not fname.isspace() and fname not in ret and not empty:
+        if fname and not fname.isspace() and fname not in ret:
             ret.add(fname.strip())
 
     return ret

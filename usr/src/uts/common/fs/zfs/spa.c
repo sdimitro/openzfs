@@ -5772,8 +5772,15 @@ spa_vdev_initialize(spa_t *spa, uint64_t guid, uint64_t cmd_type)
 	mutex_enter(&vd->vdev_initialize_lock);
 	spa_config_exit(spa, SCL_CONFIG | SCL_STATE, FTAG);
 
-	if (cmd_type == POOL_INITIALIZE_DO && (
-	    vd->vdev_initialize_state == VDEV_INITIALIZE_ACTIVE ||
+	/*
+	 * When we activate an initialize action we check to see
+	 * if the vdev_initialize_thread is NULL. We do this instead
+	 * of using the vdev_initialize_state since there might be
+	 * a previous initialization process which has completed but
+	 * the thread is not exited.
+	 */
+	if (cmd_type == POOL_INITIALIZE_DO &&
+	    (vd->vdev_initialize_thread != NULL ||
 	    vd->vdev_top->vdev_removing)) {
 		mutex_exit(&vd->vdev_initialize_lock);
 		mutex_exit(&spa_namespace_lock);

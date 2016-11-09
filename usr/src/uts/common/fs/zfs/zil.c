@@ -1528,6 +1528,7 @@ zil_commit_writer(zilog_t *zilog)
 	}
 
 	DTRACE_PROBE1(zil__cw1, zilog_t *, zilog);
+
 	while (itx = list_head(&zilog->zl_itx_commit_list)) {
 		txg = itx->itx_lr.lrc_txg;
 		ASSERT3U(txg, !=, 0);
@@ -1544,11 +1545,12 @@ zil_commit_writer(zilog_t *zilog)
 		kmem_free(itx, offsetof(itx_t, itx_lr)
 		    + itx->itx_lr.lrc_reclen);
 	}
-	DTRACE_PROBE1(zil__cw2, zilog_t *, zilog);
 
 	/* write the last block out */
 	if (lwb != NULL && lwb->lwb_zio != NULL)
 		lwb = zil_lwb_write_start(zilog, lwb);
+
+	DTRACE_PROBE1(zil__cw2, zilog_t *, zilog);
 
 	zilog->zl_cur_used = 0;
 

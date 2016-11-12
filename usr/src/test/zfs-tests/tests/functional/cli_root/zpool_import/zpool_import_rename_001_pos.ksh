@@ -162,13 +162,11 @@ done
 
 VDEV_FILE=$(mktemp /tmp/tmp.XXXXXX)
 
-log_must truncate --size=128M $VDEV_FILE
+log_must mkfile -n 128M $VDEV_FILE
 log_must zpool create overflow $VDEV_FILE
 log_must zfs create overflow/testfs
+ID=$(zpool get -Ho value guid overflow)
 log_must zpool export overflow
-ID=$(zpool import -d /tmp | awk "/^     id: / {id = \$2}
-    {if(\$1 == \"$VDEV_FILE\") print id}")
-[[ -n id ]] || log_fail "Couldn't find pool id"
-log_mustnot zpool import -d /tmp $(echo id) $(python -c "print 'c' * 250")
+log_mustnot zpool import $(echo $ID) $(printf "%*s\n" 250 "" | tr ' ' 'c')
 
 log_pass "Successfully imported and renamed a ZPOOL"

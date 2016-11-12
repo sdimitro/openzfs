@@ -3554,7 +3554,7 @@ dbuf_write_children_ready(zio_t *zio, arc_buf_t *buf, void *vdb)
 	dmu_buf_impl_t *db = vdb;
 	dnode_t *dn;
 	blkptr_t *bp;
-	int i;
+	uint64_t i;
 	int epbs;
 
 	ASSERT3U(db->db_level, >, 0);

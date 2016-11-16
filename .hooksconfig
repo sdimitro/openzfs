@@ -1,0 +1,361 @@
+[gate]
+        name = dlpx-os-gate
+        shortname = os
+        notify = git-notify-os@delphix.com
+        groups = all-os-gate
+        slack-url = https://hooks.slack.com/services/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
+        slack-color = 0000dd
+
+[branch "master"]
+        gate-release = Jocacean
+        codename = Jocacean
+        gate-approvers = gatekeepers
+        gate-slack-notify = pushes
+        gate-allowed-issuetypes = 1,2,3,5,10001,10302
+        gate-release-check = skip
+
+[branch "3.1/release"]
+        gate-release = 3.1.6.2
+        gate-approvers = gatekeepers
+        gate-allowed-issuetypes = 10405
+        #gate-locked = true
+
+[branch "3.1/stage"]
+        gate-release = 3.1.7.0
+        gate-allowed-issuetypes = 10405
+        gate-approvers = gatekeepers
+
+[receive]
+        denycurrentbranch = true
+        denyNonFastForwards = true
+[branch "3.2/stage"]
+        gate-release = 3.2.8.0
+        gate-allowed-issuetypes = 10405
+[branch "3.2/release"]
+        gate-release = 3.2.7.2
+        gate-allowed-issuetypes = 10405
+[branch "3.0/release"]
+        gate-release = 3.0.6.2
+        gate-allowed-issuetypes = 10405
+[branch "3.0/stage"]
+        gate-release = 3.0.7.0
+        gate-allowed-issuetypes = 10405
+[branch "2.7/release"]
+        gate-release = 2.7.7.1
+        gate-allowed-issuetypes = 10405
+[branch "2.7/stage"]
+        gate-release = 2.7.8.0
+        gate-allowed-issuetypes = 10405
+[branch "projects/zfs_ioctl"]
+        gate-notify = mahrens@delphix.com john.kennedy@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "4.0/release"]
+        gate-release = 4.0.6.2
+        gate-approvers = gatekeepers-40
+        gate-allowed-issuetypes = 10405
+[branch "4.0/stage"]
+        gate-release = 4.0.7.0
+        gate-approvers = gatekeepers-40
+        gate-allowed-issuetypes = 10405
+[branch "projects/tcp-cong"]
+        gate-notify = seb@delphix.com eric.diven@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "4.1/release"]
+        gate-release = 4.1.6.1
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-41
+        gate-allowed-issuetypes = 10405
+[branch "4.1/stage"]
+        # gate-locked = true
+        gate-approvers = gatekeepers-41
+        gate-slack-notify = pushes
+        gate-allowed-issuetypes = 10405
+        gate-release = 4.1.7.0
+[branch "4.2/release"]
+        gate-release = 4.2.5.2
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-42
+        gate-allowed-issuetypes = 10405
+        gate-locked = true
+[branch "4.2/stage"]
+        gate-locked = true
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-42
+        gate-release = 4.2.6.0
+        gate-allowed-issuetypes = 10405
+[branch "projects/compressed-arc"]
+        gate-notify = gwilson@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/persistent-l2arc"]
+        gate-notify = chris.williamson@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/lba-scrub"]
+        gate-notify = brandon@delphix.com henrik@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/dedup"]
+        gate-notify = mahrens@delphix.com paul.dagnelie@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/astat"]
+        gate-notify = prakash.surya@delphix.com alex@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-slack-notify = astat
+[branch "projects/constant-disk-latency"]
+        gate-notify = prakash.surya@delphix.com alex@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-slack-notify = zfs
+[branch "projects/net-analytics"]
+        gate-notify = seb@delphix.com zubairkhan@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/redacted-replication"]
+        gate-notify = masked-data-distribution@delphix.com
+        gate-user-check = on
+        gate-commit-check = on
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/C"]
+        gate-notify = seb@delphix.com zubair@delphix.com
+        gate-user-check = on
+        gate-commit-check = on
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/checksum"]
+        gate-notify = mahrens@delphix.com jwk@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/device-removal"]
+        gate-notify = mahrens@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/dbuf-cache"]
+        gate-notify = mahrens@delphix.com gwilson@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/tcp-latency"]
+        gate-notify = brandon@delphix.com seb@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/vdev-zap"]
+        gate-notify = eli.rosenthal@delphix.com mahrens@delphix.com joe.stein@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "4.3/release"]
+        gate-release = 4.3.5.2
+        gate-approvers = gatekeepers-43
+        gate-slack-notify = pushes
+        gate-allowed-issuetypes = 10405
+[branch "4.3/stage"]
+        gate-approvers = gatekeepers-43
+        gate-slack-notify = pushes
+        gate-release = 4.3.6.0
+        gate-allowed-issuetypes = 10405
+[branch "projects/zfs-manpages"]
+        gate-notify = joe.stein@delphix.com
+        gate-user-check = on
+        gate-commit-check = on
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/compressed-send"]
+        gate-notify = dan@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/sorted_deadline_scrub"]
+        gate-notify = eli.rosenthal@delphix.com
+        gate-user-check = on
+        gate-commit-check = on
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+[branch "projects/eager-zero"]
+        gate-notify = joe.stein@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/azure"]
+        gate-notify = core-platform@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+
+[branch "5.0/release"]
+        gate-release = 5.0.5.4
+        gate-allowed-issuetypes = 10405
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-50
+[branch "5.0/stage"]
+        gate-allowed-issuetypes = 10405
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-50
+        gate-release = 5.0.6.0
+[branch "projects/pspawnd"]
+        gate-notify = dan@delphix.com pavel.zakharov@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/bookmark"]
+        gate-notify = matt@delphix.com pcd@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/local-jobs"]
+        gate-notify = chris@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/dlpx-44810"]
+	gate-notify = dj@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "5.1/release"]
+        gate-release = 5.1.3.2
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-51
+        gate-allowed-issuetypes = 10405
+[branch "5.1/stage"]
+        gate-slack-notify = pushes
+        gate-approvers = gatekeepers-51
+        gate-allowed-issuetypes = 10405
+        gate-release = 5.1.4.0
+[branch "projects/hyperv"]
+        gate-notify = eng-azure@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = on
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/embedded-slog"]
+        gate-notify = george.wilson@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/gcc-warnings"]
+        gate-notify = dan@delphix.com steven.burgess@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/gender-pronouns"]
+        gate-notify = dj@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/vmxnet3-rss"]
+        gate-notify = pavel.zakharov@delphix.com sebastien.roy@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/libshare-improvements"]
+        gate-notify = dj@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/zpool-checkpoint"]
+        gate-notify = dan@delphix.com serapheim@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
+[branch "projects/nfs-performance-test"]
+        gate-notify = kgreene@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip

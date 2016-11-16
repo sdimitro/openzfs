@@ -800,17 +800,17 @@ lzc_receive_with_header(const char *snapname, nvlist_t *props,
 int
 lzc_rollback(const char *fsname, char *snapnamebuf, int snapnamelen)
 {
-	nvlist_t *args;
-	nvlist_t *result;
-	int err;
+	nvlist_t *result = NULL;
+	nvlist_t *args = fnvlist_alloc();
 
-	args = fnvlist_alloc();
-	err = lzc_ioctl(ZFS_IOC_ROLLBACK, fsname, args, &result);
+	int err = lzc_ioctl(ZFS_IOC_ROLLBACK, fsname, args, &result);
 	nvlist_free(args);
 	if (err == 0 && snapnamebuf != NULL) {
 		const char *snapname = fnvlist_lookup_string(result, "target");
 		(void) strlcpy(snapnamebuf, snapname, snapnamelen);
 	}
+	fnvlist_free(result);
+
 	return (err);
 }
 

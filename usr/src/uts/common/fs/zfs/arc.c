@@ -1480,6 +1480,20 @@ arc_cksum_free(arc_buf_hdr_t *hdr)
 }
 
 /*
+ * Return true iff at least one of the bufs on hdr is not compressed.
+ */
+static boolean_t
+arc_hdr_has_uncompressed_buf(arc_buf_hdr_t *hdr)
+{
+	for (arc_buf_t *b = hdr->b_l1hdr.b_buf; b != NULL; b = b->b_next) {
+		if (!ARC_BUF_COMPRESSED(b)) {
+			return (B_TRUE);
+		}
+	}
+	return (B_FALSE);
+}
+
+/*
  * If we've turned on the ZFS_DEBUG_MODIFY flag, verify that the buf's data
  * matches the checksum that is stored in the hdr. If there is no checksum,
  * or if the buf is compressed, this is a no-op.
@@ -1494,6 +1508,8 @@ arc_cksum_verify(arc_buf_t *buf)
 		return;
 
 	if (ARC_BUF_COMPRESSED(buf)) {
+		ASSERT(hdr->b_l1hdr.b_freeze_cksum == NULL ||
+		    arc_hdr_has_uncompressed_buf(hdr));
 		return;
 	}
 
@@ -1598,6 +1614,7 @@ arc_cksum_compute(arc_buf_t *buf)
 
 	mutex_enter(&buf->b_hdr->b_l1hdr.b_freeze_lock);
 	if (hdr->b_l1hdr.b_freeze_cksum != NULL) {
+		ASSERT(arc_hdr_has_uncompressed_buf(hdr));
 		mutex_exit(&hdr->b_l1hdr.b_freeze_lock);
 		return;
 	} else if (ARC_BUF_COMPRESSED(buf)) {
@@ -1707,6 +1724,8 @@ arc_buf_thaw(arc_buf_t *buf)
 	 * allocate b_thawed.
 	 */
 	if (ARC_BUF_COMPRESSED(buf)) {
+		ASSERT(hdr->b_l1hdr.b_freeze_cksum == NULL ||
+		    arc_hdr_has_uncompressed_buf(hdr));
 		return;
 	}
 
@@ -1737,6 +1756,8 @@ arc_buf_freeze(arc_buf_t *buf)
 		return;
 
 	if (ARC_BUF_COMPRESSED(buf)) {
+		ASSERT(hdr->b_l1hdr.b_freeze_cksum == NULL ||
+		    arc_hdr_has_uncompressed_buf(hdr));
 		return;
 	}
 
@@ -2436,14 +2457,6 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag, boolean_t compressed,
 		buf->b_flags |= ARC_BUF_FLAG_COMPRESSED;
 
 	/*
-	 * Although the ARC should handle it correctly, levels above the ARC
-	 * should prevent us from having multiple compressed bufs off the same
-	 * hdr. To ensure we notice it if this behavior changes, we assert this
-	 * here the best we can.
-	 */
-	IMPLY(ARC_BUF_COMPRESSED(buf), !HDR_SHARED_DATA(hdr));
-
-	/*
 	 * If the hdr's data can be shared then we share the data buffer and
 	 * set the appropriate bit in the hdr's b_flags to indicate the hdr is
 	 * sharing it's b_pabd with the arc_buf_t. Otherwise, we allocate a new
@@ -2778,8 +2791,13 @@ arc_buf_destroy_impl(arc_buf_t *buf)
 		    HDR_GET_COMPRESS(hdr) != ZIO_COMPRESS_OFF);
 	}
 
-	if (hdr->b_l1hdr.b_bufcnt == 0)
+	/*
+	 * Free the checksum if we're removing the last uncompressed buf from
+	 * this hdr.
+	 */
+	if (!arc_hdr_has_uncompressed_buf(hdr)) {
 		arc_cksum_free(hdr);
+	}
 
 	/* clean up the buf */
 	buf->b_hdr = NULL;
@@ -5602,6 +5620,7 @@ arc_write(zio_t *pio, spa_t *spa, uint64_t txg, blkptr_t *bp, arc_buf_t *buf,
 		arc_hdr_set_flags(hdr, ARC_FLAG_L2CACHE);
 	if (ARC_BUF_COMPRESSED(buf)) {
 		ASSERT3U(zp->zp_compress, !=, ZIO_COMPRESS_OFF);
+		ASSERT3U(HDR_GET_LSIZE(hdr), !=, arc_buf_size(buf));
 		zio_flags |= ZIO_FLAG_RAW;
 	}
 	callback = kmem_zalloc(sizeof (arc_write_callback_t), KM_SLEEP);

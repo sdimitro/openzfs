@@ -252,7 +252,7 @@ write_arglist(mdb_tgt_as_t as, mdb_tgt_addr_t addr,
 			mdb_warn("failed to write %llr at address 0x%llx",
 			    value, addr);
 			mdb.m_incr = 0;
-			break;
+			return (DCMD_ERR);
 		}
 
 		mdb.m_incr = naddr - addr;

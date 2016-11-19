@@ -28,11 +28,11 @@
 #ifndef	_LIBZFS_IMPL_H
 #define	_LIBZFS_IMPL_H
 
-#include <sys/dmu.h>
 #include <sys/fs/zfs.h>
-#include <sys/zfs_ioctl.h>
 #include <sys/spa.h>
 #include <sys/nvpair.h>
+#include <sys/dmu.h>
+#include <sys/zfs_ioctl.h>
 
 #include <libuutil.h>
 #include <libzfs.h>

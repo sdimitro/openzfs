@@ -22,9 +22,9 @@
 /*
  * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2015 by Delphix. All rights reserved.
  * Copyright 2015 Toomas Soome <tsoome@me.com>
  * Copyright 2015 Gary Mills
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 /*

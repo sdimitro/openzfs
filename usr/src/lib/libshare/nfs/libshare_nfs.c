@@ -20,8 +20,8 @@
  */
 
 /*
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2016 Nexenta Systems, Inc.
  * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
@@ -52,6 +52,7 @@
 #include "libshare_nfs.h"
 #include <nfs/nfs.h>
 #include <nfs/nfssys.h>
+#include <netconfig.h>
 #include "smfcfg.h"
 
 /* should really be in some global place */
@@ -3106,13 +3107,31 @@ nfs_validate_proto_prop(int index, char *name, char *value)
 		}
 		break;
 
-	case OPT_TYPE_PROTOCOL:
-		if (strlen(value) != 0 &&
-		    strcasecmp(value, "all") != 0 &&
-		    strcasecmp(value, "tcp") != 0 &&
-		    strcasecmp(value, "udp") != 0)
+	case OPT_TYPE_PROTOCOL: {
+		struct netconfig *nconf;
+		void *nc;
+		boolean_t pfound = B_FALSE;
+
+		if (strcasecmp(value, "all") == 0)
+			break;
+
+		if ((nc = setnetconfig()) == NULL) {
+			(void) fprintf(stderr, dgettext(TEXT_DOMAIN,
+			    "setnetconfig failed: %s\n"), strerror(errno));
+		} else {
+			while ((nconf = getnetconfig(nc)) != NULL) {
+				if (strcmp(nconf->nc_proto, value) == 0) {
+					pfound = B_TRUE;
+					break;
+				}
+			}
+			(void) endnetconfig(nc);
+		}
+
+		if (!pfound)
 			ret = SA_BAD_VALUE;
 		break;
+	}
 
 	default:
 		/* treat as a string */

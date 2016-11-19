@@ -4,7 +4,7 @@
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License.
 .\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.  See the License for the specific language governing permissions and limitations under the License.
 .\" When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH ROUTEADM 1M "Jul 18, 2007"
+.TH ROUTEADM 1M "April 9, 2016"
 .SH NAME
 routeadm \- IP forwarding and routing configuration
 .SH SYNOPSIS
@@ -35,7 +35,6 @@ routeadm \- IP forwarding and routing configuration
 .fi
 
 .SH DESCRIPTION
-.sp
 .LP
 The \fBrouteadm\fR command is used to administer system-wide configuration for
 IP forwarding and routing. IP forwarding is the passing of IP packets from one
@@ -81,7 +80,6 @@ service as appropriate. This conversion process occurs when you issue an enable
 .LP
 The first usage, in the SYNOPSIS above, reports the current configuration.
 .SH OPTIONS
-.sp
 .LP
 The following command-line options are supported:
 .sp
@@ -91,7 +89,7 @@ The following command-line options are supported:
 .ad
 .sp .6
 .RS 4n
-Print the configuration in parseable format. If \fIoption\fR is specified, only
+Print the configuration in parsable format. If \fIoption\fR is specified, only
 the configuration for the specified option or variable is displayed.
 .RE
 
@@ -502,7 +500,6 @@ See \fBin.routed\fR(1M) for details of property names and how they relate to
 daemon behavior.
 
 .SH EXIT STATUS
-.sp
 .LP
 The following exit values are returned:
 .sp
@@ -540,7 +537,6 @@ Interface Stability	Stable
 .TE
 
 .SH SEE ALSO
-.sp
 .LP
 \fBifconfig\fR(1M), \fBin.routed\fR(1M), \fBsvcadm\fR(1M), \fBgateways\fR(4),
 \fBattributes\fR(5), \fBsmf\fR(5)

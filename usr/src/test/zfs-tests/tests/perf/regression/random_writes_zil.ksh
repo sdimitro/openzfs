@@ -68,9 +68,9 @@ lun_list=$(pool_to_lun_list $PERFPOOL)
 log_note "Collecting backend IO stats with lun list $lun_list"
 export collect_scripts=(
     "kstat zfs:0 1"   "kstat"
-    "vmstat 1"        "vmstat"
-    "mpstat 1"        "mpstat"
-    "iostat -xcnz 1"  "iostat"
+    "vmstat -T d 1"        "vmstat"
+    "mpstat -T d 1"        "mpstat"
+    "iostat -T d -xcnz 1"  "iostat"
     "dtrace -Cs $PERF_SCRIPTS/io.d $PERFPOOL $lun_list 1" "io"
     "dtrace  -s $PERF_SCRIPTS/zil.d $PERFPOOL 1"          "zil"
     "dtrace  -s $PERF_SCRIPTS/profile.d"                  "profile"

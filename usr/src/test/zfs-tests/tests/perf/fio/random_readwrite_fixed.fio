@@ -13,19 +13,23 @@
 # Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
-[DEFAULT]
-pre = setup
-quiet = False
-pre_user = root
-user = root
-timeout = 0
-post_user = root
-post = cleanup
-outputdir = /var/tmp/test_results
+[global]
+filename_format=file$jobnum
+nrfiles=16
+group_reporting=1
+fallocate=0
+overwrite=0
+thread=1
+rw=randrw
+rwmixread=70
+time_based=1
+directory=/${TESTFS}
+runtime=${RUNTIME}
+bs=${BLOCKSIZE}
+ioengine=psync
+sync=${SYNC_TYPE}
+numjobs=${NUMJOBS}
+buffer_compress_percentage=66
+buffer_compress_chunk=4096
 
-[/opt/zfs-tests/tests/perf/regression]
-tests = ['sequential_writes', 'sequential_reads', 'sequential_reads_arc_cached',
-    'sequential_reads_arc_cached_clone', 'sequential_reads_dbuf_cached',
-    'random_reads', 'random_writes', 'random_readwrite', 'random_writes_zil',
-    'random_readwrite_fixed']
-post =
+[job]

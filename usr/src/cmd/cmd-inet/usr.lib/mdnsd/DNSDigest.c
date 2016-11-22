@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2002-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
  * Copyright (c) 2016 by Delphix. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #ifdef __cplusplus
 extern "C" {

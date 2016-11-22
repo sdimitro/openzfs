@@ -27,6 +27,7 @@
 # Copyright (c) 2013 by Delphix. All rights reserved.
 #
 SUBDIRS = mdb_kb \
+	i40e \
 	generic_cpu \
 	amd_opteron \
 	sata \

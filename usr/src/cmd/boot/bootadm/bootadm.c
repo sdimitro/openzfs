@@ -533,7 +533,7 @@ sanitize_env()
 int
 main(int argc, char *argv[])
 {
-	error_t ret;
+	error_t ret = BAM_SUCCESS;
 
 	(void) setlocale(LC_ALL, "");
 	(void) textdomain(TEXT_DOMAIN);
@@ -1047,11 +1047,11 @@ install_bootloader(void)
 	be_node_list_t	*be_nodes, *node;
 	FILE		*fp;
 	char		*root_ds = NULL;
-	int		ret;
+	int		ret = BAM_ERROR;
 
 	if (nvlist_alloc(&nvl, NV_UNIQUE_NAME, 0) != 0) {
 		bam_error(_("out of memory\n"));
-		return (BAM_ERROR);
+		return (ret);
 	}
 
 	/*
@@ -1066,12 +1066,10 @@ install_bootloader(void)
 	if (bam_alt_root) {
 		if (stat(bam_root, &statbuf) != 0) {
 			bam_error(STAT_FAIL, bam_root, strerror(errno));
-			ret = BAM_ERROR;
 			goto done;
 		}
 		if ((fp = fopen(MNTTAB, "r")) == NULL) {
 			bam_error(OPEN_FAIL, MNTTAB, strerror(errno));
-			ret = BAM_ERROR;
 			goto done;
 		}
 		resetmnttab(fp);
@@ -1087,18 +1085,15 @@ install_bootloader(void)
 
 		if (found == 0) {
 			bam_error(NOT_IN_MNTTAB, bam_root);
-			ret = BAM_ERROR;
 			goto done;
 		}
 		if (root_ds == NULL) {
 			bam_error(_("out of memory\n"));
-			ret = BAM_ERROR;
 			goto done;
 		}
 
 		if (be_list(NULL, &be_nodes) != BE_SUCCESS) {
 			bam_error(_("No BE's found\n"));
-			ret = BAM_ERROR;
 			goto done;
 		}
 		for (node = be_nodes; node != NULL; node = node->be_next_node)
@@ -1112,7 +1107,6 @@ install_bootloader(void)
 		root_ds = NULL;
 		if (node == NULL) {
 			be_free_list(be_nodes);
-			ret = BAM_ERROR;
 			goto done;
 		}
 		ret = nvlist_add_string(nvl, BE_ATTR_ORIG_BE_NAME,
@@ -1120,7 +1114,7 @@ install_bootloader(void)
 		ret |= nvlist_add_string(nvl, BE_ATTR_ORIG_BE_ROOT,
 		    node->be_root_ds);
 		be_free_list(be_nodes);
-		if (ret) {
+		if (ret != 0) {
 			ret = BAM_ERROR;
 			goto done;
 		}
@@ -1135,6 +1129,7 @@ install_bootloader(void)
 
 	if (nvlist_add_uint16(nvl, BE_ATTR_INSTALL_FLAGS, flags) != 0) {
 		bam_error(_("out of memory\n"));
+		ret = BAM_ERROR;
 		goto done;
 	}
 
@@ -1145,13 +1140,13 @@ install_bootloader(void)
 	 */
 	if (bam_pool != NULL) {
 		ret = nvlist_add_string(nvl, BE_ATTR_ORIG_BE_POOL, bam_pool);
-		if (ret) {
+		if (ret != 0) {
 			ret = BAM_ERROR;
 			goto done;
 		}
 		if (found) {
 			ret = be_installboot(nvl);
-			if (ret)
+			if (ret != 0)
 				ret = BAM_ERROR;
 			goto done;
 		}
@@ -1184,12 +1179,12 @@ install_bootloader(void)
 		ret |= nvlist_add_string(nvl, BE_ATTR_ORIG_BE_ROOT,
 		    node->be_root_ds);
 		be_free_list(be_nodes);
-		if (ret) {
+		if (ret != 0) {
 			ret = BAM_ERROR;
 			goto done;
 		}
 		ret = be_installboot(nvl);
-		if (ret)
+		if (ret != 0)
 			ret = BAM_ERROR;
 		goto done;
 	}
@@ -1246,7 +1241,7 @@ install_bootloader(void)
 	ret |= nvlist_add_string(nvl, BE_ATTR_ORIG_BE_POOL, node->be_rpool);
 	be_free_list(be_nodes);
 
-	if (ret)
+	if (ret != 0)
 		ret = BAM_ERROR;
 	else
 		ret = be_installboot(nvl) ? BAM_ERROR : 0;
@@ -1282,10 +1277,10 @@ bam_menu(char *subcmd, char *opt, int largc, char *largv[])
 	char			menu_root[PATH_MAX];
 	struct stat		sb;
 	error_t (*f)(menu_t *mp, char *menu_path, char *opt);
-	char			*special;
+	char			*special = NULL;
 	char			*pool = NULL;
 	zfs_mnted_t		zmnted;
-	char			*zmntpt;
+	char			*zmntpt = NULL;
 	char			*osdev;
 	char			*osroot;
 	const char		*fcn = "bam_menu()";
@@ -1411,8 +1406,7 @@ bam_menu(char *subcmd, char *opt, int largc, char *largv[])
 
 	if ((menu = menu_read(menu_path)) == NULL) {
 		bam_error(CANNOT_LOCATE_GRUB_MENU_FILE, menu_path);
-		if (special != NULL)
-			free(special);
+		free(special);
 
 		return (BAM_ERROR);
 	}
@@ -2256,8 +2250,9 @@ cmpstat(
 			return (0);
 
 		/* read in list of safe files */
-		if (safefiles == NULL)
-			if (fp = fopen("/boot/solaris/filelist.safe", "r")) {
+		if (safefiles == NULL) {
+			fp = fopen("/boot/solaris/filelist.safe", "r");
+			if (fp != NULL) {
 				safefiles = s_calloc(1,
 				    sizeof (struct safefile));
 				safefilep = safefiles;
@@ -2275,6 +2270,7 @@ cmpstat(
 				}
 				(void) fclose(fp);
 			}
+		}
 	}
 
 	/*
@@ -2381,11 +2377,12 @@ cmpstat(
 			}
 		}
 
-		if (bam_verbose)
+		if (bam_verbose) {
 			if (bam_smf_check)
 				bam_print("    %s\n", file);
 			else
 				bam_print(PARSEABLE_OUT_DATE, file);
+		}
 	}
 
 	return (0);
@@ -2405,7 +2402,7 @@ rmdir_r(char *path)
 	if ((dir = opendir(path)) == NULL)
 		return (-1);
 
-	while (d = readdir(dir)) {
+	while ((d = readdir(dir)) != NULL) {
 		if ((strcmp(d->d_name, ".") != 0) &&
 		    (strcmp(d->d_name, "..") != 0)) {
 			(void) snprintf(tpath, sizeof (tpath), "%s/%s",
@@ -4559,6 +4556,7 @@ line_parser(menu_t *mp, char *str, int *lineNum, int *entryNum)
 	menu_flag_t flag = BAM_INVALID;
 	const char *fcn = "line_parser()";
 
+	cmd = NULL;
 	if (str == NULL) {
 		return;
 	}
@@ -5319,7 +5317,7 @@ get_grubroot(char *osroot, char *osdev, char *menu_root)
 {
 	char		*grubroot;	/* (hd#,#,#) */
 	char		*slice;
-	char		*grubhd;
+	char		*grubhd = NULL;
 	int		fdiskpart;
 	int		found = 0;
 	char		*devname;
@@ -5430,7 +5428,7 @@ find_primary_common(char *mntpt, char *fstype)
 
 	ufs = zfs = lu = NULL;
 
-	while (entp = readdir(dirp)) {
+	while ((entp = readdir(dirp)) != NULL) {
 		if (strcmp(entp->d_name, ".") == 0 ||
 		    strcmp(entp->d_name, "..") == 0)
 			continue;
@@ -6127,8 +6125,7 @@ free_mnttab(mhash_t *mhp)
 	int		i;
 
 	for (i = 0; i < MH_HASH_SZ; i++) {
-		/*LINTED*/
-		while (mcp = mhp->mh_hash[i]) {
+		while ((mcp = mhp->mh_hash[i]) != NULL) {
 			mhp->mh_hash[i] = mcp->mc_next;
 			free(mcp->mc_special);
 			free(mcp->mc_mntpt);
@@ -6641,7 +6638,7 @@ FindAllUfsSignatures(void)
 		goto fail;
 	}
 
-	while (dp = readdir(dirp)) {
+	while ((dp = readdir(dirp)) != NULL) {
 		if (strcmp(dp->d_name, ".") == 0 ||
 		    strcmp(dp->d_name, "..") == 0)
 			continue;
@@ -9125,7 +9122,7 @@ get_set_kernel(
 	char		*space;
 	char		*new_path;
 	char		old_space;
-	size_t		old_kernel_len;
+	size_t		old_kernel_len = 0;
 	size_t		new_str_len;
 	char		*fstype;
 	char		*osdev;

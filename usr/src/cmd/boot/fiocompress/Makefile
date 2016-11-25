@@ -40,10 +40,6 @@ $(PROG) := LDLIBS +=	-lz
 CFLAGS +=	-I../../../uts/common
 LINTFLAGS +=	-I../../../uts/common
 
-# definitions for lint
-# until libz is compiled against ON header files (uid/gid)
-LINTFLAGS += -erroff=E_INCONS_ARG_DECL2
-LINTFLAGS += -erroff=E_INCONS_VAL_TYPE_DECL2
 LINTFLAGS += -erroff=E_NAME_USED_NOT_DEF2
 
 all: $(PROG)

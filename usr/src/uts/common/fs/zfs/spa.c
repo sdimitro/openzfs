@@ -7586,24 +7586,17 @@ spa_has_active_shared_spare(spa_t *spa)
 	return (B_FALSE);
 }
 
-/*
- * Post a sysevent corresponding to the given event.  The 'name' must be one of
- * the event definitions in sys/sysevent/eventdefs.h.  The payload will be
- * filled in from the spa and (optionally) the vdev.  This doesn't do anything
- * in the userland libzpool, as we don't want consumers to misinterpret ztest
- * or zdb as real changes.
- */
-void
-spa_event_notify(spa_t *spa, vdev_t *vd, const char *name)
+sysevent_t *
+spa_event_create(spa_t *spa, vdev_t *vd, const char *name)
 {
+	sysevent_t		*ev = NULL;
 #ifdef _KERNEL
-	sysevent_t		*ev;
 	sysevent_attr_list_t	*attr = NULL;
 	sysevent_value_t	value;
-	sysevent_id_t		eid;
 
 	ev = sysevent_alloc(EC_ZFS, (char *)name, SUNW_KERN_PUB "zfs",
 	    SE_SLEEP);
+	ASSERT(ev != NULL);
 
 	value.value_type = SE_DATA_TYPE_STRING;
 	value.value.sv_string = spa_name(spa);
@@ -7635,11 +7628,42 @@ spa_event_notify(spa_t *spa, vdev_t *vd, const char *name)
 		goto done;
 	attr = NULL;
 
-	(void) log_sysevent(ev, SE_SLEEP, &eid);
-
 done:
 	if (attr)
 		sysevent_free_attr(attr);
+
+#endif
+	return (ev);
+}
+
+void
+spa_event_post(sysevent_t *ev)
+{
+#ifdef _KERNEL
+	sysevent_id_t		eid;
+
+	(void) log_sysevent(ev, SE_SLEEP, &eid);
 	sysevent_free(ev);
 #endif
+}
+
+void
+spa_event_discard(sysevent_t *ev)
+{
+#ifdef _KERNEL
+	sysevent_free(ev);
+#endif
+}
+
+/*
+ * Post a sysevent corresponding to the given event.  The 'name' must be one of
+ * the event definitions in sys/sysevent/eventdefs.h.  The payload will be
+ * filled in from the spa and (optionally) the vdev.  This doesn't do anything
+ * in the userland libzpool, as we don't want consumers to misinterpret ztest
+ * or zdb as real changes.
+ */
+void
+spa_event_notify(spa_t *spa, vdev_t *vd, const char *name)
+{
+	spa_event_post(spa_event_create(spa, vd, name));
 }

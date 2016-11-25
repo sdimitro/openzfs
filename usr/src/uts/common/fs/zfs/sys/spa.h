@@ -33,6 +33,7 @@
 #include <sys/avl.h>
 #include <sys/zfs_context.h>
 #include <sys/nvpair.h>
+#include <sys/sysevent.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <sys/fs/zfs.h>
@@ -919,6 +920,9 @@ extern void spa_configfile_set(spa_t *, nvlist_t *, boolean_t);
 
 /* asynchronous event notification */
 extern void spa_event_notify(spa_t *spa, vdev_t *vdev, const char *name);
+extern sysevent_t *spa_event_create(spa_t *spa, vdev_t *vd, const char *name);
+extern void spa_event_post(sysevent_t *ev);
+extern void spa_event_discard(sysevent_t *ev);
 
 #ifdef ZFS_DEBUG
 #define	dprintf_bp(bp, fmt, ...) do {				\

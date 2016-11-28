@@ -257,6 +257,9 @@ typedef hrtime_t dhcp_ipc_id_t;
 /*
  * note: the first 4 fields of the dhcp_ipc_request_t and dhcp_ipc_reply_t
  *	 are intentionally identical; code in dhcpagent_ipc.c counts on it!
+ *
+ * we pack these structs to ensure that their lengths will be identical between
+ * 32-bit and 64-bit executables.
  */
 
 #pragma pack(4)

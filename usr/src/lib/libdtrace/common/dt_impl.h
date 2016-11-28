@@ -320,9 +320,9 @@ struct dtrace_hdl {
 	int dt_indent;		/* recommended flow indent */
 	dtrace_epid_t dt_last_epid;	/* most recently consumed EPID */
 	uint64_t dt_last_timestamp;	/* most recently consumed timestamp */
-	boolean_t dt_experimental;	/* experimental features used? */
-	int dt_xd_num_callers;	/* number of self->%callers<N> variables */
-	int dt_xd_num_entrys;	/* number of self->%entry*<N> variables */
+	boolean_t dt_has_sugar;	/* syntactic sugar used? */
+	int dt_sugar_num_callers; /* number of self->%callers<N> variables */
+	int dt_sugar_num_entrys; /* number of self->%entry*<N> variables */
 };
 
 /*

@@ -64,7 +64,6 @@ dir path=opt/SUNWdtrt/tst/common/enum
 dir path=opt/SUNWdtrt/tst/common/env
 dir path=opt/SUNWdtrt/tst/common/error
 dir path=opt/SUNWdtrt/tst/common/exit
-dir path=opt/SUNWdtrt/tst/common/experimental
 dir path=opt/SUNWdtrt/tst/common/fbtprovider
 dir path=opt/SUNWdtrt/tst/common/funcs
 dir path=opt/SUNWdtrt/tst/common/grammar
@@ -113,6 +112,7 @@ dir path=opt/SUNWdtrt/tst/common/stop
 dir path=opt/SUNWdtrt/tst/common/strlen
 dir path=opt/SUNWdtrt/tst/common/strtoll
 dir path=opt/SUNWdtrt/tst/common/struct
+dir path=opt/SUNWdtrt/tst/common/sugar
 dir path=opt/SUNWdtrt/tst/common/syscall
 dir path=opt/SUNWdtrt/tst/common/sysevent
 dir path=opt/SUNWdtrt/tst/common/tick-n
@@ -775,17 +775,6 @@ file path=opt/SUNWdtrt/tst/common/error/tst.errorend.d mode=0444
 file path=opt/SUNWdtrt/tst/common/exit/err.D_PROTO_LEN.noarg.d mode=0444
 file path=opt/SUNWdtrt/tst/common/exit/err.exitarg1.d mode=0444
 file path=opt/SUNWdtrt/tst/common/exit/tst.basic1.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.else.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.if.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.if2.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.if_before_after.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.if_nested.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.if_trailing_semicolon.d \
-    mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.if_trailing_semicolon2.d \
-    mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.while.d mode=0444
-file path=opt/SUNWdtrt/tst/common/experimental/tst.whilewhile.d mode=0444
 file path=opt/SUNWdtrt/tst/common/fbtprovider/err.D_PDESC_ZERO.notreturn.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/fbtprovider/tst.basic.d mode=0444
@@ -1830,6 +1819,15 @@ file path=opt/SUNWdtrt/tst/common/struct/tst.StructDataTypes.d mode=0444
 file path=opt/SUNWdtrt/tst/common/struct/tst.StructInside.d mode=0444
 file path=opt/SUNWdtrt/tst/common/struct/tst.clauselocal.d mode=0444
 file path=opt/SUNWdtrt/tst/common/struct/tst.clauselocal.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.else.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.if.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.if2.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.if_before_after.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.if_nested.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.if_trailing_semicolon.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.if_trailing_semicolon2.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.while.d mode=0444
+file path=opt/SUNWdtrt/tst/common/sugar/tst.whilewhile.d mode=0444
 file path=opt/SUNWdtrt/tst/common/syscall/tst.args.d mode=0444
 file path=opt/SUNWdtrt/tst/common/syscall/tst.args.exe mode=0555
 file path=opt/SUNWdtrt/tst/common/syscall/tst.openret.ksh mode=0444

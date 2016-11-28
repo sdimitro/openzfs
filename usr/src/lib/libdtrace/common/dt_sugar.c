@@ -18,18 +18,12 @@
  */
 
 /*
- * This file implements several DTrace language features that are
- * considered "experimental" because they are subject to change and must
- * be explicitly enabled by the -xd flag, the "experimental" option, or
- * by naming a script with the ".xd" filename extension.
- *
- * These features are implemented by transforming the D parse tree such
- * that it only uses the subset of D that is supported by the rest of
- * the compiler / the kernel.  A clause containing these language
- * features is referred to as a "super-clause", and its transformation
- * typically entails creating several "sub-clauses" to implement it. For
- * diagnosability, the sub-clauses will be printed if the "-xtree=8"
- * flag is specified.
+ * Syntactic sugar features are implemented by transforming the D parse tree
+ * such that it only uses the subset of D that is supported by the rest of the
+ * compiler / the kernel.  A clause containing these language features is
+ * referred to as a "super-clause", and its transformation typically entails
+ * creating several "sub-clauses" to implement it. For diagnosability, the
+ * sub-clauses will be printed if the "-xtree=8" flag is specified.
  *
  * The features are:
  *
@@ -108,13 +102,13 @@ typedef enum entryvar {
 #define	ENTRYVAR_IS_ARGS (1<<0)
 #define	ENTRYVAR_IS_ELAPSED (1<<1)
 
-typedef struct xd_entryvar {
+typedef struct dt_sugar_entryvar {
 	const char *xe_name;
 	int xe_flags;
 	int xe_num;
-} xd_entryvar_t;
+} dt_sugar_entryvar_t;
 
-static const xd_entryvar_t entryvars[] = {
+static const dt_sugar_entryvar_t entryvars[] = {
 	{ "vtimestamp" },
 	{ "walltimestamp" },
 	{ "errno" },
@@ -152,20 +146,20 @@ static const xd_entryvar_t entryvars[] = {
 	{ NULL }
 };
 
-typedef struct xd_parse {
-	dtrace_hdl_t *xp_dtp;
-	dt_node_t *xp_pdescs;		/* probe descriptions */
-	dt_node_t *xp_append_clauses;	/* callers return clauses to append */
-	int xp_num_conditions;
-	int xp_num_ifs;
-	int xp_num_whiles;
-	dt_node_t *xp_clause_list;
-	boolean_t xp_need_entry;
-	boolean_t xp_entryvars[ENTRYVAR_NUM];
-	boolean_t xp_in_return;
-} xd_parse_t;
+typedef struct dt_sugar_parse {
+	dtrace_hdl_t *dtsp_dtp;
+	dt_node_t *dtsp_pdescs;		/* probe descriptions */
+	dt_node_t *dtsp_append_clauses;	/* callers return clauses to append */
+	int dtsp_num_conditions;
+	int dtsp_num_ifs;
+	int dtsp_num_whiles;
+	dt_node_t *dtsp_clause_list;
+	boolean_t dtsp_need_entry;
+	boolean_t dtsp_entryvars[ENTRYVAR_NUM];
+	boolean_t dtsp_in_return;
+} dt_sugar_parse_t;
 
-static void xd_visit_stmts(xd_parse_t *, dt_node_t *, int);
+static void dt_sugar_visit_stmts(dt_sugar_parse_t *, dt_node_t *, int);
 
 /*
  * Return a node for "self->%error".
@@ -178,7 +172,7 @@ static void xd_visit_stmts(xd_parse_t *, dt_node_t *, int);
  * sub-clauses following an error.
  */
 static dt_node_t *
-xd_new_error_var(void)
+dt_sugar_new_error_var(void)
 {
 	return (dt_node_op2(DT_TOK_PTR, dt_node_ident(strdup("self")),
 	    dt_node_ident(strdup("%error"))));
@@ -188,18 +182,18 @@ xd_new_error_var(void)
  * Append this clause to the clause list.
  */
 static void
-xd_append_clause(xd_parse_t *dp, dt_node_t *clause)
+dt_sugar_append_clause(dt_sugar_parse_t *dp, dt_node_t *clause)
 {
-	dp->xp_clause_list = dt_node_link(dp->xp_clause_list, clause);
+	dp->dtsp_clause_list = dt_node_link(dp->dtsp_clause_list, clause);
 }
 
 /*
  * Prepend this clause to the clause list.
  */
 static void
-xd_prepend_clause(xd_parse_t *dp, dt_node_t *clause)
+dt_sugar_prepend_clause(dt_sugar_parse_t *dp, dt_node_t *clause)
 {
-	dp->xp_clause_list = dt_node_link(clause, dp->xp_clause_list);
+	dp->dtsp_clause_list = dt_node_link(clause, dp->dtsp_clause_list);
 }
 
 /*
@@ -209,7 +203,7 @@ xd_prepend_clause(xd_parse_t *dp, dt_node_t *clause)
  * this variable name can not collide with any user-specified variable.
  */
 static dt_node_t *
-xd_new_condition_var(int condid)
+dt_sugar_new_condition_var(int condid)
 {
 	char *str;
 
@@ -242,12 +236,13 @@ xd_new_condition_var(int condid)
  * variables back to 0 when the super-clause completes.
  */
 static dt_node_t *
-xd_new_condition_impl(xd_parse_t *dp, dt_node_t *pred, int condid, int newcond)
+dt_sugar_new_condition_impl(dt_sugar_parse_t *dp,
+    dt_node_t *pred, int condid, int newcond)
 {
 	dt_node_t *value, *body, *newpred;
 
 	/* predicate is !self->%error */
-	newpred = dt_node_op1(DT_TOK_LNEG, xd_new_error_var());
+	newpred = dt_node_op1(DT_TOK_LNEG, dt_sugar_new_error_var());
 
 	if (condid == 0) {
 		/*
@@ -263,14 +258,14 @@ xd_new_condition_impl(xd_parse_t *dp, dt_node_t *pred, int condid, int newcond)
 	} else {
 		/* value is (this->%condition_<condid> && pred) */
 		value = dt_node_op2(DT_TOK_LAND,
-		    xd_new_condition_var(condid), pred);
+		    dt_sugar_new_condition_var(condid), pred);
 	}
 
 	/* body is "this->%condition_<retval> = <value>;" */
 	body = dt_node_statement(dt_node_op2(DT_TOK_ASGN,
-	    xd_new_condition_var(newcond), value));
+	    dt_sugar_new_condition_var(newcond), value));
 
-	return (dt_node_clause(dp->xp_pdescs, newpred, body));
+	return (dt_node_clause(dp->dtsp_pdescs, newpred, body));
 }
 
 /*
@@ -279,35 +274,35 @@ xd_new_condition_impl(xd_parse_t *dp, dt_node_t *pred, int condid, int newcond)
  * dp_first_new_clause.
  */
 static int
-xd_new_condition(xd_parse_t *dp, dt_node_t *pred, int condid)
+dt_sugar_new_condition(dt_sugar_parse_t *dp, dt_node_t *pred, int condid)
 {
-	dp->xp_num_conditions++;
-	xd_append_clause(dp, xd_new_condition_impl(dp,
-	    pred, condid, dp->xp_num_conditions));
-	return (dp->xp_num_conditions);
+	dp->dtsp_num_conditions++;
+	dt_sugar_append_clause(dp, dt_sugar_new_condition_impl(dp,
+	    pred, condid, dp->dtsp_num_conditions));
+	return (dp->dtsp_num_conditions);
 }
 
 /*
  * Return a node representing:
- *   self->%entry_<de_name>_<dt_xd_num_entrys>[stackdepth]
+ *   self->%entry_<de_name>_<dt_sugar_num_entrys>[stackdepth]
  *
- * Note that we need to include dt_xd_num_entrys so that uses of
+ * Note that we need to include dt_sugar_num_entrys so that uses of
  * entry->args[N] will have different names when used from different
  * super-clauses.  This is necessary because a given variable can only
  * have one type throughout the entire program (i.e. across different
  * super-clauses).
  */
 static dt_node_t *
-xd_new_entry_var(xd_parse_t *dp, entryvar_t ev)
+dt_sugar_new_entry_var(dt_sugar_parse_t *dp, entryvar_t ev)
 {
 	dt_node_t *self_entry, *identlist;
-	char *xdvarname;
+	char *str;
 
-	(void) asprintf(&xdvarname, "%%entry_%s_%u",
-	    entryvars[ev].xe_name, dp->xp_dtp->dt_xd_num_entrys);
+	(void) asprintf(&str, "%%entry_%s_%u",
+	    entryvars[ev].xe_name, dp->dtsp_dtp->dt_sugar_num_entrys);
 
 	self_entry = dt_node_op2(DT_TOK_PTR, dt_node_ident(strdup("self")),
-	    dt_node_ident(xdvarname));
+	    dt_node_ident(str));
 
 	identlist = dt_node_ident(strdup("stackdepth"));
 
@@ -338,18 +333,18 @@ xd_new_entry_var(xd_parse_t *dp, entryvar_t ev)
  * entry variable).
  */
 static dt_node_t *
-xd_new_entry_clause(xd_parse_t *dp)
+dt_sugar_new_entry_clause(dt_sugar_parse_t *dp)
 {
 	dt_node_t *pdesc;
 	dt_node_t *newpdesc = NULL;
 	dt_node_t *stmts = NULL;
 	entryvar_t ev;
 
-	assert(dp->xp_entryvars[ENTRYVAR_TIMESTAMP]);
+	assert(dp->dtsp_entryvars[ENTRYVAR_TIMESTAMP]);
 	for (ev = 0; ev < ENTRYVAR_NUM; ev++) {
 		dt_node_t *val, *asgn;
 
-		if (!dp->xp_entryvars[ev] ||
+		if (!dp->dtsp_entryvars[ev] ||
 		    (entryvars[ev].xe_flags & ENTRYVAR_IS_ELAPSED))
 			continue;
 
@@ -360,11 +355,12 @@ xd_new_entry_clause(xd_parse_t *dp)
 		} else {
 			val = dt_node_ident(strdup(entryvars[ev].xe_name));
 		}
-		asgn = dt_node_op2(DT_TOK_ASGN, xd_new_entry_var(dp, ev), val);
+		asgn = dt_node_op2(DT_TOK_ASGN,
+		    dt_sugar_new_entry_var(dp, ev), val);
 		stmts = dt_node_link(stmts, dt_node_statement(asgn));
 	}
 
-	for (pdesc = dp->xp_pdescs; pdesc != NULL; pdesc = pdesc->dn_list) {
+	for (pdesc = dp->dtsp_pdescs; pdesc != NULL; pdesc = pdesc->dn_list) {
 		char *probename;
 		assert(strcmp(pdesc->dn_desc->dtpd_name, "return") == 0);
 		(void) asprintf(&probename, "%s:%s:%s:entry",
@@ -393,24 +389,24 @@ xd_new_entry_clause(xd_parse_t *dp)
  * }
  */
 static dt_node_t *
-xd_new_return_clause(xd_parse_t *dp)
+dt_sugar_new_return_clause(dt_sugar_parse_t *dp)
 {
 	dt_node_t *stmts = NULL;
 	entryvar_t ev;
 
-	assert(dp->xp_entryvars[ENTRYVAR_TIMESTAMP]);
+	assert(dp->dtsp_entryvars[ENTRYVAR_TIMESTAMP]);
 	for (ev = 0; ev < ENTRYVAR_NUM; ev++) {
 		dt_node_t *asgn;
 
-		if (!dp->xp_entryvars[ev])
+		if (!dp->dtsp_entryvars[ev])
 			continue;
 
 		asgn = dt_node_op2(DT_TOK_ASGN,
-		    xd_new_entry_var(dp, ev), dt_node_int(0));
+		    dt_sugar_new_entry_var(dp, ev), dt_node_int(0));
 		stmts = dt_node_link(stmts, dt_node_statement(asgn));
 	}
 
-	return (dt_node_clause(dp->xp_pdescs, NULL, stmts));
+	return (dt_node_clause(dp->dtsp_pdescs, NULL, stmts));
 }
 
 /*
@@ -425,10 +421,10 @@ xd_new_return_clause(xd_parse_t *dp)
  * }
  */
 static dt_node_t *
-xd_new_condition1_clause(xd_parse_t *dp)
+dt_sugar_new_condition1_clause(dt_sugar_parse_t *dp)
 {
-	dt_node_t *pred = xd_new_entry_var(dp, ENTRYVAR_TIMESTAMP);
-	return (xd_new_condition_impl(dp, pred, 0, 1));
+	dt_node_t *pred = dt_sugar_new_entry_var(dp, ENTRYVAR_TIMESTAMP);
+	return (dt_sugar_new_condition_impl(dp, pred, 0, 1));
 }
 
 /*
@@ -438,7 +434,7 @@ xd_new_condition1_clause(xd_parse_t *dp)
  * See also new_entry_var(), new_entry_clause(), and new_return_clause().
  */
 static void
-xd_do_entryvar_impl(xd_parse_t *dp, entryvar_t ev,
+dt_sugar_do_entryvar_impl(dt_sugar_parse_t *dp, entryvar_t ev,
     dt_node_t *old, dt_node_t *new)
 {
 	dt_node_t *link = old->dn_link;
@@ -450,24 +446,24 @@ xd_do_entryvar_impl(xd_parse_t *dp, entryvar_t ev,
 	new->dn_kind = DT_NODE_FREE;
 
 	/* remember to generate :entry and :return probes */
-	dp->xp_need_entry = B_TRUE;
-	dp->xp_entryvars[ev] = B_TRUE;
+	dp->dtsp_need_entry = B_TRUE;
+	dp->dtsp_entryvars[ev] = B_TRUE;
 	/* We must always set %entry_timestamp<N>; see new_entry_clause() */
-	dp->xp_entryvars[ENTRYVAR_TIMESTAMP] = B_TRUE;
+	dp->dtsp_entryvars[ENTRYVAR_TIMESTAMP] = B_TRUE;
 }
 
 /*
  * If we are in a clause whose probes are all :return probes, and this node is
  * a bare entry variable (i.e. "entry->timestamp", "entry->arg1",
  * "entry->elapsed_ms", etc -- but not entry->args[N], which is handled by
- * xd_do_entryvar_args()), replace it with the corresponding straight D
+ * dt_sugar_do_entryvar_args()), replace it with the corresponding straight D
  * nodes.  Also, remember that we need to generate the :entry clause to
  * record this entry variable, and the extra :return clause to clear it.
  *
  * This node is transformed to either:
- *   self->%entry_<name>_<dt_xd_num_entrys>[stackdepth]
+ *   self->%entry_<name>_<dt_sugar_num_entrys>[stackdepth]
  * or, for entry_elapsed_*:
- *   (timestamp - self->%entry_timestamp_<dt_xd_num_entrys>[stackdepth]) /
+ *   (timestamp - self->%entry_timestamp_<dt_sugar_num_entrys>[stackdepth]) /
  *   <de_num>
  * e.g, "entry_elapsed_us" could become:
  *   (timestamp - self->%entry_timestamp2[stackdepth] / 1000)
@@ -475,12 +471,12 @@ xd_do_entryvar_impl(xd_parse_t *dp, entryvar_t ev,
  * See also new_entry_var(), new_entry_clause(), and new_return_clause().
  */
 static void
-xd_do_entryvar(xd_parse_t *dp, dt_node_t *dnp)
+dt_sugar_do_entryvar(dt_sugar_parse_t *dp, dt_node_t *dnp)
 {
 	dt_node_t *n;
 	entryvar_t ev;
 
-	if (!dp->xp_in_return)
+	if (!dp->dtsp_in_return)
 		return;
 	if (dnp->dn_kind != DT_NODE_OP2 ||
 	    dnp->dn_op != DT_TOK_PTR)
@@ -501,12 +497,12 @@ xd_do_entryvar(xd_parse_t *dp, dt_node_t *dnp)
 
 	/*
 	 * If this is the first time we are using an entry_* variable in
-	 * this super-clause, increment dt_xd_num_entrys so that our
+	 * this super-clause, increment dt_sugar_num_entrys so that our
 	 * %entry_timestamp<N> variables will be different from
 	 * that of other super-clauses.  See also new_entry_var().
 	 */
-	if (!dp->xp_need_entry)
-		dp->xp_dtp->dt_xd_num_entrys++;
+	if (!dp->dtsp_need_entry)
+		dp->dtsp_dtp->dt_sugar_num_entrys++;
 
 	if (entryvars[ev].xe_flags & ENTRYVAR_IS_ELAPSED) {
 		/*
@@ -515,7 +511,7 @@ xd_do_entryvar(xd_parse_t *dp, dt_node_t *dnp)
 		 */
 		dt_node_t *delta_ns = dt_node_op2(DT_TOK_SUB,
 		    dt_node_ident(strdup("timestamp")),
-		    xd_new_entry_var(dp, ENTRYVAR_TIMESTAMP));
+		    dt_sugar_new_entry_var(dp, ENTRYVAR_TIMESTAMP));
 		n = dt_node_op2(DT_TOK_DIV, delta_ns,
 		    dt_node_int(entryvars[ev].xe_num));
 		/*
@@ -524,10 +520,10 @@ xd_do_entryvar(xd_parse_t *dp, dt_node_t *dnp)
 		 */
 		ev = ENTRYVAR_TIMESTAMP;
 	} else {
-		n = xd_new_entry_var(dp, ev);
+		n = dt_sugar_new_entry_var(dp, ev);
 	}
 
-	xd_do_entryvar_impl(dp, ev, dnp, n);
+	dt_sugar_do_entryvar_impl(dp, ev, dnp, n);
 }
 
 /*
@@ -539,16 +535,16 @@ xd_do_entryvar(xd_parse_t *dp, dt_node_t *dnp)
  * not a variable.
  *
  * This node is transformed to:
- *   self->%entry_args<N>_<dt_xd_num_entrys>[stackdepth]
+ *   self->%entry_args<N>_<dt_sugar_num_entrys>[stackdepth]
  *
  * See also new_entry_var(), new_entry_clause(), and new_return_clause().
  */
 static void
-xd_do_entryvar_args(xd_parse_t *dp, dt_node_t *dnp)
+dt_sugar_do_entryvar_args(dt_sugar_parse_t *dp, dt_node_t *dnp)
 {
 	entryvar_t ev;
 
-	if (!dp->xp_in_return)
+	if (!dp->dtsp_in_return)
 		return;
 
 	if (dnp->dn_kind != DT_NODE_OP2 ||
@@ -567,12 +563,12 @@ xd_do_entryvar_args(xd_parse_t *dp, dt_node_t *dnp)
 	    dnp->dn_right->dn_value > 9)
 		return;
 
-	/* See comment in xd_do_entryvar(). */
-	if (!dp->xp_need_entry)
-		dp->xp_dtp->dt_xd_num_entrys++;
+	/* See comment in dt_sugar_do_entryvar(). */
+	if (!dp->dtsp_need_entry)
+		dp->dtsp_dtp->dt_sugar_num_entrys++;
 
 	ev = ENTRYVAR_ARGS0 + dnp->dn_right->dn_value;
-	xd_do_entryvar_impl(dp, ev, dnp, xd_new_entry_var(dp, ev));
+	dt_sugar_do_entryvar_impl(dp, ev, dnp, dt_sugar_new_entry_var(dp, ev));
 }
 
 /*
@@ -580,13 +576,13 @@ xd_do_entryvar_args(xd_parse_t *dp, dt_node_t *dnp)
  * self->%callers_<ID>
  */
 static dt_node_t *
-xd_new_callers_var(int id)
+dt_sugar_new_callers_var(int id)
 {
-	char *xdvarname;
+	char *str;
 
-	(void) asprintf(&xdvarname, "%%callers_%u", id);
+	(void) asprintf(&str, "%%callers_%u", id);
 	return (dt_node_op2(DT_TOK_PTR, dt_node_ident(strdup("self")),
-	    dt_node_ident(xdvarname)));
+	    dt_node_ident(str)));
 }
 
 /*
@@ -610,7 +606,7 @@ xd_new_callers_var(int id)
  *   "spa_sync,fbt:zfs:dsl_pool_sync"
  */
 static void
-xd_do_callers(xd_parse_t *dp, dt_node_t *dnp)
+dt_sugar_do_callers(dt_sugar_parse_t *dp, dt_node_t *dnp)
 {
 	dt_node_t *link = dnp->dn_link;
 	dt_node_t *list = dnp->dn_list;
@@ -629,8 +625,8 @@ xd_do_callers(xd_parse_t *dp, dt_node_t *dnp)
 	if (dnp->dn_right->dn_kind != DT_NODE_STRING)
 		return;
 
-	dp->xp_dtp->dt_xd_num_callers++;
-	n = xd_new_callers_var(dp->xp_dtp->dt_xd_num_callers);
+	dp->dtsp_dtp->dt_sugar_num_callers++;
+	n = dt_sugar_new_callers_var(dp->dtsp_dtp->dt_sugar_num_callers);
 	callers = dnp->dn_right->dn_string;
 
 	/* replace arg with n */
@@ -652,16 +648,16 @@ xd_do_callers(xd_parse_t *dp, dt_node_t *dnp)
 
 	/* make :entry clause */
 	stmt = dt_node_statement(dt_node_op1(DT_TOK_PREINC,
-	    xd_new_callers_var(dp->xp_dtp->dt_xd_num_callers)));
-	xd_prepend_clause(dp, dt_node_clause(entrydesc, NULL, stmt));
+	    dt_sugar_new_callers_var(dp->dtsp_dtp->dt_sugar_num_callers)));
+	dt_sugar_prepend_clause(dp, dt_node_clause(entrydesc, NULL, stmt));
 
 	/* make :return clause */
 	stmt = dt_node_statement(dt_node_op1(DT_TOK_PREDEC,
-	    xd_new_callers_var(dp->xp_dtp->dt_xd_num_callers)));
+	    dt_sugar_new_callers_var(dp->dtsp_dtp->dt_sugar_num_callers)));
 	clause = dt_node_clause(returndesc,
-	    xd_new_callers_var(dp->xp_dtp->dt_xd_num_callers), stmt);
+	    dt_sugar_new_callers_var(dp->dtsp_dtp->dt_sugar_num_callers), stmt);
 	/* remember to append it after all other clauses */
-	dp->xp_append_clauses = dt_node_link(dp->xp_append_clauses, clause);
+	dp->dtsp_append_clauses = dt_node_link(dp->dtsp_append_clauses, clause);
 }
 
 /*
@@ -671,13 +667,13 @@ xd_do_callers(xd_parse_t *dp, dt_node_t *dnp)
  * straight-D nodes.
  */
 static void
-xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
+dt_sugar_visit_all(dt_sugar_parse_t *dp, dt_node_t *dnp)
 {
 	dt_node_t *arg;
 
-	xd_do_entryvar(dp, dnp);
-	xd_do_entryvar_args(dp, dnp);
-	xd_do_callers(dp, dnp);
+	dt_sugar_do_entryvar(dp, dnp);
+	dt_sugar_do_entryvar_args(dp, dnp);
+	dt_sugar_do_callers(dp, dnp);
 
 	switch (dnp->dn_kind) {
 	case DT_NODE_FREE:
@@ -692,99 +688,99 @@ xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
 
 	case DT_NODE_FUNC:
 		for (arg = dnp->dn_args; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_OP1:
-		xd_visit_all(dp, dnp->dn_child);
+		dt_sugar_visit_all(dp, dnp->dn_child);
 		break;
 
 	case DT_NODE_OP2:
-		xd_visit_all(dp, dnp->dn_left);
-		xd_visit_all(dp, dnp->dn_right);
+		dt_sugar_visit_all(dp, dnp->dn_left);
+		dt_sugar_visit_all(dp, dnp->dn_right);
 		if (dnp->dn_op == DT_TOK_LBRAC) {
 			dt_node_t *ln = dnp->dn_right;
 			while (ln->dn_list != NULL) {
-				xd_visit_all(dp, ln->dn_list);
+				dt_sugar_visit_all(dp, ln->dn_list);
 				ln = ln->dn_list;
 			}
 		}
 		break;
 
 	case DT_NODE_OP3:
-		xd_visit_all(dp, dnp->dn_expr);
-		xd_visit_all(dp, dnp->dn_left);
-		xd_visit_all(dp, dnp->dn_right);
+		dt_sugar_visit_all(dp, dnp->dn_expr);
+		dt_sugar_visit_all(dp, dnp->dn_left);
+		dt_sugar_visit_all(dp, dnp->dn_right);
 		break;
 
 	case DT_NODE_DEXPR:
 	case DT_NODE_DFUNC:
-		xd_visit_all(dp, dnp->dn_expr);
+		dt_sugar_visit_all(dp, dnp->dn_expr);
 		break;
 
 	case DT_NODE_AGG:
 
 		for (arg = dnp->dn_aggtup; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		if (dnp->dn_aggfun)
-			xd_visit_all(dp, dnp->dn_aggfun);
+			dt_sugar_visit_all(dp, dnp->dn_aggfun);
 		break;
 
 	case DT_NODE_CLAUSE:
 		for (arg = dnp->dn_pdescs; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		if (dnp->dn_pred != NULL)
-			xd_visit_all(dp, dnp->dn_pred);
+			dt_sugar_visit_all(dp, dnp->dn_pred);
 
 		for (arg = dnp->dn_acts; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_INLINE: {
 		const dt_idnode_t *inp = dnp->dn_ident->di_iarg;
 
-		xd_visit_all(dp, inp->din_root);
+		dt_sugar_visit_all(dp, inp->din_root);
 		break;
 	}
 	case DT_NODE_MEMBER:
 		if (dnp->dn_membexpr)
-			xd_visit_all(dp, dnp->dn_membexpr);
+			dt_sugar_visit_all(dp, dnp->dn_membexpr);
 		break;
 
 	case DT_NODE_XLATOR:
 		for (arg = dnp->dn_members; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_PROVIDER:
 		for (arg = dnp->dn_probes; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_PROG:
 		for (arg = dnp->dn_list; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_IF:
-		dp->xp_num_ifs++;
-		xd_visit_all(dp, dnp->dn_conditional);
+		dp->dtsp_num_ifs++;
+		dt_sugar_visit_all(dp, dnp->dn_conditional);
 
 		for (arg = dnp->dn_body; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		for (arg = dnp->dn_alternate_body; arg != NULL;
 		    arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		break;
 
 	case DT_NODE_WHILE:
-		dp->xp_num_whiles++;
-		xd_visit_all(dp, dnp->dn_conditional);
+		dp->dtsp_num_whiles++;
+		dt_sugar_visit_all(dp, dnp->dn_conditional);
 		for (arg = dnp->dn_body; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		break;
 
@@ -804,11 +800,11 @@ xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
  * failed).
  */
 static dt_node_t *
-xd_new_clearerror_clause(xd_parse_t *dp)
+dt_sugar_new_clearerror_clause(dt_sugar_parse_t *dp)
 {
 	dt_node_t *stmt = dt_node_statement(dt_node_op2(DT_TOK_ASGN,
-	    xd_new_error_var(), dt_node_int(0)));
-	return (dt_node_clause(dp->xp_pdescs, NULL, stmt));
+	    dt_sugar_new_error_var(), dt_node_int(0)));
+	return (dt_node_clause(dp->dtsp_pdescs, NULL, stmt));
 }
 
 /*
@@ -816,17 +812,18 @@ xd_new_clearerror_clause(xd_parse_t *dp)
  * statement (and the "else", if present).
  */
 static void
-xd_do_if(xd_parse_t *dp, dt_node_t *if_stmt, int precondition)
+dt_sugar_do_if(dt_sugar_parse_t *dp, dt_node_t *if_stmt, int precondition)
 {
 	int newid;
 
 	assert(if_stmt->dn_kind == DT_NODE_IF);
 
 	/* condition */
-	newid = xd_new_condition(dp, if_stmt->dn_conditional, precondition);
+	newid = dt_sugar_new_condition(dp,
+	    if_stmt->dn_conditional, precondition);
 
 	/* body of if */
-	xd_visit_stmts(dp, if_stmt->dn_body, newid);
+	dt_sugar_visit_stmts(dp, if_stmt->dn_body, newid);
 
 	/*
 	 * Visit the body of the "else" statement, if present.  Note that we
@@ -835,23 +832,24 @@ xd_do_if(xd_parse_t *dp, dt_node_t *if_stmt, int precondition)
 	 */
 	if (if_stmt->dn_alternate_body != NULL) {
 		dt_node_t *pred =
-		    dt_node_op1(DT_TOK_LNEG, xd_new_condition_var(newid));
-		xd_visit_stmts(dp, if_stmt->dn_alternate_body,
-		    xd_new_condition(dp, pred, precondition));
+		    dt_node_op1(DT_TOK_LNEG, dt_sugar_new_condition_var(newid));
+		dt_sugar_visit_stmts(dp, if_stmt->dn_alternate_body,
+		    dt_sugar_new_condition(dp, pred, precondition));
 	}
 }
 
 /*
  * Append first, and all following clauses until (and including) last,
- * to dp_first_new_clause.  This is used by xd_do_while() to unroll the loop.
+ * to dp_first_new_clause.  This is used by dt_sugar_do_while() to unroll
+ * the loop.
  */
 static void
-xd_copy_clauses(xd_parse_t *dp, dt_node_t *first, dt_node_t *last)
+dt_sugar_copy_clauses(dt_sugar_parse_t *dp, dt_node_t *first, dt_node_t *last)
 {
 	dt_node_t *dn;
 	for (dn = first; dn != last->dn_list; dn = dn->dn_list) {
 		assert(dn->dn_kind == DT_NODE_CLAUSE);
-		xd_append_clause(dp, dt_node_clause(dn->dn_pdescs,
+		dt_sugar_append_clause(dp, dt_node_clause(dn->dn_pdescs,
 		    dn->dn_pred, dn->dn_acts));
 	}
 }
@@ -891,7 +889,7 @@ xd_copy_clauses(xd_parse_t *dp, dt_node_t *first, dt_node_t *last)
  * // loop end; repeat above clauses specified number of times
  */
 static void
-xd_do_while(xd_parse_t *dp, dt_node_t *while_stmt, int precondition)
+dt_sugar_do_while(dt_sugar_parse_t *dp, dt_node_t *while_stmt, int precondition)
 {
 	int i, notdoneid;
 	dt_node_t *loop_first, *loop_last;
@@ -902,9 +900,9 @@ xd_do_while(xd_parse_t *dp, dt_node_t *while_stmt, int precondition)
 	 * This condition is true until the control statement
 	 * evaluates to false.
 	 */
-	notdoneid = xd_new_condition(dp, dt_node_int(1), precondition);
+	notdoneid = dt_sugar_new_condition(dp, dt_node_int(1), precondition);
 
-	xd_append_clause(dp, xd_new_condition_impl(dp,
+	dt_sugar_append_clause(dp, dt_sugar_new_condition_impl(dp,
 	    while_stmt->dn_conditional, notdoneid, notdoneid));
 
 	/*
@@ -912,12 +910,12 @@ xd_do_while(xd_parse_t *dp, dt_node_t *while_stmt, int precondition)
 	 * to evaluate the control statement.  This is the first clause
 	 * that will be part of the unrolled loop.
 	 */
-	loop_first = dt_node_last(dp->xp_clause_list);
+	loop_first = dt_node_last(dp->dtsp_clause_list);
 
 	/*
 	 * Recursively visit the body of the "while" statement.
 	 */
-	xd_visit_stmts(dp, while_stmt->dn_body, notdoneid);
+	dt_sugar_visit_stmts(dp, while_stmt->dn_body, notdoneid);
 
 	/*
 	 * The last node from the body is the last one that needs to be copied.
@@ -929,7 +927,7 @@ xd_do_while(xd_parse_t *dp, dt_node_t *while_stmt, int precondition)
 	 * evaluate the control statement and the body.
 	 */
 	for (i = 1; i < while_stmt->dn_max_iter; i++)
-		xd_copy_clauses(dp, loop_first, loop_last);
+		dt_sugar_copy_clauses(dp, loop_first, loop_last);
 }
 
 /*
@@ -943,7 +941,7 @@ xd_do_while(xd_parse_t *dp, dt_node_t *while_stmt, int precondition)
  * }
  */
 static void
-xd_new_basic_block(xd_parse_t *dp, int condid, dt_node_t *stmts)
+dt_sugar_new_basic_block(dt_sugar_parse_t *dp, int condid, dt_node_t *stmts)
 {
 	dt_node_t *pred = NULL;
 
@@ -953,15 +951,17 @@ xd_new_basic_block(xd_parse_t *dp, int condid, dt_node_t *stmts)
 		 * there is only one clause, we don't add the prelude to
 		 * zero out %error.
 		 */
-		if (dp->xp_num_conditions != 0)
-			pred = dt_node_op1(DT_TOK_LNEG, xd_new_error_var());
+		if (dp->dtsp_num_conditions != 0) {
+			pred = dt_node_op1(DT_TOK_LNEG,
+			    dt_sugar_new_error_var());
+		}
 	} else {
 		pred = dt_node_op2(DT_TOK_LAND,
-		    dt_node_op1(DT_TOK_LNEG, xd_new_error_var()),
-		    xd_new_condition_var(condid));
+		    dt_node_op1(DT_TOK_LNEG, dt_sugar_new_error_var()),
+		    dt_sugar_new_condition_var(condid));
 	}
-	xd_append_clause(dp,
-	    dt_node_clause(dp->xp_pdescs, pred, stmts));
+	dt_sugar_append_clause(dp,
+	    dt_node_clause(dp->dtsp_pdescs, pred, stmts));
 }
 
 /*
@@ -969,7 +969,7 @@ xd_new_basic_block(xd_parse_t *dp, int condid, dt_node_t *stmts)
  * generating new clauses for "if", "else", and "while" statements.
  */
 static void
-xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
+dt_sugar_visit_stmts(dt_sugar_parse_t *dp, dt_node_t *stmts, int precondition)
 {
 	dt_node_t *stmt;
 	dt_node_t *prev_stmt = NULL;
@@ -998,14 +998,14 @@ xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
 		 * Generate clause for statements preceding the if/while.
 		 */
 		if (first_stmt_in_basic_block != NULL) {
-			xd_new_basic_block(dp, precondition,
+			dt_sugar_new_basic_block(dp, precondition,
 			    first_stmt_in_basic_block);
 		}
 
 		if (stmt->dn_kind == DT_NODE_IF)
-			xd_do_if(dp, stmt, precondition);
+			dt_sugar_do_if(dp, stmt, precondition);
 		else
-			xd_do_while(dp, stmt, precondition);
+			dt_sugar_do_while(dp, stmt, precondition);
 
 		first_stmt_in_basic_block = NULL;
 
@@ -1013,8 +1013,10 @@ xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
 	}
 
 	/* generate clause for statements after last if/while. */
-	if (first_stmt_in_basic_block != NULL)
-		xd_new_basic_block(dp, precondition, first_stmt_in_basic_block);
+	if (first_stmt_in_basic_block != NULL) {
+		dt_sugar_new_basic_block(dp, precondition,
+		    first_stmt_in_basic_block);
+	}
 }
 
 /*
@@ -1025,14 +1027,14 @@ xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
  * dtrace:::ERROR{ self->%error = 1; }
  */
 static dt_node_t *
-xd_makeerrorclause(void)
+dt_sugar_makeerrorclause(void)
 {
 	dt_node_t *acts, *pdesc;
 
 	pdesc = dt_node_pdesc_by_name(strdup("dtrace:::ERROR"));
 
 	acts = dt_node_statement(dt_node_op2(DT_TOK_ASGN,
-	    xd_new_error_var(), dt_node_int(1)));
+	    dt_sugar_new_error_var(), dt_node_int(1)));
 
 	return (dt_node_clause(pdesc, NULL, acts));
 }
@@ -1042,14 +1044,14 @@ xd_makeerrorclause(void)
  * sub-clauses.
  */
 dt_node_t *
-dt_compile_experimental(dtrace_hdl_t *dtp, dt_node_t *clause)
+dt_compile_sugar(dtrace_hdl_t *dtp, dt_node_t *clause)
 {
 	dt_node_t *pdesc;
-	xd_parse_t dp = { 0 };
+	dt_sugar_parse_t dp = { 0 };
 	int condid = 0;
 
-	dp.xp_dtp = dtp;
-	dp.xp_pdescs = clause->dn_pdescs;
+	dp.dtsp_dtp = dtp;
+	dp.dtsp_pdescs = clause->dn_pdescs;
 
 	/* make dt_node_int() generate an "int"-typed integer */
 	yyintdecimal = B_TRUE;
@@ -1060,15 +1062,15 @@ dt_compile_experimental(dtrace_hdl_t *dtp, dt_node_t *clause)
 	 * Determine if all of the probes in the description are :return
 	 * probes.  If so, they are allowed to use entry_* variables.
 	 */
-	dp.xp_in_return = B_TRUE;
-	for (pdesc = dp.xp_pdescs; pdesc != NULL; pdesc = pdesc->dn_list) {
+	dp.dtsp_in_return = B_TRUE;
+	for (pdesc = dp.dtsp_pdescs; pdesc != NULL; pdesc = pdesc->dn_list) {
 		if (strcmp(pdesc->dn_desc->dtpd_name, "return") != 0)
-			dp.xp_in_return = B_FALSE;
+			dp.dtsp_in_return = B_FALSE;
 	}
 
-	xd_visit_all(&dp, clause);
+	dt_sugar_visit_all(&dp, clause);
 
-	if (dp.xp_need_entry) {
+	if (dp.dtsp_need_entry) {
 		/*
 		 * If there is an entry_* variable, we must predicate this
 		 * return clause so that it is only executed if the
@@ -1076,13 +1078,13 @@ dt_compile_experimental(dtrace_hdl_t *dtp, dt_node_t *clause)
 		 * condition ID #1; the number is hardcoded below in
 		 * new_condition1_clause().
 		 */
-		dp.xp_num_conditions++;
-		condid = dp.xp_num_conditions;
+		dp.dtsp_num_conditions++;
+		condid = dp.dtsp_num_conditions;
 		assert(condid == 1);
 	}
 
-	if (dp.xp_num_ifs == 0 && dp.xp_num_whiles == 0 &&
-	    dp.xp_num_conditions == 0) {
+	if (dp.dtsp_num_ifs == 0 && dp.dtsp_num_whiles == 0 &&
+	    dp.dtsp_num_conditions == 0) {
 		/*
 		 * There is nothing that modifies the number of clauses.
 		 * Use the existing clause as-is, with its predicate intact.
@@ -1090,38 +1092,44 @@ dt_compile_experimental(dtrace_hdl_t *dtp, dt_node_t *clause)
 		 * clause can create a variable that is referenced in the
 		 * predicate.
 		 */
-		xd_append_clause(&dp, dt_node_clause(clause->dn_pdescs,
+		dt_sugar_append_clause(&dp, dt_node_clause(clause->dn_pdescs,
 		    clause->dn_pred, clause->dn_acts));
 	} else {
-		if (clause->dn_pred != NULL)
-			condid = xd_new_condition(&dp, clause->dn_pred, condid);
+		if (clause->dn_pred != NULL) {
+			condid = dt_sugar_new_condition(&dp,
+			    clause->dn_pred, condid);
+		}
 
 		if (clause->dn_acts == NULL) {
 			/*
-			 * xd_visit_stmts() does not emit a clause with
+			 * dt_sugar_visit_stmts() does not emit a clause with
 			 * an empty body (e.g. if there's an empty "if" body),
 			 * but we need the empty body here so that we
 			 * continue to get the default tracing action.
 			 */
-			xd_new_basic_block(&dp, condid, NULL);
+			dt_sugar_new_basic_block(&dp, condid, NULL);
 		} else {
-			xd_visit_stmts(&dp, clause->dn_acts, condid);
+			dt_sugar_visit_stmts(&dp, clause->dn_acts, condid);
 		}
 	}
 
-	xd_append_clause(&dp, dp.xp_append_clauses);
-	if (dp.xp_need_entry)
-		xd_prepend_clause(&dp, xd_new_condition1_clause(&dp));
-	if (dp.xp_num_conditions != 0)
-		xd_prepend_clause(&dp, xd_new_clearerror_clause(&dp));
-	if (dp.xp_need_entry) {
-		xd_prepend_clause(&dp, xd_new_entry_clause(&dp));
-		xd_append_clause(&dp, xd_new_return_clause(&dp));
+	dt_sugar_append_clause(&dp, dp.dtsp_append_clauses);
+	if (dp.dtsp_need_entry) {
+		dt_sugar_prepend_clause(&dp,
+		    dt_sugar_new_condition1_clause(&dp));
 	}
-	if (dp.xp_clause_list != NULL &&
-	    dp.xp_clause_list->dn_list != NULL && !dtp->dt_experimental) {
-		dtp->dt_experimental = B_TRUE;
-		xd_prepend_clause(&dp, xd_makeerrorclause());
+	if (dp.dtsp_num_conditions != 0) {
+		dt_sugar_prepend_clause(&dp,
+		    dt_sugar_new_clearerror_clause(&dp));
 	}
-	return (dp.xp_clause_list);
+	if (dp.dtsp_need_entry) {
+		dt_sugar_prepend_clause(&dp, dt_sugar_new_entry_clause(&dp));
+		dt_sugar_append_clause(&dp, dt_sugar_new_return_clause(&dp));
+	}
+	if (dp.dtsp_clause_list != NULL &&
+	    dp.dtsp_clause_list->dn_list != NULL && !dtp->dt_has_sugar) {
+		dtp->dt_has_sugar = B_TRUE;
+		dt_sugar_prepend_clause(&dp, dt_sugar_makeerrorclause());
+	}
+	return (dp.dtsp_clause_list);
 }

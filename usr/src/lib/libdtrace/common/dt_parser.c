@@ -4643,12 +4643,12 @@ dt_node_diftype(dtrace_hdl_t *dtp, const dt_node_t *dnp, dtrace_diftype_t *tp)
 }
 
 /*
- * Output the parse tree as D.  The "-xtree=8" flag will call this function
- * to print out the program after any experimental D transformations
- * have been applied (e.g. to implement "if", "callers[]", "entry_*").
- * The resulting output can be used to understand the transformations applied
- * by these experimental features, or to run an experimental D script on
- * a system that does not support experimental D.
+ * Output the parse tree as D.  The "-xtree=8" argument will call this
+ * function to print out the program after any syntactic sugar
+ * transformations have been applied (e.g. to implement "if").  The
+ * resulting output can be used to understand the transformations
+ * applied by these features, or to run such a script on a system that
+ * does not support these features
  *
  * Note that the output does not express precisely the same program
  * as the input.  In particular:

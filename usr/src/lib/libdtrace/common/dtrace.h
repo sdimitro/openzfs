@@ -520,7 +520,7 @@ extern int dtrace_type_strcompile(dtrace_hdl_t *,
 extern int dtrace_type_fcompile(dtrace_hdl_t *,
     FILE *, dtrace_typeinfo_t *);
 
-extern struct dt_node *dt_compile_experimental(dtrace_hdl_t *,
+extern struct dt_node *dt_compile_sugar(dtrace_hdl_t *,
     struct dt_node *);
 
 

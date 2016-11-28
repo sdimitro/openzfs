@@ -2418,7 +2418,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 	/*
-	 * Perform experimental transformations and replace the
+	 * Perform sugar transformations and replace the
 	 * existing clause chain with the new one.
 	 */
 	if (context == DT_CTX_DPROG) {
@@ -2432,7 +2432,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 			dnp->dn_list = NULL;
 
 			if (dnp->dn_kind == DT_NODE_CLAUSE)
-				dnp = dt_compile_experimental(dtp, dnp);
+				dnp = dt_compile_sugar(dtp, dnp);
 			/* append node to the new list */
 			new_list = dt_node_link(new_list, dnp);
 		}

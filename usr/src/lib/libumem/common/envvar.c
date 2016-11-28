@@ -228,7 +228,7 @@ static umem_env_item_t umem_debug_items[] = {
 		&umem_output,	2
 	},
 	{ "checknull",		"Private",	ITEM_FLAG,
-		"Reports if allocating from the heap would return null",
+		"Abort if an allocation would return null",
 		&umem_flags,	UMF_CHECKNULL
 	},
 

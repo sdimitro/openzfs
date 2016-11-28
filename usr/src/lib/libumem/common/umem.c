@@ -1381,7 +1381,7 @@ umem_log_enter(umem_log_header_t *lhp, void *data, size_t size)
 
 static void
 umem_log_event(umem_log_header_t *lp, umem_cache_t *cp,
-	umem_slab_t *sp, void *addr)
+    umem_slab_t *sp, void *addr)
 {
 	umem_bufctl_audit_t *bcp;
 	UMEM_LOCAL_BUFCTL_AUDIT(&bcp);

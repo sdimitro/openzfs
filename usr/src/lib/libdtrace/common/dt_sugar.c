@@ -147,13 +147,13 @@ static const dt_sugar_entryvar_t entryvars[] = {
 };
 
 typedef struct dt_sugar_parse {
-	dtrace_hdl_t *dtsp_dtp;
+	dtrace_hdl_t *dtsp_dtp;		/* dtrace handle */
 	dt_node_t *dtsp_pdescs;		/* probe descriptions */
 	dt_node_t *dtsp_append_clauses;	/* callers return clauses to append */
-	int dtsp_num_conditions;
-	int dtsp_num_ifs;
-	int dtsp_num_whiles;
-	dt_node_t *dtsp_clause_list;
+	int dtsp_num_conditions;	/* number of condition variables */
+	int dtsp_num_ifs;		/* number of "if" statements */
+	int dtsp_num_whiles;		/* number of "while" statements */
+	dt_node_t *dtsp_clause_list;	/* list of clauses */
 	boolean_t dtsp_need_entry;
 	boolean_t dtsp_entryvars[ENTRYVAR_NUM];
 	boolean_t dtsp_in_return;
@@ -719,7 +719,6 @@ dt_sugar_visit_all(dt_sugar_parse_t *dp, dt_node_t *dnp)
 		break;
 
 	case DT_NODE_AGG:
-
 		for (arg = dnp->dn_aggtup; arg != NULL; arg = arg->dn_list)
 			dt_sugar_visit_all(dp, arg);
 

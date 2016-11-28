@@ -3663,9 +3663,9 @@ asgn_common:
 
 	case DT_TOK_PTR:
 		/*
-		 * If the left-hand side of operator -> is one of the
-		 * scoping keywords, permit a local or thread
-		 * variable to be created or referenced.
+		 * If the left-hand side of operator -> is one of the scoping
+		 * keywords, permit a local or thread variable to be created or
+		 * referenced.
 		 */
 		if (lp->dn_kind == DT_NODE_IDENT) {
 			dt_idhash_t *dhp = NULL;
@@ -4650,8 +4650,8 @@ dt_node_diftype(dtrace_hdl_t *dtp, const dt_node_t *dnp, dtrace_diftype_t *tp)
  * applied by these features, or to run such a script on a system that
  * does not support these features
  *
- * Note that the output does not express precisely the same program
- * as the input.  In particular:
+ * Note that the output does not express precisely the same program as
+ * the input.  In particular:
  *  - Only the clauses are output.  #pragma options, variable
  *    declarations, etc. are excluded.
  *  - Command argument substitution has already been done, so the output

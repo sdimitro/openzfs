@@ -4,6 +4,10 @@
 ** See Copyright Notice in lua.h
 */
 
+/*
+ * Copyright (c) 2016 by Delphix. All rights reserved.
+ */
+
 #include <sys/zfs_context.h>
 
 #define lcode_c
@@ -718,11 +722,6 @@ static int constfolding (OpCode op, expdesc *e1, expdesc *e2) {
    * Patched: check for MIN_INT / -1
    */
   if (op == OP_DIV && e1->u.nval == INT64_MIN && e2->u.nval == -1)
-    return 0;
-  /*
-   * Disable exponentiation.
-   */
-  if (op == OP_POW)
     return 0;
   r = luaO_arith(op - OP_ADD + LUA_OPADD, e1->u.nval, e2->u.nval);
   e1->u.nval = r;

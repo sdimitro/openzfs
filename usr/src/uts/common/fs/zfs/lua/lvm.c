@@ -4,6 +4,9 @@
 ** See Copyright Notice in lua.h
 */
 
+/*
+ * Copyright (c) 2016 by Delphix. All rights reserved.
+ */
 
 #include <sys/zfs_context.h>
 
@@ -414,7 +417,6 @@ void luaV_arith (lua_State *L, StkId ra, const TValue *rb,
       (c = luaV_tonumber(rc, &tempc)) != NULL) {
     /*
      * Patched: if dividing or modding, use patched functions from 5.3
-     * Exponentiation is disabled.
      */
     lua_Number res;
     int lop = op - TM_ADD + LUA_OPADD;
@@ -422,8 +424,6 @@ void luaV_arith (lua_State *L, StkId ra, const TValue *rb,
       res = luaV_div(L, nvalue(b), nvalue(c));
     } else if (lop == LUA_OPMOD) {
       res = luaV_mod(L, nvalue(b), nvalue(c));
-    } else if (lop == LUA_OPPOW) {
-      luaG_runerror(L, "^ operator not supported");
     } else {
       res = luaO_arith(op - TM_ADD + LUA_OPADD, nvalue(b), nvalue(c));
     }
@@ -696,7 +696,7 @@ void luaV_execute (lua_State *L) {
         arith_op(luaV_mod, TM_MOD);
       )
       vmcase(OP_POW,
-        luaG_runerror(L, "^ operator not supported");
+        arith_op(luai_numpow, TM_POW);
       )
       vmcase(OP_UNM,
         TValue *rb = RB(i);

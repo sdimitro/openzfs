@@ -4,6 +4,9 @@
 ** See Copyright Notice in lua.h
 */
 
+/*
+ * Copyright (c) 2016 by Delphix. All rights reserved.
+ */
 
 #ifndef lconfig_h
 #define lconfig_h
@@ -14,6 +17,7 @@
 
 extern ssize_t lcompat_sprintf(char *, const char *, ...);
 extern int64_t lcompat_strtoll(const char *, char **);
+extern int64_t lcompat_pow(int64_t, int64_t);
 
 /*
 ** ==================================================================
@@ -428,7 +432,7 @@ extern int64_t lcompat_strtoll(const char *, char **);
 /* the following operations need the math library */
 #if defined(lobject_c) || defined(lvm_c)
 #define luai_nummod(L,a,b)	((a) % (b))
-#define luai_numpow(L,a,b)	(0)
+#define luai_numpow(L,a,b)	(lcompat_pow((a),(b)))
 #endif
 
 /* these are quite standard operations */

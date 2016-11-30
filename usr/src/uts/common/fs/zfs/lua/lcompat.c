@@ -73,6 +73,22 @@ lcompat_strtoll(const char *str, char **ptr)
 	return (value);
 }
 
+int64_t
+lcompat_pow(int64_t x, int64_t y)
+{
+	int64_t result = 1;
+	if (y < 0)
+		return (0);
+
+	while (y) {
+		if (y & 1)
+			result *= x;
+		y >>= 1;
+		x *= x;
+	}
+	return (result);
+}
+
 int
 lcompat_hashnum(int64_t x)
 {

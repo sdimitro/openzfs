@@ -935,7 +935,7 @@ vmem_canalloc(vmem_t *vmp, size_t size)
  */
 void *
 vmem_xalloc(vmem_t *vmp, size_t size, size_t align_arg, size_t phase,
-	size_t nocross, void *minaddr, void *maxaddr, int vmflag)
+    size_t nocross, void *minaddr, void *maxaddr, int vmflag)
 {
 	vmem_seg_t *vsp;
 	vmem_seg_t *vbest = NULL;
@@ -1379,7 +1379,7 @@ vmem_add(vmem_t *vmp, void *vaddr, size_t size, int vmflag)
  */
 void
 vmem_walk(vmem_t *vmp, int typemask,
-	void (*func)(void *, void *, size_t), void *arg)
+    void (*func)(void *, void *, size_t), void *arg)
 {
 	vmem_seg_t *vsp;
 	vmem_seg_t *seg0 = &vmp->vm_seg0;
@@ -1443,9 +1443,9 @@ vmem_size(vmem_t *vmp, int typemask)
  */
 static vmem_t *
 vmem_create_common(const char *name, void *base, size_t size, size_t quantum,
-	void *(*afunc)(vmem_t *, size_t, int),
-	void (*ffunc)(vmem_t *, void *, size_t),
-	vmem_t *source, size_t qcache_max, int vmflag)
+    void *(*afunc)(vmem_t *, size_t, int),
+    void (*ffunc)(vmem_t *, void *, size_t),
+    vmem_t *source, size_t qcache_max, int vmflag)
 {
 	int i;
 	size_t nqcache;
@@ -1750,9 +1750,9 @@ vmem_qcache_reap(vmem_t *vmp)
  */
 vmem_t *
 vmem_init(const char *heap_name,
-	void *heap_start, size_t heap_size, size_t heap_quantum,
-	void *(*heap_alloc)(vmem_t *, size_t, int),
-	void (*heap_free)(vmem_t *, void *, size_t))
+    void *heap_start, size_t heap_size, size_t heap_quantum,
+    void *(*heap_alloc)(vmem_t *, size_t, int),
+    void (*heap_free)(vmem_t *, void *, size_t))
 {
 	uint32_t id;
 	int nseg = VMEM_SEG_INITIAL;

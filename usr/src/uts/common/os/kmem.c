@@ -2186,8 +2186,9 @@ kmem_depot_ws_zero(kmem_cache_t *cp)
 }
 
 /*
- * Setting this to 1MB causes us to call kpreempt() approximately
- * once per 5-500 milliseconds.
+ * The number of bytes to reap before we call kpreempt(). The default (1MB)
+ * causes us to preempt reaping up to hundreds of times per second. Using a
+ * larger value (1GB) causes this to have virtually no effect.
  */
 size_t kmem_reap_preempt_bytes = 1024 * 1024;
 

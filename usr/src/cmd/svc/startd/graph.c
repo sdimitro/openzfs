@@ -533,7 +533,7 @@ graph_walk_dependents(graph_vertex_t *v, void (*func)(graph_vertex_t *, void *),
 
 static void
 graph_walk_dependencies(graph_vertex_t *v, void (*func)(graph_vertex_t *,
-    void *), void *arg)
+	void *), void *arg)
 {
 	graph_edge_t *e;
 

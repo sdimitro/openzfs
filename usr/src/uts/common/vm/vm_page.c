@@ -5671,8 +5671,8 @@ next:
 	}
 }
 
-static uint_t reclaim_maxcnt = 60; /* max total iterations */
-static uint_t reclaim_nofree_maxcnt = 3; /* max iterations without progress */
+uint_t page_reclaim_maxcnt = 60; /* max total iterations */
+uint_t page_reclaim_nofree_maxcnt = 3; /* max iterations without progress */
 /*
  * Reclaim/reserve availrmem for npages.
  * If there is not enough memory start reaping seg, kmem caches.
@@ -5695,12 +5695,12 @@ page_reclaim_mem(pgcnt_t npages, pgcnt_t epages, int adjust)
 
 	mutex_enter(&freemem_lock);
 	while (availrmem < tune.t_minarmem + npages + epages &&
-	    i++ < reclaim_maxcnt) {
+	    i++ < page_reclaim_maxcnt) {
 		/* ensure we made some progress in the last few iterations */
 		if (old_availrmem < availrmem) {
 			old_availrmem = availrmem;
 			i_nofree = 0;
-		} else if (i_nofree++ > reclaim_nofree_maxcnt) {
+		} else if (i_nofree++ >= page_reclaim_nofree_maxcnt) {
 			break;
 		}
 

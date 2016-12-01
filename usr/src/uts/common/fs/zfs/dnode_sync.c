@@ -258,7 +258,7 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	blkptr_t *bp;
 	dmu_buf_impl_t *subdb;
 	uint64_t start, end, dbstart, dbend;
-	int epbs, shift, i;
+	unsigned int epbs, shift, i;
 
 	/*
 	 * There is a small possibility that this block will not be cached:
@@ -293,7 +293,7 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
 	epbs = dn->dn_phys->dn_indblkshift - SPA_BLKPTRSHIFT;
-	ASSERT3U(epbs, <, 32);
+	ASSERT3U(epbs, <, 31);
 	shift = (db->db_level - 1) * epbs;
 	dbstart = db->db_blkid << epbs;
 	start = blkid >> shift;

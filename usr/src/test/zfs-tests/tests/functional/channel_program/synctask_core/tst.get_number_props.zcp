@@ -46,8 +46,8 @@ props['refquota']             = {{true, 'default'}, {nil,  nil}, {nil,        ni
 props['refreservation']       = {{true, 'default'}, {nil,  nil}, {true,       vol}}
 props['filesystem_limit']     = {{true, 'default'}, {nil,  nil}, {nil,        nil}}
 props['snapshot_limit']       = {{true, 'default'}, {nil,  nil}, {true, 'default'}}
-props['filesystem_count']     = {{true, 'default'}, {nil,  nil}, {nil,        nil}}
-props['snapshot_count']       = {{true, 'default'}, {nil,  nil}, {true, 'default'}}
+props['filesystem_count']     = {{true,       nil}, {nil,  nil}, {nil,        nil}}
+props['snapshot_count']       = {{true,       nil}, {nil,  nil}, {true,       nil}}
 props['recordsize']           = {{true, 'default'}, {nil,  nil}, {nil,        nil}}
 props['creation']             = {{true,       nil}, {true, nil}, {true,       nil}}
 -- hidden props

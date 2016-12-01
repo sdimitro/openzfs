@@ -45,8 +45,8 @@ log_must_program $TESTPOOL - <<-EOF
         assert(src == 'default')
 
 	ans, src = zfs.get_prop("$fs", "snapshot_count")
-	assert(ans == -1)
-	assert(src == 'default')
+	assert(ans == nil)
+	assert(src == nil)
 EOF
 
 log_must zfs set snapshot_limit=10 $fs
@@ -58,7 +58,7 @@ log_must_program $TESTPOOL - <<-EOF
 
 	ans, src = zfs.get_prop("$fs", "snapshot_count")
 	assert(ans == 1)
-	assert(src == 'default')
+	assert(src == nil)
 EOF
 
 log_must zfs create $fs/foo
@@ -70,7 +70,7 @@ log_must_program $TESTPOOL - <<-EOF
 
 	ans, src = zfs.get_prop("$fs", "filesystem_count")
 	assert(ans == 1)
-	assert(src == 'default')
+	assert(src == nil)
 EOF
 
 log_must zfs set filesystem_limit=8 $fs
@@ -84,7 +84,7 @@ log_must_program $TESTPOOL - <<-EOF
 
 	ans, src = zfs.get_prop("$fs", "filesystem_count")
 	assert(ans == 2)
-	assert(src == 'default')
+	assert(src == nil)
 EOF
 
 log_pass "Getting filesystem and snapshot count/limit props should work correctly."

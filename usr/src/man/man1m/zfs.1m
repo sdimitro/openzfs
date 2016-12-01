@@ -292,7 +292,7 @@
 .Op Fl t Ar timeout
 .Op Fl m Ar memory_limit
 .Ar pool script
-.Op Ar arg1 Ns No , ...
+.Op Ar arg1 No ...
 .Sh DESCRIPTION
 The
 .Nm
@@ -3296,10 +3296,13 @@ Display the path's inode change time as the first column of output.
 .Op Fl t Ar timeout
 .Op Fl m Ar memory_limit
 .Ar pool script
-.Op Ar arg1 Ns No , ...
+.Op Ar arg1 No ...
 .Xc
 Executes
-.Ar script No as a ZFS channel program on Ar pool Ns . The ZFS channel
+.Ar script
+as a ZFS channel program on
+.Ar pool Ns .
+The ZFS channel
 program interface allows ZFS administrative operations to be run
 programmatically via a Lua script. The entire script is executed atomically,
 with no other administrative operations taking effect concurrently. A library
@@ -3308,8 +3311,7 @@ only be run with root privileges.
 .sp
 For full documentation of the ZFS channel program interface, see the manual
 page for
-.Xr zfs-channel(1m).
-.sp
+.Xr zfs-program(1m).
 .Bl -tag -width ""
 .It Fl t Ar timeout
 Execution time limit, in milliseconds. If a channel program executes for longer
@@ -3322,7 +3324,7 @@ memory limit is 10 MB, and can be set to a maximum of 100 MB.
 .sp
 All remaining argument strings are passed directly to the channel program as
 arguments. See
-.Xr zfs-channel(1m) No for more information.
+.Xr zfs-program(1m) No for more information.
 .El
 .El
 .Sh EXIT STATUS

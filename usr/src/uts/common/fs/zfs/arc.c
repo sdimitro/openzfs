@@ -5307,7 +5307,8 @@ arc_release(arc_buf_t *buf, void *tag)
 				arc_share_buf(hdr, lastbuf);
 			} else {
 				arc_hdr_alloc_pabd(hdr);
-				bcopy(buf->b_data, hdr->b_l1hdr.b_pabd, psize);
+				abd_copy_from_buf(hdr->b_l1hdr.b_pabd,
+				    buf->b_data, psize);
 			}
 			VERIFY3P(lastbuf->b_data, !=, NULL);
 		} else if (HDR_SHARED_DATA(hdr)) {

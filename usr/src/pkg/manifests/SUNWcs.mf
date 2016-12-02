@@ -27,6 +27,7 @@
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
 # Copyright 2015 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2016 Toomas Soome <tsoome@me.com>
+# Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
 <include SUNWcs.man1.inc>
@@ -333,6 +334,7 @@ file path=etc/cron.d/queuedefs group=sys
 file path=etc/crypto/kmf.conf group=sys preserve=true
 file path=etc/crypto/pkcs11.conf group=sys preserve=true
 file path=etc/datemsk group=sys mode=0444
+file path=etc/default/be group=sys preserve=true
 file path=etc/default/cron group=sys preserve=true
 file path=etc/default/devfsadm group=sys preserve=true
 file path=etc/default/fs group=sys preserve=true

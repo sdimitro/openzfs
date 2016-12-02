@@ -21,9 +21,10 @@
 #
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
-# 
+#
 # Copyright 2011 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2016 Toomas Soome <tsoome@me.com>
+# Copyright (c) 2016 by Delphix. All rights reserved.
 #
 
 PROG= bootadm
@@ -34,6 +35,7 @@ OBJS= bootadm.o bootadm_upgrade.o bootadm_hyper.o bootadm_digest.o \
 	bootadm_loader.o
 SRCS = $(OBJS:.o=.c)
 POFILES= $(OBJS:%.o=%.po)
+DEFAULTFILES=	be.dfl
 
 include ../Makefile.com
 
@@ -67,7 +69,7 @@ $(PROG): $(OBJS) bootadm.h
 	$(LINK.c) -o $@ $(OBJS) $(LDLIBS)
 	$(POST_PROCESS)
 
-install: all $(ROOTSBINPROG) .WAIT $(ROOTUSRSBINLINKS)
+install: all $(ROOTSBINPROG) .WAIT $(ROOTUSRSBINLINKS) $(ROOTETCDEFAULTFILES)
 
 $(POFILE): $(POFILES)
 	$(RM) $@

@@ -53,7 +53,7 @@ typeset v_props=(type used available creation volsize referenced compressratio \
 
 typeset  userquota_props=(userquota@root groupquota@root userused@root \
     groupused@root)
-typeset val_pros=(-- "${v_props[@]}" "${userquota_props[@]}")
+typeset val_props=("${v_props[@]}" "${userquota_props[@]}")
 set -f	# Force shell does not parse '?' and '*' as the wildcard
 typeset inval_opts=(P R h ? *)
 typeset inval_props=(Type 0 ? * -on --on readonl time USED RATIO MOUNTED)
@@ -66,7 +66,6 @@ typeset -i prop_numb=12
 
 val_opts_str=$(gen_option_str "${val_opts[*]}" "-" "" $opt_numb)
 val_props_str=$(gen_option_str "${val_props[*]}" "" "," $prop_numb)
-val_props_str="$val_props_str -a -d"
 
 inval_opts_str=$(gen_option_str "${inval_opts[*]}" "-" "" $opt_numb)
 inval_props_str=$(gen_option_str "${inval_props[*]}" "" "," $prop_numb)
@@ -85,11 +84,11 @@ function test_options
 	for dst in ${dataset[@]}; do
 		for opt in $opts; do
 			for prop in $props; do
-				zfs get $opt $prop $dst > /dev/null 2>&1
+				zfs get $opt -- $prop $dst > /dev/null 2>&1
 				ret=$?
 				if [[ $ret == 0 ]]; then
-					log_fail "zfs get $opt $prop $dst " \
-					    "unexpectedly succeeded."
+					log_fail "zfs get $opt -- $prop " \
+					    "$dst unexpectedly succeeded."
 				fi
 			done
 		done

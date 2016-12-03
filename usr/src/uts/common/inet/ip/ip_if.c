@@ -22,7 +22,7 @@
  * Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 1990 Mentat Inc.
  * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
- * Copyright 2013 Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014, OmniTI Computer Consulting, Inc. All rights reserved.
  */
 
@@ -3855,15 +3855,18 @@ ill_lookup_on_ifindex_global_instance(uint_t index, boolean_t isv6)
 {
 	ip_stack_t	*ipst;
 	ill_t		*ill;
+	netstack_t	*ns;
 
-	ipst = netstack_find_by_stackid(GLOBAL_NETSTACKID)->netstack_ip;
-	if (ipst == NULL) {
+	ns = netstack_find_by_stackid(GLOBAL_NETSTACKID);
+
+	if ((ipst = ns->netstack_ip) == NULL) {
 		cmn_err(CE_WARN, "No ip_stack_t for zoneid zero!\n");
+		netstack_rele(ns);
 		return (NULL);
 	}
 
 	ill = ill_lookup_on_ifindex(index, isv6, ipst);
-	netstack_rele(ipst->ips_netstack);
+	netstack_rele(ns);
 	return (ill);
 }
 

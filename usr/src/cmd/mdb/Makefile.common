@@ -35,7 +35,7 @@ COMMON_MODULES_PROC = \
 	libfksmbsrv \
 	libnvpair \
 	libproc \
-	libpython2.6 \
+	libpython \
 	libsysevent \
 	libtopo \
 	libumem \

@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
+ * Copyright 2016 The MathWorks, Inc. All rights reserved.
  */
 
 /*
@@ -71,16 +72,9 @@ zrl_destroy(zrlock_t *zrl)
 void
 zrl_add_impl(zrlock_t *zrl, const char *zc)
 {
-	uint32_t n = (uint32_t)zrl->zr_refcount;
-
 	for (;;) {
-		if (n == ZRL_LOCKED) {
-			mutex_enter(&zrl->zr_mtx);
-			while (zrl->zr_refcount == ZRL_LOCKED)
-				cv_wait(&zrl->zr_cv, &zrl->zr_mtx);
-			mutex_exit(&zrl->zr_mtx);
-			n = (uint32_t)zrl->zr_refcount;
-		} else {
+		uint32_t n = (uint32_t)zrl->zr_refcount;
+		while (n != ZRL_LOCKED) {
 			uint32_t cas = atomic_cas_32(
 			    (uint32_t *)&zrl->zr_refcount, n, n + 1);
 			if (cas == n) {
@@ -97,6 +91,12 @@ zrl_add_impl(zrlock_t *zrl, const char *zc)
 			}
 			n = cas;
 		}
+
+		mutex_enter(&zrl->zr_mtx);
+		while (zrl->zr_refcount == ZRL_LOCKED) {
+			cv_wait(&zrl->zr_cv, &zrl->zr_mtx);
+		}
+		mutex_exit(&zrl->zr_mtx);
 	}
 }
 

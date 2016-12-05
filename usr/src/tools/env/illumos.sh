@@ -223,6 +223,10 @@ export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
 export ONNV_BUILDNUM=151014
 
+# Force usage of python 2.6 until build servers can cope
+export PYTHON_VERSION="2.6"
+export PYTHON_PKGVERS="-26"
+
 # Comment this out to disable support for IPP printing, i.e. if you
 # don't want to bother providing the Apache headers this needs.
 #export ENABLE_IPP_PRINTING=

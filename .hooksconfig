@@ -295,6 +295,14 @@
         gate-approvers = gatekeepers-51
         gate-allowed-issuetypes = 10405
         gate-release = 5.1.4.0
+[branch "projects/storvsc"]
+        gate-notify = eng-azure@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip
 [branch "projects/hyperv"]
         gate-notify = eng-azure@delphix.com
         gate-user-check = on

@@ -493,7 +493,7 @@ function resume_test
 
 	for ((i=0; i<2; i=i+1)); do
 		mess_file /$streamfs/$stream_num
-		log_mustnot zfs recv -sv $recvfs </$streamfs/$stream_num
+		log_mustnot zfs recv -suv $recvfs </$streamfs/$stream_num
 		stream_num=$((stream_num+1))
 
 		token=$(zfs get -Hp -o value receive_resume_token $recvfs)
@@ -502,7 +502,7 @@ function resume_test
 		[[ -f /$streamfs/$stream_num ]] || \
 		    log_fail "NO FILE /$streamfs/$stream_num"
 	done
-	log_must zfs recv -sv $recvfs </$streamfs/$stream_num
+	log_must zfs recv -suv $recvfs </$streamfs/$stream_num
 }
 
 #

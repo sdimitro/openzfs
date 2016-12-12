@@ -94,5 +94,4 @@ log_must zpool create -d tmp_pool $vdev
 test_pool tmp_pool
 log_must zpool destroy tmp_pool
 
-
 log_pass "'zfs send' drills appropriate holes"

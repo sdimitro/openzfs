@@ -25,9 +25,7 @@
 # Define default prompt to <username>@<hostname>:<path><"($|#) ">
 # and print '#' for user "root" and '$' for normal users.
 #
-PS1='${LOGNAME}@$(/usr/bin/hostname):$(
-    [[ "${LOGNAME}" == "root" ]] && printf "%s" "${PWD/${HOME}/~}# " ||
-    printf "%s" "${PWD/${HOME}/~}\$ ")'
+typeset +x PS1="\u@\h:\w\\$ "
 
 export PATH=/usr/ccs/bin:/usr/local/bin:/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin
 export SHELL=/bin/bash

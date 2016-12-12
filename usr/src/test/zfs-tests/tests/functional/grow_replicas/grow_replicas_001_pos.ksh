@@ -51,7 +51,7 @@ fi
 function cleanup
 {
 	datasetexists $TESTPOOL && log_must destroy_pool $TESTPOOL
-	[[ -d $TESTDIR ]] && log_must $RM -rf $TESTDIR
+	[[ -d $TESTDIR ]] && log_must rm -rf $TESTDIR
 }
 
 log_onexit cleanup
@@ -74,7 +74,7 @@ for pooltype in "mirror" "raidz"; do
 		create_pool $TESTPOOL $pooltype ${DISK0}s0 ${DISK1}s0
 	fi
 
-	[[ -d $TESTDIR ]] && log_must $RM -rf $TESTDIR
+	[[ -d $TESTDIR ]] && log_must rm -rf $TESTDIR
 	log_must zfs create $TESTPOOL/$TESTFS
 	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 

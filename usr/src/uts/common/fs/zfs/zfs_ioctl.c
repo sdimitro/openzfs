@@ -6032,7 +6032,7 @@ zfs_ioctl_init(void)
 	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
 
 	zfs_ioctl_register("get_bookmark_props", ZFS_IOC_GET_BOOKMARK_PROPS,
-	    zfs_ioc_get_bookmark_props, zfs_secpolicy_read, DATASET_NAME,
+	    zfs_ioc_get_bookmark_props, zfs_secpolicy_read, POOL_NAME,
 	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
 
 	zfs_ioctl_register("destroy_bookmarks", ZFS_IOC_DESTROY_BOOKMARKS,

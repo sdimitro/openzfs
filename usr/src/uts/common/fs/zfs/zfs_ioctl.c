@@ -5735,9 +5735,7 @@ zfs_ioc_send_space(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	char *fromname = NULL;
 	char *redactbook = NULL;
 	char *redactlist_book = NULL;
-	/* LINTED E_FUNC_SET_NOT_USED */
 	boolean_t largeblockok;
-	/* LINTED E_FUNC_SET_NOT_USED */
 	boolean_t embedok;
 	boolean_t compressok;
 	uint64_t space = 0;

@@ -218,7 +218,8 @@ typedef int zfs_secpolicy_func_t(zfs_cmd_t *, nvlist_t *, cred_t *);
 typedef enum {
 	NO_NAME,
 	POOL_NAME,
-	DATASET_NAME
+	DATASET_NAME,
+	ENTITY_NAME
 } zfs_ioc_namecheck_t;
 
 typedef enum {
@@ -6032,7 +6033,7 @@ zfs_ioctl_init(void)
 	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
 
 	zfs_ioctl_register("get_bookmark_props", ZFS_IOC_GET_BOOKMARK_PROPS,
-	    zfs_ioc_get_bookmark_props, zfs_secpolicy_read, POOL_NAME,
+	    zfs_ioc_get_bookmark_props, zfs_secpolicy_read, ENTITY_NAME,
 	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
 
 	zfs_ioctl_register("destroy_bookmarks", ZFS_IOC_DESTROY_BOOKMARKS,
@@ -6190,7 +6191,8 @@ pool_status_check(const char *name, zfs_ioc_namecheck_t type,
 	spa_t *spa;
 	int error;
 
-	ASSERT(type == POOL_NAME || type == DATASET_NAME);
+	ASSERT(type == POOL_NAME || type == DATASET_NAME ||
+	    type == ENTITY_NAME);
 
 	if (check & POOL_CHECK_NONE)
 		return (0);
@@ -6372,6 +6374,15 @@ zfsdev_ioctl(dev_t dev, int cmd, intptr_t arg, int flag, cred_t *cr, int *rvalp)
 		else
 			error = pool_status_check(zc->zc_name,
 			    vec->zvec_namecheck, vec->zvec_pool_check);
+		break;
+
+	case ENTITY_NAME:
+		if (entity_namecheck(zc->zc_name, NULL, NULL) != 0) {
+			error = SET_ERROR(EINVAL);
+		} else {
+			error = pool_status_check(zc->zc_name,
+			    vec->zvec_namecheck, vec->zvec_pool_check);
+		}
 		break;
 
 	case NO_NAME:

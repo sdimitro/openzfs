@@ -273,11 +273,11 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 		 * be copied.
 		 */
 		spa->spa_removing_phys.sr_to_copy -=
-		    range_tree_space(ms->ms_freeingtree);
+		    range_tree_space(ms->ms_freeing);
 
-		ASSERT0(range_tree_space(ms->ms_freedtree));
+		ASSERT0(range_tree_space(ms->ms_freed));
 		for (int t = 0; t < TXG_SIZE; t++)
-			ASSERT0(range_tree_space(ms->ms_alloctree[t]));
+			ASSERT0(range_tree_space(ms->ms_allocating[t]));
 	}
 
 	/*
@@ -1108,7 +1108,7 @@ spa_vdev_remove_thread(void *arg)
 		 * Assert nothing in flight -- ms_*tree is empty.
 		 */
 		for (int i = 0; i < TXG_SIZE; i++) {
-			ASSERT0(range_tree_space(msp->ms_alloctree[i]));
+			ASSERT0(range_tree_space(msp->ms_allocating[i]));
 		}
 
 		/*
@@ -1142,7 +1142,7 @@ spa_vdev_remove_thread(void *arg)
 			    SM_ALLOC));
 			space_map_close(sm);
 
-			range_tree_walk(msp->ms_freeingtree,
+			range_tree_walk(msp->ms_freeing,
 			    range_tree_remove, svr->svr_allocd_segs);
 
 			/*
@@ -1294,10 +1294,10 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 		 * Assert nothing in flight -- ms_*tree is empty.
 		 */
 		for (int i = 0; i < TXG_SIZE; i++)
-			ASSERT0(range_tree_space(msp->ms_alloctree[i]));
+			ASSERT0(range_tree_space(msp->ms_allocating[i]));
 		for (int i = 0; i < TXG_DEFER_SIZE; i++)
-			ASSERT0(range_tree_space(msp->ms_defertree[i]));
-		ASSERT0(range_tree_space(msp->ms_freedtree));
+			ASSERT0(range_tree_space(msp->ms_defer[i]));
+		ASSERT0(range_tree_space(msp->ms_freed));
 
 		if (msp->ms_sm != NULL) {
 			/*
@@ -1313,7 +1313,7 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 			mutex_enter(&svr->svr_lock);
 			VERIFY0(space_map_load(msp->ms_sm,
 			    svr->svr_allocd_segs, SM_ALLOC));
-			range_tree_walk(msp->ms_freeingtree,
+			range_tree_walk(msp->ms_freeing,
 			    range_tree_remove, svr->svr_allocd_segs);
 
 			/*

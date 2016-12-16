@@ -1321,10 +1321,10 @@ typedef struct mdb_metaslab {
 	int64_t ms_deferspace;
 	uint64_t ms_fragmentation;
 	uint64_t ms_weight;
-	uintptr_t ms_alloctree[TXG_SIZE];
-	uintptr_t ms_freeingtree;
-	uintptr_t ms_freedtree;
-	uintptr_t ms_tree;
+	uintptr_t ms_allocating[TXG_SIZE];
+	uintptr_t ms_freeing;
+	uintptr_t ms_freed;
+	uintptr_t ms_allocatable;
 	uintptr_t ms_sm;
 } mdb_metaslab_t;
 
@@ -1944,10 +1944,10 @@ typedef struct mdb_dsl_dir_phys {
 } mdb_dsl_dir_phys_t;
 
 typedef struct space_data {
-	uint64_t ms_alloctree[TXG_SIZE];
-	uint64_t ms_freeingtree;
-	uint64_t ms_freedtree;
-	uint64_t ms_tree;
+	uint64_t ms_allocating[TXG_SIZE];
+	uint64_t ms_freeing;
+	uint64_t ms_freed;
+	uint64_t ms_allocatable;
 	int64_t ms_deferspace;
 	uint64_t avail;
 	uint64_t nowavail;
@@ -1970,27 +1970,27 @@ space_cb(uintptr_t addr, const void *unknown, void *arg)
 
 	for (i = 0; i < TXG_SIZE; i++) {
 		if (mdb_ctf_vread(&rt, "range_tree_t",
-		    "mdb_range_tree_t", ms.ms_alloctree[i], 0) == -1)
+		    "mdb_range_tree_t", ms.ms_allocating[i], 0) == -1)
 			return (WALK_ERR);
 
-		sd->ms_alloctree[i] += rt.rt_space;
+		sd->ms_allocating[i] += rt.rt_space;
 
 	}
 
 	if (mdb_ctf_vread(&rt, "range_tree_t",
-	    "mdb_range_tree_t", ms.ms_freeingtree, 0) == -1)
+	    "mdb_range_tree_t", ms.ms_freeing, 0) == -1)
 		return (WALK_ERR);
-	sd->ms_freeingtree += rt.rt_space;
+	sd->ms_freeing += rt.rt_space;
 
 	if (mdb_ctf_vread(&rt, "range_tree_t",
-	    "mdb_range_tree_t", ms.ms_freedtree, 0) == -1)
+	    "mdb_range_tree_t", ms.ms_freed, 0) == -1)
 		return (WALK_ERR);
-	sd->ms_freedtree += rt.rt_space;
+	sd->ms_freed += rt.rt_space;
 
 	if (mdb_ctf_vread(&rt, "range_tree_t",
-	    "mdb_range_tree_t", ms.ms_tree, 0) == -1)
+	    "mdb_range_tree_t", ms.ms_allocatable, 0) == -1)
 		return (WALK_ERR);
-	sd->ms_tree += rt.rt_space;
+	sd->ms_allocatable += rt.rt_space;
 
 	if (ms.ms_sm != NULL &&
 	    mdb_ctf_vread(&sm, "space_map_t",
@@ -2074,16 +2074,16 @@ spa_space(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	}
 
 	mdb_printf("ms_allocmap = %llu%s %llu%s %llu%s %llu%s\n",
-	    sd.ms_alloctree[0] >> shift, suffix,
-	    sd.ms_alloctree[1] >> shift, suffix,
-	    sd.ms_alloctree[2] >> shift, suffix,
-	    sd.ms_alloctree[3] >> shift, suffix);
-	mdb_printf("ms_freeingtree = %llu%s\n",
-	    sd.ms_freeingtree >> shift, suffix);
-	mdb_printf("ms_freedtree = %llu%s\n",
-	    sd.ms_freedtree >> shift, suffix);
-	mdb_printf("ms_tree = %llu%s\n",
-	    sd.ms_tree >> shift, suffix);
+	    sd.ms_allocating[0] >> shift, suffix,
+	    sd.ms_allocating[1] >> shift, suffix,
+	    sd.ms_allocating[2] >> shift, suffix,
+	    sd.ms_allocating[3] >> shift, suffix);
+	mdb_printf("ms_freeing = %llu%s\n",
+	    sd.ms_freeing >> shift, suffix);
+	mdb_printf("ms_freed = %llu%s\n",
+	    sd.ms_freed >> shift, suffix);
+	mdb_printf("ms_allocatable = %llu%s\n",
+	    sd.ms_allocatable >> shift, suffix);
 	mdb_printf("ms_deferspace = %llu%s\n",
 	    sd.ms_deferspace >> shift, suffix);
 	mdb_printf("last synced avail = %llu%s\n",

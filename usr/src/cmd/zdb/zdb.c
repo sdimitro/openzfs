@@ -840,8 +840,8 @@ static void
 dump_metaslab_stats(metaslab_t *msp)
 {
 	char maxbuf[32];
-	range_tree_t *rt = msp->ms_tree;
-	avl_tree_t *t = &msp->ms_size_tree;
+	range_tree_t *rt = msp->ms_allocatable;
+	avl_tree_t *t = &msp->ms_allocatable_by_size;
 	int free_pct = range_tree_space(rt) * 100 / msp->ms_size;
 
 	zdb_nicenum(metaslab_block_maxsize(msp), maxbuf);
@@ -873,7 +873,7 @@ dump_metaslab(metaslab_t *msp)
 		metaslab_load_wait(msp);
 		if (!msp->ms_loaded) {
 			VERIFY0(metaslab_load(msp));
-			range_tree_stat_verify(msp->ms_tree);
+			range_tree_stat_verify(msp->ms_allocatable);
 		}
 		dump_metaslab_stats(msp);
 		metaslab_unload(msp);
@@ -3040,7 +3040,7 @@ zdb_leak_init_ms(metaslab_t *msp, uint64_t *vim_idxp)
 	 * We don't want to spend the CPU manipulating the size-ordered
 	 * tree, so clear the range_tree ops.
 	 */
-	msp->ms_tree->rt_ops = NULL;
+	msp->ms_allocatable->rt_ops = NULL;
 
 	(void) fprintf(stderr,
 	    "\rloading vdev %llu of %llu, metaslab %llu of %llu ...",
@@ -3050,7 +3050,7 @@ zdb_leak_init_ms(metaslab_t *msp, uint64_t *vim_idxp)
 	    (longlong_t)vd->vdev_ms_count);
 
 	/*
-	 * For leak detection, we overload the metaslab ms_tree to
+	 * For leak detection, we overload the metaslab ms_allocatable to
 	 * contain allocated segments instead of free segments. As a
 	 * result, we can't use the normal metaslab_load/unload
 	 * interfaces.
@@ -3073,10 +3073,12 @@ zdb_leak_init_ms(metaslab_t *msp, uint64_t *vim_idxp)
 			 */
 			ASSERT3U(ent_offset + ent_len, <=,
 			    msp->ms_start + msp->ms_size);
-			range_tree_add(msp->ms_tree, ent_offset, ent_len);
+			range_tree_add(msp->ms_allocatable,
+			    ent_offset, ent_len);
 		}
 	} else if (msp->ms_sm != NULL) {
-		VERIFY0(space_map_load(msp->ms_sm, msp->ms_tree, SM_ALLOC));
+		VERIFY0(space_map_load(msp->ms_sm, msp->ms_allocatable,
+		    SM_ALLOC));
 	}
 	if (!msp->ms_loaded) {
 		msp->ms_loaded = B_TRUE;
@@ -3151,7 +3153,7 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 
 		/*
 		 * We are going to be changing the meaning of the metaslab's
-		 * ms_tree.  Ensure that the allocator doesn't try to
+		 * ms_allocatable.  Ensure that the allocator doesn't try to
 		 * use the tree.
 		 */
 		spa->spa_normal_class->mc_ops = &zdb_metaslab_ops;
@@ -3170,8 +3172,8 @@ zdb_leak_init(spa_t *spa, zdb_cb_t *zcb)
 
 			/*
 			 * Note: we don't check for mapping leaks on
-			 * removing vdevs because their ms_tree's are
-			 * used to look for leaks in allocated space.
+			 * removing vdevs because their ms_allocatable's
+			 * are used to look for leaks in allocated space.
 			 */
 			if (vd->vdev_ops == &vdev_indirect_ops) {
 				zcb->zcb_vd_obsolete_counts[c] =
@@ -3234,7 +3236,7 @@ zdb_check_for_obsolete_leaks(vdev_t *vd, zdb_cb_t *zcb)
 		for (uint64_t inner_offset = 0;
 		    inner_offset < DVA_GET_ASIZE(&vimep->vimep_dst);
 		    inner_offset += 1 << vd->vdev_ashift) {
-			if (range_tree_contains(msp->ms_tree,
+			if (range_tree_contains(msp->ms_allocatable,
 			    offset + inner_offset, 1 << vd->vdev_ashift)) {
 				obsolete_bytes += 1 << vd->vdev_ashift;
 			}
@@ -3300,23 +3302,23 @@ zdb_leak_fini(spa_t *spa, zdb_cb_t *zcb)
 				ASSERT3P(mg, ==, msp->ms_group);
 
 				/*
-				 * The ms_tree has been overloaded to
-				 * contain allocated segments. Now that we
-				 * finished traversing all blocks, any
-				 * block that remains in the ms_tree
+				 * ms_allocatable has been overloaded
+				 * to contain allocated segments. Now that
+				 * we finished traversing all blocks, any
+				 * block that remains in the ms_allocatable
 				 * represents an allocated block that we
 				 * did not claim during the traversal.
 				 * Claimed blocks would have been removed
-				 * from the ms_tree.  For indirect vdevs,
-				 * space remaining in the tree represents
-				 * parts of the mapping that are not
-				 * referenced, which is not a bug.
+				 * from the ms_allocatable.  For indirect
+				 * vdevs, space remaining in the tree
+				 * represents parts of the mapping that are
+				 * not referenced, which is not a bug.
 				 */
 				if (vd->vdev_ops == &vdev_indirect_ops) {
-					range_tree_vacate(msp->ms_tree,
+					range_tree_vacate(msp->ms_allocatable,
 					    NULL, NULL);
 				} else {
-					range_tree_vacate(msp->ms_tree,
+					range_tree_vacate(msp->ms_allocatable,
 					    zdb_leak, vd);
 				}
 				if (msp->ms_loaded) {

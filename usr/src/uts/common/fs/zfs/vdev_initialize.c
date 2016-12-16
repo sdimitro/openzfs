@@ -486,8 +486,8 @@ vdev_initialize_calculate_progress(vdev_t *vd)
 		 */
 		vdev_initialize_ms_load(msp);
 
-		for (range_seg_t *rs = avl_first(&msp->ms_tree->rt_root); rs;
-		    rs = AVL_NEXT(&msp->ms_tree->rt_root, rs)) {
+		for (range_seg_t *rs = avl_first(&msp->ms_allocatable->rt_root);
+		    rs; rs = AVL_NEXT(&msp->ms_allocatable->rt_root, rs)) {
 			logical_rs.rs_start = rs->rs_start;
 			logical_rs.rs_end = rs->rs_end;
 			vdev_xlate(vd, &logical_rs, &physical_rs);
@@ -617,7 +617,8 @@ vdev_initialize_thread(void *arg)
 		mutex_enter(&msp->ms_lock);
 		vdev_initialize_ms_load(msp);
 
-		range_tree_walk(msp->ms_tree, vdev_initialize_range_add, vd);
+		range_tree_walk(msp->ms_allocatable, vdev_initialize_range_add,
+		    vd);
 		mutex_exit(&msp->ms_lock);
 
 		spa_config_exit(spa, SCL_CONFIG, FTAG);

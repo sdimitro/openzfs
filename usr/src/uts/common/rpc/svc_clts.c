@@ -751,15 +751,12 @@ svc_clts_kfreeres(SVCXPRT *clone_xprt)
 #define	MAXDUPREQS	8192
 
 /*
- * This should be appropriately scaled to MAXDUPREQS.
+ * This should be appropriately scaled to MAXDUPREQS.  To produce as less as
+ * possible collisions it is suggested to set this to a prime.
  */
 #define	DRHASHSZ	2053
 
-#if ((DRHASHSZ & (DRHASHSZ - 1)) == 0)
-#define	XIDHASH(xid)	((xid) & (DRHASHSZ - 1))
-#else
 #define	XIDHASH(xid)	((xid) % DRHASHSZ)
-#endif
 #define	DRHASH(dr)	XIDHASH((dr)->dr_xid)
 #define	REQTOXID(req)	((req)->rq_xprt->xp_xid)
 
@@ -796,7 +793,7 @@ struct dupreq *drmru;
  */
 static int
 svc_clts_kdup(struct svc_req *req, caddr_t res, int size, struct dupreq **drpp,
-	bool_t *dupcachedp)
+    bool_t *dupcachedp)
 {
 	struct rpc_clts_server *stats = CLONE2STATS(req->rq_xprt);
 	struct dupreq *dr;
@@ -927,7 +924,7 @@ svc_clts_kdup(struct svc_req *req, caddr_t res, int size, struct dupreq **drpp,
  */
 static void
 svc_clts_kdupdone(struct dupreq *dr, caddr_t res, void (*dis_resfree)(),
-	int size, int status)
+    int size, int status)
 {
 
 	ASSERT(dr->dr_resfree == NULL);

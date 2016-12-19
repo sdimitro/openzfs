@@ -309,6 +309,11 @@ pxe_open(struct open_file *f, ...)
 		    sprintf(temp, "%6D", bootplayer.CAddr, ":");
 		    setenv("boot.netif.hwaddr", temp, 1);
 		}
+		if (intf_mtu != 0) {
+		    char mtu[16];
+		    snprintf(mtu, sizeof(mtu), "%u", intf_mtu);
+		    setenv("boot.netif.mtu", mtu, 1);
+		}
 #ifdef LOADER_NFS_SUPPORT
 		printf("pxe_open: server addr: %s\n", inet_ntoa(rootip));
 		printf("pxe_open: server path: %s\n", rootpath);
@@ -377,6 +382,9 @@ pxe_print(int verbose)
 	if (pxe_call == NULL)
 		return (0);
 
+	printf("%s devices:", pxedisk.dv_name);
+	if (pager_output("\n") != 0)
+		return (1);
 	snprintf(line, sizeof (line), "    pxe0:    %s:%s\n", inet_ntoa(rootip),
 	    rootpath);
 	return (pager_output(line));

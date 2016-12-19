@@ -2457,7 +2457,6 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 	}
 
 	vdev_space_update(vd, alloc_delta + defer_delta, defer_delta, 0);
-
 	/*
 	 * If there's a metaslab_load() in progress, wait for it to complete
 	 * so that we have a consistent view of the in-core space map.

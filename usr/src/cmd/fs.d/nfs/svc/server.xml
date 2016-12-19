@@ -22,6 +22,7 @@
  CDDL HEADER END
 
 	Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+	Copyright (c) 2012 by Delphix. All rights reserved.
 	Copyright 2014 Nexenta Systems, Inc.  All rights reserved
 	Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
 	Copyright (c) 2012, 2016 by Delphix. All rights reserved.
@@ -41,7 +42,7 @@
 <service
 	name='network/nfs/server'
 	type='service'
-	version='1'>
+	version='2'>
 
 	<dependency name='network'
 	    grouping='require_any'

@@ -38,7 +38,7 @@
 <service
 	name='network/nfs/nlockmgr'
 	type='service'
-	version='1'>
+	version='2'>
 
 	<dependency name='network'
 	    grouping='require_any'

@@ -27,10 +27,6 @@
  * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
-/*
- * Copyright (c) 2015 by Delphix. All rights reserved.
- */
-
 #include <sys/param.h>
 #include <sys/t_lock.h>
 #include <sys/types.h>

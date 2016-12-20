@@ -286,7 +286,7 @@
         gate-review-check = skip
         gate-triage-check = skip
 [branch "5.1/release"]
-        gate-release = 5.1.3.2
+        gate-release = 5.1.4.1
         gate-slack-notify = pushes
         gate-approvers = gatekeepers-51
         gate-allowed-issuetypes = 10405
@@ -294,7 +294,7 @@
         gate-slack-notify = pushes
         gate-approvers = gatekeepers-51
         gate-allowed-issuetypes = 10405
-        gate-release = 5.1.4.0
+        gate-release = 5.1.5.0
 [branch "projects/storvsc"]
         gate-notify = eng-azure@delphix.com
         gate-user-check = on

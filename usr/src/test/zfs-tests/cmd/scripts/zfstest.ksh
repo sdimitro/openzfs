@@ -49,6 +49,7 @@ Options:
     -a         Find free disks on the system, and use them all
     -C script  Upon test failure (due to timeout only) run this script
     -c runfile Use the runfile to determine what tests to run
+    -n nfsfile Use the nfsfile to determine the NFS configuration
     -h         This usage message
     -q         Print no output to the console during testing
     -r         Randomize the order of tests in each test group
@@ -148,7 +149,7 @@ constrain_path
 export PATH=$PATHDIR
 
 verify_id
-while getopts aC:c:hqrs c; do
+while getopts aC:c:n:hqrs c; do
 	case $c in
 	'a')
 		auto_detect=true
@@ -164,6 +165,12 @@ while getopts aC:c:hqrs c; do
 	'h')
 		usage
 		;;
+	'n')
+		nfsfile=$OPTARG
+		[[ -f $nfsfile ]] || fail "Cannot read file: $nfsfile"
+		export NFS=1
+		. $nfsfile
+                ;;
 	'q')
 		runner_args+=' -q'
 		;;

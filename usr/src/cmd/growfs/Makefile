@@ -10,14 +10,19 @@
 #
 
 #
-# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright 2016 Nexenta Systems, Inc.
 #
 
+PROG=		growfs
 
-include $(SRC)/Makefile.master
+include		$(SRC)/cmd/Makefile.cmd
 
-ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TARGETDIR = $(ROOTOPTPKG)/tests/functional/casenorm
+.KEEP_STATE:
 
-include $(SRC)/test/zfs-tests/Makefile.com
+all:		$(PROG)
+
+clean:
+
+install:	$(ROOTUSRSBINPROG)
+
+include		$(SRC)/cmd/Makefile.targ

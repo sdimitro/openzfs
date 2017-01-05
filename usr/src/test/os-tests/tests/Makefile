@@ -10,9 +10,16 @@
 #
 
 #
-# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 #
 
-SUBDIRS = poll secflags sigqueue spoof-ras file-locking stress
+SUBDIRS = \
+	file-locking	\
+	poll		\
+	secflags	\
+	sigqueue	\
+	spoof-ras	\
+	stress		\
+	utaskq
 
 include $(SRC)/test/Makefile.com

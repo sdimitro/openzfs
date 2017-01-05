@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 #
 
 [DEFAULT]
@@ -21,9 +21,9 @@ timeout = 60
 post =
 outputdir = /var/tmp/test_results
 
-[/opt/os-tests/tests/poll_test]
+[/opt/os-tests/tests]
 user = root
-tests = ['poll_test', 'epoll_test']
+tests = ['poll_test', 'epoll_test', 'utaskq_test']
 
 [/opt/os-tests/tests/secflags]
 user = root

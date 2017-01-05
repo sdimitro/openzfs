@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  */
 
@@ -41,6 +41,8 @@ extern "C" {
 #define	_SYS_VFS_H
 #define	_SYS_SUNDDI_H
 #define	_SYS_CALLB_H
+#define	_SYS_TASKQ_H
+#define	_SYS_TASKQ_IMPL_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +65,7 @@ extern "C" {
 #include <procfs.h>
 #include <pthread.h>
 #include <setjmp.h>
-#include <taskq.h>
+#include <utaskq.h>
 #include <sys/debug.h>
 #include <libsysevent.h>
 #include <sys/note.h>
@@ -538,12 +540,38 @@ extern int ddi_strtoull(const char *str, char **nptr, int base,
 extern uint32_t zone_get_hostid(void *zonep);
 
 /*
- * Task queues
+ * Task queues. Kernel taskq symbols are mapped to libcmdutil utaskq symbols.
  */
+#define	TQ_SLEEP	UTQ_SLEEP
+#define	TQ_NOSLEEP	UTQ_NOSLEEP
+#define	TQ_NOQUEUE	UTQ_NOQUEUE
+#define	TQ_FRONT	UTQ_FRONT
+
+#define	TASKQ_PREPOPULATE	UTASKQ_PREPOPULATE
+#define	TASKQ_CPR_SAFE		UTASKQ_CPR_SAFE
+#define	TASKQ_DYNAMIC		UTASKQ_DYNAMIC
+#define	TASKQ_THREADS_CPU_PCT	UTASKQ_THREADS_CPU_PCT
+#define	TASKQ_DC_BATCH		UTASKQ_DC_BATCH
+
+#define	system_taskq	system_utaskq
+
+typedef	utaskq_ent_t	taskq_ent_t;
+#define	tqent_next	utqent_next
+typedef	utaskq_t	taskq_t;
+typedef	utask_func_t	task_func_t;
+
+#define	system_taskq_init()		system_utaskq_init()
+#define	system_taskq_fini()		system_utaskq_fini()
+#define	taskq_create(a, b, c, d, e, f)	utaskq_create(a, b, c, d, e, f)
+#define	taskq_dispatch(a, b, c, d)	utaskq_dispatch(a, b, c, d)
+#define	taskq_dispatch_ent(a, b, c, d, e) utaskq_dispatch_ent(a, b, c, d, e)
+#define	taskq_destroy(a)		utaskq_destroy(a)
+#define	taskq_wait(a)			utaskq_wait(a)
+#define	taskq_member(a, b)		utaskq_member(a, b)
 #define	taskq_create_proc(a, b, c, d, e, p, f) \
-	    (taskq_create(a, b, c, d, e, f))
+	    (utaskq_create(a, b, c, d, e, f))
 #define	taskq_create_sysdc(a, b, d, e, p, dc, f) \
-	    (taskq_create(a, b, maxclsyspri, d, e, f))
+	    (utaskq_create(a, b, maxclsyspri, d, e, f))
 
 /* ZFS Boot Related stuff. */
 

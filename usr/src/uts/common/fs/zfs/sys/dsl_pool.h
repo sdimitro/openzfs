@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -88,7 +88,7 @@ typedef struct dsl_pool {
 	struct dsl_dir *dp_leak_dir;
 	struct dsl_dataset *dp_origin_snap;
 	uint64_t dp_root_dir_obj;
-	struct taskq *dp_vnrele_taskq;
+	taskq_t *dp_vnrele_taskq;
 
 	/* No lock needed - sync context only */
 	blkptr_t dp_meta_rootbp;

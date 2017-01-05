@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2017 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -57,9 +57,9 @@
 #include <libcmdutils.h>
 #include <aclutils.h>
 #include <pthread.h>
-#include <taskq.h>
+#include <utaskq.h>
 
-static taskq_t		*taskq;
+static utaskq_t		*utaskq;
 static uid_t		uid = (uid_t)-1;
 static gid_t		gid = (gid_t)-1;
 static int		status = 0;	/* total number of errors received */
@@ -129,7 +129,7 @@ main(int argc, char *argv[])
 	extern int	optind;
 	int		errflg = 0;
 	char		*dir;
-	taskqid_t	tid;
+	utaskqid_t	tid;
 
 	(void) setlocale(LC_ALL, "");
 #if !defined(TEXT_DOMAIN)		/* Should be defined by cc -D */
@@ -271,8 +271,10 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (rflag)
-		taskq = taskq_create("chown_taskq", tflag, 0, 4, INT_MAX, 0);
+	if (rflag) {
+		utaskq =
+		    utaskq_create("chown_taskq", tflag, 0, tflag, INT_MAX, 0);
+	}
 
 	for (c = 1; c < argc; c++) {
 		tree = NULL;
@@ -339,8 +341,8 @@ main(int argc, char *argv[])
 						continue;
 					}
 
-					tid = taskq_dispatch(taskq, chownr,
-					    dir, TQ_SLEEP);
+					tid = utaskq_dispatch(utaskq, chownr,
+					    dir, UTQ_SLEEP);
 					if (tid == 0) {
 						Perror(argv[c]);
 						free(dir);
@@ -388,7 +390,7 @@ main(int argc, char *argv[])
 				continue;
 			}
 
-			tid = taskq_dispatch(taskq, chownr, dir, TQ_SLEEP);
+			tid = utaskq_dispatch(utaskq, chownr, dir, UTQ_SLEEP);
 			if (tid == 0) {
 				Perror(argv[c]);
 				free(dir);
@@ -405,7 +407,7 @@ main(int argc, char *argv[])
 	}
 
 	if (rflag)
-		taskq_destroy(taskq);
+		utaskq_destroy(utaskq);
 
 	return (status);
 }
@@ -430,7 +432,7 @@ chownr(void *arg)
 	DIR *dirp;
 	struct dirent *dp;
 	struct stat st, st2;
-	taskqid_t tid;
+	utaskqid_t tid;
 
 	/*
 	 * Attempt to chown the directory, however don't return if we
@@ -528,8 +530,8 @@ chownr(void *arg)
 						continue;
 					}
 
-					tid = taskq_dispatch(taskq, chownr,
-					    path, TQ_SLEEP);
+					tid = utaskq_dispatch(utaskq, chownr,
+					    path, UTQ_SLEEP);
 					if (tid == 0) {
 						Perror(dp->d_name);
 						free(path);
@@ -577,7 +579,7 @@ chownr(void *arg)
 				continue;
 			}
 
-			tid = taskq_dispatch(taskq, chownr, path, TQ_SLEEP);
+			tid = utaskq_dispatch(utaskq, chownr, path, UTQ_SLEEP);
 			if (tid == 0) {
 				Perror(dp->d_name);
 				free(path);

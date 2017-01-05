@@ -26,11 +26,11 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/avl.h>
 #include <sys/types.h>
 #include <stdlib.h>
 #include <libcmdutils.h>
-#include <taskq.h>
+#include <utaskq.h>

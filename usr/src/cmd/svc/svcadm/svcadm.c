@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright 2013, Joyent, Inc. All rights reserved.
+ * Copyright 2015, Joyent, Inc. All rights reserved.
  * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
@@ -72,16 +72,9 @@
  */
 #define	WAIT_INTERVAL		3
 
-#ifndef NDEBUG
-#define	bad_error(func, err)	{					\
-	pr_warn("%s:%d: %s() failed with unexpected error %d.\n",	\
-	    __FILE__, __LINE__, (func), (err));				\
-	abort();							\
-}
-#else
-#define	bad_error(func, err)	abort()
-#endif
-
+#define	bad_error(func, err)						\
+	uu_panic("%s:%d: %s() failed with unexpected error %d.\n",	\
+	    __FILE__, __LINE__, (func), (err));
 
 struct ht_elt {
 	struct ht_elt	*next;

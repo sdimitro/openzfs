@@ -43,6 +43,14 @@ uint64_t metaslab_aliquot = 512ULL << 10;
 uint64_t metaslab_gang_bang = SPA_MAXBLOCKSIZE + 1;	/* force gang blocks */
 
 /*
+ * Since we can touch multiple metaslabs (and their respective space maps)
+ * with each transaction group, we benefit from having a smaller space map
+ * block size since it allows us to issue more I/O operations scattered
+ * around the disk.
+ */
+int zfs_metaslab_sm_blksz = (1 << 12);
+
+/*
  * The in-core space map representation is more compact than its on-disk form.
  * The zfs_condense_pct determines how much more compact the in-core
  * space map representation must be before we compact it on-disk.
@@ -2208,7 +2216,7 @@ metaslab_condense(metaslab_t *msp, uint64_t txg, dmu_tx_t *tx)
 	msp->ms_condensing = B_TRUE;
 
 	mutex_exit(&msp->ms_lock);
-	space_map_truncate(sm, tx);
+	space_map_truncate(sm, zfs_metaslab_sm_blksz, tx);
 
 	/*
 	 * While we would ideally like to create a space map representation
@@ -2290,7 +2298,7 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 	if (msp->ms_sm == NULL) {
 		uint64_t new_object;
 
-		new_object = space_map_alloc(mos, tx);
+		new_object = space_map_alloc(mos, zfs_metaslab_sm_blksz, tx);
 		VERIFY3U(new_object, !=, 0);
 
 		VERIFY0(space_map_open(&msp->ms_sm, mos, new_object,

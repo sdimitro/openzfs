@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Toomas Soome <tsoome@me.com>
@@ -76,6 +76,19 @@ int zfs_scrub_limit = 10;
  * more than) this number of metaslabs.
  */
 int metaslabs_per_vdev = 200;
+
+/*
+ * Since the DTL space map of a vdev is not expected to have a lot of
+ * entries, we default its block size to 4K.
+ */
+int vdev_dtl_sm_blksz = (1 << 12);
+
+/*
+ * vdev-wide space maps that have lots of entries written to them at
+ * the end of each transaction can benefit from a higher I/O bandwidth
+ * (e.g. vdev_obsolete_sm), thus we default their block size to 128K.
+ */
+int vdev_standard_sm_blksz = (1 << 17);
 
 boolean_t vdev_validate_skip = B_FALSE;
 
@@ -2385,7 +2398,7 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	if (vd->vdev_dtl_sm == NULL) {
 		uint64_t new_object;
 
-		new_object = space_map_alloc(mos, tx);
+		new_object = space_map_alloc(mos, vdev_dtl_sm_blksz, tx);
 		VERIFY3U(new_object, !=, 0);
 
 		VERIFY0(space_map_open(&vd->vdev_dtl_sm, mos, new_object,
@@ -2399,7 +2412,7 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	range_tree_walk(rt, range_tree_add, rtsync);
 	mutex_exit(&vd->vdev_dtl_lock);
 
-	space_map_truncate(vd->vdev_dtl_sm, tx);
+	space_map_truncate(vd->vdev_dtl_sm, vdev_dtl_sm_blksz, tx);
 	space_map_write(vd->vdev_dtl_sm, rtsync, SM_ALLOC, tx);
 	range_tree_vacate(rtsync, NULL, NULL);
 

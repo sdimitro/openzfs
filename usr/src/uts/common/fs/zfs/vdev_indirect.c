@@ -689,7 +689,8 @@ vdev_indirect_sync_obsolete(vdev_t *vd, dmu_tx_t *tx)
 
 	if (vdev_obsolete_sm_object(vd) == 0) {
 		uint64_t obsolete_sm_object =
-		    space_map_alloc(spa->spa_meta_objset, tx);
+		    space_map_alloc(spa->spa_meta_objset,
+		    vdev_standard_sm_blksz, tx);
 
 		ASSERT(vd->vdev_top_zap != 0);
 		VERIFY0(zap_add(vd->vdev_spa->spa_meta_objset, vd->vdev_top_zap,

@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -38,12 +38,13 @@
 #include <sys/zfeature.h>
 
 /*
+ * Note on space map block size:
+ *
  * The data for a given space map can be kept on blocks of any size.
  * Larger blocks entail fewer i/o operations, but they also cause the
  * DMU to keep more data in-core, and also to waste more i/o bandwidth
  * when only a few blocks have changed since the last transaction group.
  */
-int space_map_blksz = (1 << 12);
 
 /*
  * Iterate through the space map, invoking the callback on each (non-debug)
@@ -413,7 +414,7 @@ space_map_close(space_map_t *sm)
 }
 
 void
-space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
+space_map_truncate(space_map_t *sm, int blocksize, dmu_tx_t *tx)
 {
 	objset_t *os = sm->sm_os;
 	spa_t *spa = dmu_objset_spa(os);
@@ -435,7 +436,7 @@ space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 	 */
 	if ((spa_feature_is_enabled(spa, SPA_FEATURE_SPACEMAP_HISTOGRAM) &&
 	    doi.doi_bonus_size != sizeof (space_map_phys_t)) ||
-	    doi.doi_data_block_size != space_map_blksz) {
+	    doi.doi_data_block_size != blocksize) {
 		zfs_dbgmsg("txg %llu, spa %s, sm %p, reallocating "
 		    "object[%llu]: old bonus %u, old blocksz %u",
 		    dmu_tx_get_txg(tx), spa_name(spa), sm, sm->sm_object,
@@ -444,7 +445,7 @@ space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 		space_map_free(sm, tx);
 		dmu_buf_rele(sm->sm_dbuf, sm);
 
-		sm->sm_object = space_map_alloc(sm->sm_os, tx);
+		sm->sm_object = space_map_alloc(sm->sm_os, blocksize, tx);
 		VERIFY0(space_map_open_impl(sm));
 	} else {
 		VERIFY0(dmu_free_range(os, space_map_object(sm), 0, -1ULL, tx));
@@ -477,7 +478,7 @@ space_map_update(space_map_t *sm)
 }
 
 uint64_t
-space_map_alloc(objset_t *os, dmu_tx_t *tx)
+space_map_alloc(objset_t *os, int blocksize, dmu_tx_t *tx)
 {
 	spa_t *spa = dmu_objset_spa(os);
 	uint64_t object;
@@ -491,8 +492,7 @@ space_map_alloc(objset_t *os, dmu_tx_t *tx)
 		bonuslen = SPACE_MAP_SIZE_V0;
 	}
 
-	object = dmu_object_alloc(os,
-	    DMU_OT_SPACE_MAP, space_map_blksz,
+	object = dmu_object_alloc(os, DMU_OT_SPACE_MAP, blocksize,
 	    DMU_OT_SPACE_MAP_HEADER, bonuslen, tx);
 
 	return (object);

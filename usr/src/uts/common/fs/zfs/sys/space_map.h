@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_SPACE_MAP_H
@@ -153,8 +153,8 @@ uint64_t space_map_length(space_map_t *sm);
 
 void space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
     dmu_tx_t *tx);
-void space_map_truncate(space_map_t *sm, dmu_tx_t *tx);
-uint64_t space_map_alloc(objset_t *os, dmu_tx_t *tx);
+void space_map_truncate(space_map_t *sm, int blocksize, dmu_tx_t *tx);
+uint64_t space_map_alloc(objset_t *os, int blocksize, dmu_tx_t *tx);
 void space_map_free(space_map_t *sm, dmu_tx_t *tx);
 void space_map_free_obj(objset_t *os, uint64_t smobj, dmu_tx_t *tx);
 

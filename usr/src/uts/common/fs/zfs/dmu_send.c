@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright 2014 HybridCluster. All rights reserved.
  * Copyright 2016 RackTop Systems.
@@ -1357,6 +1357,7 @@ send_traverse_thread(void *arg)
 	data = kmem_zalloc(sizeof (*data), KM_SLEEP);
 	data->eos_marker = B_TRUE;
 	bqueue_enqueue_flush(&st_arg->q, data, sizeof (*data));
+	thread_exit();
 }
 
 /*
@@ -1551,6 +1552,7 @@ redact_traverse_thread(void *arg)
 	data = kmem_zalloc(sizeof (*data), KM_SLEEP);
 	data->eos_marker = B_TRUE;
 	redact_record_merge_enqueue(&st_arg->q, &st_arg->current_record, data);
+	thread_exit();
 }
 
 static inline void
@@ -1898,6 +1900,7 @@ redact_merge_thread(void *arg)
 	record = kmem_zalloc(sizeof (struct send_redact_record), KM_SLEEP);
 	record->eos_marker = B_TRUE;
 	bqueue_enqueue_flush(&mt_arg->q, record, sizeof (*record));
+	thread_exit();
 }
 
 /*
@@ -2505,6 +2508,7 @@ send_merge_thread(void *arg)
 	from_data = kmem_zalloc(sizeof (struct send_block_record), KM_SLEEP);
 	from_data->eos_marker = B_TRUE;
 	bqueue_enqueue_flush(&smt_arg->q, from_data, sizeof (*from_data));
+	thread_exit();
 }
 
 struct send_prefetch_thread_arg {
@@ -2676,6 +2680,7 @@ send_prefetch_thread(void *arg)
 	}
 
 	bqueue_enqueue_flush(outq, data, 1);
+	thread_exit();
 }
 
 struct dmu_send_params {

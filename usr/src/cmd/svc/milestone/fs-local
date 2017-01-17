@@ -21,6 +21,7 @@
 #
 #
 # Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . /lib/svc/share/smf_include.sh
@@ -30,7 +31,8 @@ mntretry=0
 
 # Mount all local filesystems.
 
-cd /; /sbin/mountall -l >/var/run/fs-local 2>&1
+cd /
+err=`(/sbin/mountall -l >/var/run/fs-local) 2>&1`
 rc=$?
 if [ $rc -eq 111 ]; then
 	#
@@ -41,7 +43,7 @@ if [ $rc -eq 111 ]; then
 	mntretry=1
 elif [ $rc -ne 0 ]; then
 	cat /var/run/fs-local >/dev/msglog
-	msg="WARNING: /sbin/mountall -l failed: exit status $rc"
+	msg="WARNING: /sbin/mountall -l failed: exit status $rc: $err"
 	echo $msg
 	echo "$SMF_FMRI:" $msg >/dev/msglog
 	result=$SMF_EXIT_ERR_FATAL
@@ -87,10 +89,10 @@ fi
 # Mount all ZFS filesystems.
 
 if [ -x /usr/sbin/zfs ]; then
-	/usr/sbin/zfs mount -va >/dev/msglog 2>&1
+	err=`(/usr/sbin/zfs mount -va >/dev/msglog) 2>&1`
 	rc=$?
 	if [ $rc -ne 0 ]; then
-		msg="WARNING: /usr/sbin/zfs mount -a failed: exit status $rc"
+		msg="WARNING: /usr/sbin/zfs mount -a failed: exit status $rc: $err"
 		echo $msg
 		echo "$SMF_FMRI:" $msg >/dev/msglog
 		result=$SMF_EXIT_ERR_FATAL
@@ -99,10 +101,11 @@ fi
 
 if [ $result = $SMF_EXIT_OK -a $mntretry -eq 1 ]
 then
-	cd /; /sbin/mountall -l >/dev/msglog
+	cd /
+	err=`(/sbin/mountall -l >/dev/msglog) 2>&1`
 	rc=$?
 	if [ $rc -ne 0 ]; then
-		msg="WARNING: /sbin/mountall -l failed: exit status $rc"
+		msg="WARNING: /sbin/mountall -l failed: exit status $rc: $err"
 		echo $msg
 		echo "$SMF_FMRI:" $msg >/dev/msglog
 		result=$SMF_EXIT_ERR_FATAL

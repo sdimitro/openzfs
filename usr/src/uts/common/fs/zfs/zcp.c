@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2016, 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -101,11 +101,18 @@
 #include <sys/zcp_prop.h>
 #include <sys/zcp_global.h>
 
+#define	ZCP_NVLIST_MAX_DEPTH 20
+
 uint64_t zfs_lua_check_timeout_instruction_interval = 100;
 uint64_t zfs_lua_max_timeout = SEC2NSEC(10);
 uint64_t zfs_lua_max_memlimit = 1024 * 1024 * 100;
 
+/*
+ * Forward declarations for mutually recursive functions
+ */
 static int zcp_nvpair_value_to_lua(lua_State *, nvpair_t *, char *, int);
+static int zcp_lua_to_nvlist_impl(lua_State *, int, nvlist_t *, const char *,
+    int);
 
 typedef struct zcp_alloc_arg {
 	boolean_t	aa_must_succeed;
@@ -210,7 +217,95 @@ zcp_cleanup(lua_State *state)
 	}
 }
 
-#define	ZCP_NVLIST_MAX_DEPTH 20
+/*
+ * Convert the lua table at the given index on the Lua stack to an nvlist
+ * and return it.
+ *
+ * If the table can not be converted for any reason, NULL is returned and
+ * an error message is pushed onto the Lua stack.
+ */
+static nvlist_t *
+zcp_table_to_nvlist(lua_State *state, int index, int depth)
+{
+	nvlist_t *nvl = fnvlist_alloc();
+	/*
+	 * Push an empty stack slot where lua_next() will store each
+	 * table key.
+	 */
+	lua_pushnil(state);
+	while (lua_next(state, index) != 0) {
+		/*
+		 * The next key-value pair from the table at index is
+		 * now on the stack, with the key at stack slot -2 and
+		 * the value at slot -1.
+		 */
+		int err = 0;
+		char buf[32];
+		const char *key = NULL;
+
+		switch (lua_type(state, -2)) {
+		case LUA_TSTRING:
+			key = lua_tostring(state, -2);
+			break;
+		case LUA_TBOOLEAN:
+			key = (lua_toboolean(state, -2) == B_TRUE ?
+			    "true" : "false");
+			break;
+		case LUA_TNUMBER:
+			VERIFY3U(sizeof (buf), >,
+			    snprintf(buf, sizeof (buf), "%lld",
+			    (longlong_t)lua_tonumber(state, -2)));
+			key = buf;
+			break;
+		default:
+			fnvlist_free(nvl);
+			(void) lua_pushfstring(state, "Invalid key "
+			    "type '%s' in table",
+			    lua_typename(state, lua_type(state, -2)));
+			return (NULL);
+		}
+		/*
+		 * It's possible for string keys to collide
+		 * (e.g. the string "1" and the number 1), which should
+		 * throw an error.
+		 */
+		if (nvlist_exists(nvl, key)) {
+			fnvlist_free(nvl);
+			(void) lua_pushfstring(state, "Collision of "
+			    "key '%s' in table", key);
+			return (NULL);
+		}
+		/*
+		 * Recursively convert the table value and insert into
+		 * the new nvlist with the parsed key.  To prevent
+		 * stack overflow on circular or heavily nested tables,
+		 * we track the current nvlist depth.
+		 */
+		if (depth >= ZCP_NVLIST_MAX_DEPTH) {
+			fnvlist_free(nvl);
+			(void) lua_pushfstring(state, "Maximum table "
+			    "depth (%d) exceeded for table",
+			    ZCP_NVLIST_MAX_DEPTH);
+			return (NULL);
+		}
+		err = zcp_lua_to_nvlist_impl(state, -1, nvl, key,
+		    depth + 1);
+		if (err != 0) {
+			fnvlist_free(nvl);
+			/*
+			 * Error message has been pushed to the lua
+			 * stack by the recursive call.
+			 */
+			return (NULL);
+		}
+		/*
+		 * Pop the value pushed by lua_next().
+		 */
+		lua_pop(state, 1);
+	}
+
+	return (nvl);
+}
 
 /*
  * Convert a value from the given index into the lua stack to an nvpair, adding
@@ -237,7 +332,7 @@ zcp_cleanup(lua_State *state)
  * If an error is encountered, a nonzero error code is returned, and an error
  * string will be pushed onto the Lua stack.
  */
-int
+static int
 zcp_lua_to_nvlist_impl(lua_State *state, int index, nvlist_t *nvl,
     const char *key, int depth)
 {
@@ -267,85 +362,12 @@ zcp_lua_to_nvlist_impl(lua_State *state, int index, nvlist_t *nvl,
 		fnvlist_add_string(nvl, key, lua_tostring(state, index));
 		break;
 	case LUA_TTABLE: {
-		nvlist_t *mynvl = fnvlist_alloc();
-		/*
-		 * Push an empty stack slot where lua_next() will store each
-		 * table key.
-		 */
-		lua_pushnil(state);
-		while (lua_next(state, index) != 0) {
-			/*
-			 * The next key-value pair from the table at index is
-			 * now on the stack, with the key at stack slot -2 and
-			 * the value at slot -1.
-			 */
-			int err = 0;
-			char buf[32];
-			const char *mykey = NULL;
+		nvlist_t *value_nvl = zcp_table_to_nvlist(state, index, depth);
+		if (value_nvl == NULL)
+			return (EINVAL);
 
-			switch (lua_type(state, -2)) {
-			case LUA_TSTRING:
-				mykey = lua_tostring(state, -2);
-				break;
-			case LUA_TBOOLEAN:
-				mykey = (lua_toboolean(state, -2) == B_TRUE ?
-				    "true" : "false");
-				break;
-			case LUA_TNUMBER:
-				VERIFY3U(sizeof (buf), >,
-				    snprintf(buf, sizeof (buf), "%lld",
-				    (longlong_t)lua_tonumber(state, -2)));
-				mykey = buf;
-				break;
-			default:
-				fnvlist_free(mynvl);
-				(void) lua_pushfstring(state, "Invalid key "
-				    "type '%s' in table '%s'",
-				    lua_typename(state, lua_type(state, -2)),
-				    key);
-				return (EINVAL);
-			}
-			/*
-			 * It's possible for string keys to collide
-			 * (e.g. the string "1" and the number 1), which should
-			 * throw an error.
-			 */
-			if (nvlist_exists(mynvl, mykey)) {
-				fnvlist_free(mynvl);
-				(void) lua_pushfstring(state, "Collision of "
-				    "key '%s' for table '%s'", mykey, key);
-				return (EINVAL);
-			}
-			/*
-			 * Recursively convert the table value and insert into
-			 * the new nvlist with the parsed key.  To prevent
-			 * stack overflow on circular or heavily nested tables,
-			 * we track the current nvlist depth.
-			 */
-			if (depth >= ZCP_NVLIST_MAX_DEPTH) {
-				fnvlist_free(mynvl);
-				(void) lua_pushfstring(state, "Maximum table "
-				    "depth (%d) exceeded for table '%s'",
-				    ZCP_NVLIST_MAX_DEPTH, key);
-				return (EINVAL);
-			}
-			err = zcp_lua_to_nvlist_impl(state, -1, mynvl, mykey,
-			    depth + 1);
-			if (err != 0) {
-				fnvlist_free(mynvl);
-				/*
-				 * Error message has been pushed to the lua
-				 * stack by the recursive call.
-				 */
-				return (err);
-			}
-			/*
-			 * Pop the value pushed by lua_next().
-			 */
-			lua_pop(state, 1);
-		}
-		fnvlist_add_nvlist(nvl, key, mynvl);
-		fnvlist_free(mynvl);
+		fnvlist_add_nvlist(nvl, key, value_nvl);
+		fnvlist_free(value_nvl);
 		break;
 	}
 	default:
@@ -902,9 +924,9 @@ zcp_eval(const char *poolname, const char *program, uint64_t timeout,
 	lua_State *state;
 	zcp_eval_arg_t evalargs;
 
-	if (timeout > ZCP_MAX_TIMEOUT)
+	if (timeout > zfs_lua_max_timeout)
 		return (SET_ERROR(EINVAL));
-	if (memlimit == 0 || memlimit > ZCP_MAX_MEMLIMIT)
+	if (memlimit == 0 || memlimit > zfs_lua_max_memlimit)
 		return (SET_ERROR(EINVAL));
 
 	/* User timeout option is in ms */

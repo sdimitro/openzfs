@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
@@ -154,13 +154,13 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 	rrw_init(&dp->dp_config_rwlock, B_TRUE);
 	txg_init(dp, txg);
 
-	txg_list_create(&dp->dp_dirty_datasets,
+	txg_list_create(&dp->dp_dirty_datasets, spa,
 	    offsetof(dsl_dataset_t, ds_dirty_link));
-	txg_list_create(&dp->dp_dirty_zilogs,
+	txg_list_create(&dp->dp_dirty_zilogs, spa,
 	    offsetof(zilog_t, zl_dirty_link));
-	txg_list_create(&dp->dp_dirty_dirs,
+	txg_list_create(&dp->dp_dirty_dirs, spa,
 	    offsetof(dsl_dir_t, dd_dirty_link));
-	txg_list_create(&dp->dp_sync_tasks,
+	txg_list_create(&dp->dp_sync_tasks, spa,
 	    offsetof(dsl_sync_task_t, dst_node));
 
 	mutex_init(&dp->dp_lock, NULL, MUTEX_DEFAULT, NULL);

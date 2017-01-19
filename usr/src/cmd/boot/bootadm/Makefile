@@ -22,9 +22,9 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# Copyright 2011 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright 2016 Nexenta Systems, Inc.
 #
 
 PROG= bootadm
@@ -45,7 +45,7 @@ POFILE= bootadm_cmd.po
 
 LDLIBS_i386= -lfdisk
 LDLIBS += -lficl-sys -lpkcs11 -lcryptoutil -lnvpair -lgen -ladm -lefi
-LDLIBS += -lscf -lbe -lzfs $(LDLIBS_$(MACH))
+LDLIBS += -lbe -lzfs $(LDLIBS_$(MACH))
 
 # There's no lint library for zlib, so only include this when building
 $(PROG) := LDLIBS +=	-lz

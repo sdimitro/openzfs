@@ -243,7 +243,6 @@ SUBDIRS +=				\
 	libzoneinfo	\
 	libzonestat	\
 	libzpool	\
-	lvm		\
 	madv		\
 	mpapi		\
 	mpss		\
@@ -293,8 +292,7 @@ sparc_SUBDIRS=		\
 #
 NOWAIT_SUBDIRS= $(SUBDIRS:.WAIT=)
 
-DCSUBDIRS =		\
-	lvm
+DCSUBDIRS=
 
 MSGSUBDIRS=		\
 	abi		\
@@ -351,7 +349,6 @@ MSGSUBDIRS=		\
 	libwanbootutil	\
 	libzfs		\
 	libzonecfg	\
-	lvm		\
 	madv		\
 	mpss		\
 	pam_modules	\
@@ -488,7 +485,6 @@ HDRSUBDIRS=				\
 	libzfs_jni	\
 	libzoneinfo	\
 	libzonestat	\
-	lvm		\
 	mpapi		\
 	passwdutil	\
 	pkcs11		\
@@ -677,7 +673,6 @@ libzonecfg:	libuuid libsysevent libsec libbrand libpool libscf libproc \
 		libuutil libbsm libsecdb
 libzonestat:	libcmdutils libumem
 libzpool:	libavl libumem libcmdutils libsysevent
-lvm:		libadm libdevid libdevinfo libefi libgen libscf
 madv:		libgen
 mpapi:		libpthread libdevinfo libsysevent
 mpss:		libgen

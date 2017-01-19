@@ -18,6 +18,7 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
@@ -25,26 +26,29 @@
 # Copyright (c) 2012 by Delphix. All rights reserved.
 #
 
-PROG= dladm
-CFGFILES= secobj.conf
-
+PROG=		dladm
 ROOTFS_PROG=	$(PROG)
+OBJS=		dladm.o
+
+CFGFILES=	secobj.conf
 ROOTCFGDIR=	$(ROOTETC)/dladm
 ROOTCFGFILES=	$(CFGFILES:%=$(ROOTCFGDIR)/%)
 
 SVCMETHOD=	net-datalink
 MANIFEST=	network-datalink.xml
 
-include ../Makefile.cmd
+include		$(SRC)/cmd/Makefile.cmd
+include		$(SRC)/cmd/Makefile.ctf
 
-XGETFLAGS += -a -x $(PROG).xcl
-LDLIBS += -L$(ROOT)/lib -lsocket
-LDLIBS += -ldladm -ldlpi -lkstat -lsecdb -lbsm -linetutil -ldevinfo
-LDLIBS += $(ZLAZYLOAD) -lrstp $(ZNOLAZYLOAD)
+XGETFLAGS +=	-a -x $(PROG).xcl
 
-CERRWARN += -_gcc=-Wno-switch
-CERRWARN += -_gcc=-Wno-unused-label
-CERRWARN += -_gcc=-Wno-uninitialized
+LDLIBS +=	-L$(ROOT)/lib -lsocket
+LDLIBS +=	-ldladm -ldlpi -lkstat -lsecdb -lbsm -linetutil -ldevinfo
+LDLIBS +=	$(ZLAZYLOAD) -lrstp $(ZNOLAZYLOAD)
+
+CERRWARN +=	-_gcc=-Wno-switch
+CERRWARN +=	-_gcc=-Wno-unused-label
+CERRWARN +=	-_gcc=-Wno-uninitialized
 
 # For headers from librstp.
 LINTFLAGS +=	-erroff=E_TRAILING_COMMA_IN_ENUM
@@ -57,7 +61,14 @@ lint :=	ZNOLAZYLOAD=
 
 .KEEP_STATE:
 
-all: $(ROOTFS_PROG)
+all:		$(PROG)
+
+$(PROG):	$(OBJS)
+		$(LINK.c) $(OBJS) -o $@ $(LDLIBS)
+		$(POST_PROCESS)
+
+clean:
+		$(RM) $(OBJS)
 
 install: all $(ROOTSBINPROG) $(ROOTCFGDIR) $(ROOTCFGFILES) $(ROOTMANIFEST) \
 	$(ROOTSVCMETHOD)
@@ -66,15 +77,12 @@ install: all $(ROOTSBINPROG) $(ROOTCFGDIR) $(ROOTCFGFILES) $(ROOTMANIFEST) \
 
 check:	$(CHKMANIFEST)
 
-clean:
-	$(RM) $(PROG)
-
-lint:	lint_PROG
+lint:		lint_PROG
 
 $(ROOTCFGDIR):
-	$(INS.dir)
+		$(INS.dir)
 
 $(ROOTCFGDIR)/%: $(ROOTCFGDIR) %
-	$(INS.file)
+		$(INS.file)
 
-include ../Makefile.targ
+include		$(SRC)/cmd/Makefile.targ

@@ -302,6 +302,11 @@ tests = ['zpool_initialize_attach_detach_add_remove',
     'zpool_initialize_verify_initialized']
 pre =
 
+[/opt/zfs-tests/tests/functional/cli_root/zpool_labelclear]
+tests = ['zpool_labelclear_active', 'zpool_labelclear_exported']
+pre =
+post =
+
 [/opt/zfs-tests/tests/functional/cli_root/zpool_offline]
 tests = ['zpool_offline_001_pos', 'zpool_offline_002_neg']
 

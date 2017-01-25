@@ -129,6 +129,7 @@ COMMON_SUBDIRS=		\
 	dircmp		\
 	dirname		\
 	dis		\
+	diskinfo	\
 	diskmgtd	\
 	dispadmin	\
 	dladm		\

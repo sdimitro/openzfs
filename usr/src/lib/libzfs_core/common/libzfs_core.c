@@ -814,7 +814,7 @@ lzc_rollback(const char *fsname, char *snapnamebuf, int snapnamelen)
 		const char *snapname = fnvlist_lookup_string(result, "target");
 		(void) strlcpy(snapnamebuf, snapname, snapnamelen);
 	}
-	fnvlist_free(result);
+	nvlist_free(result);
 
 	return (err);
 }

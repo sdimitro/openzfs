@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
@@ -944,6 +944,7 @@ typedef enum zfs_ioc {
 	ZFS_IOC_REMAP,
 	ZFS_IOC_CHANNEL_PROGRAM,
 	ZFS_IOC_POOL_INITIALIZE,
+	ZFS_IOC_REDACT,
 	ZFS_IOC_LAST
 } zfs_ioc_t;
 

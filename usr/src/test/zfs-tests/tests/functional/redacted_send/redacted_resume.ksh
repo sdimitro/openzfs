@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/redacted_send/redacted.kshlib
@@ -48,7 +48,8 @@ log_must dd if=/dev/urandom of=$clone_mnt/f2 bs=512 count=64 stride=512 \
 log_must zfs snapshot $clone@snap1
 
 # Do the full resumable send
-resume_test "zfs send --redact $clone@snap1 $sendfs@snap book1" $tmpdir $recvfs
+log_must zfs redact $sendfs@snap book1 $clone@snap1
+resume_test "zfs send --redact book1 $sendfs@snap" $tmpdir $recvfs
 log_must mount_redacted -f $recvfs
 echo "zfs_allow_redacted_dataset_mount/W 1" | log_must mdb -kw
 log_must diff $send_mnt/f1 $recv_mnt/f1
@@ -64,8 +65,9 @@ log_must dd if=/dev/urandom of=$clone1_mnt/f3 bs=128k count=3 conv=notrunc
 log_must zfs snapshot $clone1@snap
 
 # Do the incremental resumable send
-resume_test "zfs send --redact $clone1@snap -i $sendfs#book1 $sendfs@snap2 \
-    book2" $tmpdir $recvfs
+log_must zfs redact $sendfs@snap2 book2 $clone1@snap
+resume_test "zfs send --redact book2 -i $sendfs#book1 $sendfs@snap2" \
+    $tmpdir $recvfs
 log_must diff $send_mnt/f1 $recv_mnt/f1
 log_must diff $send_mnt/f2 $recv_mnt/f2
 log_must eval "get_diff $send_mnt/f3 $recv_mnt/f3 >$tmpdir/get_diff.out"
@@ -76,7 +78,7 @@ range=$(cat $tmpdir/get_diff.out)
 log_mustnot zfs recv -A $recvfs
 log_must zfs destroy -R $recvfs
 log_mustnot zfs recv -A $recvfs
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book3 >$stream"
+log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
 dd if=$stream bs=64k count=1 | log_mustnot zfs receive -s $recvfs
 [[ "-" = $(get_prop receive_resume_token $recvfs) ]] && \
     log_fail "Receive token not found."

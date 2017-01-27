@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -46,26 +46,25 @@ typeset dsF=$POOL/stride5@snap
 typeset targ=$POOL2/targfs@snap
 
 log_onexit redacted_cleanup $sendfs $POOL2/rBCD $POOL2/targfs \
-    $POOL2/rBC $POOL2/rnone $POOL2/rE
+    $POOL2/rBC $POOL2/rE
 
 # Set up all the filesystems and clones.
-log_must eval "zfs send --redact \"$dsB,$dsC,$dsD\" $dsA BCD >$stream"
+log_must zfs redact $dsA BCD $dsB $dsC $dsD
+log_must eval "zfs send --redact BCD $dsA >$stream"
 log_must eval "zfs receive $POOL2/rBCD <$stream"
 log_must eval "zfs receive $targ <$stream"
 
-log_must eval "zfs send --redact \"$dsB,$dsC\" $dsA BC >$stream"
+log_must zfs redact $dsA BC $dsB $dsC
+log_must eval "zfs send --redact BC $dsA >$stream"
 log_must eval "zfs receive $POOL2/rBC <$stream"
 
-log_must eval "zfs send --redact \"\" $dsA none >$stream"
-log_must eval "zfs receive $POOL2/rnone <$stream"
-
-log_must eval "zfs send --redact \"$dsE\" $dsA E >$stream"
+log_must zfs redact $dsA E $dsE
+log_must eval "zfs send --redact E $dsA >$stream"
 log_must eval "zfs receive $POOL2/rE <$stream"
 
 log_must eval "zfs send $dsF >$stream"
 log_must eval "zfs receive -o origin=$POOL2/rBCD@snap0 $POOL2/BCDrF <$stream"
 log_must eval "zfs receive -o origin=$POOL2/rBC@snap0 $POOL2/BCrF <$stream"
-log_must eval "zfs receive -o origin=$POOL2/rnone@snap0 $POOL2/nonerF <$stream"
 log_must eval "zfs receive -o origin=$POOL2/rE@snap0 $POOL2/ErF <$stream"
 
 # Run tests from redacted datasets.
@@ -75,18 +74,12 @@ log_must eval "zfs receive -o origin=$targ $POOL2/tdBCD <$stream"
 log_must eval "zfs send -i $POOL2/rBC@snap0 $POOL2/BCrF@snap >$stream"
 log_must eval "zfs receive -o origin=$targ $POOL2/tdBC <$stream"
 
-log_must eval "zfs send -i $POOL2/rnone@snap0 $POOL2/nonerF@snap >$stream"
-log_must eval "zfs receive -o origin=$targ $POOL2/tdnone <$stream"
-
 log_must eval "zfs send -i $POOL2/rE@snap0 $POOL2/ErF@snap >$stream"
 log_mustnot eval "zfs receive -o origin=$targ $POOL2/tdE <$stream"
 
 # Run tests from redaction bookmarks.
 log_must eval "zfs send -i $sendfs#BC $dsF >$stream"
 log_must eval "zfs receive -o origin=$targ $POOL2/tbBC <$stream"
-
-log_must eval "zfs send -i $sendfs#none $dsF >$stream"
-log_must eval "zfs receive -o origin=$targ $POOL2/tbnone <$stream"
 
 log_must eval "zfs send -i $sendfs#E $dsF >$stream"
 log_mustnot eval "zfs receive -o origin=$targ $POOL2/tbE <$stream"

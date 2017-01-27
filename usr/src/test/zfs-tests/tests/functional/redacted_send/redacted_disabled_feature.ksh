@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/redacted_send/redacted.kshlib
@@ -58,11 +58,12 @@ log_must zfs snapshot $sendfs1@snap
 log_must zfs clone $sendfs1@snap $clone1
 log_must zfs snapshot $clone1@snap
 
-log_mustnot eval "zfs send --redact $clone1@snap $sendfs1@snap book1 >$stream"
+log_mustnot zfs redact $sendfs1@snap book1 $clone1@snap
 log_must zpool set feature@redaction_bookmarks=enabled $POOL2
-log_must eval "zfs send --redact $clone1@snap $sendfs1@snap book1 >$stream"
+log_must zfs redact $sendfs1@snap book1 $clone1@snap
 
-log_must eval "zfs send --redact $clone@snap $sendfs@snap book1 >$stream"
+log_must zfs redact $sendfs@snap book1 $clone@snap
+log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
 log_mustnot eval "zfs recv $recvfs <$stream"
 log_must zpool set feature@redacted_datasets=enabled $POOL2
 log_must eval "zfs recv $recvfs <$stream"

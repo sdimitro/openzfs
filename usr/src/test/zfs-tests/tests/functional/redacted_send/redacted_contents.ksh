@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/redacted_send/redacted.kshlib
@@ -48,7 +48,8 @@ log_onexit redacted_cleanup $sendfs $recvfs
 
 # An unmodified file does not get redacted at all.
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book1 >$stream"
+log_must zfs redact $sendfs@snap book1 $clone@snap1
+log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must mount_redacted -f $recvfs
 log_must diff $send_mnt/f1 $recv_mnt/f1
@@ -56,16 +57,11 @@ log_must diff $send_mnt/f2 $recv_mnt/f2
 log_must zfs rollback -R $clone@snap
 log_must zfs destroy -R $recvfs
 
-# An empty redaction list redacts everything.
-log_must eval "zfs send --redact '' $sendfs@snap book2 >$stream"
-log_must eval "zfs recv $recvfs <$stream"
-compare_files $sendfs $recvfs "f1" "$RANGE0"
-log_must zfs destroy -R $recvfs
-
 # Removing a file in the clone redacts the entire file.
 log_must rm "$clone_mnt/f1"
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book3 >$stream"
+log_must zfs redact $sendfs@snap book3 $clone@snap1
+log_must eval "zfs send --redact book3 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE0"
 log_must zfs rollback -R $clone@snap
@@ -74,7 +70,8 @@ log_must zfs destroy -R $recvfs
 # Moving a file in the clone does not redact the file.
 log_must mv "$clone_mnt/f1" "$clone_mnt/f1.moved"
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book4 >$stream"
+log_must zfs redact $sendfs@snap book4 $clone@snap1
+log_must eval "zfs send --redact book4 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must mount_redacted -f $recvfs
 [[ -f $recv_mnt/f1.moved ]] && log_fail "Found moved file in redacted receive."
@@ -86,7 +83,8 @@ log_must zfs destroy -R $recvfs
 log_must cp "$clone_mnt/f1" "$clone_mnt/f1.copied"
 log_must rm "$clone_mnt/f1"
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book5 >$stream"
+log_must zfs redact $sendfs@snap book5 $clone@snap1
+log_must eval "zfs send --redact book5 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE0"
 log_must mount_redacted -f $recvfs
@@ -98,7 +96,8 @@ log_must zfs destroy -R $recvfs
 log_must cp "$clone_mnt/f1" "$clone_mnt/f1.copied"
 log_must cp "$clone_mnt/f1.copied" "$clone_mnt/f1"
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book6 >$stream"
+log_must zfs redact $sendfs@snap book6 $clone@snap1
+log_must eval "zfs send --redact book6 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE0"
 log_must mount_redacted -f $recvfs
@@ -109,7 +108,8 @@ log_must zfs destroy -R $recvfs
 # Modifying some of a block redacts the whole block.
 log_must dd if=/dev/urandom of=$clone_mnt/f1 conv=notrunc seek=2 count=1 bs=32k
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book7 >$stream"
+log_must zfs redact $sendfs@snap book7 $clone@snap1
+log_must eval "zfs send --redact book7 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE1"
 log_must zfs rollback -R $clone@snap
@@ -123,8 +123,8 @@ typeset mntpnt="$(get_prop mountpoint $clone/new)"
 log_must dd if=/dev/urandom of=$mntpnt/f2 bs=1024k seek=1 count=3 \
     conv=notrunc
 log_must zfs snapshot $clone/new@snap
-log_must eval "zfs send --redact $clone@snap1,$clone/new@snap $sendfs@snap \
-    book8 >$stream"
+log_must zfs redact $sendfs@snap book8 $clone@snap1 $clone/new@snap
+log_must eval "zfs send --redact book8 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f2" "$RANGE2"
 log_must zfs rollback -R $clone@snap
@@ -140,8 +140,8 @@ log_must zfs clone $sendfs@snap $POOL/stride5
 mntpnt="$(get_prop mountpoint $POOL/stride5)"
 log_must dd if=/dev/urandom of=$mntpnt/f2 bs=128k count=7 stride=5 conv=notrunc
 log_must zfs snapshot $POOL/stride5@snap
-log_must eval "zfs send --redact $POOL/stride3@snap,$POOL/stride5@snap \
-    $sendfs@snap book8a >$stream"
+log_must zfs redact $sendfs@snap book8a $POOL/stride3@snap $POOL/stride5@snap
+log_must eval "zfs send --redact book8a $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f2" "$RANGE3"
 log_must zfs rollback -R $clone@snap
@@ -153,7 +153,8 @@ log_must zfs snapshot $POOL@snap
 log_must zfs clone $POOL@snap $POOL/clone
 log_must dd if=/dev/urandom of=/$POOL/clone/f1 bs=128k count=1 conv=notrunc
 log_must zfs snapshot $POOL/clone@snap
-log_must eval "zfs send --redact $POOL/clone@snap $POOL@snap book9 >$stream"
+log_must zfs redact $POOL@snap book9 $POOL/clone@snap
+log_must eval "zfs send --redact book9 $POOL@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $POOL $recvfs "f1" "$RANGE1"
 log_must zfs destroy -R $POOL@snap

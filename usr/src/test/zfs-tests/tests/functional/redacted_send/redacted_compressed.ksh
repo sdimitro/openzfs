@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/redacted_send/redacted.kshlib
@@ -46,8 +46,8 @@ log_must zfs snapshot $clone@snap1
 log_must rm $clone_mnt/f2
 log_must zfs snapshot $clone@snap2
 
-log_must eval "zfs send -c --redact $clone@snap1,$clone@snap2 $sendfs@snap \
-    book1 >$stream"
+log_must zfs redact $sendfs@snap book1 $clone@snap1 $clone@snap2
+log_must eval "zfs send -c --redact book1 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must stream_has_features $stream compressed lz4 redacted
 compare_files $sendfs $recvfs "f1" "$RANGE4"

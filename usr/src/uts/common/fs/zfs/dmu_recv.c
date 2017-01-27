@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright 2014 HybridCluster. All rights reserved.
  */
@@ -1219,7 +1219,8 @@ receive_freeobjects(struct receive_writer_arg *rwa,
 		return (SET_ERROR(EINVAL));
 
 	for (obj = drrfo->drr_firstobj;
-	    obj < drrfo->drr_firstobj + drrfo->drr_numobjs && next_err == 0;
+	    obj < drrfo->drr_firstobj + drrfo->drr_numobjs &&
+	    obj < DN_MAX_OBJECT && next_err == 0;
 	    next_err = dmu_object_next(rwa->os, &obj, FALSE, 0)) {
 		int err;
 
@@ -1462,17 +1463,20 @@ receive_free(struct receive_writer_arg *rwa, struct drr_free *drrf)
 	return (err);
 }
 
+/*
+ * Until we have the ability to redact large ranges of data efficiently, we
+ * process these records as frees.
+ */
 /* ARGSUSED */
 static int
 receive_redact(struct receive_writer_arg *rwa, struct drr_redact *drrr)
 {
-	/*
-	 * If the object doesn't exist, there's nothing to redact.
-	 */
-	if (dmu_object_info(rwa->os, drrr->drr_object, NULL) != 0)
-		return (SET_ERROR(EINVAL));
-
-	return (0);
+	struct drr_free drrf = {0};
+	drrf.drr_length = drrr->drr_length;
+	drrf.drr_object = drrr->drr_object;
+	drrf.drr_offset = drrr->drr_offset;
+	drrf.drr_toguid = drrr->drr_toguid;
+	return (receive_free(rwa, &drrf));
 }
 
 /* used to destroy the drc_ds on error */

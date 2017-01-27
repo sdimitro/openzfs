@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Nexenta Systems, Inc. All rights reserved.
  */
@@ -2080,11 +2080,14 @@ zfs_resume_fs(zfsvfs_t *zfsvfs, dsl_dataset_t *ds)
 	mutex_exit(&zfsvfs->z_znodes_lock);
 
 bail:
+	if (err != 0)
+		zfsvfs->z_unmounted = B_TRUE;
+
 	/* release the VOPs */
 	rw_exit(&zfsvfs->z_teardown_inactive_lock);
 	rrm_exit(&zfsvfs->z_teardown_lock, FTAG);
 
-	if (err) {
+	if (err != 0) {
 		/*
 		 * Since we couldn't setup the sa framework, try to force
 		 * unmount this file system.
@@ -2093,6 +2096,38 @@ bail:
 			(void) dounmount(zfsvfs->z_vfs, MS_FORCE, CRED());
 	}
 	return (err);
+}
+
+/*
+ * Release VOPs and unmount a suspended filesystem.
+ */
+int
+zfs_end_fs(zfsvfs_t *zfsvfs, dsl_dataset_t *ds)
+{
+	ASSERT(RRM_WRITE_HELD(&zfsvfs->z_teardown_lock));
+	ASSERT(RW_WRITE_HELD(&zfsvfs->z_teardown_inactive_lock));
+
+	/*
+	 * We already own this, so just hold and rele it to update the
+	 * objset_t, as the one we had before may have been evicted.
+	 */
+	objset_t *os;
+	VERIFY3P(ds->ds_owner, ==, zfsvfs);
+	VERIFY(dsl_dataset_long_held(ds));
+	VERIFY0(dmu_objset_from_ds(ds, &os));
+	zfsvfs->z_os = os;
+
+	/* release the VOPs */
+	rw_exit(&zfsvfs->z_teardown_inactive_lock);
+	rrm_exit(&zfsvfs->z_teardown_lock, FTAG);
+
+	/*
+	 * Try to force unmount this file system.
+	 */
+	if (vn_vfswlock(zfsvfs->z_vfs->vfs_vnodecovered) == 0)
+		(void) dounmount(zfsvfs->z_vfs, MS_FORCE, CRED());
+	zfsvfs->z_unmounted = B_TRUE;
+	return (0);
 }
 
 static void

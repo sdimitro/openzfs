@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/redacted_send/redacted.kshlib
@@ -48,7 +48,8 @@ log_onexit redacted_cleanup $sendfs $recvfs
 # Write holes at the start and end of a non-sparse file.
 log_must mkholes -h 0:$M -h $((7 * M)):$M $clone_mnt/f1
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book1 >$stream"
+log_must zfs redact $sendfs@snap book1 $clone@snap1
+log_must eval "zfs send --redact book1 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE5"
 log_must zfs rollback -R $clone@snap
@@ -60,7 +61,8 @@ log_must dd if=/dev/zero of=$clone_mnt/f1 bs=128k count=8 stride=2 seek=3 \
 log_must dd if=/dev/zero of=$clone_mnt/f1 bs=256k count=8 stride=2 seek=6 \
     conv=notrunc
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book2 >$stream"
+log_must zfs redact $sendfs@snap book2 $clone@snap1
+log_must eval "zfs send --redact book2 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f1" "$RANGE6"
 log_must zfs rollback -R $clone@snap
@@ -69,7 +71,8 @@ log_must zfs destroy -R $recvfs
 # Write data into the middle of a hole.
 log_must mkholes -d $((3 * M)):$((2 * M)) $clone_mnt/f2
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book3 >$stream"
+log_must zfs redact $sendfs@snap book3 $clone@snap1
+log_must eval "zfs send --redact book3 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f2" "$RANGE14"
 log_must zfs rollback -R $clone@snap
@@ -78,7 +81,8 @@ log_must zfs destroy -R $recvfs
 # Remove a file with holes.
 log_must rm $clone_mnt/f3
 log_must zfs snapshot $clone@snap1
-log_must eval "zfs send --redact $clone@snap1 $sendfs@snap book4 >$stream"
+log_must zfs redact $sendfs@snap book4 $clone@snap1
+log_must eval "zfs send --redact book4 $sendfs@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 compare_files $sendfs $recvfs "f3" "$RANGE7"
 log_must zfs rollback -R $clone@snap
@@ -88,8 +92,8 @@ log_must zfs destroy -R $recvfs
 log_must rm $send_mnt/manyrm_clone/f{32..96}
 log_must zfs snapshot $sendfs/manyrm_clone@snap1
 
-log_must eval "zfs send --redact $sendfs/manyrm_clone@snap1 \
-    $sendfs/manyrm@snap book6 >$stream"
+log_must zfs redact $sendfs/manyrm@snap book6 $sendfs/manyrm_clone@snap1
+log_must eval "zfs send --redact book6 $sendfs/manyrm@snap >$stream"
 log_must eval "zfs recv $recvfs <$stream"
 log_must mount_redacted -f $recvfs
 for i in {1..31} {97..256}; do

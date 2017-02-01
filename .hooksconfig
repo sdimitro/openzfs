@@ -244,7 +244,7 @@
         gate-triage-check = skip
 
 [branch "5.0/release"]
-        gate-release = 5.0.5.4
+        gate-release = 5.0.5.5
         gate-allowed-issuetypes = 10405
         gate-slack-notify = pushes
         gate-approvers = gatekeepers-50

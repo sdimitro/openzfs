@@ -12,8 +12,10 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 #include <sys/zfs_context.h>
@@ -63,16 +65,14 @@ dsl_bookmark_lookup_impl(dsl_dataset_t *ds, const char *shortname,
 {
 	objset_t *mos = ds->ds_dir->dd_pool->dp_meta_objset;
 	uint64_t bmark_zapobj = ds->ds_bookmarks_obj;
-	matchtype_t mt;
+	matchtype_t mt = 0;
 	int err;
 
 	if (bmark_zapobj == 0)
 		return (SET_ERROR(ESRCH));
 
 	if (dsl_dataset_phys(ds)->ds_flags & DS_FLAG_CI_DATASET)
-		mt = MT_FIRST;
-	else
-		mt = MT_EXACT;
+		mt = MT_NORMALIZE;
 
 	/*
 	 * Zero it in case this is an older format bookmark which
@@ -741,7 +741,7 @@ dsl_bookmark_destroy_sync_impl(dsl_dataset_t *ds, const char *name,
 {
 	objset_t *mos = ds->ds_dir->dd_pool->dp_meta_objset;
 	uint64_t bmark_zapobj = ds->ds_bookmarks_obj;
-	matchtype_t mt;
+	matchtype_t mt = 0;
 	/*
 	 * 'search' must be zeroed so that dbn_flags (which is used in
 	 * dsl_bookmark_compare()) will be zeroed even if the on-disk
@@ -757,9 +757,7 @@ dsl_bookmark_destroy_sync_impl(dsl_dataset_t *ds, const char *name,
 	 */
 
 	if (dsl_dataset_phys(ds)->ds_flags & DS_FLAG_CI_DATASET)
-		mt = MT_FIRST;
-	else
-		mt = MT_EXACT;
+		mt = MT_NORMALIZE;
 	VERIFY0(zap_lookup_norm(mos, bmark_zapobj, name, sizeof (uint64_t),
 	    sizeof (zfs_bookmark_phys_t) / sizeof (uint64_t),
 	    &search.dbn_phys, mt, realname, sizeof (realname), NULL));

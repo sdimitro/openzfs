@@ -16,6 +16,7 @@
 SUBDIRS = \
 	file-locking	\
 	poll		\
+	sdevfs		\
 	secflags	\
 	sigqueue	\
 	spoof-ras	\

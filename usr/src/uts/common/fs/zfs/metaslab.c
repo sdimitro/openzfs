@@ -209,7 +209,7 @@ uint64_t metaslab_trace_max_entries = 5000;
 
 static uint64_t metaslab_weight(metaslab_t *);
 static void metaslab_set_fragmentation(metaslab_t *);
-static void metaslab_free_impl(vdev_t *, uint64_t, uint64_t, uint64_t);
+static void metaslab_free_impl(vdev_t *, uint64_t, uint64_t);
 static void metaslab_check_free_impl(vdev_t *, uint64_t, uint64_t);
 
 kmem_cache_t *metaslab_alloc_trace_cache;
@@ -3223,13 +3223,11 @@ next:
 }
 
 void
-metaslab_free_concrete(vdev_t *vd, uint64_t offset, uint64_t asize,
-    uint64_t txg)
+metaslab_free_concrete(vdev_t *vd, uint64_t offset, uint64_t asize)
 {
 	metaslab_t *msp;
 	spa_t *spa = vd->vdev_spa;
 
-	ASSERT3U(txg, ==, spa->spa_syncing_txg);
 	ASSERT(vdev_is_concrete(vd));
 	ASSERT3U(spa_config_held(spa, SCL_ALL, RW_READER), !=, 0);
 	ASSERT3U(offset >> vd->vdev_ms_shift, <, vd->vdev_ms_count);
@@ -3245,7 +3243,7 @@ metaslab_free_concrete(vdev_t *vd, uint64_t offset, uint64_t asize,
 	metaslab_check_free_impl(vd, offset, asize);
 	mutex_enter(&msp->ms_lock);
 	if (range_tree_space(msp->ms_freeing) == 0) {
-		vdev_dirty(vd, VDD_METASLAB, msp, txg);
+		vdev_dirty(vd, VDD_METASLAB, msp, spa_syncing_txg(spa));
 	}
 	range_tree_add(msp->ms_freeing, offset, asize);
 	mutex_exit(&msp->ms_lock);
@@ -3256,23 +3254,20 @@ void
 metaslab_free_impl_cb(uint64_t inner_offset, vdev_t *vd, uint64_t offset,
     uint64_t size, void *arg)
 {
-	uint64_t *txgp = arg;
-
 	if (vd->vdev_ops->vdev_op_remap != NULL)
-		vdev_indirect_mark_obsolete(vd, offset, size, *txgp);
+		vdev_indirect_mark_obsolete(vd, offset, size);
 	else
-		metaslab_free_impl(vd, offset, size, *txgp);
+		metaslab_free_impl(vd, offset, size);
 }
 
 static void
-metaslab_free_impl(vdev_t *vd, uint64_t offset, uint64_t size,
-    uint64_t txg)
+metaslab_free_impl(vdev_t *vd, uint64_t offset, uint64_t size)
 {
 	spa_t *spa = vd->vdev_spa;
 
 	ASSERT3U(spa_config_held(spa, SCL_ALL, RW_READER), !=, 0);
 
-	if (txg > spa_freeze_txg(spa))
+	if (spa_syncing_txg(spa) > spa_freeze_txg(spa))
 		return;
 
 	if (spa->spa_vdev_removal != NULL &&
@@ -3284,13 +3279,13 @@ metaslab_free_impl(vdev_t *vd, uint64_t offset, uint64_t size,
 		 * an indirect vdev (in open context), and then (in syncing
 		 * context) clear spa_vdev_removal.
 		 */
-		free_from_removing_vdev(vd, offset, size, txg);
+		free_from_removing_vdev(vd, offset, size);
 	} else if (vd->vdev_ops->vdev_op_remap != NULL) {
-		vdev_indirect_mark_obsolete(vd, offset, size, txg);
+		vdev_indirect_mark_obsolete(vd, offset, size);
 		vd->vdev_ops->vdev_op_remap(vd, offset, size,
-		    metaslab_free_impl_cb, &txg);
+		    metaslab_free_impl_cb, NULL);
 	} else {
-		metaslab_free_concrete(vd, offset, size, txg);
+		metaslab_free_concrete(vd, offset, size);
 	}
 }
 
@@ -3482,11 +3477,10 @@ metaslab_unalloc_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 }
 
 /*
- * Free the block represented by DVA in the context of the specified
- * transaction group.
+ * Free the block represented by the given DVA.
  */
 void
-metaslab_free_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
+metaslab_free_dva(spa_t *spa, const dva_t *dva)
 {
 	uint64_t vdev = DVA_GET_VDEV(dva);
 	uint64_t offset = DVA_GET_OFFSET(dva);
@@ -3500,7 +3494,7 @@ metaslab_free_dva(spa_t *spa, const dva_t *dva, uint64_t txg)
 		size = vdev_psize_to_asize(vd, SPA_GANGBLOCKSIZE);
 	}
 
-	metaslab_free_impl(vd, offset, size, txg);
+	metaslab_free_impl(vd, offset, size);
 }
 
 /*
@@ -3741,7 +3735,8 @@ metaslab_free(spa_t *spa, const blkptr_t *bp, uint64_t txg, boolean_t now)
 		if (now) {
 			metaslab_unalloc_dva(spa, &dva[d], txg);
 		} else {
-			metaslab_free_dva(spa, &dva[d], txg);
+			ASSERT3U(txg, ==, spa_syncing_txg(spa));
+			metaslab_free_dva(spa, &dva[d]);
 		}
 	}
 

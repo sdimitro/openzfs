@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -438,19 +438,18 @@ spa_restart_removal(spa_t *spa)
  * and we correctly free already-copied data.
  */
 void
-free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
-    uint64_t txg)
+free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size)
 {
 	spa_t *spa = vd->vdev_spa;
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
+	uint64_t txg = spa_syncing_txg(spa);
 	uint64_t max_offset_yet = 0;
 
 	ASSERT(vd->vdev_indirect_config.vic_mapping_object != 0);
 	ASSERT3U(vd->vdev_indirect_config.vic_mapping_object, ==,
 	    vdev_indirect_mapping_object(vim));
 	ASSERT3P(vd, ==, svr->svr_vdev);
-	ASSERT3U(spa_syncing_txg(spa), ==, txg);
 
 	mutex_enter(&svr->svr_lock);
 
@@ -466,7 +465,7 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 	 * visit this offset between the time that we metaslab_free_concrete()
 	 * and when we check to see if it has been visited.
 	 */
-	metaslab_free_concrete(vd, offset, size, txg);
+	metaslab_free_concrete(vd, offset, size);
 
 	uint64_t synced_size = 0;
 	uint64_t synced_offset = 0;
@@ -598,8 +597,7 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 	 * of this free.
 	 */
 	if (synced_size > 0) {
-		vdev_indirect_mark_obsolete(vd, synced_offset, synced_size,
-		    txg);
+		vdev_indirect_mark_obsolete(vd, synced_offset, synced_size);
 		/*
 		 * Note: this can only be called from syncing context,
 		 * and the vdev_indirect_mapping is only changed from the
@@ -607,7 +605,7 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size,
 		 * metaslab_free_impl_cb.
 		 */
 		vdev_indirect_ops.vdev_op_remap(vd, synced_offset, synced_size,
-		    metaslab_free_impl_cb, &txg);
+		    metaslab_free_impl_cb, NULL);
 	}
 }
 
@@ -654,10 +652,9 @@ static void
 free_mapped_segment_cb(void *arg, uint64_t offset, uint64_t size)
 {
 	vdev_t *vd = arg;
-	vdev_indirect_mark_obsolete(vd, offset, size,
-	    vd->vdev_spa->spa_syncing_txg);
+	vdev_indirect_mark_obsolete(vd, offset, size);
 	vdev_indirect_ops.vdev_op_remap(vd, offset, size,
-	    metaslab_free_impl_cb, &vd->vdev_spa->spa_syncing_txg);
+	    metaslab_free_impl_cb, NULL);
 }
 
 /*

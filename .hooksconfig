@@ -367,3 +367,11 @@
         gate-release-check = skip
         gate-review-check = skip
         gate-triage-check = skip
+[branch "projects/hack-encryption"]
+        gate-notify = manoj@delphix.com sheetal.tare@delphix.com
+        gate-user-check = on
+        gate-commit-check = skip
+        gate-comment-check = skip
+        gate-release-check = skip
+        gate-review-check = skip
+        gate-triage-check = skip

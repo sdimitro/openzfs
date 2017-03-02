@@ -21,7 +21,7 @@
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 Joshua M. Clulow <josh@sysmgr.org>
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 # Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
@@ -218,7 +218,7 @@ export CW_NO_SHADOW='1'
 # Uncomment this to disable support for SMB printing.
 export ENABLE_SMB_PRINTING='#'
 
-export GCC_ROOT=/opt/gcc-4.4.4
+export GCC_ROOT=/opt/ccache
 export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
 export ONNV_BUILDNUM=151014

@@ -2399,7 +2399,10 @@ static boolean_t
 snapshot_is_before(zfs_handle_t *earlier, zfs_handle_t *later)
 {
 	boolean_t ret;
-	uint64_t later_txg = zfs_prop_get_int(later, ZFS_PROP_CREATETXG);
+	uint64_t later_txg =
+	    (later->zfs_type == ZFS_TYPE_FILESYSTEM ||
+	    later->zfs_type == ZFS_TYPE_VOLUME ?
+	    UINT64_MAX : zfs_prop_get_int(later, ZFS_PROP_CREATETXG));
 	uint64_t earlier_txg = zfs_prop_get_int(earlier, ZFS_PROP_CREATETXG);
 
 	if (earlier_txg >= later_txg)

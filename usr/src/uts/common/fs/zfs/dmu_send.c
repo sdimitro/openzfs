@@ -2413,7 +2413,11 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 
 	if (fromsnap != NULL) {
 		zfs_bookmark_phys_t *zb = &dspp.ancestor_zb;
-		int fsnamelen = strpbrk(tosnap, "@#") - tosnap;
+		int fsnamelen;
+		if (strpbrk(tosnap, "@#") != NULL)
+			fsnamelen = strpbrk(tosnap, "@#") - tosnap;
+		else
+			fsnamelen = strlen(tosnap);
 		/*
 		 * If the fromsnap is in a different filesystem, then
 		 * mark the send stream as a clone.
@@ -2424,7 +2428,7 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 			dspp.is_clone = B_TRUE;
 		}
 
-		if (strchr(fromsnap, '@')) {
+		if (strchr(fromsnap, '@') != NULL) {
 			err = dsl_dataset_hold(dspp.dp, fromsnap, FTAG,
 			    &fromds);
 

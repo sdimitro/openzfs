@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -1036,6 +1036,7 @@ sa_get_zfs_share_for_name(sa_handle_t handle, char *groupname,
 		return (SA_SYSTEM_ERR);
 
 	err = sa_get_zfs_share_common(handle, fs_handle, outpath, zfsgroup);
+	zfs_close(fs_handle);
 	return (err);
 }
 

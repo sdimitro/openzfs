@@ -83,7 +83,7 @@ static boolean_t dbuf_evict_thread_exit;
  * Dbufs that are aged out of the cache will be immediately destroyed and
  * become eligible for arc eviction.
  */
-static multilist_t dbuf_cache;
+static multilist_t *dbuf_cache;
 static refcount_t dbuf_cache_size;
 uint64_t dbuf_cache_max_bytes = 100 * 1024 * 1024;
 
@@ -457,8 +457,8 @@ dbuf_cache_above_lowater(void)
 static void
 dbuf_evict_one(void)
 {
-	int idx = multilist_get_random_index(&dbuf_cache);
-	multilist_sublist_t *mls = multilist_sublist_lock(&dbuf_cache, idx);
+	int idx = multilist_get_random_index(dbuf_cache);
+	multilist_sublist_t *mls = multilist_sublist_lock(dbuf_cache, idx);
 
 	ASSERT(!MUTEX_HELD(&dbuf_evict_lock));
 
@@ -624,7 +624,7 @@ retry:
 	 */
 	dbu_evict_taskq = taskq_create("dbu_evict", 1, minclsyspri, 0, 0, 0);
 
-	multilist_create(&dbuf_cache, sizeof (dmu_buf_impl_t),
+	dbuf_cache = multilist_create(sizeof (dmu_buf_impl_t),
 	    offsetof(dmu_buf_impl_t, db_cache_link),
 	    dbuf_cache_multilist_index_func);
 	refcount_create(&dbuf_cache_size);
@@ -662,7 +662,7 @@ dbuf_fini(void)
 	cv_destroy(&dbuf_evict_cv);
 
 	refcount_destroy(&dbuf_cache_size);
-	multilist_destroy(&dbuf_cache);
+	multilist_destroy(dbuf_cache);
 }
 
 /*
@@ -2221,7 +2221,7 @@ dbuf_destroy(dmu_buf_impl_t *db)
 	dbuf_clear_data(db);
 
 	if (multilist_link_active(&db->db_cache_link)) {
-		multilist_remove(&dbuf_cache, db);
+		multilist_remove(dbuf_cache, db);
 		(void) refcount_remove_many(&dbuf_cache_size,
 		    db->db.db_size, db);
 	}
@@ -2851,7 +2851,7 @@ top:
 
 	if (multilist_link_active(&db->db_cache_link)) {
 		ASSERT(refcount_is_zero(&db->db_holds));
-		multilist_remove(&dbuf_cache, db);
+		multilist_remove(dbuf_cache, db);
 		(void) refcount_remove_many(&dbuf_cache_size,
 		    db->db.db_size, db);
 	}
@@ -3070,7 +3070,7 @@ dbuf_rele_and_unlock(dmu_buf_impl_t *db, void *tag)
 			    db->db_pending_evict) {
 				dbuf_destroy(db);
 			} else if (!multilist_link_active(&db->db_cache_link)) {
-				multilist_insert(&dbuf_cache, db);
+				multilist_insert(dbuf_cache, db);
 				(void) refcount_add_many(&dbuf_cache_size,
 				    db->db.db_size, db);
 				mutex_exit(&db->db_mtx);

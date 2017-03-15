@@ -659,7 +659,7 @@ spa_add(const char *name, nvlist_t *config, const char *altroot)
 		spa_active_count++;
 	}
 
-	avl_create(&spa->spa_alloc_tree, zio_timestamp_compare,
+	avl_create(&spa->spa_alloc_tree, zio_bookmark_compare,
 	    sizeof (zio_t), offsetof(zio_t, io_alloc_node));
 
 	/*

@@ -28,7 +28,7 @@
 /*	  All Rights Reserved  	*/
 
 /*
- * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  * Copyright 2015, Joyent, Inc.
  */
 

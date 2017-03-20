@@ -492,7 +492,7 @@ static unsigned char *create_nonce(const sasl_utils_t * utils)
 	int fd = open(_DEV_URANDOM, O_RDONLY);
 	int nread = 0;
 
-  	if (fd != -1) {
+	if (fd != -1) {
 		nread = read(fd, ret, NONCE_SIZE);
 		close(fd);
 	}

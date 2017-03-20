@@ -25,7 +25,7 @@
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
- * Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
+ * Copyright 2017 OmniTI Computer Consulting, Inc. All rights reserved.
  */
 
 #ifndef	_INET_IP_H
@@ -552,7 +552,7 @@ extern	void ip_mcast_mapping(struct ill_s *, uchar_t *, uchar_t *);
 #define	DCEF_DEFAULT		0x0001	/* Default DCE - no pmtu or uinfo */
 #define	DCEF_PMTU		0x0002	/* Different than interface MTU */
 #define	DCEF_UINFO		0x0004	/* dce_uinfo set */
-#define	DCEF_TOO_SMALL_PMTU	0x0008	/* Smaller than IPv4/IPv6 MIN */
+#define	DCEF_TOO_SMALL_PMTU	0x0008	/* Smaller than IPv4 MIN */
 
 #ifdef _KERNEL
 /*

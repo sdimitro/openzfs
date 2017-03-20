@@ -1435,17 +1435,17 @@ undo(bool c)
 			undadot = newadot;
 		} else
 			undkind = UNDCHANGE;
- 		/*
- 		 * Now relocate all marks for lines that were modified,
- 		 * since the marks point to lines whose address has
- 		 * been modified from the save area to the current
- 		 * area
- 		 */
+		/*
+		 * Now relocate all marks for lines that were modified,
+		 * since the marks point to lines whose address has
+		 * been modified from the save area to the current
+		 * area
+		 */
 
- 		for (j=unddol; j> dol; j--)
- 			for (k=0; k<=25; k++)
- 				if (names[k] == *(j))
- 					names[k]= *((undap1+(j-dolp1)) );
+		for (j=unddol; j> dol; j--)
+			for (k=0; k<=25; k++)
+				if (names[k] == *(j))
+					names[k]= *((undap1+(j-dolp1)) );
 	}
 	/*
 	 * Defensive programming - after a munged undadot.

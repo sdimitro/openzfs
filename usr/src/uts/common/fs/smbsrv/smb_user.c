@@ -102,7 +102,7 @@
  * SMB_USER_STATE_LOGGING_ON
  *
  *    While in this state:
- *      - The user is in the list of users for his session.
+ *      - The user is in the list of users for their session.
  *      - References will be given out ONLY for session setup.
  *      - This user can not access anything yet.
  *

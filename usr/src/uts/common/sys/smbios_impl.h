@@ -458,7 +458,9 @@ typedef struct smb_struct {
 } smb_struct_t;
 
 struct smbios_hdl {
+	smbios_entry_point_t sh_ent_type; /* structure table entry point type */
 	smbios_entry_t sh_ent;		/* structure table entry point */
+	uint_t sh_ent_stnum;		/* number of structure table entries */
 	const void *sh_buf;		/* structure table buffer */
 	size_t sh_buflen;		/* size of structure table buffer */
 	smb_struct_t *sh_structs;	/* array of structure descriptors */
@@ -480,6 +482,7 @@ struct smbios_hdl {
 
 #define	SMB_RANGE_START	0xF0000		/* start of physical address range */
 #define	SMB_RANGE_LIMIT	0xFFFFF		/* limit of physical address range */
+#define	SMB_SCAN_STEP	16		/* stepping by paragraph */
 
 #define	SMB_MAJMIN(M, m)	((((M) & 0xFF) << 16) | ((m) & 0xFF))
 #define	SMB_MAJOR(v)		(((v) & 0xFF00) >> 8)

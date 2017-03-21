@@ -23,7 +23,7 @@
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2016 Toomas Soome <tsoome@me.com>
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2017 by Delphix. All rights reserved.
  */
 
 #ifndef	_LIBBE_PRIV_H
@@ -200,7 +200,6 @@ int zfs_err_to_be_err(libzfs_handle_t *);
 int errno_to_be_err(int);
 
 /* be_activate.c */
-int _be_activate(char *);
 int be_activate_current_be(void);
 boolean_t be_is_active_on_boot(char *);
 

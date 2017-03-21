@@ -13,7 +13,7 @@
 # Copyright 2011, Richard Lowe
 # Copyright 2015 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2016 Toomas Soome <tsoome@me.com>
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2016, 2017 by Delphix. All rights reserved.
 #
 
 file path=usr/share/man/man1m/6to4relay.1m
@@ -31,6 +31,7 @@ file path=usr/share/man/man1m/auditreduce.1m
 file path=usr/share/man/man1m/auditstat.1m
 file path=usr/share/man/man1m/autopush.1m
 file path=usr/share/man/man1m/bootadm.1m
+file path=usr/share/man/man1m/bootcfg.1m
 file path=usr/share/man/man1m/busstat.1m
 file path=usr/share/man/man1m/captoinfo.1m
 file path=usr/share/man/man1m/cfgadm.1m

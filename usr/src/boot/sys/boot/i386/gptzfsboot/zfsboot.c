@@ -12,6 +12,9 @@
  * warranties of merchantability and fitness for a particular
  * purpose.
  */
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
 
 #include <sys/cdefs.h>
 #include <stand.h>
@@ -108,6 +111,7 @@ static char *heap_bottom;
 
 static void i386_zfs_probe(void);
 void exit(int);
+void reboot(void);
 static void load(void);
 static int parse_cmd(void);
 
@@ -130,8 +134,11 @@ struct fs_ops *file_system[] = {
 int
 main(void)
 {
-    int auto_boot, i, fd;
+    int auto_boot, nextboot = 0;
+    int i, fd;
     struct disk_devdesc devdesc;
+    uint32_t num_boots;
+    uint32_t max_boots = 0;
 
     bios_getmem();
 
@@ -185,11 +192,59 @@ main(void)
     if (bdev != NULL && bdev->d_type == DEVT_ZFS) {
 	/* set up proper device name string for ZFS */
 	strncpy(boot_devname, zfs_fmtdev(bdev), sizeof (boot_devname));
+	char envbuf[256];
+	envbuf[0] = '\0';
+	int res = zfs_bootinfo(bdev, cmd, sizeof(cmd), envbuf, sizeof (envbuf),
+	    &num_boots, &max_boots);
+	if (res == 0 && (max_boots == 0 || num_boots == max_boots)) {
+		nextboot = 1;
+		memcpy(cmddup, cmd, sizeof(cmd));
+		if (parse_cmd()) {
+			printf("failed to parse pad2 area\n");
+			reboot();
+		}
+		if (!OPT_CHECK(RBX_QUIET))
+			printf("zfs nextboot: %s\n", cmddup);
+		/* Do not process this command twice */
+		*cmd = 0;
+	} else if (res == 0) {
+		envbuf[0] = '\0';
+		cmd[0] = '\0';
+	}
+
+	if (envbuf[0] != '\0') {
+		char *tok = strtok(envbuf, ",");
+		while (tok != NULL) {
+			char *eq = strchr(tok, '=');
+			if (eq == NULL) {
+				printf("invalid envmap format\n");
+				reboot();
+			}
+			*eq = '\0';
+			char *val = eq + 1;
+			if (strcmp(tok, "fstype") == 0) {
+				if (strcmp(val, "ufs") == 0)
+					zfsargs.fstype = UFS;
+			} else if (strcmp(tok, "console") == 0) {
+				if (strcmp(val, "text") == 0)
+					zfsargs.console = TEXT;
+				else if (strcmp(val, "ttya") == 0)
+					zfsargs.console = TTYA;
+				else if (strcmp(val, "ttyb") == 0)
+					zfsargs.console = TTYB;
+				else if (strcmp(val, "ttyc") == 0)
+					zfsargs.console = TTYC;
+				else if (strcmp(val, "ttyd") == 0)
+					zfsargs.console = TTYD;
+			}
+
+			tok = strtok(NULL, ",");
+		}
+	}
     }
 
     /* now make sure we have bdev on all cases */
-    if (bdev != NULL)
-	free(bdev);
+    free(bdev);
     i386_getdev((void **)&bdev, boot_devname, NULL);
 
     env_setenv("currdev", EV_VOLATILE, boot_devname, i386_setcurrdev,
@@ -221,6 +276,10 @@ main(void)
 	/* Do not process this command twice */
 	*cmd = 0;
     }
+
+    /* Do not risk waiting at the prompt forever. */
+    if (nextboot && !auto_boot)
+        reboot();
 
     /*
      * Try to exec stage 3 boot loader. If interrupted by a keypress,
@@ -260,6 +319,12 @@ main(void)
 void
 exit(int x)
 {
+	__exit(x);
+}
+
+void reboot(void)
+{
+	__exit(0);
 }
 
 static void
@@ -406,8 +471,7 @@ mount_root(char *arg)
     }
 
     /* we should have new device descriptor, free old and replace it. */
-    if (bdev != NULL)
-	free(bdev);
+    free(bdev);
     bdev = ddesc;
     if (bdev->d_type == DEVT_DISK) {
 	if (bdev->d_kind.biosdisk.partition == -1)
@@ -419,6 +483,7 @@ mount_root(char *arg)
 	    bdev->d_unit, part);
 	bootinfo.bi_bios_dev = bd_unit2bios(bdev->d_unit);
     }
+    strcpy(boot_devname, root);
     setenv("currdev", root, 1);
     free(root);
     return (0);

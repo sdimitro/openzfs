@@ -26,6 +26,10 @@
  * $FreeBSD$
  */
 
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
+
 #ifndef _BOOT_LIBZFS_H_
 #define _BOOT_LIBZFS_H_
 
@@ -47,6 +51,20 @@ struct zfs_devdesc
     uint64_t		root_guid;
 };
 
+typedef enum fstype {
+	ZFS,
+	UFS
+} fstype_t;
+
+typedef enum cons {
+	UNSET = 0,
+	TEXT,
+	TTYA,
+	TTYB,
+	TTYC,
+	TTYD
+} cons_t;
+
 struct zfs_boot_args
 {
     uint32_t		size;
@@ -55,12 +73,16 @@ struct zfs_boot_args
     uint64_t		root;
     uint64_t		primary_pool;
     uint64_t		primary_vdev;
+    fstype_t		fstype;
+    cons_t		console;
 };
 
 int	zfs_parsedev(struct zfs_devdesc *dev, const char *devspec,
 		     const char **path);
 char	*zfs_bootfs(void *vdev);
 char	*zfs_fmtdev(void *vdev);
+int	zfs_bootinfo(void *vdev, char *buf, size_t size, char *envmap,
+    size_t mapsize, uint32_t *num_boots, uint32_t *max_boots);
 int	zfs_probe_dev(const char *devname, uint64_t *pool_guid);
 int	zfs_list(const char *name);
 #ifdef __FreeBSD__

@@ -41,6 +41,7 @@
 #include <sys/linker.h>
 #include <sys/module.h>
 #include <sys/stdint.h>
+#include <stdbool.h>
 #define _MACHINE_ELF_WANT_32BIT
 #include <machine/elf.h>
 #include <machine/metadata.h>
@@ -368,25 +369,42 @@ update_cmdline(char *cl)
 static char *
 kernel_cmdline(struct preloaded_file *fp, struct i386_devdesc *rootdev)
 {
+	char *fs = getenv("fstype");
 	char *cmdline = NULL;
 	size_t len;
+	bool zfs_root = false;
 
 	if (fp->f_args == NULL)
 		fp->f_args = getenv("boot-args");
+
+	if (rootdev->d_type == DEVT_ZFS)
+		zfs_root = true;
+
+	/* If we have fstype set in env, reset zfs_root if needed. */
+	if (fs != NULL && strcmp(fs, "zfs") != 0)
+		zfs_root = false;
+
+	/* If we have fstype set in command line, reset zfs_root if needed. */
+	if (fp->f_args != NULL)
+		fs = strstr(fp->f_args, "fstype");
+	if (fs != NULL) {
+		if (strcmp(fs + 7, "zfs") != 0)
+			zfs_root = false;
+	}
 
 	len = strlen(fp->f_name) + 1;
 
 	if (fp->f_args != NULL)
 		len += strlen(fp->f_args) + 1;
 
-	if (rootdev->d_type == DEVT_ZFS)
+	if (zfs_root == true)
 		len += 3 + strlen(zfs_bootfs(rootdev)) + 1;
 
 	cmdline = malloc(len);
 	if (cmdline == NULL)
 		return (cmdline);
 
-	if (rootdev->d_type == DEVT_ZFS) {
+	if (zfs_root == true) {
 		if (fp->f_args != NULL)
 			snprintf(cmdline, len, "%s %s -B %s", fp->f_name,
 			    fp->f_args, zfs_bootfs(rootdev));

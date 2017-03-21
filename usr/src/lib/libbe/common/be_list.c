@@ -28,6 +28,7 @@
  * Copyright 2015 Toomas Soome <tsoome@me.com>
  * Copyright 2015 Gary Mills
  * Copyright (c) 2016 Martin Matuska. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 #include <assert.h>
@@ -1048,11 +1049,26 @@ be_get_node_data(
 	be_node->be_space_used = zfs_prop_get_int(zhp, ZFS_PROP_USED);
 
 	if (getzoneid() == GLOBAL_ZONEID) {
+		char *nextboot;
+
 		if ((zphp = zpool_open(g_zfs, rpool)) == NULL) {
 			be_print_err(gettext("be_get_node_data: failed to open "
 			    "pool (%s): %s\n"), rpool,
 			    libzfs_error_description(g_zfs));
 			return (zfs_err_to_be_err(g_zfs));
+		}
+
+		/* Set nextboot info */
+		be_node->be_active_next = B_FALSE;
+		uint32_t ignored;
+		nvlist_t *ignlist;
+		if (zpool_get_nextboot(zphp, &nextboot, &ignlist, &ignored,
+		    &ignored) == 0) {
+			nvlist_free(ignlist);
+			if (nextboot != NULL) {
+				if (strcmp(nextboot, be_ds) == 0)
+					be_node->be_active_next = B_TRUE;
+			}
 		}
 
 		(void) zpool_get_prop(zphp, ZPOOL_PROP_BOOTFS, prop_buf,

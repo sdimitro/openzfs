@@ -24,7 +24,7 @@
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2015 Toomas Soome <tsoome@me.com>
  * Copyright 2015 Gary Mills
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -123,7 +123,7 @@ usage(void)
 	    "\n"
 	    "\tsubcommands:\n"
 	    "\n"
-	    "\tbeadm activate [-v] beName\n"
+	    "\tbeadm activate [-v] [-t | -T] beName\n"
 	    "\tbeadm create [-a] [-d BE_desc]\n"
 	    "\t\t[-o property=value] ... [-p zpool] \n"
 	    "\t\t[-e nonActiveBe | beName@snapshot] [-v] beName\n"
@@ -364,7 +364,7 @@ print_be_nodes(const char *be_name, boolean_t parsable, struct hdr_info *hdr,
 	be_node_list_t	*cur_be;
 
 	for (cur_be = nodes; cur_be != NULL; cur_be = cur_be->be_next_node) {
-		char active[3] = "-\0";
+		char active[4] = "-\0\0";
 		int ai = 0;
 		const char *datetime_fmt = "%F %R";
 		const char *name = cur_be->be_node_name;
@@ -395,9 +395,12 @@ print_be_nodes(const char *be_name, boolean_t parsable, struct hdr_info *hdr,
 			active[ai++] = 'N';
 		if (cur_be->be_active_on_boot) {
 			if (!cur_be->be_global_active)
-				active[ai] = 'b';
+				active[ai++] = 'b';
 			else
-				active[ai] = 'R';
+				active[ai++] = 'R';
+		}
+		if (cur_be->be_active_next) {
+			active[ai] = 'T';
 		}
 
 		nicenum(used, buf, sizeof (buf));
@@ -493,7 +496,7 @@ print_fmt_nodes(const char *be_name, enum be_fmt be_fmt, boolean_t parsable,
 	be_node_list_t	*cur_be;
 
 	for (cur_be = nodes; cur_be != NULL; cur_be = cur_be->be_next_node) {
-		char active[3] = "-\0";
+		char active[4] = "-\0\0";
 		int ai = 0;
 		const char *datetime_fmt = "%F %R";
 		const char *name = cur_be->be_node_name;
@@ -516,7 +519,9 @@ print_fmt_nodes(const char *be_name, enum be_fmt be_fmt, boolean_t parsable,
 		if (cur_be->be_active)
 			active[ai++] = 'N';
 		if (cur_be->be_active_on_boot)
-			active[ai] = 'R';
+			active[ai++] = 'R';
+		if (cur_be->be_active_next)
+			active[ai++] = 'T';
 
 		nicenum(used, buf, sizeof (buf));
 		if (be_fmt & BE_FMT_DATASET)
@@ -627,6 +632,20 @@ be_nvl_alloc(nvlist_t **nvlp)
 }
 
 static int
+be_nvl_add_boolean(nvlist_t *nvl, const char *name, boolean_t val)
+{
+	assert(nvl != NULL);
+
+	if (nvlist_add_boolean_value(nvl, name, val) != 0) {
+		(void) fprintf(stderr, _("nvlist_add_boolean_value failed for "
+		    "%s (%s).\n"), name, val? "true" : "false");
+		return (1);
+	}
+
+	return (0);
+}
+
+static int
 be_nvl_add_string(nvlist_t *nvl, const char *name, const char *val)
 {
 	assert(nvl != NULL);
@@ -675,11 +694,29 @@ be_do_activate(int argc, char **argv)
 	int		err = 1;
 	int		c;
 	char		*obe_name;
+	boolean_t	nextboot = B_FALSE;
+	boolean_t	do_nextboot = B_FALSE;
 
-	while ((c = getopt(argc, argv, "v")) != -1) {
+	while ((c = getopt(argc, argv, "vtT")) != -1) {
 		switch (c) {
 		case 'v':
 			libbe_print_errors(B_TRUE);
+			break;
+		case 't':
+			if (do_nextboot == B_TRUE) {
+				usage();
+				return (1);
+			}
+			nextboot = B_TRUE;
+			do_nextboot = B_TRUE;
+			break;
+		case 'T':
+			if (do_nextboot == B_TRUE) {
+				usage();
+				return (1);
+			}
+			nextboot = B_FALSE;
+			do_nextboot = B_TRUE;
 			break;
 		default:
 			usage();
@@ -702,6 +739,12 @@ be_do_activate(int argc, char **argv)
 
 	if (be_nvl_add_string(be_attrs, BE_ATTR_ORIG_BE_NAME, obe_name) != 0)
 		goto out;
+
+	if (do_nextboot == B_TRUE) {
+		if (be_nvl_add_boolean(be_attrs, BE_ATTR_ACTIVE_NEXTBOOT,
+		    nextboot) != 0)
+			goto out;
+	}
 
 	err = be_activate(be_attrs);
 

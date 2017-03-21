@@ -27,6 +27,7 @@
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2016 Toomas Soome <tsoome@me.com>
  * Copyright 2015 Gary Mills
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 #ifndef _LIBBE_H
@@ -66,6 +67,7 @@ extern "C" {
 
 #define	BE_ATTR_ACTIVE		"active"
 #define	BE_ATTR_ACTIVE_ON_BOOT	"active_boot"
+#define	BE_ATTR_ACTIVE_NEXTBOOT	"active_nextboot"
 #define	BE_ATTR_GLOBAL_ACTIVE	"global_active"
 #define	BE_ATTR_SPACE		"space_used"
 #define	BE_ATTR_DATASET		"dataset"
@@ -173,6 +175,7 @@ typedef struct be_snapshot_list {
 
 typedef struct be_node_list {
 	boolean_t be_mounted;		/* is BE currently mounted */
+	boolean_t be_active_next;	/* is this BE temporarily active */
 	boolean_t be_active_on_boot;	/* is this BE active on boot */
 	boolean_t be_active;		/* is this BE active currently */
 	boolean_t be_global_active;	/* is zone's BE associated with */

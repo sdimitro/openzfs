@@ -26,6 +26,7 @@
 /*
  * Copyright 2015 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2016 Toomas Soome <tsoome@me.com>
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -199,12 +200,14 @@ print_menu_nodes(boolean_t parsable, struct hdr_info *hdr,
 
 		if (parsable)
 			(void) printf("%d;%s;%s;%s\n", i,
+			    be_node->be_active_next == B_TRUE? "T" :
 			    be_node->be_active_on_boot == B_TRUE? "*" : "-",
 			    entry->bootfs, entry->title);
 		else
 			(void) printf("%-*d %-*s %-*s %-*s\n",
 			    hdr->cols[0].width, i,
 			    hdr->cols[1].width,
+			    be_node->be_active_next == B_TRUE? "T" :
 			    be_node->be_active_on_boot == B_TRUE? "*" : "-",
 			    hdr->cols[2].width, entry->bootfs,
 			    hdr->cols[3].width, entry->title);

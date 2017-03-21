@@ -26,6 +26,10 @@
  *	$FreeBSD$
  */
 
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
+
 #include <sys/cdefs.h>
 
 /*
@@ -383,6 +387,94 @@ vdev_read(vdev_t *vdev, void *priv, off_t offset, void *buf, size_t size)
 }
 
 static int
+vdev_write(vdev_t *vdev, void *priv, off_t offset, void *buf, size_t size)
+{
+	int fd;
+
+	fd = (uintptr_t) priv;
+	lseek(fd, offset, SEEK_SET);
+	if (write(fd, buf, size) == size) {
+		return 0;
+	} else {
+		return (EIO);
+	}
+}
+
+static void
+vdev_write_nextboot(vdev_t *vdev, vdev_nextboot_block_t *vp)
+{
+	vdev_t *kid;
+
+	STAILQ_FOREACH(kid, &vdev->v_children, v_childlink) {
+		if (kid->v_state != VDEV_STATE_HEALTHY)
+			continue;
+		vdev_write_nextboot(kid, vp);
+	}
+
+	if (!STAILQ_EMPTY(&vdev->v_children))
+		return;
+	for (int l = 0; l < VDEV_LABELS / 2; l++) {
+		uint64_t offset = l * sizeof (vdev_label_t) +
+		    offsetof(vdev_label_t, vl_nextboot);
+		vp->vnb_zbt.zec_magic = ZEC_MAGIC;
+		ZIO_SET_CHECKSUM(&vp->vnb_zbt.zec_cksum, offset, 0, 0, 0);
+		vp->vnb_zbt.zec_magic = ZEC_MAGIC;
+		zio_cksum_t cksum;
+		zio_checksum_SHA256(vp, VDEV_PAD_SIZE, NULL, &cksum);
+		vp->vnb_zbt.zec_cksum = cksum;
+		if (vdev_write(vdev, vdev->v_read_priv, offset, vp,
+		    VDEV_PAD_SIZE)) {
+			printf("failed to write nextboot area of primary "
+			    "vdev: %d\n", errno);
+		}
+	}
+}
+
+/*
+ * Read the next boot command from nextboot.
+ * We return the first vdev_boot_t structure we find that had a valid checksum.
+ */
+vdev_boot_t *
+vdev_read_nextboot(vdev_t *vdev)
+{
+	vdev_t *kid;
+	vdev_boot_t *result = NULL;
+
+	STAILQ_FOREACH(kid, &vdev->v_children, v_childlink) {
+		if (kid->v_state != VDEV_STATE_HEALTHY)
+			continue;
+		result = vdev_read_nextboot(kid);
+		if (result != NULL)
+			break;
+	}
+	if (result != NULL)
+		return (result);
+
+	for (int l = 0; l < VDEV_LABELS / 2; l++) {
+		vdev_nextboot_block_t *tmp =
+		    (vdev_nextboot_block_t *)zap_scratch;
+		uint64_t offset = l * sizeof (vdev_label_t) +
+		    offsetof(vdev_label_t, vl_nextboot);
+		if (vdev_read(vdev, vdev->v_read_priv, offset, tmp,
+		    VDEV_PAD_SIZE)) {
+			return (NULL);
+		}
+		zio_cksum_t actual;
+		zio_cksum_t expected = tmp->vnb_zbt.zec_cksum;
+		ZIO_SET_CHECKSUM(&tmp->vnb_zbt.zec_cksum, offset, 0, 0, 0);
+		tmp->vnb_zbt.zec_magic = ZEC_MAGIC;
+
+		zio_checksum_SHA256(tmp, VDEV_PAD_SIZE, NULL, &actual);
+		if (!ZIO_CHECKSUM_EQUAL(actual, expected))
+			continue;
+		result = malloc(sizeof (*result));
+		bcopy(tmp, result, sizeof (*result));
+		return (result);
+	}
+	return (NULL);
+}
+
+static int
 zfs_dev_init(void)
 {
 	spa_t *spa;
@@ -461,7 +553,7 @@ zfs_probe_partition(void *arg, const char *partname,
 	strncpy(devname, ppa->devname, strlen(ppa->devname) - 1);
 	devname[strlen(ppa->devname) - 1] = '\0';
 	sprintf(devname, "%s%s:", devname, partname);
-	pa.fd = open(devname, O_RDONLY);
+	pa.fd = open(devname, O_RDWR);
 	if (pa.fd == -1)
 		return (ret);
 	ret = zfs_probe(pa.fd, ppa->pool_guid);
@@ -483,6 +575,60 @@ zfs_probe_partition(void *arg, const char *partname,
 }
 
 int
+zfs_bootinfo(void *vdev, char *buf, size_t size, char *envmap, size_t mapsize,
+    uint32_t *num_boots, uint32_t *max_boots)
+{
+	struct zfs_devdesc *dev = (struct zfs_devdesc *)vdev;
+	spa_t *spa;
+	vdev_t *vd;
+	vdev_boot_t *result = NULL;
+
+	if (dev->d_type != DEVT_ZFS)
+		return (1);
+
+	if (dev->pool_guid == 0)
+		spa = STAILQ_FIRST(&zfs_pools);
+	else
+		spa = spa_find_by_guid(dev->pool_guid);
+
+	if (spa == NULL) {
+		printf("ZFS: can't find pool by guid\n");
+		return (1);
+	}
+
+	STAILQ_FOREACH(vd, &spa->spa_vdevs, v_childlink) {
+		result = vdev_read_nextboot(vd);
+		/* Continue on error. */
+		if (result != NULL)
+			break;
+	}
+
+	if (result == NULL || result->vb_version != VB_STRUCTURE) {
+		printf("ZFS: unable to read any nextboot structures\n");
+		return (1);
+	}
+
+	strlcpy(buf, result->vb_nextboot, size);
+	strlcpy(envmap, result->vb_bootmap, mapsize);
+	if (result->vb_maxboots != 0) {
+		*num_boots = ++result->vb_numboots;
+		*max_boots = result->vb_maxboots;
+	}
+	vdev_nextboot_block_t tmp;
+	bzero(&tmp, sizeof (tmp));
+	if (result->vb_maxboots != 0 && result->vb_maxboots !=
+	    result->vb_numboots) {
+		tmp.vnb_boot = *result;
+	}
+
+	STAILQ_FOREACH(vd, &spa->spa_vdevs, v_childlink) {
+		vdev_write_nextboot(vd, &tmp);
+	}
+	free(result);
+	return (0);
+}
+
+int
 zfs_probe_dev(const char *devname, uint64_t *pool_guid)
 {
 	struct ptable *table;
@@ -490,7 +636,7 @@ zfs_probe_dev(const char *devname, uint64_t *pool_guid)
 	off_t mediasz;
 	int ret;
 
-	pa.fd = open(devname, O_RDONLY);
+	pa.fd = open(devname, O_RDWR);
 	if (pa.fd == -1)
 		return (ENXIO);
 	/* Probe the whole disk */

@@ -13,7 +13,7 @@
 # Copyright 2011, Richard Lowe
 # Copyright 2016 Joyent, Inc.
 # Copyright 2016 Toomas Soome <tsoome@me.com>
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 # Copyright 2016 Nexenta Systems, Inc.
 #
 
@@ -53,6 +53,7 @@ _MANFILES=	6to4relay.1m		\
 		beadm.1m		\
 		boot.1m			\
 		bootadm.1m		\
+		bootcfg.1m		\
 		bootconfchk.1m		\
 		busstat.1m		\
 		captoinfo.1m		\

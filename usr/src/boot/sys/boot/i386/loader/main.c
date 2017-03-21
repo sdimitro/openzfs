@@ -261,6 +261,18 @@ extract_currdev(void)
 		sprintf(buf, "%llu", zargs->primary_vdev);
 		setenv("vfs.zfs.boot.primary_vdev", buf, 1);
 	    }
+	    if (zargs->fstype == UFS)
+	        setenv("fstype", "ufs", 1);
+	    if (zargs->console == TEXT)
+	        setenv("console", "text", 1);
+	    else if (zargs->console == TTYA)
+	        setenv("console", "ttya", 1);
+	    else if (zargs->console == TTYB)
+	        setenv("console", "ttyb", 1);
+	    else if (zargs->console == TTYC)
+	        setenv("console", "ttyc", 1);
+	    else if (zargs->console == TTYD)
+	        setenv("console", "ttyd", 1);
 	} else {
 	    /* old style zfsboot block */
 	    new_currdev.d_kind.zfs.pool_guid = kargs->zfspool;

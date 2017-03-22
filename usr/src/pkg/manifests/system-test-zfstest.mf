@@ -2295,6 +2295,8 @@ file path=opt/zfs-tests/tests/functional/redacted_send/redacted_negative \
     mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted_origin \
     mode=0555
+file path=opt/zfs-tests/tests/functional/redacted_send/redacted_props \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted_resume \
     mode=0555
 file path=opt/zfs-tests/tests/functional/redacted_send/redacted_size mode=0555

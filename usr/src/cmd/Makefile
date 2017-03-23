@@ -349,7 +349,6 @@ COMMON_SUBDIRS=		\
 	refer		\
 	regcmp		\
 	renice		\
-	rexd		\
 	rm		\
 	rmdir		\
 	rmformat	\

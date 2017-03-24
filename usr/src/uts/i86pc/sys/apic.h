@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1993, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -827,7 +828,7 @@ extern int apic_local_mode();
 extern void apic_change_eoi();
 extern void apic_send_EOI(uint32_t);
 extern void apic_send_directed_EOI(uint32_t);
-extern uint_t apic_calibrate(volatile uint32_t *, uint16_t *);
+extern uint64_t apic_calibrate();
 
 extern volatile uint32_t *apicadr;	/* virtual addr of local APIC   */
 extern int apic_forceload;

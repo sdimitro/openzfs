@@ -2387,6 +2387,7 @@ xdf_lb_getattribute(dev_info_t *dip, tg_attribute_t *tgattributep)
 		tgattributep->media_is_writable = 0;
 	else
 		tgattributep->media_is_writable = 1;
+	tgattributep->media_is_rotational = 0;
 	return (0);
 }
 

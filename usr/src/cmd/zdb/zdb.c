@@ -1892,8 +1892,8 @@ open_objset(const char *path, void *tag, objset_t **osp)
 	 */
 	err = dmu_objset_hold(path, tag, osp);
 	if (err != 0) {
-		(void) fprintf(stderr, "failed to hold dataset '%s': %s\n", path,
-		    strerror(err));
+		(void) fprintf(stderr, "failed to hold dataset '%s': %s\n",
+		    path, strerror(err));
 		return (err);
 	}
 	dsl_dataset_long_hold(dmu_objset_ds(*osp), tag);
@@ -2619,8 +2619,13 @@ dump_label(const char *dev)
 			(void) strlcat(path, "s0", sizeof (path));
 	}
 
-	if (stat64(path, &statbuf) != 0) {
-		(void) printf("failed to stat '%s': %s\n", path,
+	if ((fd = open64(path, O_RDONLY)) < 0) {
+		(void) printf("cannot open '%s': %s\n", path, strerror(errno));
+		exit(1);
+	}
+
+	if (fstat64(fd, &statbuf) != 0) {
+		(void) printf("failed to fstat '%s': %s\n", path,
 		    strerror(errno));
 		exit(1);
 	}
@@ -2628,11 +2633,6 @@ dump_label(const char *dev)
 	if (S_ISBLK(statbuf.st_mode)) {
 		(void) printf("cannot use '%s': character device required\n",
 		    path);
-		exit(1);
-	}
-
-	if ((fd = open64(path, O_RDONLY)) < 0) {
-		(void) printf("cannot open '%s': %s\n", path, strerror(errno));
 		exit(1);
 	}
 

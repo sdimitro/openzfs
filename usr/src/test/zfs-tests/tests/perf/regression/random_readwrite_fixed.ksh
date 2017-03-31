@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 #
@@ -29,14 +29,13 @@
 
 function cleanup
 {
-	log_must zfs destroy $TESTFS
+        recreate_perf_pool
 }
 
 log_onexit cleanup
 
-export TESTFS=$PERFPOOL/testfs
-recreate_perfpool
-log_must zfs create $PERF_FS_OPTS $TESTFS
+recreate_perf_pool
+populate_perf_filesystems
 
 # Aim to fill the pool to 50% capacity while accounting for a 3x compressratio.
 export TOTAL_SIZE=$(($(get_prop avail $TESTFS) * 3 / 2))
@@ -63,6 +62,7 @@ fi
 # a subset of the available files.
 export NUMJOBS=$(get_max $PERF_NTHREADS)
 export FILE_SIZE=$((TOTAL_SIZE / NUMJOBS))
+export DIRECTORY=$(get_directory)
 log_must fio $FIO_SCRIPTS/mkfiles.fio
 
 # Set up the scripts and output files that will log performance data.

@@ -662,7 +662,7 @@ zcp_exists(lua_State *state)
 		return (luaL_error(state, "unexpected error %d", error));
 	}
 
-	return (0);
+	return (1);
 }
 
 /*

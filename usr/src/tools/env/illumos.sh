@@ -218,7 +218,7 @@ export CW_NO_SHADOW='1'
 # Uncomment this to disable support for SMB printing.
 export ENABLE_SMB_PRINTING='#'
 
-export GCC_ROOT=/opt/ccache
+export GCC_ROOT=/opt/gcc-4.4.4
 export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
 export ONNV_BUILDNUM=151014

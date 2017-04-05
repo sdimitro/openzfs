@@ -198,6 +198,8 @@ typedef struct dsl_dataset {
 	 * This is only used if SPA_FEATURE_OBSOLETE_COUNTS is enabled.
 	 */
 	dsl_deadlist_t ds_remap_deadlist;
+	/* protects creation of the ds_remap_deadlist */
+	kmutex_t ds_remap_deadlist_lock;
 
 	/* protected by lock on pool's dp_dirty_datasets list */
 	txg_node_t ds_dirty_link;

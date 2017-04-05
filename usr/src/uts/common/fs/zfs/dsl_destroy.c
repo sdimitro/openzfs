@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2013 by Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
@@ -240,8 +240,10 @@ dsl_destroy_snapshot_handle_remaps(dsl_dataset_t *ds, dsl_dataset_t *ds_next,
 		    dsl_dataset_get_remap_deadlist_object(ds);
 		ASSERT(remap_deadlist_object != 0);
 
+		mutex_enter(&ds_next->ds_remap_deadlist_lock);
 		if (!dsl_dataset_remap_deadlist_exists(ds_next))
 			dsl_dataset_create_remap_deadlist(ds_next, tx);
+		mutex_exit(&ds_next->ds_remap_deadlist_lock);
 
 		dsl_deadlist_merge(&ds_next->ds_remap_deadlist,
 		    remap_deadlist_object, tx);

@@ -191,9 +191,11 @@ dsl_dataset_block_remapped(dsl_dataset_t *ds, uint64_t vdev, uint64_t offset,
 
 		ASSERT(ds != NULL);
 
+		mutex_enter(&ds->ds_remap_deadlist_lock);
 		if (!dsl_dataset_remap_deadlist_exists(ds)) {
 			dsl_dataset_create_remap_deadlist(ds, tx);
 		}
+		mutex_exit(&ds->ds_remap_deadlist_lock);
 
 		BP_ZERO(&fakebp);
 		fakebp.blk_birth = birth;
@@ -412,6 +414,7 @@ dsl_dataset_evict_async(void *dbu)
 	mutex_destroy(&ds->ds_lock);
 	mutex_destroy(&ds->ds_opening_lock);
 	mutex_destroy(&ds->ds_sendstream_lock);
+	mutex_destroy(&ds->ds_remap_deadlist_lock);
 	refcount_destroy(&ds->ds_longholds);
 	rrw_destroy(&ds->ds_bp_rwlock);
 
@@ -547,6 +550,8 @@ dsl_dataset_hold_obj(dsl_pool_t *dp, uint64_t dsobj, void *tag,
 		mutex_init(&ds->ds_lock, NULL, MUTEX_DEFAULT, NULL);
 		mutex_init(&ds->ds_opening_lock, NULL, MUTEX_DEFAULT, NULL);
 		mutex_init(&ds->ds_sendstream_lock, NULL, MUTEX_DEFAULT, NULL);
+		mutex_init(&ds->ds_remap_deadlist_lock,
+		    NULL, MUTEX_DEFAULT, NULL);
 		rrw_init(&ds->ds_bp_rwlock, B_FALSE);
 		refcount_create(&ds->ds_longholds);
 
@@ -4503,6 +4508,7 @@ dsl_dataset_create_remap_deadlist(dsl_dataset_t *ds, dmu_tx_t *tx)
 	spa_t *spa = ds->ds_dir->dd_pool->dp_spa;
 
 	ASSERT(dmu_tx_is_syncing(tx));
+	ASSERT(MUTEX_HELD(&ds->ds_remap_deadlist_lock));
 	/*
 	 * Currently we only create remap deadlists when there are indirect
 	 * vdevs with referenced mappings.

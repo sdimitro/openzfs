@@ -1039,7 +1039,7 @@ zcp_eval(const char *poolname, const char *program, uint64_t timeout,
 	evalargs.ea_result = 0;
 
 	VERIFY0(dsl_sync_task(poolname, zcp_eval_check,
-	    zcp_eval_sync, &evalargs, 0, ZFS_SPACE_CHECK_NONE));
+	    zcp_eval_sync, &evalargs, 0, ZFS_SPACE_CHECK_ZCP_EVAL));
 
 	lua_close(state);
 

@@ -101,6 +101,10 @@ int lzc_channel_program(const char *, const char *, uint64_t, uint64_t,
 
 int lzc_get_nextboot(const char *, nvlist_t **);
 int lzc_set_nextboot(const char *, const char *, const char *, uint32_t);
+
+int lzc_pool_checkpoint(const char *);
+int lzc_pool_checkpoint_discard(const char *);
+
 #ifdef	__cplusplus
 }
 #endif

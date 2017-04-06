@@ -629,7 +629,8 @@ spa_condense_indirect_thread(void *arg, zthr_t *zthr)
 		return (0);
 
 	VERIFY0(dsl_sync_task(spa_name(spa), NULL,
-	    spa_condense_indirect_complete_sync, sci, 0, ZFS_SPACE_CHECK_NONE));
+	    spa_condense_indirect_complete_sync, sci, 0,
+	    ZFS_SPACE_CHECK_EXTRA_RESERVED));
 
 	return (0);
 }

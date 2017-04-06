@@ -464,8 +464,13 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size)
 	 * held, so that the remove_thread can not load this metaslab and then
 	 * visit this offset between the time that we metaslab_free_concrete()
 	 * and when we check to see if it has been visited.
+	 *
+	 * Note: The checkpoint flag is set to false as having/taking
+	 * a checkpoint and removing a device can't happen at the same
+	 * time.
 	 */
-	metaslab_free_concrete(vd, offset, size);
+	ASSERT(!spa_has_checkpoint(spa));
+	metaslab_free_concrete(vd, offset, size, B_FALSE);
 
 	uint64_t synced_size = 0;
 	uint64_t synced_offset = 0;
@@ -598,14 +603,16 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size)
 	 */
 	if (synced_size > 0) {
 		vdev_indirect_mark_obsolete(vd, synced_offset, synced_size);
+
 		/*
 		 * Note: this can only be called from syncing context,
 		 * and the vdev_indirect_mapping is only changed from the
 		 * sync thread, so we don't need svr_lock while doing
 		 * metaslab_free_impl_cb.
 		 */
+		boolean_t checkpoint = B_FALSE;
 		vdev_indirect_ops.vdev_op_remap(vd, synced_offset, synced_size,
-		    metaslab_free_impl_cb, NULL);
+		    metaslab_free_impl_cb, &checkpoint);
 	}
 }
 
@@ -653,8 +660,9 @@ free_mapped_segment_cb(void *arg, uint64_t offset, uint64_t size)
 {
 	vdev_t *vd = arg;
 	vdev_indirect_mark_obsolete(vd, offset, size);
+	boolean_t checkpoint = B_FALSE;
 	vdev_indirect_ops.vdev_op_remap(vd, offset, size,
-	    metaslab_free_impl_cb, NULL);
+	    metaslab_free_impl_cb, &checkpoint);
 }
 
 /*
@@ -1158,7 +1166,7 @@ spa_vdev_remove_thread(void *arg)
 		    msp->ms_id);
 
 		while (!svr->svr_thread_exit &&
-		    range_tree_space(svr->svr_allocd_segs) != 0) {
+		    !range_tree_is_empty(svr->svr_allocd_segs)) {
 
 			mutex_exit(&svr->svr_lock);
 
@@ -1383,7 +1391,8 @@ spa_vdev_remove_cancel(spa_t *spa)
 	uint64_t vdid = spa->spa_vdev_removal->svr_vdev->vdev_id;
 
 	int error = dsl_sync_task(spa->spa_name, spa_vdev_remove_cancel_check,
-	    spa_vdev_remove_cancel_sync, NULL, 0, ZFS_SPACE_CHECK_NONE);
+	    spa_vdev_remove_cancel_sync, NULL, 0,
+	    ZFS_SPACE_CHECK_EXTRA_RESERVED);
 
 	if (error == 0) {
 		spa_config_enter(spa, SCL_ALLOC | SCL_VDEV, FTAG, RW_WRITER);
@@ -1714,6 +1723,17 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 
 	if (!locked)
 		txg = spa_vdev_enter(spa);
+
+	ASSERT(MUTEX_HELD(&spa_namespace_lock));
+	if (spa_feature_is_active(spa, SPA_FEATURE_POOL_CHECKPOINT)) {
+		error = (spa_has_checkpoint(spa)) ?
+		    ZFS_ERR_CHECKPOINT_EXISTS : ZFS_ERR_DISCARDING_CHECKPOINT;
+
+		if (!locked)
+			return (spa_vdev_exit(spa, NULL, txg, error));
+
+		return (error);
+	}
 
 	vd = spa_lookup_by_guid(spa, guid, B_FALSE);
 

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -80,7 +80,7 @@ traverse_zil_block(zilog_t *zilog, blkptr_t *bp, void *arg, uint64_t claim_txg)
 	if (BP_IS_HOLE(bp))
 		return (0);
 
-	if (claim_txg == 0 && bp->blk_birth >= spa_first_txg(td->td_spa))
+	if (claim_txg == 0 && bp->blk_birth >= spa_min_claim_txg(td->td_spa))
 		return (0);
 
 	SET_BOOKMARK(&zb, td->td_objset, ZB_ZIL_OBJECT, ZB_ZIL_LEVEL,

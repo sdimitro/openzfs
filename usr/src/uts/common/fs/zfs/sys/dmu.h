@@ -329,6 +329,7 @@ typedef struct dmu_buf {
 #define	DMU_POOL_CHECKSUM_SALT		"org.illumos:checksum_salt"
 #define	DMU_POOL_CONDENSING_INDIRECT	"com.delphix:condensing_indirect"
 #define	DMU_POOL_VDEV_ZAP_MAP		"com.delphix:vdev_zap_map"
+#define	DMU_POOL_ZPOOL_CHECKPOINT	"com.delphix:zpool_checkpoint"
 
 /*
  * Allocate an object from this objset.  The range of object numbers

@@ -209,6 +209,37 @@ vdev_label_write(zio_t *zio, vdev_t *vd, int l, abd_t *buf, uint64_t offset,
 	    ZIO_PRIORITY_SYNC_WRITE, flags, B_TRUE));
 }
 
+static void
+root_vdev_actions_getprogress(vdev_t *vd, nvlist_t *nvl)
+{
+	spa_t *spa = vd->vdev_spa;
+
+	if (vd != spa->spa_root_vdev)
+		return;
+
+	/* provide either current or previous scan information */
+	pool_scan_stat_t ps;
+	if (spa_scan_get_stats(spa, &ps) == 0) {
+		fnvlist_add_uint64_array(nvl,
+		    ZPOOL_CONFIG_SCAN_STATS, (uint64_t *)&ps,
+		    sizeof (pool_scan_stat_t) / sizeof (uint64_t));
+	}
+
+	pool_removal_stat_t prs;
+	if (spa_removal_get_stats(spa, &prs) == 0) {
+		fnvlist_add_uint64_array(nvl,
+		    ZPOOL_CONFIG_REMOVAL_STATS, (uint64_t *)&prs,
+		    sizeof (prs) / sizeof (uint64_t));
+	}
+
+	pool_checkpoint_stat_t pcs;
+	if (spa_checkpoint_get_stats(spa, &pcs) == 0) {
+		fnvlist_add_uint64_array(nvl,
+		    ZPOOL_CONFIG_CHECKPOINT_STATS, (uint64_t *)&pcs,
+		    sizeof (pcs) / sizeof (uint64_t));
+	}
+}
+
 /*
  * Generate the nvlist representing this vdev's config.
  */
@@ -331,20 +362,7 @@ vdev_config_generate(spa_t *spa, vdev_t *vd, boolean_t getstats,
 		fnvlist_add_uint64_array(nv, ZPOOL_CONFIG_VDEV_STATS,
 		    (uint64_t *)&vs, sizeof (vs) / sizeof (uint64_t));
 
-		/* provide either current or previous scan information */
-		pool_scan_stat_t ps;
-		if (spa_scan_get_stats(spa, &ps) == 0) {
-			fnvlist_add_uint64_array(nv,
-			    ZPOOL_CONFIG_SCAN_STATS, (uint64_t *)&ps,
-			    sizeof (pool_scan_stat_t) / sizeof (uint64_t));
-		}
-
-		pool_removal_stat_t prs;
-		if (spa_removal_get_stats(spa, &prs) == 0) {
-			fnvlist_add_uint64_array(nv,
-			    ZPOOL_CONFIG_REMOVAL_STATS, (uint64_t *)&prs,
-			    sizeof (prs) / sizeof (uint64_t));
-		}
+		root_vdev_actions_getprogress(vd, nv);
 
 		/*
 		 * Note: this can be called from open context

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014, Nexenta Systems, Inc. All rights reserved.
@@ -258,6 +258,11 @@ zpool_feature_init(void)
 	    "com.delphix:device_removal", "device_removal",
 	    "Top-level vdevs can be removed, reducing logical pool size.",
 	    ZFEATURE_FLAG_MOS, ZFEATURE_TYPE_BOOLEAN, NULL);
+
+	zfeature_register(SPA_FEATURE_POOL_CHECKPOINT,
+	    "com.delphix:zpool_checkpoint", "zpool_checkpoint",
+	    "Pool state can be checkpointed, allowing rewind later.",
+	    ZFEATURE_FLAG_READONLY_COMPAT, ZFEATURE_TYPE_BOOLEAN, NULL);
 
 	static const spa_feature_t large_blocks_deps[] = {
 		SPA_FEATURE_EXTENSIBLE_DATASET,

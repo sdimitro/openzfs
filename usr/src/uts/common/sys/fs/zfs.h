@@ -206,6 +206,7 @@ typedef enum {
 	ZPOOL_PROP_FRAGMENTATION,
 	ZPOOL_PROP_LEAKED,
 	ZPOOL_PROP_MAXBLOCKSIZE,
+	ZPOOL_PROP_CHECKPOINT,
 	ZPOOL_NUM_PROPS
 } zpool_prop_t;
 
@@ -536,6 +537,7 @@ typedef struct zpool_load_policy {
 #define	ZPOOL_CONFIG_DTL		"DTL"
 #define	ZPOOL_CONFIG_SCAN_STATS		"scan_stats"	/* not stored on disk */
 #define	ZPOOL_CONFIG_REMOVAL_STATS	"removal_stats"	/* not stored on disk */
+#define	ZPOOL_CONFIG_CHECKPOINT_STATS	"checkpoint_stats" /* not on disk */
 #define	ZPOOL_CONFIG_VDEV_STATS		"vdev_stats"	/* not stored on disk */
 #define	ZPOOL_CONFIG_INDIRECT_SIZE	"indirect_size"	/* not stored on disk */
 #define	ZPOOL_CONFIG_WHOLE_DISK		"whole_disk"
@@ -621,6 +623,8 @@ typedef struct zpool_load_policy {
 	"com.delphix:indirect_obsolete_sm"
 #define	VDEV_TOP_ZAP_OBSOLETE_COUNTS_ARE_PRECISE \
 	"com.delphix:obsolete_counts_are_precise"
+#define	VDEV_TOP_ZAP_POOL_CHECKPOINT_SM \
+	"com.delphix:pool_checkpoint_sm"
 
 #define	VDEV_LEAF_ZAP_INITIALIZE_LAST_OFFSET	\
 	"com.delphix:next_offset_to_initialize"
@@ -784,6 +788,19 @@ typedef enum dsl_scan_state {
 } dsl_scan_state_t;
 
 typedef enum {
+	CS_NONE,
+	CS_CHECKPOINT_EXISTS,
+	CS_CHECKPOINT_DISCARDING,
+	CS_NUM_STATES
+} checkpoint_state_t;
+
+typedef struct pool_checkpoint_stat {
+	uint64_t pcs_state;		/* checkpoint_state_t */
+	uint64_t pcs_start_time;	/* time checkpoint/discard started */
+	uint64_t pcs_space;		/* checkpointed space */
+} pool_checkpoint_stat_t;
+
+typedef enum {
 	VDEV_INITIALIZE_NONE,
 	VDEV_INITIALIZE_ACTIVE,
 	VDEV_INITIALIZE_CANCELED,
@@ -818,6 +835,7 @@ typedef struct vdev_stat {
 	uint64_t	vs_initialize_bytes_est; /* total bytes to initialize */
 	uint64_t	vs_initialize_state;	/* vdev_initialzing_state_t */
 	uint64_t	vs_initialize_action_time; /* time_t */
+	uint64_t	vs_checkpoint_space;    /* checkpoint-consumed space */
 } vdev_stat_t;
 
 /*
@@ -947,8 +965,26 @@ typedef enum zfs_ioc {
 	ZFS_IOC_REDACT,
 	ZFS_IOC_SET_NEXTBOOT,
 	ZFS_IOC_GET_NEXTBOOT,
+	ZFS_IOC_POOL_CHECKPOINT,
+	ZFS_IOC_POOL_DISCARD_CHECKPOINT,
 	ZFS_IOC_LAST
 } zfs_ioc_t;
+
+/*
+ * ZFS-specific error codes used for returning descriptive errors
+ * to the userland through zfs ioctls.
+ *
+ * The enum implicitly includes all the error codes from errno.h.
+ * New code should use and extend this enum for errors that are
+ * not described precisely by generic errno codes.
+ */
+typedef enum {
+	ZFS_ERR_CHECKPOINT_EXISTS = 1024,
+	ZFS_ERR_DISCARDING_CHECKPOINT,
+	ZFS_ERR_NO_CHECKPOINT,
+	ZFS_ERR_DEVRM_IN_PROGRESS,
+	ZFS_ERR_VDEV_TOO_BIG
+} zfs_errno_t;
 
 /*
  * Internal SPA load state.  Used by FMA diagnosis engine.
@@ -1016,6 +1052,7 @@ typedef enum {
 #define	ZFS_IMPORT_ANY_HOST	0x2
 #define	ZFS_IMPORT_MISSING_LOG	0x4
 #define	ZFS_IMPORT_ONLY		0x8
+#define	ZFS_IMPORT_CHECKPOINT	0x10
 
 /*
  * Channel program argument/return nvlist keys and defaults.

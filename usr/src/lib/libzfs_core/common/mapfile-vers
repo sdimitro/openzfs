@@ -41,6 +41,8 @@ SYMBOL_VERSION ILLUMOS_0.2 {
 
 	lzc_get_nextboot;
 	lzc_initialize;
+	lzc_pool_checkpoint;
+	lzc_pool_checkpoint_discard;
 	lzc_redact;
 	lzc_set_nextboot;
 } ILLUMOS_0.1;

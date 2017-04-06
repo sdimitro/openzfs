@@ -344,6 +344,7 @@ ztest_func_t ztest_mooch_byteswap;
 ztest_func_t ztest_device_removal;
 ztest_func_t ztest_remap_blocks;
 ztest_func_t ztest_initialize;
+ztest_func_t ztest_spa_checkpoint_create_discard;
 
 uint64_t zopt_always = 0ULL * NANOSEC;		/* all the time */
 uint64_t zopt_incessant = 1ULL * NANOSEC / 10;	/* every 1/10 second */
@@ -388,6 +389,7 @@ ztest_info_t ztest_info[] = {
 	{ ztest_mooch_byteswap,			1,	&zopt_sometimes	},
 	{ ztest_device_removal,			1,	&zopt_sometimes	},
 	{ ztest_remap_blocks,			1,	&zopt_sometimes },
+	{ ztest_spa_checkpoint_create_discard,	1,	&zopt_rarely	},
 	{ ztest_initialize,			1,	&zopt_sometimes }
 };
 
@@ -454,6 +456,8 @@ enum ztest_object {
 	ZTEST_DIROBJ,
 	ZTEST_OBJECTS
 };
+
+static mutex_t ztest_checkpoint_lock;
 
 /*
  * Name of entry in ZTEST_DIROBJ that maps the origin objects referenced.
@@ -2473,6 +2477,59 @@ ztest_spa_upgrade(ztest_ds_t *zd, uint64_t id)
 	VERIFY0(mutex_unlock(&ztest_vdev_lock));
 }
 
+static void
+ztest_spa_checkpoint(spa_t *spa)
+{
+	ASSERT(_mutex_held(&ztest_checkpoint_lock));
+
+	int error = spa_checkpoint(spa->spa_name);
+
+	switch (error) {
+	case 0:
+	case ZFS_ERR_DEVRM_IN_PROGRESS:
+	case ZFS_ERR_DISCARDING_CHECKPOINT:
+	case ZFS_ERR_CHECKPOINT_EXISTS:
+		break;
+	default:
+		fatal(0, "spa_checkpoint(%s) = %d", spa->spa_name, error);
+	}
+}
+
+static void
+ztest_spa_discard_checkpoint(spa_t *spa)
+{
+	ASSERT(_mutex_held(&ztest_checkpoint_lock));
+
+	int error = spa_checkpoint_discard(spa->spa_name);
+
+	switch (error) {
+	case 0:
+	case ZFS_ERR_DISCARDING_CHECKPOINT:
+	case ZFS_ERR_NO_CHECKPOINT:
+		break;
+	default:
+		fatal(0, "spa_discard_checkpoint(%s) = %d",
+		    spa->spa_name, error);
+	}
+
+}
+
+/* ARGSUSED */
+void
+ztest_spa_checkpoint_create_discard(ztest_ds_t *zd, uint64_t id)
+{
+	spa_t *spa = ztest_spa;
+
+	VERIFY0(mutex_lock(&ztest_checkpoint_lock));
+	if (ztest_random(2) == 0) {
+		ztest_spa_checkpoint(spa);
+	} else {
+		ztest_spa_discard_checkpoint(spa);
+	}
+	VERIFY0(mutex_unlock(&ztest_checkpoint_lock));
+}
+
+
 static vdev_t *
 vdev_lookup_by_path(vdev_t *vd, const char *path)
 {
@@ -2523,7 +2580,7 @@ ztest_vdev_add_remove(ztest_ds_t *zd, uint64_t id)
 	nvlist_t *nvroot;
 	int error;
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_lock(&ztest_vdev_lock));
 	leaves = MAX(zs->zs_mirrors + zs->zs_splits, 1) * ztest_opts.zo_raidz;
 
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
@@ -2553,8 +2610,15 @@ ztest_vdev_add_remove(ztest_ds_t *zd, uint64_t id)
 		error = spa_vdev_remove(spa, guid, B_FALSE);
 		VERIFY(rw_unlock(&ztest_name_lock) == 0);
 
-		if (error && error != EEXIST)
+		switch (error) {
+		case 0:
+		case EEXIST:
+		case ZFS_ERR_CHECKPOINT_EXISTS:
+		case ZFS_ERR_DISCARDING_CHECKPOINT:
+			break;
+		default:
 			fatal(0, "spa_vdev_remove() = %d", error);
+		}
 	} else {
 		spa_config_exit(spa, SCL_VDEV, FTAG);
 
@@ -2569,13 +2633,18 @@ ztest_vdev_add_remove(ztest_ds_t *zd, uint64_t id)
 		error = spa_vdev_add(spa, nvroot);
 		nvlist_free(nvroot);
 
-		if (error == ENOSPC)
+		switch (error) {
+		case 0:
+			break;
+		case ENOSPC:
 			ztest_record_enospc("spa_vdev_add");
-		else if (error != 0)
+			break;
+		default:
 			fatal(0, "spa_vdev_add() = %d", error);
+		}
 	}
 
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_unlock(&ztest_vdev_lock));
 }
 
 /*
@@ -2601,7 +2670,7 @@ ztest_vdev_aux_add_remove(ztest_ds_t *zd, uint64_t id)
 		aux = ZPOOL_CONFIG_L2CACHE;
 	}
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_lock(&ztest_vdev_lock));
 
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
 
@@ -2641,8 +2710,13 @@ ztest_vdev_aux_add_remove(ztest_ds_t *zd, uint64_t id)
 		nvlist_t *nvroot = make_vdev_root(NULL, aux, NULL,
 		    (ztest_opts.zo_vdev_size * 5) / 4, 0, 0, 0, 0, 1);
 		error = spa_vdev_add(spa, nvroot);
-		if (error != 0)
+
+		switch (error) {
+		case 0:
+			break;
+		default:
 			fatal(0, "spa_vdev_add(%p) = %d", nvroot, error);
+		}
 		nvlist_free(nvroot);
 	} else {
 		/*
@@ -2654,11 +2728,19 @@ ztest_vdev_aux_add_remove(ztest_ds_t *zd, uint64_t id)
 			(void) vdev_online(spa, guid, 0, NULL);
 
 		error = spa_vdev_remove(spa, guid, B_FALSE);
-		if (error != 0 && error != EBUSY)
+
+		switch (error) {
+		case 0:
+		case EBUSY:
+		case ZFS_ERR_CHECKPOINT_EXISTS:
+		case ZFS_ERR_DISCARDING_CHECKPOINT:
+			break;
+		default:
 			fatal(0, "spa_vdev_remove(%llu) = %d", guid, error);
+		}
 	}
 
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_unlock(&ztest_vdev_lock));
 }
 
 /*
@@ -2754,7 +2836,6 @@ ztest_split_pool(ztest_ds_t *zd, uint64_t id)
 		--zs->zs_mirrors;
 	}
 	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
-
 }
 
 /*
@@ -2782,7 +2863,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	int oldvd_is_log;
 	int error, expected_error;
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_lock(&ztest_vdev_lock));
 	leaves = MAX(zs->zs_mirrors, 1) * ztest_opts.zo_raidz;
 
 	spa_config_enter(spa, SCL_ALL, FTAG, RW_WRITER);
@@ -2795,7 +2876,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	 */
 	if (spa->spa_vdev_removal != NULL) {
 		spa_config_exit(spa, SCL_ALL, FTAG);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
 		return;
 	}
 
@@ -2853,9 +2934,10 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 		spa_config_exit(spa, SCL_ALL, FTAG);
 		error = spa_vdev_detach(spa, oldguid, pguid, B_FALSE);
 		if (error != 0 && error != ENODEV && error != EBUSY &&
-		    error != ENOTSUP)
+		    error != ENOTSUP && error != ZFS_ERR_CHECKPOINT_EXISTS &&
+		    error != ZFS_ERR_DISCARDING_CHECKPOINT)
 			fatal(0, "detach (%s) returned %d", oldpath, error);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
 		return;
 	}
 
@@ -2945,6 +3027,10 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	if (error == EOVERFLOW || error == EBUSY)
 		expected_error = error;
 
+	if (error == ZFS_ERR_CHECKPOINT_EXISTS ||
+	    error == ZFS_ERR_DISCARDING_CHECKPOINT)
+		expected_error = error;
+
 	/* XXX workaround 6690467 */
 	if (error != expected_error && expected_error != EBUSY) {
 		fatal(0, "attach (%s %llu, %s %llu, %d) "
@@ -2953,7 +3039,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 		    newsize, replacing, error, expected_error);
 	}
 
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_unlock(&ztest_vdev_lock));
 }
 
 /* ARGSUSED */
@@ -2964,7 +3050,7 @@ ztest_device_removal(ztest_ds_t *zd, uint64_t id)
 	vdev_t *vd;
 	uint64_t guid;
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_lock(&ztest_vdev_lock));
 
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
 	vd = vdev_lookup_top(spa, ztest_random_vdev_top(spa, B_FALSE));
@@ -2973,7 +3059,7 @@ ztest_device_removal(ztest_ds_t *zd, uint64_t id)
 
 	(void) spa_vdev_remove(spa, guid, B_FALSE);
 
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_unlock(&ztest_vdev_lock));
 }
 
 /*
@@ -3101,7 +3187,8 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 	uint64_t top;
 	uint64_t old_class_space, new_class_space, old_ms_count, new_ms_count;
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_lock(&ztest_checkpoint_lock));
+	VERIFY0(mutex_lock(&ztest_vdev_lock));
 	spa_config_enter(spa, SCL_STATE, spa, RW_READER);
 
 	/*
@@ -3112,7 +3199,8 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 	 */
 	if (spa->spa_vdev_removal != NULL) {
 		spa_config_exit(spa, SCL_STATE, spa);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
+		VERIFY0(mutex_unlock(&ztest_checkpoint_lock));
 		return;
 	}
 
@@ -3141,7 +3229,8 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 	if (tvd->vdev_state != VDEV_STATE_HEALTHY ||
 	    psize == 0 || psize >= 4 * ztest_opts.zo_vdev_size) {
 		spa_config_exit(spa, SCL_STATE, spa);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
+		VERIFY0(mutex_unlock(&ztest_checkpoint_lock));
 		return;
 	}
 	ASSERT(psize > 0);
@@ -3166,7 +3255,8 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 			    "the vdev configuration changed.\n");
 		}
 		spa_config_exit(spa, SCL_STATE, spa);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
+		VERIFY0(mutex_unlock(&ztest_checkpoint_lock));
 		return;
 	}
 
@@ -3200,7 +3290,8 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 			    "intervening vdev offline or remove.\n");
 		}
 		spa_config_exit(spa, SCL_STATE, spa);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
+		VERIFY0(mutex_unlock(&ztest_checkpoint_lock));
 		return;
 	}
 
@@ -3230,7 +3321,8 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 	}
 
 	spa_config_exit(spa, SCL_STATE, spa);
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_unlock(&ztest_vdev_lock));
+	VERIFY0(mutex_unlock(&ztest_checkpoint_lock));
 }
 
 /*
@@ -5140,11 +5232,11 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 	uint64_t guid0 = 0;
 	boolean_t islog = B_FALSE;
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_lock(&ztest_vdev_lock));
 	maxfaults = MAXFAULTS();
 	leaves = MAX(zs->zs_mirrors, 1) * ztest_opts.zo_raidz;
 	mirror_save = zs->zs_mirrors;
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	VERIFY0(mutex_unlock(&ztest_vdev_lock));
 
 	ASSERT(leaves >= 1);
 
@@ -5290,7 +5382,7 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 	 */
 	fd = open(pathrand, O_RDWR);
 
-	if (fd == -1)	/* we hit a gap in the device namespace */
+	if (fd == -1) /* we hit a gap in the device namespace */
 		return;
 
 	fsize = lseek(fd, 0, SEEK_END);
@@ -5350,9 +5442,9 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 		    offset + sizeof (bad) > psize - VDEV_LABEL_END_SIZE)
 			continue;
 
-		VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_lock(&ztest_vdev_lock));
 		if (mirror_save != zs->zs_mirrors) {
-			VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+			VERIFY0(mutex_unlock(&ztest_vdev_lock));
 			(void) close(fd);
 			return;
 		}
@@ -5361,7 +5453,7 @@ ztest_fault_inject(ztest_ds_t *zd, uint64_t id)
 			fatal(1, "can't inject bad word at 0x%llx in %s",
 			    offset, pathrand);
 
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		VERIFY0(mutex_unlock(&ztest_vdev_lock));
 
 		if (ztest_opts.zo_verbose >= 7)
 			(void) printf("injected bad word into %s,"
@@ -6088,6 +6180,7 @@ ztest_run(ztest_shared_t *zs)
 	/*
 	 * Initialize parent/child shared state.
 	 */
+	VERIFY(_mutex_init(&ztest_checkpoint_lock, USYNC_THREAD, NULL) == 0);
 	VERIFY(_mutex_init(&ztest_vdev_lock, USYNC_THREAD, NULL) == 0);
 	VERIFY(rwlock_init(&ztest_name_lock, USYNC_THREAD, NULL) == 0);
 
@@ -6152,7 +6245,7 @@ ztest_run(ztest_shared_t *zs)
 	    NULL) == 0);
 
 	/*
-	 * Verify that we can safely inquire about about any object,
+	 * Verify that we can safely inquire about any object,
 	 * whether it's allocated or not.  To make it interesting,
 	 * we probe a 5-wide window around each power of two.
 	 * This hits all edge cases, including zero and the max.
@@ -6255,6 +6348,7 @@ ztest_run(ztest_shared_t *zs)
 
 	(void) rwlock_destroy(&ztest_name_lock);
 	(void) _mutex_destroy(&ztest_vdev_lock);
+	(void) _mutex_destroy(&ztest_checkpoint_lock);
 }
 
 static void
@@ -6397,6 +6491,7 @@ ztest_init(ztest_shared_t *zs)
 	nvlist_t *nvroot, *props;
 
 	VERIFY(_mutex_init(&ztest_vdev_lock, USYNC_THREAD, NULL) == 0);
+	VERIFY(_mutex_init(&ztest_checkpoint_lock, USYNC_THREAD, NULL) == 0);
 	VERIFY(rwlock_init(&ztest_name_lock, USYNC_THREAD, NULL) == 0);
 
 	kernel_init(FREAD | FWRITE);
@@ -6437,6 +6532,7 @@ ztest_init(ztest_shared_t *zs)
 
 	(void) rwlock_destroy(&ztest_name_lock);
 	(void) _mutex_destroy(&ztest_vdev_lock);
+	(void) _mutex_destroy(&ztest_checkpoint_lock);
 }
 
 static void

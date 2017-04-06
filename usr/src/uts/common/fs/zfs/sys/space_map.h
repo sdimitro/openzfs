@@ -57,7 +57,7 @@ extern "C" {
 typedef struct space_map_phys {
 	uint64_t	smp_object;	/* on-disk space map object */
 	uint64_t	smp_objsize;	/* size of the object */
-	uint64_t	smp_alloc;	/* space allocated from the map */
+	int64_t		smp_alloc;	/* space allocated from the map */
 	uint64_t	smp_pad[5];	/* reserved */
 
 	/*
@@ -82,7 +82,7 @@ typedef struct space_map {
 	uint64_t	sm_size;	/* size of map */
 	uint8_t		sm_shift;	/* unit shift */
 	uint64_t	sm_length;	/* synced length */
-	uint64_t	sm_alloc;	/* synced space allocated */
+	int64_t		sm_alloc;	/* synced space allocated */
 	objset_t	*sm_os;		/* objset for this map */
 	uint64_t	sm_object;	/* object id for this map */
 	uint32_t	sm_blksz;	/* block size for space map */
@@ -140,6 +140,8 @@ typedef int (*sm_cb_t)(maptype_t type, uint64_t offset, uint64_t size,
 
 int space_map_load(space_map_t *sm, range_tree_t *rt, maptype_t maptype);
 int space_map_iterate(space_map_t *sm, sm_cb_t callback, void *arg);
+int space_map_incremental_destroy(space_map_t *sm, sm_cb_t callback, void *arg,
+    dmu_tx_t *tx);
 
 void space_map_histogram_clear(space_map_t *sm);
 void space_map_histogram_add(space_map_t *sm, range_tree_t *rt,

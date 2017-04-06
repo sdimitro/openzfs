@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -1322,6 +1322,7 @@ typedef struct mdb_metaslab {
 	uint64_t ms_fragmentation;
 	uint64_t ms_weight;
 	uintptr_t ms_allocating[TXG_SIZE];
+	uintptr_t ms_checkpointing;
 	uintptr_t ms_freeing;
 	uintptr_t ms_freed;
 	uintptr_t ms_allocatable;
@@ -1329,14 +1330,14 @@ typedef struct mdb_metaslab {
 } mdb_metaslab_t;
 
 typedef struct mdb_space_map_phys_t {
-	uint64_t smp_alloc;
+	int64_t smp_alloc;
 	uint64_t smp_histogram[SPACE_MAP_HISTOGRAM_SIZE];
 } mdb_space_map_phys_t;
 
 typedef struct mdb_space_map {
 	uint64_t sm_size;
 	uint8_t sm_shift;
-	uint64_t sm_alloc;
+	int64_t sm_alloc;
 	uintptr_t sm_phys;
 } mdb_space_map_t;
 
@@ -1945,6 +1946,7 @@ typedef struct mdb_dsl_dir_phys {
 
 typedef struct space_data {
 	uint64_t ms_allocating[TXG_SIZE];
+	uint64_t ms_checkpointing;
 	uint64_t ms_freeing;
 	uint64_t ms_freed;
 	uint64_t ms_allocatable;
@@ -1976,6 +1978,11 @@ space_cb(uintptr_t addr, const void *unknown, void *arg)
 		sd->ms_allocating[i] += rt.rt_space;
 
 	}
+
+	if (mdb_ctf_vread(&rt, "range_tree_t",
+	    "mdb_range_tree_t", ms.ms_checkpointing, 0) == -1)
+		return (WALK_ERR);
+	sd->ms_checkpointing += rt.rt_space;
 
 	if (mdb_ctf_vread(&rt, "range_tree_t",
 	    "mdb_range_tree_t", ms.ms_freeing, 0) == -1)
@@ -2078,6 +2085,8 @@ spa_space(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	    sd.ms_allocating[1] >> shift, suffix,
 	    sd.ms_allocating[2] >> shift, suffix,
 	    sd.ms_allocating[3] >> shift, suffix);
+	mdb_printf("ms_checkpointing = %llu%s\n",
+	    sd.ms_checkpointing >> shift, suffix);
 	mdb_printf("ms_freeing = %llu%s\n",
 	    sd.ms_freeing >> shift, suffix);
 	mdb_printf("ms_freed = %llu%s\n",

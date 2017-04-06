@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -152,7 +152,7 @@ zil_prt_rec_write(zilog_t *zilog, int txtype, lr_write_t *lr)
 	if (lr->lr_common.lrc_reclen == sizeof (lr_write_t)) {
 		(void) printf("%shas blkptr, %s\n", prefix,
 		    !BP_IS_HOLE(bp) &&
-		    bp->blk_birth >= spa_first_txg(zilog->zl_spa) ?
+		    bp->blk_birth >= spa_min_claim_txg(zilog->zl_spa) ?
 		    "will claim" : "won't claim");
 		print_log_bp(bp, prefix);
 
@@ -336,7 +336,7 @@ print_log_block(zilog_t *zilog, blkptr_t *bp, void *arg, uint64_t claim_txg)
 
 	if (claim_txg != 0)
 		claim = "already claimed";
-	else if (bp->blk_birth >= spa_first_txg(zilog->zl_spa))
+	else if (bp->blk_birth >= spa_min_claim_txg(zilog->zl_spa))
 		claim = "will claim";
 	else
 		claim = "won't claim";

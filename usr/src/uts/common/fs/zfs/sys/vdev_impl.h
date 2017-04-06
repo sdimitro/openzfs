@@ -239,6 +239,9 @@ struct vdev {
 	kmutex_t	vdev_queue_lock; /* protects vdev_queue_depth	*/
 	uint64_t	vdev_top_zap;
 
+	/* pool checkpoint related */
+	space_map_t	*vdev_checkpoint_sm;	/* contains reserved blocks */
+
 	boolean_t	vdev_initialize_exit_wanted;
 	vdev_initializing_state_t	vdev_initialize_state;
 	kthread_t	*vdev_initialize_thread;
@@ -502,6 +505,11 @@ extern boolean_t vdev_indirect_should_condense(vdev_t *vd);
 extern void spa_condense_indirect_start_sync(vdev_t *vd, dmu_tx_t *tx);
 extern int vdev_obsolete_sm_object(vdev_t *vd);
 extern boolean_t vdev_obsolete_counts_are_precise(vdev_t *vd);
+
+/*
+ * Other miscellaneous functions
+ */
+int vdev_checkpoint_sm_object(vdev_t *vd);
 
 /*
  * The vdev_buf_t is used to translate between zio_t and buf_t, and back again.

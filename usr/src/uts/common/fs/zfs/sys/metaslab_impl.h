@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_METASLAB_IMPL_H
@@ -334,9 +334,11 @@ struct metaslab {
 	range_tree_t	*ms_freeing;	/* to free this syncing txg */
 	range_tree_t	*ms_freed;	/* already freed this syncing txg */
 	range_tree_t	*ms_defer[TXG_DEFER_SIZE];
+	range_tree_t	*ms_checkpointing; /* to add to the checkpoint */
 
 	boolean_t	ms_condensing;	/* condensing? */
 	boolean_t	ms_condense_wanted;
+	uint64_t	ms_condense_checked_txg;
 
 	uint64_t	ms_initializing; /* leaves initializing this ms */
 

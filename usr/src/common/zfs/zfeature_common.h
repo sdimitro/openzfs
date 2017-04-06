@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
@@ -62,6 +62,7 @@ typedef enum spa_feature {
 	SPA_FEATURE_REDACTION_BOOKMARKS,
 	SPA_FEATURE_REDACTED_DATASETS,
 	SPA_FEATURE_BOOKMARK_WRITTEN,
+	SPA_FEATURE_POOL_CHECKPOINT,
 	SPA_FEATURES
 } spa_feature_t;
 

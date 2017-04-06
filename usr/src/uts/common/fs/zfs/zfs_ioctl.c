@@ -3760,6 +3760,31 @@ zfs_ioc_channel_program(const char *poolname, nvlist_t *innvl,
 }
 
 /*
+ * innvl: unused
+ * outnvl: empty
+ */
+/* ARGSUSED */
+static int
+zfs_ioc_pool_checkpoint(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)
+{
+	return (spa_checkpoint(poolname));
+}
+
+/*
+ * innvl: unused
+ * outnvl: empty
+ */
+/* ARGSUSED */
+static int
+zfs_ioc_pool_discard_checkpoint(const char *poolname, nvlist_t *innvl,
+    nvlist_t *outnvl)
+{
+	return (spa_checkpoint_discard(poolname));
+}
+
+
+
+/*
  * inputs:
  * zc_name		name of dataset to destroy
  * zc_objset_type	type of objset
@@ -6124,6 +6149,15 @@ zfs_ioctl_init(void)
 	    zfs_ioc_channel_program, zfs_secpolicy_config,
 	    POOL_NAME, POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE,
 	    B_TRUE);
+
+	zfs_ioctl_register("zpool_checkpoint", ZFS_IOC_POOL_CHECKPOINT,
+	    zfs_ioc_pool_checkpoint, zfs_secpolicy_config, POOL_NAME,
+	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE, B_TRUE);
+
+	zfs_ioctl_register("zpool_discard_checkpoint",
+	    ZFS_IOC_POOL_DISCARD_CHECKPOINT, zfs_ioc_pool_discard_checkpoint,
+	    zfs_secpolicy_config, POOL_NAME,
+	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE, B_TRUE);
 
 	zfs_ioctl_register("initialize", ZFS_IOC_POOL_INITIALIZE,
 	    zfs_ioc_pool_initialize, zfs_secpolicy_config, POOL_NAME,

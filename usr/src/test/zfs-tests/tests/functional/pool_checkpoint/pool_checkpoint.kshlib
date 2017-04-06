@@ -1,0 +1,233 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright (c) 2017 by Delphix. All rights reserved.
+#
+
+. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/removal/removal.kshlib
+
+FILECONTENTS0="Can't wait to be checkpointed!"
+FILECONTENTS1="Can't wait to be checkpointed too!"
+NEWFILECONTENTS0="I survived after the checkpoint!"
+NEWFILECONTENTS2="I was born after the checkpoint!"
+
+FS0=$TESTPOOL/$TESTFS
+FS1=$TESTPOOL/$TESTFS1
+FS2=$TESTPOOL/$TESTFS2
+
+#
+# Note that FS0 is already made for us and has
+# a special mountpoint.
+#
+FS0FILE=$TESTDIR/$TESTFILE0
+FS1FILE=/$FS1/$TESTFILE1
+FS2FILE=/$FS2/$TESTFILE2
+
+#
+# In general all the tests related to the pool checkpoint can
+# be divided into two categories. Tests that verify features
+# provided by the checkpoint (e.g. checkpoint_rewind) and tests
+# that stress test the checkpoint (e.g. checkpoint_big_rewind).
+#
+# For the first group we don't really care about the size of
+# the pool or the individual file sizes within its filesystems.
+# For the second group though, we generally want to bring the
+# checkpoint to its limits by increasing the fragmentation of
+# the pool as much as we can given a relatively short period
+# of time. That's why we set the following parameters for those
+# tests:
+#
+# * We use two disks of 1G each, to create a pool of size 2G.
+#   The point is that 2G is not small nor large, and we also
+#   want to have 2 disks to introduce indirect vdevs on our
+#   setup.
+# * We enable compression and set the record size of all
+#   filesystems to 8K. The point of compression is to
+#   ensure that we are not filling up the whole pool (that's
+#   what checkpoint_capacity is for), and the specific
+#   record size is set to match the block size of randwritecomp
+#   which is used to increase fragmentation by writing on
+#   files.
+# * We always have 2 big files present of 512M each, which
+#   should account for 40%~50% capacity by the end of each
+#   test with fragmentation ~80%.
+# * At each file we attempt to do enough random writes to
+#   touch every offset at least twice.
+#
+DISKSIZE=1g
+BIGFILESIZE=512M
+RANDOMWRITES=2000000
+
+#
+# Disks used throughout the tests.
+#
+TMPDIR=${TMPDIR:-/var/tmp}
+DISK1=$TMPDIR/dsk1
+DISK2=$TMPDIR/dsk2
+DISKS="$DISK1 $DISK2"
+EXTRADISK=$TMPDIR/edsk
+
+function setup_pool
+{
+	log_must mkfile $DISKSIZE $DISK1
+	log_must mkfile $DISKSIZE $DISK2
+	log_must mkfile $DISKSIZE $EXTRADISK
+
+	#
+	# Create the pool. The function also creates $TESTFS for
+	# us, which we refer to as $FS0.
+	#
+	default_setup_noexit "$DISKS"
+
+	#
+	# We enable compression and set the record size to 8K
+	# for maximum fragmentation when doing random writes
+	# to this filesystem with randwritecomp.
+	#
+	log_must zfs set compression=lz4 $FS0
+	log_must zfs set recordsize=8k $FS0
+}
+
+function cleanup
+{
+	default_cleanup_noexit
+	log_must rm -f $DISKS
+	log_must rm -f $EXTRADISK
+}
+
+#
+# Remove and re-add each vdev to ensure that data is
+# moved between disks and indirect mappings are created
+#
+function introduce_indirection
+{
+	for disk in ${DISKS[@]}; do
+		log_must zpool remove $TESTPOOL $disk
+		log_must wait_for_removal $TESTPOOL
+		log_mustnot vdevs_in_pool $TESTPOOL $disk
+		log_must zpool add $TESTPOOL $disk
+	done
+}
+
+#
+# Populates the pool with one more dataset, and adds a file to each
+# dataset.
+#
+# Assumes that $FS0 (which is basically $TESFS) already exists from
+# from our call to default_setup_noexit().
+#
+function populate_pool
+{
+	#
+	# See relevant comment in setup_pool function.
+	#
+	log_must zfs create -o compression=lz4 -o recordsize=8k $FS1
+
+	echo $FILECONTENTS0 > $FS0FILE
+	echo $FILECONTENTS1 > $FS1FILE
+}
+
+function verify_pre_checkpoint_state
+{
+	log_must zfs list $FS0
+	log_must zfs list $FS1
+	log_must [ "$(cat $FS0FILE)" = "$FILECONTENTS0" ]
+	log_must [ "$(cat $FS1FILE)" = "$FILECONTENTS1" ]
+
+	#
+	# If we've opened the checkpointed state of the
+	# pool as read-only without rewinding on-disk we
+	# can't really use zdb on it.
+	#
+	if [[ "$1" != "ro-check" ]] ; then
+		log_must zdb $TESTPOOL
+	fi
+
+	#
+	# Ensure post-checkpoint state is not present
+	#
+	log_mustnot zfs list $FS2
+	log_mustnot [ "$(cat $FS0FILE)" = "$NEWFILECONTENTS0" ]
+}
+
+function change_state_after_checkpoint
+{
+	log_must zfs destroy $FS1
+
+	#
+	# See relevant comment in setup_pool function.
+	#
+	log_must zfs create -o compression=lz4 -o recordsize=8k $FS2
+
+	echo $NEWFILECONTENTS0 > $FS0FILE
+	echo $NEWFILECONTENTS2 > $FS2FILE
+}
+
+function verify_post_checkpoint_state
+{
+	log_must zfs list $FS0
+	log_must zfs list $FS2
+	log_must [ "$(cat $FS0FILE)" = "$NEWFILECONTENTS0" ]
+	log_must [ "$(cat $FS2FILE)" = "$NEWFILECONTENTS2" ]
+
+	log_must zdb $TESTPOOL
+
+	#
+	# Ensure pre-checkpointed state that was removed post-checkpoint
+	# is not present
+	#
+	log_mustnot zfs list $FS1
+	log_mustnot [ "$(cat $FS0FILE)" = "$FILECONTENTS0" ]
+}
+
+function fragment_before_checkpoint
+{
+	populate_pool
+	log_must mkfile -n $BIGFILESIZE $FS0FILE
+	log_must mkfile -n $BIGFILESIZE $FS1FILE
+	log_must randwritecomp $FS0FILE $RANDOMWRITES
+	log_must randwritecomp $FS1FILE $RANDOMWRITES
+
+	#
+	# Display fragmentation on test log
+	#
+	log_must zpool list -v
+}
+
+function fragment_after_checkpoint_and_verify
+{
+	log_must zfs destroy $FS1
+	log_must zfs create -o compression=lz4 -o recordsize=8k $FS2
+	log_must mkfile -n $BIGFILESIZE $FS2FILE
+	log_must randwritecomp $FS0FILE $RANDOMWRITES
+	log_must randwritecomp $FS2FILE $RANDOMWRITES
+
+	#
+	# Display fragmentation on test log
+	#
+	log_must zpool list -v
+
+	log_must zdb $TESTPOOL
+	log_must zdb -kc $TESTPOOL
+}
+
+function wait_discard_finish
+{
+	typeset status
+	status=$(zpool status $TESTPOOL | grep "checkpoint:")
+
+	while [ "" != "$status" ]; do
+		sleep 5
+		status=$(zpool status $TESTPOOL | grep "$NO_CKPOINT_STATUS")
+	done
+}

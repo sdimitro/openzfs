@@ -23,10 +23,6 @@
  * Use is subject to license terms.
  */
 
-/*
- * Copyright (c) 2017 by Delphix. All rights reserved.
- */
-
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
 /*	  All Rights Reserved  	*/
 
@@ -202,7 +198,7 @@ kcondvar_t	memavail_cv;
  * Called after the system is initialized and the amount of memory
  * and number of paging devices is known.
  *
- * lotsfree is 1/64 of memory, but at least 512M.
+ * lotsfree is 1/64 of memory, but at least 512K.
  * desfree is 1/2 of lotsfree.
  * minfree is 1/2 of desfree.
  *
@@ -255,7 +251,7 @@ setupclock(int recalc)
 	 * Lotsfree is threshold where paging daemon turns on.
 	 */
 	if (init_lfree == 0 || init_lfree >= looppages)
-		lotsfree = MAX(looppages / 64, btop(512 * 1024 * 1024));
+		lotsfree = MAX(looppages / 64, btop(512 * 1024));
 	else
 		lotsfree = init_lfree;
 

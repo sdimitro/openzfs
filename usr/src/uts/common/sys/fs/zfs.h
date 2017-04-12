@@ -1059,6 +1059,7 @@ typedef enum {
  */
 #define	ZCP_ARG_PROGRAM		"program"
 #define	ZCP_ARG_ARGLIST		"arg"
+#define	ZCP_ARG_SYNC		"sync"
 #define	ZCP_ARG_TIMEOUT		"timeout"
 #define	ZCP_ARG_MEMLIMIT	"memlimit"
 

@@ -285,6 +285,7 @@
 .Fl f Ar clone_file Ns = Ns Ar origin_file Nm ... Ar clone_directory
 .Nm
 .Cm program
+.Op Fl n
 .Op Fl t Ar timeout
 .Op Fl m Ar memory_limit
 .Ar pool script
@@ -3287,6 +3288,7 @@ Display the path's inode change time as the first column of output.
 .It Xo
 .Nm
 .Cm program
+.Op Fl n
 .Op Fl t Ar timeout
 .Op Fl m Ar memory_limit
 .Ar pool script
@@ -3306,7 +3308,14 @@ only be run with root privileges.
 For full documentation of the ZFS channel program interface, see the manual
 page for
 .Xr zfs-program(1m).
+.sp
 .Bl -tag -width ""
+.It Fl n
+Executes a read-only channel program, which runs faster. The program cannot
+change on-disk state by calling functions from the zfs.sync submodule. The
+program can be used to gather information such as properties and determining
+if changes would succeed (zfs.check.*). Without this flag, all pending changes
+must be synced to disk before a channel program can complete.
 .It Fl t Ar timeout
 Execution time limit, in milliseconds. If a channel program executes for longer
 than the provided timeout, it will be stopped and an error will be returned.

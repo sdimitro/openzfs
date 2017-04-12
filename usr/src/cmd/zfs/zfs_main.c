@@ -348,7 +348,7 @@ get_usage(zfs_help_t idx)
 	case HELP_BOOKMARK:
 		return (gettext("\tbookmark <snapshot> <bookmark>\n"));
 	case HELP_CHANNEL_PROGRAM:
-		return (gettext("\tprogram [-t <timeout (ms)>] "
+		return (gettext("\tprogram [-n] [-t <timeout (ms)>] "
 		    "[-m <memory limit (b)>] <pool> <program file> "
 		    "[lua args...]\n"));
 	case HELP_REDACT:
@@ -7338,10 +7338,11 @@ zfs_do_channel_program(int argc, char **argv)
 	nvlist_t *outnvl;
 	uint64_t timeout = ZCP_DEFAULT_TIMEOUT;
 	uint64_t memlimit = ZCP_DEFAULT_MEMLIMIT;
+	boolean_t sync_flag = B_TRUE;
 	zpool_handle_t *zhp;
 
 	/* check options */
-	while ((c = getopt(argc, argv, "t:(timeout)m:(memory-limit)")) != -1) {
+	while ((c = getopt(argc, argv, "nt:(timeout)m:(memory-limit)")) != -1) {
 		switch (c) {
 		case 't':
 		case 'm': {
@@ -7377,6 +7378,10 @@ zfs_do_channel_program(int argc, char **argv)
 					memlimit = arg;
 				}
 			}
+			break;
+		}
+		case 'n': {
+			sync_flag = B_FALSE;
 			break;
 		}
 		case '?':
@@ -7450,8 +7455,13 @@ zfs_do_channel_program(int argc, char **argv)
 	nvlist_t *argnvl = fnvlist_alloc();
 	fnvlist_add_string_array(argnvl, ZCP_ARG_CLIARGV, argv + 2, argc - 2);
 
-	ret = lzc_channel_program(poolname, progbuf, timeout, memlimit, argnvl,
-	    &outnvl);
+	if (sync_flag) {
+		ret = lzc_channel_program(poolname, progbuf,
+		    timeout, memlimit, argnvl, &outnvl);
+	} else {
+		ret = lzc_channel_program_nosync(poolname, progbuf,
+		    timeout, memlimit, argnvl, &outnvl);
+	}
 
 	if (ret != 0) {
 		/*

@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2016, 2017 by Delphix. All rights reserved.
  */
 
 #include <stdio.h>
@@ -83,17 +83,24 @@ nvlist_equal(nvlist_t *nvla, nvlist_t *nvlb)
 }
 
 static void
-test(const char *testname, boolean_t expect_success, boolean_t expect_match)
+test_context(const char *testname, boolean_t sync, boolean_t expect_success,
+    boolean_t expect_match)
 {
 	char *progstr = "input = ...; return {output=input}";
+	int err = 0;
 
 	nvlist_t *outnvl;
 
 	(void) printf("\nrunning test '%s'; input:\n", testname);
 	dump_nvlist(nvl, 4);
 
-	int err = lzc_channel_program(pool, progstr,
-	    1000, 1024 * 1024 * 10, nvl, &outnvl);
+	if (sync) {
+		err = lzc_channel_program(pool, progstr,
+		    1000, 1024 * 1024 * 10, nvl, &outnvl);
+	} else {
+		err = lzc_channel_program_nosync(pool, progstr,
+		    1000, 1024 * 1024 * 10, nvl, &outnvl);
+	}
 
 	(void) printf("lzc_channel_program returned %u\n", err);
 	dump_nvlist(outnvl, 5);
@@ -117,6 +124,14 @@ test(const char *testname, boolean_t expect_success, boolean_t expect_match)
 		unexpected_failures = B_TRUE;
 		(void) printf("unexpected FAIL of case: %s\n", testname);
 	}
+}
+
+static void
+test(const char *testname, boolean_t expect_success, boolean_t expect_match)
+{
+	/* test in both open and syncing contexts */
+	test_context(testname, B_TRUE, expect_success, expect_match);
+	test_context(testname, B_FALSE, expect_success, expect_match);
 
 	fnvlist_free(nvl);
 	nvl = fnvlist_alloc();

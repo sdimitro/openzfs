@@ -85,6 +85,7 @@ int	zfs_bootinfo(void *vdev, char *buf, size_t size, char *envmap,
     size_t mapsize, uint32_t *num_boots, uint32_t *max_boots);
 int	zfs_probe_dev(const char *devname, uint64_t *pool_guid);
 int	zfs_list(const char *name);
+uint64_t ldi_get_size(void *);
 #ifdef __FreeBSD__
 void	init_zfs_bootenv(char *currdev);
 int	zfs_bootenv(const char *name);

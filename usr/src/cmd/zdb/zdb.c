@@ -131,22 +131,24 @@ static void
 usage(void)
 {
 	(void) fprintf(stderr,
-	    "Usage:\t%s [-AbcCdDFGhikLmMPsvX] [-e [-p <path> ...]] "
+	    "Usage:\t%s [-AbcCdDFGhikLmMPsvX] [-e [-V] [-p <path> ...]] "
 	    "[-I <inflight I/Os>]\n"
 	    "\t\t[-o <var>=<value>]... [-t <txg>] [-U <cache>] [-x <dumpdir>]\n"
 	    "\t\t[<poolname> [<object> ...]]\n"
-	    "\t%s [-AdiPv] [-e [-p <path> ...]] [-U <cache>] <dataset> "
+	    "\t%s [-AdiPv] [-e [-V] [-p <path> ...]] [-U <cache>] <dataset> "
 	    "[<object> ...]\n"
 	    "\t%s [-v] <bookmark>\n"
 	    "\t%s -C [-A] [-U <cache>]\n"
 	    "\t%s -E [-A] <word0>:<word1>:...:<word15>\n"
 	    "\t%s -l [-Aqu] <device>\n"
-	    "\t%s -mM [-AFLPX] [-e [-p <path> ...]] [-t <txg>] [-U <cache>]\n"
+	    "\t%s -mM [-AFLPX] [-e [-V] [-p <path> ...]] [-t <txg>] "
+	    "[-U <cache>]\n"
 	    "\t\t<poolname> [<vdev> [<metaslab> ...]]\n"
 	    "\t%s -O <dataset> <path>\n"
-	    "\t%s -R [-A] [-e [-p <path> ...]] [-U <cache>]\n"
+	    "\t%s -R [-A] [-e [-V] [-p <path> ...]] [-U <cache>]\n"
 	    "\t\t<poolname> <vdev>:<offset>:<size>[:<flags>]\n"
-	    "\t%s -S [-AP] [-e [-p <path> ...]] [-U <cache>] <poolname>\n\n",
+	    "\t%s -S [-AP] [-e [-V] [-p <path> ...]] [-U <cache>] "
+	    "<poolname>\n\n",
 	    cmdname, cmdname, cmdname, cmdname, cmdname, cmdname,
 	    cmdname, cmdname, cmdname, cmdname);
 
@@ -205,6 +207,7 @@ usage(void)
 	(void) fprintf(stderr, "        -u uberblock\n");
 	(void) fprintf(stderr, "        -U <cachefile_path> -- use alternate "
 	    "cachefile\n");
+	(void) fprintf(stderr, "        -V do verbatim import\n");
 	(void) fprintf(stderr, "        -x <dumpdir> -- "
 	    "dump all read blocks into specified directory\n");
 	(void) fprintf(stderr, "        -X attempt extreme rewind (does not "
@@ -5156,6 +5159,7 @@ main(int argc, char **argv)
 	char *target;
 	nvlist_t *policy = NULL;
 	uint64_t max_txg = UINT64_MAX;
+	int flags = ZFS_IMPORT_MISSING_LOG;
 	int rewind = ZPOOL_NEVER_REWIND;
 	char *spa_config_path_env;
 	boolean_t target_is_spa = B_TRUE;
@@ -5176,7 +5180,7 @@ main(int argc, char **argv)
 		spa_config_path = spa_config_path_env;
 
 	while ((c = getopt(argc, argv,
-	    "AbcCdDeEFGhiI:klLmMo:Op:PqRsSt:uU:vx:X")) != -1) {
+	    "AbcCdDeEFGhiI:klLmMo:Op:PqRsSt:uU:vVx:X")) != -1) {
 		switch (c) {
 		case 'b':
 		case 'c':
@@ -5257,6 +5261,9 @@ main(int argc, char **argv)
 			break;
 		case 'v':
 			verbose++;
+			break;
+		case 'V':
+			flags = ZFS_IMPORT_VERBATIM;
 			break;
 		case 'x':
 			vn_dumpdir = optarg;
@@ -5372,12 +5379,7 @@ main(int argc, char **argv)
 				    target, strerror(ENOMEM));
 			}
 
-			error = spa_import(name, cfg, NULL,
-			    ZFS_IMPORT_MISSING_LOG);
-			if (error != 0) {
-				error = spa_import(name, cfg, NULL,
-				    ZFS_IMPORT_VERBATIM);
-			}
+			error = spa_import(name, cfg, NULL, flags);
 		}
 	}
 

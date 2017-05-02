@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2017 Nexenta Systems, Inc.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Toomas Soome <tsoome@me.com>
  */
@@ -3008,7 +3008,8 @@ int
 vdev_online(spa_t *spa, uint64_t guid, uint64_t flags, vdev_state_t *newstate)
 {
 	vdev_t *vd, *tvd, *pvd, *rvd = spa->spa_root_vdev;
-	boolean_t postevent = B_FALSE;
+	boolean_t wasoffline;
+	vdev_state_t oldstate;
 
 	spa_vdev_state_enter(spa, SCL_NONE);
 
@@ -3018,9 +3019,8 @@ vdev_online(spa_t *spa, uint64_t guid, uint64_t flags, vdev_state_t *newstate)
 	if (!vd->vdev_ops->vdev_op_leaf)
 		return (spa_vdev_state_exit(spa, NULL, ENOTSUP));
 
-	postevent =
-	    (vd->vdev_offline == B_TRUE || vd->vdev_tmpoffline == B_TRUE) ?
-	    B_TRUE : B_FALSE;
+	wasoffline = (vd->vdev_offline || vd->vdev_tmpoffline);
+	oldstate = vd->vdev_state;
 
 	tvd = vd->vdev_top;
 	vd->vdev_offline = B_FALSE;
@@ -3067,7 +3067,9 @@ vdev_online(spa_t *spa, uint64_t guid, uint64_t flags, vdev_state_t *newstate)
 	}
 	mutex_exit(&vd->vdev_initialize_lock);
 
-	if (postevent)
+	if (wasoffline ||
+	    (oldstate < VDEV_STATE_DEGRADED &&
+	    vd->vdev_state >= VDEV_STATE_DEGRADED))
 		spa_event_notify(spa, vd, ESC_ZFS_VDEV_ONLINE);
 
 	return (spa_vdev_state_exit(spa, vd, 0));

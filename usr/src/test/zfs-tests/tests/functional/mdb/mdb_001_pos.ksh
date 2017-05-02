@@ -72,27 +72,29 @@ set -A dcmds "::abuf_find 1 2" \
 	"::spa" \
 	"$spa ::spa " \
 	"$spa ::spa -c" \
-	"$spa ::spa -v" \
 	"$spa ::spa -h" \
+	"$spa ::spa -v" \
 	"$spa ::spa -Mmh" \
 	"$spa ::spa_config" \
 	"$spa ::spa_space" \
 	"$spa ::spa_space -b" \
 	"$spa ::spa_vdevs" \
+	"$spa ::print spa_t spa_root_vdev | ::vdev" \
+	"$spa ::print spa_t spa_root_vdev | ::vdev -re" \
+	"$spa ::print -a spa_t spa_dsl_pool->dp_dirty_datasets | ::walk txg_list" \
+	"$spa ::print -a spa_t spa_uberblock.ub_rootbp | ::blkptr" \
 	"$spa ::walk metaslab" \
-	"$spa ::print struct spa spa_root_vdev | ::vdev" \
-	"$spa ::print struct spa spa_root_vdev | ::vdev -re" \
+	"$spa ::walk metaslab | ::head -1 | ::metaslab_weight" \
+	"$spa ::walk metaslab | ::head -1 | ::metaslab_trace" \
+	"$spa ::walk zio_root | ::zio -c" \
+	"$spa ::walk zio_root | ::zio -r" \
+	"$spa ::walk zms_freelist"
+	"$spa ::zfs_blkstats -v" \
 	"::dbufs" \
 	"::dbufs -n mos -o mdn -l 0 -b 0" \
 	"::dbufs | ::dbuf" \
 	"::dbuf_stats" \
-	"$spa::print spa_t spa_dsl_pool->dp_dirty_datasets |::walk txg_list" \
-	"$spa ::walk zio_root | ::zio -c" \
-	"$spa ::walk zio_root | ::zio -r" \
-	"dbuf_cache ::walk multilist" \
-	"$spa ::zfs_blkstats -v" \
-	"$spa ::walk metaslab | ::head -1 | ::metaslab_weight" \
-	"$spa ::walk metaslab | ::head -1 | ::metaslab_trace"
+	"dbuf_cache ::walk multilist"
 #
 # The commands above were supplied by the ZFS development team. The idea is to
 # do as much checking as possible without the need to hardcode addresses.

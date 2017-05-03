@@ -181,12 +181,24 @@ process_old_deadlist(dsl_dataset_t *ds, dsl_dataset_t *ds_prev,
 	    dsl_dataset_phys(ds_next)->ds_deadlist_obj);
 }
 
-void
-dsl_dir_remove_clones_key(dsl_dir_t *dd, uint64_t mintxg, dmu_tx_t *tx)
+typedef struct remaining_clones_key {
+	dsl_dataset_t *rck_clone;
+	list_node_t rck_node;
+} remaining_clones_key_t;
+
+static remaining_clones_key_t *
+rck_alloc(dsl_dataset_t *clone)
+{
+	remaining_clones_key_t *rck = kmem_alloc(sizeof (*rck), KM_SLEEP);
+	rck->rck_clone = clone;
+	return (rck);
+}
+
+static void
+dsl_dir_remove_clones_key_impl(dsl_dir_t *dd, uint64_t mintxg, dmu_tx_t *tx,
+    list_t *stack, void *tag)
 {
 	objset_t *mos = dd->dd_pool->dp_meta_objset;
-	zap_cursor_t zc;
-	zap_attribute_t za;
 
 	/*
 	 * If it is the old version, dd_clones doesn't exist so we can't
@@ -196,26 +208,55 @@ dsl_dir_remove_clones_key(dsl_dir_t *dd, uint64_t mintxg, dmu_tx_t *tx)
 	if (dsl_dir_phys(dd)->dd_clones == 0)
 		return;
 
+	zap_cursor_t zc;
+	zap_attribute_t za;
 	for (zap_cursor_init(&zc, mos, dsl_dir_phys(dd)->dd_clones);
 	    zap_cursor_retrieve(&zc, &za) == 0;
 	    zap_cursor_advance(&zc)) {
 		dsl_dataset_t *clone;
 
 		VERIFY0(dsl_dataset_hold_obj(dd->dd_pool,
-		    za.za_first_integer, FTAG, &clone));
+		    za.za_first_integer, tag, &clone));
+
 		if (clone->ds_dir->dd_origin_txg > mintxg) {
 			dsl_deadlist_remove_key(&clone->ds_deadlist,
 			    mintxg, tx);
+
 			if (dsl_dataset_remap_deadlist_exists(clone)) {
 				dsl_deadlist_remove_key(
 				    &clone->ds_remap_deadlist, mintxg, tx);
 			}
-			dsl_dir_remove_clones_key(clone->ds_dir,
-			    mintxg, tx);
+
+			list_insert_head(stack, rck_alloc(clone));
+		} else {
+			dsl_dataset_rele(clone, tag);
 		}
-		dsl_dataset_rele(clone, FTAG);
 	}
 	zap_cursor_fini(&zc);
+}
+
+void
+dsl_dir_remove_clones_key(dsl_dir_t *top_dd, uint64_t mintxg, dmu_tx_t *tx)
+{
+	list_t stack;
+
+	list_create(&stack, sizeof (remaining_clones_key_t),
+	    offsetof(remaining_clones_key_t, rck_node));
+
+	dsl_dir_remove_clones_key_impl(top_dd, mintxg, tx, &stack, FTAG);
+	for (remaining_clones_key_t *rck = list_remove_head(&stack);
+	    rck != NULL; rck = list_remove_head(&stack)) {
+		dsl_dataset_t *clone = rck->rck_clone;
+		dsl_dir_t *clone_dir = clone->ds_dir;
+
+		kmem_free(rck, sizeof (*rck));
+
+		dsl_dir_remove_clones_key_impl(clone_dir, mintxg, tx,
+		    &stack, FTAG);
+		dsl_dataset_rele(clone, FTAG);
+	}
+
+	list_destroy(&stack);
 }
 
 static void

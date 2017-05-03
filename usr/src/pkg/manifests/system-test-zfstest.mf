@@ -669,6 +669,9 @@ file path=opt/zfs-tests/tests/functional/cli_root/zfs_clone/zfs_clone_009_neg \
     mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_clone/zfs_clone_010_pos \
     mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_clone/zfs_clone_rm_nested \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_copies/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_copies/setup mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_copies/zfs_copies.cfg \

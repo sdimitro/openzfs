@@ -2485,6 +2485,9 @@ ztest_spa_checkpoint(spa_t *spa)
 	case ZFS_ERR_DISCARDING_CHECKPOINT:
 	case ZFS_ERR_CHECKPOINT_EXISTS:
 		break;
+	case ENOSPC:
+		ztest_record_enospc(FTAG);
+		break;
 	default:
 		fatal(0, "spa_checkpoint(%s) = %d", spa->spa_name, error);
 	}

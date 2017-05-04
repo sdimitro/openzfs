@@ -41,6 +41,7 @@
 #include <sys/resource.h>
 #include <sys/zil.h>
 #include <sys/zil_impl.h>
+#include <sys/spa_impl.h>
 #include <sys/abd.h>
 
 extern uint8_t dump_opt[256];
@@ -390,6 +391,11 @@ dump_intent_log(zilog_t *zilog)
 
 	for (i = 0; i < TX_MAX_TYPE; i++)
 		zil_rec_info[i].zri_count = 0;
+
+	/* see comment in zil_claim() or zil_check_log_chain() */
+	if (zilog->zl_spa->spa_uberblock.ub_checkpoint_txg != 0 &&
+	    zh->zh_claim_txg == 0)
+		return;
 
 	if (verbose >= 2) {
 		(void) printf("\n");

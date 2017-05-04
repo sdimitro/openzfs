@@ -552,11 +552,13 @@ dsl_scan_zil(dsl_pool_t *dp, zil_header_t *zh)
 	zil_scan_arg_t zsa = { dp, zh };
 	zilog_t *zilog;
 
+	ASSERT(spa_writeable(dp->dp_spa));
+
 	/*
-	 * We only want to visit blocks that have been claimed but not yet
-	 * replayed (or, in read-only mode, blocks that *would* be claimed).
+	 * We only want to visit blocks that have been claimed
+	 * but not yet replayed.
 	 */
-	if (claim_txg == 0 && spa_writeable(dp->dp_spa))
+	if (claim_txg == 0)
 		return;
 
 	zilog = zil_alloc(dp->dp_meta_objset, zh);

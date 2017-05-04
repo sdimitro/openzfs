@@ -369,8 +369,18 @@ done:
 static int
 zil_clear_log_block(zilog_t *zilog, blkptr_t *bp, void *tx, uint64_t first_txg)
 {
-	if (BP_IS_HOLE(bp) || bp->blk_birth >= first_txg ||
-	    zil_bp_tree_add(zilog, bp) != 0)
+	ASSERT(!BP_IS_HOLE(bp));
+
+	/*
+	 * As we call this function from the context of a rewind to a
+	 * checkpoint, each ZIL block whose txg is later than the txg
+	 * that we rewind to is invalid. Thus, we return -1 so
+	 * zil_parse() doesn't attempt to read it.
+	 */
+	if (bp->blk_birth >= first_txg)
+		return (-1);
+
+	if (zil_bp_tree_add(zilog, bp) != 0)
 		return (0);
 
 	zio_free(zilog->zl_spa, first_txg, bp);
@@ -785,16 +795,17 @@ zil_check_log_chain(dsl_pool_t *dp, dsl_dataset_t *ds, void *tx)
 	zilog = dmu_objset_zil(os);
 	bp = (blkptr_t *)&zilog->zl_header->zh_log;
 
-	/*
-	 * Check the first block and determine if it's on a log device
-	 * which may have been removed or faulted prior to loading this
-	 * pool.  If so, there's no point in checking the rest of the log
-	 * as its content should have already been synced to the pool.
-	 */
 	if (!BP_IS_HOLE(bp)) {
 		vdev_t *vd;
 		boolean_t valid = B_TRUE;
 
+		/*
+		 * Check the first block and determine if it's on a log device
+		 * which may have been removed or faulted prior to loading this
+		 * pool.  If so, there's no point in checking the rest of the
+		 * log as its content should have already been synced to the
+		 * pool.
+		 */
 		spa_config_enter(os->os_spa, SCL_STATE, FTAG, RW_READER);
 		vd = vdev_lookup_top(os->os_spa, DVA_GET_VDEV(&bp->blk_dva[0]));
 		if (vd->vdev_islog && vdev_is_dead(vd))
@@ -802,6 +813,18 @@ zil_check_log_chain(dsl_pool_t *dp, dsl_dataset_t *ds, void *tx)
 		spa_config_exit(os->os_spa, SCL_STATE, FTAG);
 
 		if (!valid)
+			return (0);
+
+		/*
+		 * Check whether the current uberblock is checkpointed (e.g.
+		 * we are rewinding) and whether the current header has been
+		 * claimed or not. If it hasn't then skip verifying it. We
+		 * do this because its ZIL blocks may be part of the pool's
+		 * state before the rewind, which is no longer valid.
+		 */
+		zil_header_t *zh = zil_header_in_syncing_context(zilog);
+		if (zilog->zl_spa->spa_uberblock.ub_checkpoint_txg != 0 &&
+		    zh->zh_claim_txg == 0)
 			return (0);
 	}
 

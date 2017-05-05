@@ -31,6 +31,7 @@ directories=(
 	$SRC/man/man5
 	$SRC/grub
 	$SRC/lib/libc
+	$SRC/lib/libc_db
 	$SRC/lib/libmd
 	$SRC/lib/libavl
 	$SRC/lib/libnvpair

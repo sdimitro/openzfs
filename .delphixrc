@@ -1,10 +1,10 @@
 #
-# Copyright (c) 2014, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2017 by Delphix. All rights reserved.
 #
 
 [build]
 build_machine=westy
-zmake_machine=scottie.dcenter.delphix.com
+zmake_machine=scottie
 dcenter_group=dlpx-trunk
 repo_dir=/data/{user}/dlpx-os-gate
 build_dir=/data/{user}/jenkins/{branch}

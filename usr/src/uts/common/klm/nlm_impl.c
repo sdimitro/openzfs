@@ -27,7 +27,7 @@
 
 /*
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -81,6 +81,13 @@ struct nlm_knc {
 	struct knetconfig	n_knc;
 	const char		*n_netid;
 };
+
+/*
+ * Tunable.
+ * When this is enabled, unconditionally clean vholds on every
+ * run of the gc, even if the host is not idle.
+ */
+boolean_t nlm_clean_vholds_on_every_gc = B_TRUE;
 
 /*
  * Number of attempts NLM tries to obtain RPC binding
@@ -345,11 +352,12 @@ static void
 nlm_gc(struct nlm_globals *g)
 {
 	struct nlm_host *hostp;
-	clock_t now, idle_period;
 
-	idle_period = SEC_TO_TICK(g->cn_idle_tmo);
 	mutex_enter(&g->lock);
 	for (;;) {
+		clock_t now, idle_period;
+		idle_period = SEC_TO_TICK(g->cn_idle_tmo);
+
 		/*
 		 * GC thread can be explicitly scheduled from
 		 * memory reclamation function.
@@ -402,14 +410,9 @@ nlm_gc(struct nlm_globals *g)
 			}
 
 			mutex_exit(&hostp->nh_lock);
-		}
 
-		/*
-		 * Handle all hosts that are unused at the moment
-		 * until we meet one with idle timeout in future.
-		 */
-		while ((hostp = TAILQ_FIRST(&g->nlm_idle_hosts)) != NULL) {
-			bool_t has_locks = FALSE;
+			if (!nlm_clean_vholds_on_every_gc)
+				continue;
 
 			/*
 			 * A busy client will prevent the idle timeout from
@@ -422,7 +425,9 @@ nlm_gc(struct nlm_globals *g)
 			 * To address this problem we unconditionally GC
 			 * the host's vholds every time the GC runs. Since
 			 * this is an expensive check, drop the global lock
-			 * and only hold the host lock.
+			 * and only hold the host lock. Note that the AVL
+			 * tree could have changed after we drop and re-acquire
+			 * the lock, however hosts could not be removed.
 			 */
 			mutex_exit(&g->lock);
 			mutex_enter(&hostp->nh_lock);
@@ -431,6 +436,14 @@ nlm_gc(struct nlm_globals *g)
 
 			mutex_exit(&hostp->nh_lock);
 			mutex_enter(&g->lock);
+		}
+
+		/*
+		 * Handle all hosts that are unused at the moment until
+		 * we meet one with an idle timeout in the future.
+		 */
+		while ((hostp = TAILQ_FIRST(&g->nlm_idle_hosts)) != NULL) {
+			bool_t has_locks = FALSE;
 
 			if (hostp->nh_idle_timeout > now)
 				break;
@@ -443,6 +456,13 @@ nlm_gc(struct nlm_globals *g)
 			 */
 			mutex_exit(&g->lock);
 			mutex_enter(&hostp->nh_lock);
+
+			/*
+			 * Do the gc of vholds here if it wasn't done
+			 * in the loop above.
+			 */
+			if (!nlm_clean_vholds_on_every_gc)
+				nlm_host_gc_vholds(hostp);
 
 			/*
 			 * nlm_globals lock was dropped earlier because

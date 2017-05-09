@@ -203,7 +203,6 @@ COMMON_SUBDIRS=		\
 	hostname	\
 	hotplug		\
 	hotplugd	\
-	hwdata		\
 	ibd_upgrade	\
 	iconv		\
 	id		\
@@ -414,7 +413,6 @@ COMMON_SUBDIRS=		\
 	tbl		\
 	tcopy		\
 	tcpd		\
-	terminfo	\
 	th_tools	\
 	tic		\
 	time		\
@@ -834,9 +832,8 @@ _dc: $(DCSUBDIRS)
 #
 # Dependencies
 #
-fs.d: fstyp
+fs.d:	fstyp
 ksh:	shcomp isaexec
-mdb:	terminfo
 print:	lp
 fmt:	mailx
 

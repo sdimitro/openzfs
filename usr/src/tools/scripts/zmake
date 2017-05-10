@@ -24,6 +24,7 @@ export CW_NO_SHADOW=1
 
 # ZFS
 directories=(
+	$SRC/data/terminfo
 	$SRC/uts/intel/kmdb
 	$SRC/uts/intel/zfs
 	$SRC/uts/intel/dev

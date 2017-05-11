@@ -44,7 +44,7 @@ DISK2="$(echo $DISKS | cut -d' ' -f2)"
 DISK3="$(echo $DISKS | cut -d' ' -f3)"
 
 log_must zpool create -f $TESTPOOL raidz $DISK1 $DISK2 $DISK3
-log_must zfs create -V 2G $TESTPOOL/dump
+log_must zfs create -V 8G $TESTPOOL/dump
 
 log_must dumpadm -d /dev/zvol/dsk/$TESTPOOL/dump
 

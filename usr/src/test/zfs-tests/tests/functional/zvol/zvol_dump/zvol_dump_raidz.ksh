@@ -33,8 +33,8 @@ orig_dump_device=$(dumpadm | awk '/Dump device/ { print $3 }')
 
 function cleanup
 {
-	dumpadm -d $orig_dump_device
-	zpool destroy -f $TESTPOOL
+	log_must dumpadm -u -d $orig_dump_device
+	log_must zpool destroy -f $TESTPOOL
 }
 
 log_onexit cleanup
@@ -46,7 +46,7 @@ DISK3="$(echo $DISKS | cut -d' ' -f3)"
 log_must zpool create -f $TESTPOOL raidz $DISK1 $DISK2 $DISK3
 log_must zfs create -V 8G $TESTPOOL/dump
 
-log_must dumpadm -d /dev/zvol/dsk/$TESTPOOL/dump
+log_must dumpadm -u -d /dev/zvol/dsk/$TESTPOOL/dump
 
 log_must dd if=/dev/zvol/dsk/$TESTPOOL/dump of=/dev/null bs=1M count=1
 log_must dd if=/dev/urandom of=/dev/zvol/dsk/$TESTPOOL/dump bs=1M count=1

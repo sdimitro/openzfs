@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -36,6 +37,12 @@ extern "C" {
 
 #define	IPD_DEV_PATH	"/dev/ipd"
 #define	IPD_MAX_DELAY	10000		/* 10 ms in us */
+
+/*
+ * Rates (e.g. ipii_corrupt and ipii_drop) are expressed as the integer
+ * numerator of a fraction whose denominator is IPD_RATE_PRECISION.
+ */
+#define	IPD_RATE_PRECISION	1000000
 
 typedef struct ipd_ioc_perturb {
 	zoneid_t	ipip_zoneid;

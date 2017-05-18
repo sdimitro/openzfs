@@ -93,14 +93,17 @@ directories+=(
 directories+=(
 	$SRC/uts/intel/ip
 	$SRC/uts/intel/ip6
+	$SRC/uts/intel/ipd
 	$SRC/lib/libdhcputil
 	$SRC/lib/libdhcpagent
 	$SRC/lib/libdladm
 	$SRC/lib/libipadm
+	$SRC/lib/libipd
 	$SRC/lib/libroute
 	$SRC/lib/librstp
 	$SRC/cmd/connstat
 	$SRC/cmd/dladm
+	$SRC/cmd/ipdadm
 	$SRC/cmd/cmd-inet/usr.sbin/ipadm
 )
 # NFS server components

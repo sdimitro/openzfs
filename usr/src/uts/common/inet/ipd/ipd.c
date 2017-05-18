@@ -10,6 +10,7 @@
  */
 /*
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -211,25 +212,25 @@ typedef struct ipd_nskstat {
  * requirements for lock ordering.
  */
 typedef struct ipd_netstack {
-	list_node_t	ipdn_link;		/* link on ipd_nsl */
-	netid_t		ipdn_netid;		/* netstack id */
-	zoneid_t	ipdn_zoneid;		/* zone id */
-	kstat_t		*ipdn_kstat;		/* kstat_t ptr */
-	ipd_nskstat_t	ipdn_ksdata;		/* kstat data */
-	kmutex_t	ipdn_lock;		/* protects following members */
-	int		ipdn_status;		/* status flags */
-	net_handle_t	ipdn_v4hdl;		/* IPv4 net handle */
-	net_handle_t	ipdn_v6hdl;		/* IPv4 net handle */
-	int		ipdn_hooked;		/* are hooks registered */
-	hook_t		*ipdn_v4in;		/* IPv4 traffic in hook */
-	hook_t		*ipdn_v4out;		/* IPv4 traffice out hook */
-	hook_t		*ipdn_v6in;		/* IPv6 traffic in hook */
-	hook_t		*ipdn_v6out;		/* IPv6 traffic out hook */
-	int		ipdn_enabled;		/* which perturbs are on */
-	int		ipdn_corrupt;		/* corrupt percentage */
-	int		ipdn_drop;		/* drop percentage */
-	uint_t		ipdn_delay;		/* delay us */
-	long		ipdn_rand;		/* random seed */
+	list_node_t	ipdn_link;	/* link on ipd_nsl */
+	netid_t		ipdn_netid;	/* netstack id */
+	zoneid_t	ipdn_zoneid;	/* zone id */
+	kstat_t		*ipdn_kstat;	/* kstat_t ptr */
+	ipd_nskstat_t	ipdn_ksdata;	/* kstat data */
+	kmutex_t	ipdn_lock;	/* protects following members */
+	int		ipdn_status;	/* status flags */
+	net_handle_t	ipdn_v4hdl;	/* IPv4 net handle */
+	net_handle_t	ipdn_v6hdl;	/* IPv4 net handle */
+	int		ipdn_hooked;	/* are hooks registered */
+	hook_t		*ipdn_v4in;	/* IPv4 traffic in hook */
+	hook_t		*ipdn_v4out;	/* IPv4 traffice out hook */
+	hook_t		*ipdn_v6in;	/* IPv6 traffic in hook */
+	hook_t		*ipdn_v6out;	/* IPv6 traffic out hook */
+	int		ipdn_enabled;	/* which perturbs are on */
+	int		ipdn_corrupt;	/* rate out of IPD_RATE_PRECISION */
+	int		ipdn_drop;	/* rate out of IPD_RATE_PRECISION */
+	uint_t		ipdn_delay;	/* delay us */
+	long		ipdn_rand;	/* random seed */
 } ipd_netstack_t;
 
 /*
@@ -296,7 +297,7 @@ ipd_hook(hook_event_token_t event, hook_data_t data, void *arg)
 	if (status & IPDN_STATUS_CONDEMNED)
 		return (0);
 
-	if (drop != 0 && rand % 100 < drop) {
+	if (drop != 0 && rand % IPD_RATE_PRECISION < drop) {
 		freemsg(*pkt->hpe_mp);
 		*pkt->hpe_mp = NULL;
 		pkt->hpe_mb = NULL;
@@ -314,7 +315,7 @@ ipd_hook(hook_event_token_t event, hook_data_t data, void *arg)
 		ipd_ksbump(&ins->ipdn_ksdata.ink_ndelays);
 	}
 
-	if (corrupt != 0 && rand % 100 < corrupt) {
+	if (corrupt != 0 && rand % IPD_RATE_PRECISION < corrupt) {
 		/*
 		 * Since we're corrupting the mblk, just corrupt everything in
 		 * the chain. While we could corrupt the entire packet, that's a
@@ -559,25 +560,28 @@ ipd_check_hooks(ipd_netstack_t *ins, int type, boolean_t enable)
 	return (0);
 }
 
+/*
+ * Configure the module to corrupt rate/IPD_RATE_PRECISION packets.
+ */
 static int
-ipd_toggle_corrupt(ipd_netstack_t *ins, int percent)
+ipd_toggle_corrupt(ipd_netstack_t *ins, int rate)
 {
 	int rval;
 
 	ASSERT(MUTEX_HELD(&ins->ipdn_lock));
 
-	if (percent < 0 || percent > 100)
+	if (rate < 0 || rate > IPD_RATE_PRECISION)
 		return (ERANGE);
 
 	/*
 	 * If we've been asked to set the value to a value that we already have,
 	 * great, then we're done.
 	 */
-	if (percent == ins->ipdn_corrupt)
+	if (rate == ins->ipdn_corrupt)
 		return (0);
 
-	ins->ipdn_corrupt = percent;
-	rval = ipd_check_hooks(ins, IPD_CORRUPT, percent != 0);
+	ins->ipdn_corrupt = rate;
+	rval = ipd_check_hooks(ins, IPD_CORRUPT, rate != 0);
 
 	/*
 	 * If ipd_check_hooks_failed, that must mean that we failed to set up
@@ -621,25 +625,28 @@ ipd_toggle_delay(ipd_netstack_t *ins, uint32_t delay)
 	return (rval);
 }
 
+/*
+ * Drop rate/IPD_RATE_PRECISION packets.
+ */
 static int
-ipd_toggle_drop(ipd_netstack_t *ins, int percent)
+ipd_toggle_drop(ipd_netstack_t *ins, int rate)
 {
 	int rval;
 
 	ASSERT(MUTEX_HELD(&ins->ipdn_lock));
 
-	if (percent < 0 || percent > 100)
+	if (rate < 0 || rate > IPD_RATE_PRECISION)
 		return (ERANGE);
 
 	/*
 	 * If we've been asked to set the value to a value that we already have,
 	 * great, then we're done.
 	 */
-	if (percent == ins->ipdn_drop)
+	if (rate == ins->ipdn_drop)
 		return (0);
 
-	ins->ipdn_drop = percent;
-	rval = ipd_check_hooks(ins, IPD_DROP, percent != 0);
+	ins->ipdn_drop = rate;
+	rval = ipd_check_hooks(ins, IPD_DROP, rate != 0);
 
 	/*
 	 * If ipd_check_hooks_failed, that must mean that we failed to set up

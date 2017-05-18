@@ -13,11 +13,15 @@
  * Copyright (c) 2012 Joyent, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
 
 #ifndef	_LIBIPD_H
 #define	_LIBIPD_H
 
 #include <sys/types.h>
+#include <sys/ipd.h>
 
 #ifdef	__cplusplus
 extern "C" {

@@ -14,6 +14,9 @@
  * Copyright (c) 2012 Joyent, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -177,10 +180,10 @@ ipdadm_info(int argc, char *argv[])
 
 	(void) printf("ipd information for zone %s:\n",
 	    g_zonename);
-	(void) printf("\tcorrupt:\t%u%% chance of packet corruption\n",
-	    icp->ic_corrupt);
-	(void) printf("\tdrop:\t\t%u%% chance of packet drop\n",
-	    icp->ic_drop);
+	(void) printf("\tcorrupt:\t%.4lf%% chance of packet corruption\n",
+	    (((double)icp->ic_corrupt) / IPD_RATE_PRECISION) * 100);
+	(void) printf("\tdrop:\t\t%.4lf%% chance of packet drop\n",
+	    (((double)icp->ic_drop) / IPD_RATE_PRECISION) * 100);
 	(void) printf("\tdelay:\t\t%u microsecond delay per packet\n",
 	    icp->ic_delay);
 
@@ -222,6 +225,35 @@ ipdadm_parse_long(const char *str, const char *name, long min, long max)
 	return (val);
 }
 
+/*
+ * Parse a floating point number between 0 and 100, and return a long
+ * representing numerator of the fraction n/1,000,000 approximating that
+ * number.
+ */
+static long
+ipdadm_parse_percent(const char *str, const char *name)
+{
+	double d;
+	long num;
+	char *ep;
+
+	errno = 0;
+	d = strtod(str, &ep);
+	if (errno != 0 || *ep != '\0' || d < 0 || d > 100) {
+		(void) fprintf(stderr, "%s: %s value must be a number"
+		    "between 0 and 100\n", g_pname, name);
+		exit(E_ERROR);
+	}
+	num = (long)(d * IPD_RATE_PRECISION / 100);
+	if (d != 0 && num == 0) {
+		(void) fprintf(stderr, "%s: %s value is too small. The "
+		    "smallest non-zero percentage supported is %.4lf%%\n",
+		    g_pname, name, ((double)1 / IPD_RATE_PRECISION) * 100);
+		exit(E_ERROR);
+	}
+	return (num);
+}
+
 static int
 ipdadm_corrupt(int argc, char *argv[])
 {
@@ -235,7 +267,7 @@ ipdadm_corrupt(int argc, char *argv[])
 		return (usage(stderr));
 	}
 
-	val = ipdadm_parse_long(argv[0], "corrupt", 0, 100);
+	val = ipdadm_parse_percent(argv[0], "corrupt");
 	bzero(&ic, sizeof (ic));
 	ic.ic_mask = IPDM_CORRUPT;
 	ic.ic_corrupt = val;
@@ -307,7 +339,7 @@ ipdadm_drop(int argc, char *argv[])
 		return (usage(stderr));
 	}
 
-	val = ipdadm_parse_long(argv[0], "drop", 0, 100);
+	val = ipdadm_parse_percent(argv[0], "drop");
 	bzero(&ic, sizeof (ic));
 	ic.ic_mask = IPDM_DROP;
 	ic.ic_drop = val;

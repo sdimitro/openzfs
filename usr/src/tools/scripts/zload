@@ -196,8 +196,10 @@ files+="
 files+="
 	/kernel/drv/ip
 	/kernel/drv/ip6
+	/kernel/drv/ipd
 	/kernel/drv/amd64/ip
 	/kernel/drv/amd64/ip6
+	/kernel/drv/amd64/ipd
 	/lib/libdhcputil.so.1
 	/lib/libdhcpagent.so.1
 	/lib/libdladm.so.1
@@ -213,7 +215,9 @@ files+="
 	/usr/bin/connstat
 	/usr/include/libdladm.h
 	/usr/include/libroute.h
+	/usr/lib/libipd.so.1
 	/usr/lib/librstp.so.1
+	/usr/sbin/ipdadm
 	/usr/share/man/man1m/dladm.1m
 	/usr/share/man/man1m/ipadm.1m
 "

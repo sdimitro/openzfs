@@ -4215,12 +4215,13 @@ bail:
 			ASSERT(ring->mr_index == 0);
 			mip->mi_default_tx_ring = ring;
 		}
-		if (mip->mi_tx_group_type == MAC_GROUP_TYPE_DYNAMIC)
+		if (mip->mi_tx_group_type == MAC_GROUP_TYPE_DYNAMIC) {
 			mip->mi_txrings_avail = group->mrg_cur_count - 1;
 			/*
 			 * The default ring cannot be reserved.
 			 */
 			mip->mi_txrings_rsvd = 1;
+		}
 		/*
 		 * The default group cannot be reserved. It will be shared
 		 * by clients that do not have an exclusive group.

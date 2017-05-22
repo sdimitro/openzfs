@@ -19,6 +19,7 @@ SUBDIRS = \
 	sdevfs		\
 	secflags	\
 	sigqueue	\
+	sockfs		\
 	spoof-ras	\
 	stress		\
 	utaskq

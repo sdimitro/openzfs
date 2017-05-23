@@ -21,7 +21,6 @@
 
 /*
  * Copyright (c) 1995, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
 #include <sys/types.h>
@@ -440,7 +439,7 @@ sogetoff(mblk_t *mp, t_uscalar_t offset,
  */
 static int
 so_ux_lookup(struct sonode *so, struct sockaddr_un *soun, int checkaccess,
-    vnode_t **vpp)
+		vnode_t **vpp)
 {
 	vnode_t		*vp;	/* Underlying filesystem vnode */
 	vnode_t		*rvp;	/* real vnode */
@@ -625,8 +624,7 @@ so_addr_verify(struct sonode *so, const struct sockaddr *name,
 
 /*
  * Translate an AF_UNIX sockaddr_un to the transport internal name.
- * Assumes caller has called so_addr_verify first.  The translated
- * (internal form) address is stored in sti->sti_ux_taddr.
+ * Assumes caller has called so_addr_verify first.
  */
 /*ARGSUSED*/
 int
@@ -664,13 +662,11 @@ so_ux_addr_xlate(struct sonode *so, struct sockaddr *name,
 	 * to. We release the peer vnode here. In case it has been
 	 * closed by the time the T_CONN_REQ or T_UNITDATA_REQ reaches the
 	 * transport the message will get an error or be dropped.
-	 * Note that that soua_vp is never dereferenced; it's just a
-	 * convenient value by which we can identify the peer.
 	 */
-	sti->sti_ux_taddr.soua_vp = vp;
-	sti->sti_ux_taddr.soua_magic = SOU_MAGIC_EXPLICIT;
-	addr = &sti->sti_ux_taddr;
-	addrlen = (socklen_t)sizeof (sti->sti_ux_taddr);
+	sti->sti_ux_faddr.soua_vp = vp;
+	sti->sti_ux_faddr.soua_magic = SOU_MAGIC_EXPLICIT;
+	addr = &sti->sti_ux_faddr;
+	addrlen = (socklen_t)sizeof (sti->sti_ux_faddr);
 	dprintso(so, 1, ("ux_xlate UNIX: addrlen %d, vp %p\n",
 	    addrlen, (void *)vp));
 	VN_RELE(vp);

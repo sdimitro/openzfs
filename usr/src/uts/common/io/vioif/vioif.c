@@ -11,7 +11,7 @@
 
 /*
  * Copyright 2013 Nexenta Inc.  All rights reserved.
- * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2017 by Delphix. All rights reserved.
  */
 
 /* Based on the NetBSD virtio driver by Minoura Makoto. */
@@ -75,6 +75,15 @@
 #include "virtiovar.h"
 #include "virtioreg.h"
 
+/*
+ * Tunables
+ */
+
+/* support checksum offload on receive side */
+boolean_t vioif_hcksum_enable = B_TRUE;
+/* advertise support for LRO. vioif_hcksum_enable must also be TRUE */
+boolean_t vioif_lro_enable = B_TRUE;
+
 /* Configuration registers */
 #define	VIRTIO_NET_CONFIG_MAC		0 /* 8bit x 6byte */
 #define	VIRTIO_NET_CONFIG_STATUS	6 /* 16bit */
@@ -114,7 +123,8 @@ struct virtio_net_hdr {
 };
 #pragma pack()
 
-#define	VIRTIO_NET_HDR_F_NEEDS_CSUM	1 /* flags */
+#define	VIRTIO_NET_HDR_F_NEEDS_CSUM	1 /* pseudo-header cksum set */
+#define	VIRTIO_NET_HDR_F_DATA_VALID	2 /* cksum not set */
 #define	VIRTIO_NET_HDR_GSO_NONE		0 /* gso_type */
 #define	VIRTIO_NET_HDR_GSO_TCPV4	1 /* gso_type */
 #define	VIRTIO_NET_HDR_GSO_UDP		3 /* gso_type */
@@ -303,6 +313,8 @@ struct vioif_softc {
 	uint64_t		sc_notxbuf;
 	uint64_t		sc_ierrors;
 	uint64_t		sc_oerrors;
+	uint64_t		sc_cksum_skipped;
+	uint64_t		sc_lro_pkts;
 };
 
 #define	ETHER_HEADER_LEN		sizeof (struct ether_header)
@@ -787,6 +799,7 @@ vioif_process_rx(struct vioif_softc *sc)
 		}
 
 		len -= sizeof (struct virtio_net_hdr);
+
 		/*
 		 * We copy small packets that happen to fit into a single
 		 * cookie and reuse the buffers. For bigger ones, we loan
@@ -841,6 +854,29 @@ vioif_process_rx(struct vioif_softc *sc)
 
 		sc->sc_rbytes += len;
 		sc->sc_ipackets++;
+
+		/*
+		 * Check for cksum offload and LRO.
+		 */
+		struct virtio_net_hdr *hdr = (void *)buf->rb_mapping.vbm_buf;
+		if (hdr->flags != 0) {
+			/*
+			 * TODO: we might want to do some sanity checks on the
+			 * packet before setting HCK_FULLCKSUM_OK.
+			 */
+			ASSERT(hdr->flags == VIRTIO_NET_HDR_F_NEEDS_CSUM ||
+			    hdr->flags == VIRTIO_NET_HDR_F_DATA_VALID);
+			mac_hcksum_set(mp, 0, 0, 0, 0, HCK_FULLCKSUM_OK);
+			sc->sc_cksum_skipped++;
+		}
+		if (hdr->gso_type != 0) {
+			ASSERT(hdr->gso_type == VIRTIO_NET_HDR_GSO_TCPV4 ||
+			    hdr->gso_type == VIRTIO_NET_HDR_GSO_UDP);
+			mac_lro_set(mp, hdr->gso_size, HW_LRO);
+			sc->sc_lro_pkts++;
+		}
+		DTRACE_PROBE2(vioif_hdr, struct virtio_net_hdr *, hdr,
+		    uint32_t, len);
 
 		virtio_free_chain(ve);
 
@@ -1543,15 +1579,29 @@ static int
 vioif_dev_features(struct vioif_softc *sc)
 {
 	uint32_t host_features;
-
-	host_features = virtio_negotiate_features(&sc->sc_virtio,
+	uint32_t guest_features =
 	    VIRTIO_NET_F_CSUM |
 	    VIRTIO_NET_F_HOST_TSO4 |
 	    VIRTIO_NET_F_HOST_ECN |
 	    VIRTIO_NET_F_MAC |
 	    VIRTIO_NET_F_STATUS |
 	    VIRTIO_F_RING_INDIRECT_DESC |
-	    VIRTIO_F_NOTIFY_ON_EMPTY);
+	    VIRTIO_F_NOTIFY_ON_EMPTY;
+
+	if (vioif_hcksum_enable)
+		guest_features |= VIRTIO_NET_F_GUEST_CSUM;
+
+	if (vioif_lro_enable) {
+		if (!vioif_hcksum_enable) {
+			dev_err(sc->sc_dev, CE_WARN, "LRO requires checksum "
+			    "offload to be also enabled.");
+		} else {
+			guest_features |= VIRTIO_NET_F_GUEST_TSO4;
+		}
+	}
+
+	host_features = virtio_negotiate_features(&sc->sc_virtio,
+	    guest_features);
 
 	vioif_show_features(sc, "Host features: ", host_features);
 	vioif_show_features(sc, "Negotiated features: ",

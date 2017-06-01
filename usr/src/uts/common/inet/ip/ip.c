@@ -24,7 +24,7 @@
  * Copyright (c) 1990 Mentat Inc.
  * Copyright (c) 2012 Joyent, Inc. All rights reserved.
  * Copyright (c) 2017 OmniTI Computer Consulting, Inc. All rights reserved.
- * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -7961,6 +7961,7 @@ ip_fix_dbref(mblk_t *mp, ip_recv_attr_t *ira)
 		DB_CKSUMSTUFF(mp1) = DB_CKSUMSTUFF(mp);
 		DB_CKSUMEND(mp1) = DB_CKSUMEND(mp);
 		DB_CKSUM16(mp1) = DB_CKSUM16(mp);
+		DB_LROMSS(mp1) = DB_LROMSS(mp);
 	}
 	freemsg(mp);
 	return (mp1);

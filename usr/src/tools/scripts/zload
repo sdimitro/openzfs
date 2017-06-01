@@ -151,6 +151,7 @@ files="
 	/usr/lib/mdb/proc/libnvpair.so
 	/usr/lib/mdb/proc/amd64/libnvpair.so
 	/usr/man/man1m/zfs.1m
+	/usr/man/man1m/zfs-program.1m
 	/usr/man/man1m/zpool.1m
 	/usr/man/man1m/zdb.1m
 	/usr/man/man1m/zstreamdump.1m

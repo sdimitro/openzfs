@@ -38,25 +38,29 @@
 
 verify_runnable "global"
 
-setup_pool
+#
+# Clear all labels from all vdevs so zhack
+# doesn't get confused
+#
+for disk in ${DISKS[@]}; do
+	zpool labelclear -f $disk
+done
 
-log_onexit cleanup
+setup_test_pool
+log_onexit cleanup_test_pool
 
-populate_pool
-
+populate_test_pool
 log_must zpool checkpoint $TESTPOOL
-
-change_state_after_checkpoint
+test_change_state_after_checkpoint
 
 log_must zpool export $TESTPOOL
 
-log_must zhack -d $TMPDIR feature enable -r $TESTPOOL \
-	'com.company:future_feature'
-log_must zhack -d $TMPDIR feature ref $TESTPOOL 'com.company:future_feature'
+log_must zhack feature enable -r $TESTPOOL 'com.company:future_feature'
+log_must zhack feature ref $TESTPOOL 'com.company:future_feature'
 
-log_mustnot zpool import -d $TMPDIR $TESTPOOL
-log_must zpool import -d $TMPDIR --rewind-to-checkpoint $TESTPOOL
+log_mustnot zpool import $TESTPOOL
+log_must zpool import --rewind-to-checkpoint $TESTPOOL
 
-verify_pre_checkpoint_state
+test_verify_pre_checkpoint_state
 
 log_pass "Rewind to checkpoint from unsupported pool feature."

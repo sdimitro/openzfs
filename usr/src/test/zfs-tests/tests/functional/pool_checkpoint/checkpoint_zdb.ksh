@@ -48,15 +48,13 @@ verify_runnable "global"
 CHECKPOINT_SUFFIX="_CHECKPOINTED_UNIVERSE"
 CHECKPOINTED_FS1=$TESTPOOL$CHECKPOINT_SUFFIX/$TESTFS1
 
-setup_pool
+setup_test_pool
+log_onexit cleanup_test_pool
 
-log_onexit cleanup
-
-populate_pool
-
+populate_test_pool
 log_must zpool checkpoint $TESTPOOL
 
-change_state_after_checkpoint
+test_change_state_after_checkpoint
 
 zdb $TESTPOOL | grep "Checkpointed uberblock found" || \
 	log_fail "zdb could not find checkpointed uberblock"

@@ -43,12 +43,17 @@
 #	8. Discard the checkpoint
 #
 
-DISKSIZE=4g
-TMPDIR=${TMPDIR:-/var/tmp}
-DISK=$TMPDIR/dsk1
+DISK="$(echo $DISKS | cut -d' ' -f1)"
+DISKFS=$TESTPOOL/disks
 
-FS0=$TESTPOOL/fs0
-FS1=$TESTPOOL/fs1
+NESTEDPOOL=nestedpool
+
+FILEDISKSIZE=4g
+FILEDISKLOCATION=/$DISKFS
+FILEDISK=$FILEDISKLOCATION/dsk1
+
+FS0=$NESTEDPOOL/fs0
+FS1=$NESTEDPOOL/fs1
 
 FS0FILE=/$FS0/file
 FS1FILE=/$FS1/file
@@ -61,8 +66,8 @@ verify_runnable "global"
 function test_cleanup
 {
 	log_must mdb_ctf_set_int zfs_async_block_max_blocks 0xffffffffffffffff
+	poolexists $NESTEDPOOL && destroy_pool $NESTEDPOOL
 	log_must zpool destroy $TESTPOOL
-	log_must rm -f $DISK
 }
 
 function wait_until_extra_reserved
@@ -71,11 +76,11 @@ function wait_until_extra_reserved
 	# Loop until we get from gigabytes to megabytes
 	#
 	size_range=$(zpool list | awk '{print $1,$4}' | \
-	    grep $TESTPOOL | awk '{print $2}' | grep G)
+	    grep $NESTEDPOOL | awk '{print $2}' | grep G)
 	while [ "" != "$size_range" ]; do
 		sleep 5
 		size_range=$(zpool list | awk '{print $1,$4}' | \
-		    grep $TESTPOOL | awk '{print $2}' | grep G)
+		    grep $NESTEDPOOL | awk '{print $2}' | grep G)
 	done
 
 
@@ -83,12 +88,12 @@ function wait_until_extra_reserved
 	# Loop until we hit the 32M limit
 	#
 	free=$(zpool list | awk '{print $1,$4}' | \
-	    grep $TESTPOOL | awk '{print $2}' | cut -d"M" -f1 | \
+	    grep $NESTEDPOOL | awk '{print $2}' | cut -d"M" -f1 | \
 	    cut -d"." -f1)
 	while (( $free > 32 )); do
 		sleep 5
 		free=$(zpool list | awk '{print $1,$4}' | \
-		    grep $TESTPOOL | awk '{print $2}' | cut -d"M" -f1 | \
+		    grep $NESTEDPOOL | awk '{print $2}' | cut -d"M" -f1 | \
 		    cut -d"." -f1)
 	done
 
@@ -100,12 +105,16 @@ function wait_until_extra_reserved
 	sleep 300
 }
 
-log_must mkfile -n $DISKSIZE $DISK
 log_must zpool create $TESTPOOL $DISK
+log_onexit test_cleanup
+
+log_must zfs create $DISKFS
+
+log_must mkfile -n $FILEDISKSIZE $FILEDISK
+log_must zpool create $NESTEDPOOL $FILEDISK
 log_must zfs create -o recordsize=512 $FS0
 log_must zfs create -o recordsize=512 $FS1
 
-log_onexit test_cleanup
 
 #
 # Create a ~3.2G file and ensure it is
@@ -115,7 +124,7 @@ log_must dd if=/dev/zero of=$FS0FILE bs=1M count=$CKPOINTEDFILEBLOCKS
 log_must sync
 
 # for debugging purposes
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
 #
 # Overwrite every second block of the file.
@@ -135,9 +144,9 @@ log_must dd if=/dev/zero of=$FS0FILE bs=512 ostride=2 \
     count=$NUMOVERWRITTENBLOCKS conv=notrunc
 
 # for debugging purposes
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
-log_must zpool checkpoint $TESTPOOL
+log_must zpool checkpoint $NESTEDPOOL
 
 #
 # Keep writing to the pool until we get to
@@ -146,7 +155,7 @@ log_must zpool checkpoint $TESTPOOL
 log_mustnot dd if=/dev/zero of=$FS1FILE bs=512
 
 # for debugging purposes
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
 #
 # Keep adding properties to our second
@@ -187,7 +196,7 @@ do
 done
 
 # for debugging purposes
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
 #
 # By the time we are done with the loop above
@@ -199,7 +208,7 @@ log_mustnot zfs set user:proptest="should fail!" $FS0
 log_mustnot zfs set user:proptest="should fail!" $FS1
 
 # for debugging purposes
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
 #
 # We are about to destroy the first filesystem,
@@ -221,7 +230,7 @@ log_must zfs destroy $FS0
 wait_until_extra_reserved
 
 # for debugging purposes
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
 #
 # At this point we shouldn't be allowed to
@@ -233,9 +242,9 @@ log_mustnot zfs destroy $FS1
 # The only operations that should be allowed
 # is discarding the checkpoint.
 #
-log_must zpool checkpoint -d $TESTPOOL
+log_must zpool checkpoint -d $NESTEDPOOL
 
-wait_discard_finish
+wait_discard_finish $NESTEDPOOL
 
 #
 # Now that we have space again, we should be

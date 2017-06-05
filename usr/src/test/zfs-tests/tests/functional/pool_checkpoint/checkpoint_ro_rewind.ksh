@@ -37,24 +37,21 @@
 
 verify_runnable "global"
 
-setup_pool
+setup_test_pool
+log_onexit cleanup_test_pool
 
-log_onexit cleanup
-
-populate_pool
-
+populate_test_pool
 log_must zpool checkpoint $TESTPOOL
-
-change_state_after_checkpoint
-
-log_must zpool export $TESTPOOL
-log_must zpool import -d $TMPDIR -o readonly=on --rewind-to-checkpoint $TESTPOOL
-
-verify_pre_checkpoint_state "ro-check"
+test_change_state_after_checkpoint
 
 log_must zpool export $TESTPOOL
-log_must zpool import -d $TMPDIR $TESTPOOL
+log_must zpool import -o readonly=on --rewind-to-checkpoint $TESTPOOL
 
-verify_post_checkpoint_state
+test_verify_pre_checkpoint_state "ro-check"
+
+log_must zpool export $TESTPOOL
+log_must zpool import $TESTPOOL
+
+test_verify_post_checkpoint_state
 
 log_pass "Open checkpointed state of the pool as read-only pool."

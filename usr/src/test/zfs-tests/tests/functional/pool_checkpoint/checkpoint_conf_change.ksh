@@ -30,15 +30,14 @@
 
 verify_runnable "global"
 
-setup_pool
-
-log_onexit cleanup
+setup_test_pool
+log_onexit cleanup_test_pool
 
 log_must zpool checkpoint $TESTPOOL
 
 log_mustnot zpool reguid $TESTPOOL
-log_mustnot zpool attach -f $TESTPOOL $DISK1 $EXTRADISK
-log_mustnot zpool replace $TESTPOOL $DISK1 $EXTRADISK
-log_mustnot zpool remove $TESTPOOL $DISK1
+log_mustnot zpool attach -f $TESTPOOL $TESTDISK $EXTRATESTDISK
+log_mustnot zpool replace $TESTPOOL $TESTDISK $EXTRATESTDISK
+log_mustnot zpool remove $TESTPOOL $TESTDISK
 
 log_pass "Cannot change pool's config when pool has checkpoint."

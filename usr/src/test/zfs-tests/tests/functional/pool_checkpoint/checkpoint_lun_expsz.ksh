@@ -38,25 +38,24 @@ verify_runnable "global"
 
 EXPSZ=2G
 
-setup_pool
+setup_nested_pools
+log_onexit cleanup_nested_pools
 
-log_onexit cleanup
+populate_nested_pool
+INITSZ=$(zpool list -v | grep "$FILEDISK1" | awk '{print $2}')
+log_must zpool checkpoint $NESTEDPOOL
 
-populate_pool
-INITSZ=$(zpool list -v | awk '{print $1,$2}' | grep "$DISK1" | awk '{print $2}')
-log_must zpool checkpoint $TESTPOOL
-
-log_must truncate -s $EXPSZ $DISK1
-log_must zpool online -e $TESTPOOL $DISK1
-NEWSZ=$(zpool list -v | awk '{print $1,$2}' | grep "$DISK1" | awk '{print $2}')
-change_state_after_checkpoint
+log_must truncate -s $EXPSZ $FILEDISK1
+log_must zpool online -e $NESTEDPOOL $FILEDISK1
+NEWSZ=$(zpool list -v | grep "$FILEDISK1" | awk '{print $2}')
+nested_change_state_after_checkpoint
 log_mustnot [ "$INITSZ" = "$NEWSZ" ]
 
-log_must zpool export $TESTPOOL
-log_must zpool import -d $TMPDIR --rewind-to-checkpoint $TESTPOOL
+log_must zpool export $NESTEDPOOL
+log_must zpool import -d $FILEDISKDIR --rewind-to-checkpoint $NESTEDPOOL
 
-verify_pre_checkpoint_state
-FINSZ=$(zpool list -v | awk '{print $1,$2}' | grep "$DISK1" | awk '{print $2}')
+nested_verify_pre_checkpoint_state
+FINSZ=$(zpool list -v | grep "$FILEDISK1" | awk '{print $2}')
 log_must [ "$INITSZ" = "$FINSZ" ]
 
 log_pass "LUN expansion rewinded correctly."

@@ -34,21 +34,14 @@
 #	5. Attempt to checkpoint (attempt should fail)
 #
 
-function test_cleanup
-{
-	default_cleanup_noexit
-	log_must rm -f $DISK1 $DISK2
-}
-
 verify_runnable "global"
 
 #
 # Create pool
 #
-log_must mkfile $DISKSIZE $DISK1
-default_setup_noexit "$DISK1"
-
-log_onexit test_cleanup
+setup_test_pool
+log_onexit cleanup_test_pool
+populate_test_pool
 
 #
 # Create big empty file and do some writes at random
@@ -62,13 +55,12 @@ log_must randwritecomp $FS0FILE 1000
 #
 # Add second disk
 #
-log_must mkfile $DISKSIZE $DISK2
-log_must zpool add $TESTPOOL $DISK2
+log_must zpool add $TESTPOOL $EXTRATESTDISK
 
 #
 # Remove disk and attempt to take checkpoint
 #
-log_must zpool remove $TESTPOOL $DISK1
+log_must zpool remove $TESTPOOL $TESTDISK
 log_mustnot zpool checkpoint $TESTPOOL
 log_must zpool status $TESTPOOL
 

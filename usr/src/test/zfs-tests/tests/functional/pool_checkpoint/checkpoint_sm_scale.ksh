@@ -47,18 +47,21 @@ verify_runnable "global"
 TESTPOOL1=testpool1
 TESTPOOL2=testpool2
 
-DISK64PB=$TMPDIR/disk64PB
-DISK65PB=$TMPDIR/disk65PB
+DISK64PB=/$DISKFS/disk64PB
+DISK65PB=/$DISKFS/disk65PB
 
 function test_cleanup
 {
-	log_must zpool destroy $TESTPOOL1
-	log_must zpool destroy $TESTPOOL2
+	poolexists $TESTPOOL1 && destroy_pool $TESTPOOL1
+	poolexists $TESTPOOL2 && destroy_pool $TESTPOOL2
 	log_must rm -f $DISK64PB $DISK65PB
+	cleanup_test_pool
 }
 
-log_onexit cleanup
+setup_test_pool
+log_onexit test_cleanup
 
+log_must zfs create $DISKFS
 log_must mkfile -n $((64 * 1024 * 1024))g $DISK64PB
 log_must mkfile -n $((65 * 1024 * 1024))g $DISK65PB
 

@@ -34,11 +34,9 @@
 
 verify_runnable "global"
 
-setup_pool
-
-log_onexit cleanup
-
-populate_pool
+setup_test_pool
+log_onexit cleanup_test_pool
+populate_test_pool
 
 #
 # Argument groups below. Note that all_args also includes
@@ -50,7 +48,7 @@ set -A all_args "" "-d" "--discard"
 # Target groups below. Note that invalid_targets includes
 # an empty string as "do not supply a pool name".
 #
-set -A invalid_targets "" "iDontExist" "$FS0" "$TESTDIR/$TESTFILE"
+set -A invalid_targets "" "iDontExist" "$FS0" "$FS0FILE"
 non_checkpointed="$TESTPOOL"
 
 #
@@ -75,8 +73,8 @@ done
 #
 log_mustnot zpool checkpoint -d $non_checkpointed
 log_must zpool export $non_checkpointed
-log_mustnot zpool import -d $TMPDIR --rewind-to-checkpoint $non_checkpointed
-log_must zpool import -d $TMPDIR $non_checkpointed
+log_mustnot zpool import --rewind-to-checkpoint $non_checkpointed
+log_must zpool import $non_checkpointed
 
 log_pass "Badly formed checkpoint related commands with " \
 	"invalid inputs fail as expected."

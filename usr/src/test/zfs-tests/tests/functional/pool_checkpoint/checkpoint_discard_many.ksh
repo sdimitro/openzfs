@@ -32,15 +32,14 @@
 
 verify_runnable "global"
 
-setup_pool
+setup_test_pool
+log_onexit cleanup_test_pool
 
-log_onexit cleanup
-
-populate_pool
+populate_test_pool
 log_must zpool checkpoint $TESTPOOL
-change_state_after_checkpoint
+test_change_state_after_checkpoint
 log_must zpool checkpoint -d $TESTPOOL
-wait_discard_finish
+test_wait_discard_finish
 
 log_must mkfile -n 100M $FS2FILE
 log_must randwritecomp $FS2FILE 100
@@ -48,6 +47,6 @@ log_must zpool checkpoint $TESTPOOL
 
 log_must randwritecomp $FS2FILE 100
 log_must zpool checkpoint -d $TESTPOOL
-wait_discard_finish
+test_wait_discard_finish
 
 log_pass "Background discarding works as expected."

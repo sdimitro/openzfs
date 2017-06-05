@@ -30,12 +30,10 @@
 
 verify_runnable "global"
 
-setup_pool
-
-log_onexit cleanup
+setup_test_pool
+log_onexit cleanup_test_pool
 
 log_must zpool checkpoint $TESTPOOL
-
 log_mustnot zpool checkpoint $TESTPOOL
 
 log_pass "Attempting to checkpoint an already checkpointed " \

@@ -45,42 +45,46 @@
 
 function test_cleanup
 {
-	default_cleanup_noexit
-	log_must rm -f $DISK1
+	poolexists $NESTEDPOOL && destroy_pool $NESTEDPOOL
+	cleanup_test_pool
 }
 
 verify_runnable "global"
 
-log_must mkfile 1g $DISK1
-default_setup_noexit "$DISK1"
-
+setup_test_pool
 log_onexit test_cleanup
 
-log_must dd if=/dev/urandom of=$FS0FILE bs=700M count=1
-FILE0INTRO=$(head -c 100 $FS0FILE)
+log_must zfs create $DISKFS
 
-log_must zpool checkpoint $TESTPOOL
-log_must rm $FS0FILE
+log_must mkfile $FILEDISKSIZE $FILEDISK1
+log_must zpool create $NESTEDPOOL $FILEDISK1
+
+log_must zfs create -o compression=lz4 -o recordsize=8k $NESTEDFS0
+log_must dd if=/dev/urandom of=$NESTEDFS0FILE bs=700M count=1
+FILE0INTRO=$(head -c 100 $NESTEDFS0FILE)
+
+log_must zpool checkpoint $NESTEDPOOL
+log_must rm $NESTEDFS0FILE
 
 #
 # only for debugging purposes
 #
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
-log_mustnot dd if=/dev/urandom of=$FS0FILE bs=300M count=1
+log_mustnot dd if=/dev/urandom of=$NESTEDFS0FILE bs=300M count=1
 
 #
 # only for debugging purposes
 #
-log_must zpool list $TESTPOOL
+log_must zpool list $NESTEDPOOL
 
-log_must zdb -kc $TESTPOOL
+log_must zdb -kc $NESTEDPOOL
 
-log_must zpool export $TESTPOOL
-log_must zpool import -d $TMPDIR --rewind-to-checkpoint $TESTPOOL
+log_must zpool export $NESTEDPOOL
+log_must zpool import -d $FILEDISKDIR --rewind-to-checkpoint $NESTEDPOOL
 
-log_must [ "$(head -c 100 $FS0FILE)" = "$FILE0INTRO" ]
+log_must [ "$(head -c 100 $NESTEDFS0FILE)" = "$FILE0INTRO" ]
 
-log_must zdb $TESTPOOL
+log_must zdb $NESTEDPOOL
 
 log_pass "Do not reuse checkpointed space at low capacity."

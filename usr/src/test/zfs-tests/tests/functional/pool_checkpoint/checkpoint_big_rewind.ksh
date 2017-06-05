@@ -37,16 +37,15 @@
 
 verify_runnable "global"
 
-setup_pool
-
-log_onexit cleanup
+setup_nested_pools
+log_onexit cleanup_nested_pools
 
 #
 # Populate and fragment pool.
 #
 fragment_before_checkpoint
 
-log_must zpool checkpoint $TESTPOOL
+log_must zpool checkpoint $NESTEDPOOL
 
 #
 # Destroy one dataset, modify an existing one and create a
@@ -56,9 +55,9 @@ log_must zpool checkpoint $TESTPOOL
 #
 fragment_after_checkpoint_and_verify
 
-log_must zpool export $TESTPOOL
-log_must zpool import -d $TMPDIR --rewind-to-checkpoint $TESTPOOL
+log_must zpool export $NESTEDPOOL
+log_must zpool import -d $FILEDISKDIR --rewind-to-checkpoint $NESTEDPOOL
 
-log_must zdb $TESTPOOL
+log_must zdb $NESTEDPOOL
 
 log_pass "Rewind to checkpoint on a stressed pool."

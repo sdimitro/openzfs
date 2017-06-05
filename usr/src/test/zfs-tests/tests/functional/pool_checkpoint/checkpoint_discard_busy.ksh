@@ -43,11 +43,10 @@ function test_cleanup
 {
 	# reset memory limit to 16M
 	mdb_ctf_set_int zfs_spa_discard_memory_limit 1000000
-	cleanup
+	cleanup_nested_pools
 }
 
-setup_pool
-
+setup_nested_pools
 log_onexit test_cleanup
 
 #
@@ -69,42 +68,42 @@ mdb_ctf_set_int zfs_spa_discard_memory_limit 0t128
 
 fragment_before_checkpoint
 
-log_must zpool checkpoint $TESTPOOL
+log_must zpool checkpoint $NESTEDPOOL
 
 fragment_after_checkpoint_and_verify
 
-log_must zpool checkpoint -d $TESTPOOL
+log_must zpool checkpoint -d $NESTEDPOOL
 
-log_must zpool export $TESTPOOL
+log_must zpool export $NESTEDPOOL
 
 #
 # Verify on-disk state while pool is exported
 #
-log_must zdb -e -p $TMPDIR $TESTPOOL
+log_must zdb -e -p $FILEDISKDIR $NESTEDPOOL
 
 #
 # Attempt to rewind on a pool that is discarding
 # a checkpoint.
 #
-log_mustnot zpool import -d $TMPDIR --rewind-to-checkpoint $TESTPOOL
+log_mustnot zpool import -d $FILEDISKDIR --rewind-to-checkpoint $NESTEDPOOL
 
-log_must zpool import -d $TMPDIR $TESTPOOL
+log_must zpool import -d $FILEDISKDIR $NESTEDPOOL
 
 #
 # Discarding should continue after import, so
 # all the following operations should fail.
 #
-log_mustnot zpool checkpoint $TESTPOOL
-log_mustnot zpool checkpoint -d $TESTPOOL
-log_mustnot zpool remove $TESTPOOL $DISK1
-log_mustnot zpool reguid $TESTPOOL
+log_mustnot zpool checkpoint $NESTEDPOOL
+log_mustnot zpool checkpoint -d $NESTEDPOOL
+log_mustnot zpool remove $NESTEDPOOL $FILEDISK1
+log_mustnot zpool reguid $NESTEDPOOL
 
 # reset memory limit to 16M
 mdb_ctf_set_int zfs_spa_discard_memory_limit 1000000
 
-wait_discard_finish
+nested_wait_discard_finish
 
-log_must zdb $TESTPOOL
+log_must zdb $NESTEDPOOL
 
 log_pass "Can export/import but not rewind/checkpoint/discard or " \
     "change pool's config while discarding."

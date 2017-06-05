@@ -34,9 +34,8 @@
 
 verify_runnable "global"
 
-setup_pool
-
-log_onexit cleanup
+setup_nested_pools
+log_onexit cleanup_nested_pools
 
 #
 # Populate and fragment pool. Also, remove and re-add
@@ -50,7 +49,7 @@ introduce_indirection
 #
 log_must zpool list -v
 
-log_must zpool checkpoint $TESTPOOL
+log_must zpool checkpoint $NESTEDPOOL
 
 #
 # Destroy one dataset, modify an existing one and create a

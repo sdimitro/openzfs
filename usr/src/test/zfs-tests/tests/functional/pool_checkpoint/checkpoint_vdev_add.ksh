@@ -36,32 +36,28 @@
 
 verify_runnable "global"
 
-setup_pool
+setup_test_pool
+log_onexit cleanup_test_pool
 
-log_onexit cleanup
-
-populate_pool
+populate_test_pool
 
 log_must zpool checkpoint $TESTPOOL
-
-log_must zpool add $TESTPOOL $EXTRADISK
+log_must zpool add $TESTPOOL $EXTRATESTDISK
 
 #
 # Ensure that the vdev shows up
 #
-log_must zpool list -v $TESTPOOL | grep $EXTRADISK
-
-change_state_after_checkpoint
+log_must eval "zpool list -v $TESTPOOL | grep $EXTRATESTDISK"
+test_change_state_after_checkpoint
 
 log_must zpool export $TESTPOOL
+log_must zpool import --rewind-to-checkpoint $TESTPOOL
 
-log_must zpool import -d $TMPDIR --rewind-to-checkpoint $TESTPOOL
-
-verify_pre_checkpoint_state
+test_verify_pre_checkpoint_state
 
 #
 # Ensure that the vdev doesn't show up after the rewind
 #
-log_must zpool list -v $TESTPOOL | grep $EXTRADISK
+log_mustnot eval "zpool list -v $TESTPOOL | grep $EXTRATESTDISK"
 
 log_pass "Add device in checkpointed pool."

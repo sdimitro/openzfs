@@ -145,12 +145,6 @@ function cleanup_pool
 	return 0
 }
 
-function cleanup_pools
-{
-	cleanup_pool $POOL2
-	destroy_pool $POOL3
-}
-
 #
 # Detect if the given two filesystems have same sub-datasets
 #

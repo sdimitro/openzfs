@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -36,12 +36,12 @@
 verify_runnable "both"
 
 sendfs=$POOL/sendfs
-recvfs=$POOL3/recvfs
-streamfs=$POOL2/stream
+recvfs=$POOL2/recvfs
+streamfs=$POOL/stream
 
 log_onexit resume_cleanup $sendfs $streamfs
 
-for sendfs in $POOL2/sendfs $POOL2; do
+for sendfs in $POOL/sendfs $POOL; do
 	test_fs_setup $sendfs $recvfs
 	resume_test "zfs send -v $sendfs@a" $streamfs $recvfs
 	resume_test "zfs send -v -i @a $sendfs@b" $streamfs $recvfs

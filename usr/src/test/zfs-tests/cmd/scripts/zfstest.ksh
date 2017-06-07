@@ -214,6 +214,9 @@ export KEEP="^$(echo $KEEP | sed 's/ /$|^/g')\$"
 num_disks=$(echo $DISKS | awk '{print NF}')
 [[ $num_disks -lt 3 ]] && fail "Not enough disks to run ZFS Test Suite"
 
+# DelphixOS has a non-default coreadm configuration.
+sudo -k coreadm -e process
+
 # Ensure user has only basic privileges.
 ppriv -s EIP=basic -e $runner $runner_args -c $runfile
 ret=$?

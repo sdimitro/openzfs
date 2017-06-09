@@ -11,7 +11,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2016, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/channel_program/channel_common.kshlib
@@ -25,9 +25,8 @@
 
 verify_runnable "global"
 
-
 log_mustnot_checkerror_program "Memory limit exhausted" \
-    -t 10000 $TESTPOOL - <<-EOF
+    -t 100000000 $TESTPOOL - <<-EOF
 	a = {};
 	i = 0;
 	while true do
@@ -38,7 +37,7 @@ log_mustnot_checkerror_program "Memory limit exhausted" \
 EOF
 
 log_mustnot_checkerror_program "Memory limit exhausted" \
-    -m 100000 -t 10000 $TESTPOOL - <<-EOF
+    -m 100000 -t 100000000 $TESTPOOL - <<-EOF
 	a = {};
 	i = 0;
 	while true do
@@ -60,12 +59,12 @@ log_mustnot_checkerror_program "Memory limit exhausted" -m 1 $TESTPOOL - <<-EOF
 	return s
 EOF
 
-log_mustnot_checkerror_program "Invalid time or memory limit" \
+log_mustnot_checkerror_program "Invalid memory limit" \
     -m 1000000000000 $TESTPOOL - <<-EOF
 	return 1;
 EOF
 
-log_mustnot_checkerror_program "Invalid time or memory limit" \
+log_mustnot_checkerror_program "Invalid memory limit" \
     -m 9223372036854775808 $TESTPOOL - <<-EOF
 	return 1;
 EOF

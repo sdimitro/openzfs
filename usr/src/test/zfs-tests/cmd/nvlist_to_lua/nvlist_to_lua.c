@@ -96,10 +96,10 @@ test_context(const char *testname, boolean_t sync, boolean_t expect_success,
 
 	if (sync) {
 		err = lzc_channel_program(pool, progstr,
-		    1000, 1024 * 1024 * 10, nvl, &outnvl);
+		    10 * 1000 * 1000, 10 * 1024 * 1024, nvl, &outnvl);
 	} else {
 		err = lzc_channel_program_nosync(pool, progstr,
-		    1000, 1024 * 1024 * 10, nvl, &outnvl);
+		    10 * 1000 * 1000, 10 * 1024 * 1024, nvl, &outnvl);
 	}
 
 	(void) printf("lzc_channel_program returned %u\n", err);

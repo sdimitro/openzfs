@@ -100,11 +100,12 @@
 #include <sys/zcp_iter.h>
 #include <sys/zcp_prop.h>
 #include <sys/zcp_global.h>
+#include <util/sscanf.h>
 
 #define	ZCP_NVLIST_MAX_DEPTH 20
 
-uint64_t zfs_lua_check_timeout_instruction_interval = 100;
-uint64_t zfs_lua_max_timeout = SEC2NSEC(10);
+uint64_t zfs_lua_check_instrlimit_interval = 100;
+uint64_t zfs_lua_max_instrlimit = 100 * 1000 * 1000;
 uint64_t zfs_lua_max_memlimit = 1024 * 1024 * 100;
 
 /*
@@ -126,7 +127,7 @@ typedef struct zcp_eval_arg {
 	cred_t		*ea_cred;
 	nvlist_t	*ea_outnvl;
 	int		ea_result;
-	uint64_t	ea_timeout;
+	uint64_t	ea_instrlimit;
 } zcp_eval_arg_t;
 
 /*
@@ -224,12 +225,35 @@ zcp_cleanup(lua_State *state)
 static nvlist_t *
 zcp_table_to_nvlist(lua_State *state, int index, int depth)
 {
-	nvlist_t *nvl = fnvlist_alloc();
+	nvlist_t *nvl;
+	/*
+	 * Converting a Lua table to an nvlist with key uniqueness checking is
+	 * O(n^2) in the number of keys in the nvlist, which can take a long
+	 * time when we return a large table from a channel program.
+	 * Furthermore, Lua's table interface *almost* guarantees unique keys
+	 * on its own (details below). Therefore, we don't use fnvlist_alloc()
+	 * here to avoid the built-in uniqueness checking.
+	 *
+	 * The *almost* is because it's possible to have key collisions between
+	 * e.g. the string "1" and the number 1, or the string "true" and the
+	 * boolean true, so we explicitly check that when we're looking at a
+	 * key which is an integer / boolean or a string that can be parsed as
+	 * one of those types. In the worst case this could still devolve into
+	 * O(n^2), so we only start doing these checks on boolean/integer keys
+	 * once we've seen a string key which fits this weird usage pattern.
+	 *
+	 * Ultimately, we still want callers to know that the keys in this
+	 * nvlist are unique, so before we return this we set the nvlist's
+	 * flags to reflect that.
+	 */
+	VERIFY0(nvlist_alloc(&nvl, 0, KM_SLEEP));
+
 	/*
 	 * Push an empty stack slot where lua_next() will store each
 	 * table key.
 	 */
 	lua_pushnil(state);
+	boolean_t saw_str_could_collide = B_FALSE;
 	while (lua_next(state, index) != 0) {
 		/*
 		 * The next key-value pair from the table at index is
@@ -239,20 +263,38 @@ zcp_table_to_nvlist(lua_State *state, int index, int depth)
 		int err = 0;
 		char buf[32];
 		const char *key = NULL;
+		boolean_t key_could_collide = B_FALSE;
 
 		switch (lua_type(state, -2)) {
 		case LUA_TSTRING:
 			key = lua_tostring(state, -2);
+
+			/* check if this could collide with a number or bool */
+			long long tmp;
+			int parselen;
+			if ((sscanf(key, "%lld%n", &tmp, &parselen) > 0 &&
+			    parselen == strlen(key)) ||
+			    strcmp(key, "true") == 0 ||
+			    strcmp(key, "false") == 0) {
+				key_could_collide = B_TRUE;
+				saw_str_could_collide = B_TRUE;
+			}
 			break;
 		case LUA_TBOOLEAN:
 			key = (lua_toboolean(state, -2) == B_TRUE ?
 			    "true" : "false");
+			if (saw_str_could_collide) {
+				key_could_collide = B_TRUE;
+			}
 			break;
 		case LUA_TNUMBER:
 			VERIFY3U(sizeof (buf), >,
 			    snprintf(buf, sizeof (buf), "%lld",
 			    (longlong_t)lua_tonumber(state, -2)));
 			key = buf;
+			if (saw_str_could_collide) {
+				key_could_collide = B_TRUE;
+			}
 			break;
 		default:
 			fnvlist_free(nvl);
@@ -262,11 +304,9 @@ zcp_table_to_nvlist(lua_State *state, int index, int depth)
 			return (NULL);
 		}
 		/*
-		 * It's possible for string keys to collide
-		 * (e.g. the string "1" and the number 1), which should
-		 * throw an error.
+		 * Check for type-mismatched key collisions, and throw an error.
 		 */
-		if (nvlist_exists(nvl, key)) {
+		if (key_could_collide && nvlist_exists(nvl, key)) {
 			fnvlist_free(nvl);
 			(void) lua_pushfstring(state, "Collision of "
 			    "key '%s' in table", key);
@@ -300,6 +340,12 @@ zcp_table_to_nvlist(lua_State *state, int index, int depth)
 		 */
 		lua_pop(state, 1);
 	}
+
+	/*
+	 * Mark the nvlist as having unique keys. This is a little ugly, but we
+	 * ensured above that there are no duplicate keys in the nvlist.
+	 */
+	nvl->nvl_nvflag |= NV_UNIQUE_NAME;
 
 	return (nvl);
 }
@@ -737,12 +783,14 @@ static void
 zcp_lua_counthook(lua_State *state, lua_Debug *ar)
 {
 	/*
-	 * If we're called, check how long channel program's been running for,
-	 * and compare against the end time (stored in runtime info).
+	 * If we're called, check how many instructions the channel program has
+	 * executed so far, and compare against the limit.
 	 */
 	lua_getfield(state, LUA_REGISTRYINDEX, ZCP_RUN_INFO_KEY);
 	zcp_run_info_t *ri = lua_touserdata(state, -1);
-	if ((ri->zri_endtime != 0) && (gethrtime() > ri->zri_endtime)) {
+
+	ri->zri_curinstrs += zfs_lua_check_instrlimit_interval;
+	if (ri->zri_maxinstrs != 0 && ri->zri_curinstrs > ri->zri_maxinstrs) {
 		ri->zri_timed_out = B_TRUE;
 		(void) lua_pushstring(state,
 		    "Channel program timed out.");
@@ -780,26 +828,20 @@ zcp_eval_impl(dmu_tx_t *tx, boolean_t sync, zcp_eval_arg_t *evalargs)
 	ri.zri_sync = sync;
 	list_create(&ri.zri_cleanup_handlers, sizeof (zcp_cleanup_handler_t),
 	    offsetof(zcp_cleanup_handler_t, zch_node));
+	ri.zri_curinstrs = 0;
+	ri.zri_maxinstrs = evalargs->ea_instrlimit;
 
-	/*
-	 * A timeout or end time value of 0 indicates no time limit.
-	 */
-	if (evalargs->ea_timeout == 0) {
-		ri.zri_endtime = 0;
-	} else {
-		ri.zri_endtime = gethrtime() + evalargs->ea_timeout;
-	}
 	lua_pushlightuserdata(state, &ri);
 	lua_setfield(state, LUA_REGISTRYINDEX, ZCP_RUN_INFO_KEY);
 	VERIFY3U(3, ==, lua_gettop(state));
 
 	/*
 	 * Tell the Lua interpreter to call our handler every count
-	 * instructions. Channel programs that execute for too long should
-	 * die with ETIME.
+	 * instructions. Channel programs that execute too many instructions
+	 * should die with ETIME.
 	 */
 	(void) lua_sethook(state, zcp_lua_counthook, LUA_MASKCOUNT,
-	    zfs_lua_check_timeout_instruction_interval);
+	    zfs_lua_check_instrlimit_interval);
 
 	/*
 	 * Tell the Lua memory allocator to stop using KM_SLEEP before handing
@@ -973,20 +1015,15 @@ zcp_eval_open(zcp_eval_arg_t *evalargs, const char *poolname)
 
 int
 zcp_eval(const char *poolname, const char *program, boolean_t sync,
-    uint64_t timeout, uint64_t memlimit, nvpair_t *nvarg, nvlist_t *outnvl)
+    uint64_t instrlimit, uint64_t memlimit, nvpair_t *nvarg, nvlist_t *outnvl)
 {
 	int err;
 	lua_State *state;
 	zcp_eval_arg_t evalargs;
 
-	if (timeout > zfs_lua_max_timeout)
+	if (instrlimit > zfs_lua_max_instrlimit)
 		return (SET_ERROR(EINVAL));
 	if (memlimit == 0 || memlimit > zfs_lua_max_memlimit)
-		return (SET_ERROR(EINVAL));
-
-	/* User timeout option is in ms */
-	timeout = MSEC2NSEC(timeout);
-	if (timeout > INT64_MAX || memlimit > INT64_MAX)
 		return (SET_ERROR(EINVAL));
 
 	zcp_alloc_arg_t allocargs = {
@@ -1088,7 +1125,7 @@ zcp_eval(const char *poolname, const char *program, boolean_t sync,
 
 	evalargs.ea_state = state;
 	evalargs.ea_allocargs = &allocargs;
-	evalargs.ea_timeout = timeout;
+	evalargs.ea_instrlimit = instrlimit;
 	evalargs.ea_cred = CRED();
 	evalargs.ea_outnvl = outnvl;
 	evalargs.ea_result = 0;

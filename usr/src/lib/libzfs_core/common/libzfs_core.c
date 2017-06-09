@@ -938,7 +938,7 @@ lzc_destroy_bookmarks(nvlist_t *bmarks, nvlist_t **errlist)
 
 static int
 lzc_channel_program_impl(const char *pool, const char *program, boolean_t sync,
-    uint64_t timeout, uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
+    uint64_t instrlimit, uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
 {
 	int error;
 	nvlist_t *args;
@@ -947,7 +947,7 @@ lzc_channel_program_impl(const char *pool, const char *program, boolean_t sync,
 	fnvlist_add_string(args, ZCP_ARG_PROGRAM, program);
 	fnvlist_add_nvlist(args, ZCP_ARG_ARGLIST, argnvl);
 	fnvlist_add_boolean_value(args, ZCP_ARG_SYNC, sync);
-	fnvlist_add_uint64(args, ZCP_ARG_TIMEOUT, timeout);
+	fnvlist_add_uint64(args, ZCP_ARG_INSTRLIMIT, instrlimit);
 	fnvlist_add_uint64(args, ZCP_ARG_MEMLIMIT, memlimit);
 	error = lzc_ioctl(ZFS_IOC_CHANNEL_PROGRAM, pool, args, outnvl);
 	fnvlist_free(args);
@@ -984,15 +984,15 @@ lzc_channel_program_impl(const char *pool, const char *program, boolean_t sync,
  *          limit. Some portion of the channel program may have executed and
  *          committed changes to disk. No output is returned through 'outnvl'.
  *
- * ETIME    The program was terminated because it exceeded its time limit.
- *          Some portion of the channel program may have executed and committed
- *          changes to disk. No output is returned through 'outnvl'.
+ * ETIME    The program was terminated because it exceeded its Lua instruction
+ *          limit. Some portion of the channel program may have executed and
+ *          committed changes to disk. No output is returned through 'outnvl'.
  */
 int
-lzc_channel_program(const char *pool, const char *program, uint64_t timeout,
+lzc_channel_program(const char *pool, const char *program, uint64_t instrlimit,
     uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
 {
-	return (lzc_channel_program_impl(pool, program, B_TRUE, timeout,
+	return (lzc_channel_program_impl(pool, program, B_TRUE, instrlimit,
 	    memlimit, argnvl, outnvl));
 }
 
@@ -1010,9 +1010,9 @@ lzc_channel_program(const char *pool, const char *program, uint64_t timeout,
  */
 int
 lzc_channel_program_nosync(const char *pool, const char *program,
-    uint64_t timeout, uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
+    uint64_t instrlimit, uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
 {
-	return (lzc_channel_program_impl(pool, program, B_FALSE, timeout,
+	return (lzc_channel_program_impl(pool, program, B_FALSE, instrlimit,
 	    memlimit, argnvl, outnvl));
 }
 

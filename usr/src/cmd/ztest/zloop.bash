@@ -78,6 +78,7 @@ function store_core
 		echo "*** ztest crash found - moving logs to $coredir/$coreid"
 
 		or_die /bin/mv ztest.history $dest/
+		or_die /bin/mv ztest.ddt $dest/
 		or_die /bin/mv ztest.out $dest/
 		or_die /bin/mv $workdir/ztest* $dest/vdev/
 		or_die /bin/mv $workdir/zpool.cache $dest/vdev/
@@ -144,6 +145,7 @@ if [[ ! -w $coredir ]]; then
 fi
 
 or_die /bin/rm -f ztest.history
+or_die /bin/rm -f ztest.ddt
 or_die /bin/rm -f ztest.cores
 
 # Allow core files to be written to cwd if that's currently disabled.
@@ -192,6 +194,7 @@ while [[ $timeout -eq 0 ]] || [[ $curtime -le $(($starttime + $timeout)) ]]; do
 	$BIN/$cmd >>ztest.out 2>&1
 	ztrc=$?
 	/bin/egrep '===|WARNING' ztest.out >>ztest.history
+	$SBIN/zdb -U $workdir/zpool.cache -DD ztest >>ztest.ddt
 
 	store_core
 

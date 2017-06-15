@@ -93,6 +93,7 @@ typedef enum drr_headertype {
 #define	DMU_BACKUP_FEATURE_RESUMING		(1 << 20)
 #define	DMU_BACKUP_FEATURE_REDACTED		(1 << 21)
 #define	DMU_BACKUP_FEATURE_COMPRESSED		(1 << 22)
+/* flag #23 is reserved for the large dnode feature */
 
 /*
  * Mask of all supported backup features

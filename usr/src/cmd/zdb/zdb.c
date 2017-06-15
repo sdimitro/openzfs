@@ -65,6 +65,7 @@
 #include <sys/mooch_byteswap.h>
 #include <sys/blkptr.h>
 #include <sys/abd.h>
+#include <sys/blkptr.h>
 #include <zfs_comutil.h>
 #undef verify
 #include <libzfs.h>
@@ -147,10 +148,11 @@ usage(void)
 	    "\t%s -O <dataset> <path>\n"
 	    "\t%s -R [-A] [-e [-V] [-p <path> ...]] [-U <cache>]\n"
 	    "\t\t<poolname> <vdev>:<offset>:<size>[:<flags>]\n"
+	    "\t%s -E [-A] word0:word1:...:word15\n"
 	    "\t%s -S [-AP] [-e [-V] [-p <path> ...]] [-U <cache>] "
 	    "<poolname>\n\n",
 	    cmdname, cmdname, cmdname, cmdname, cmdname, cmdname,
-	    cmdname, cmdname, cmdname, cmdname);
+	    cmdname, cmdname, cmdname, cmdname, cmdname);
 
 	(void) fprintf(stderr, "    Dataset name must include at least one "
 	    "separator character '/' or '@'\n");

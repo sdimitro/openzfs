@@ -2205,6 +2205,9 @@ vdev_dtl_should_excise(vdev_t *vd)
 	ASSERT0(scn->scn_phys.scn_errors);
 	ASSERT0(vd->vdev_children);
 
+	if (vd->vdev_state < VDEV_STATE_DEGRADED)
+		return (B_FALSE);
+
 	if (vd->vdev_resilver_txg == 0 ||
 	    range_tree_is_empty(vd->vdev_dtl[DTL_MISSING]))
 		return (B_TRUE);

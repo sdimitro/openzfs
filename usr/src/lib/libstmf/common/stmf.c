@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Milan Jurik. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
  */
 
 #include <stdlib.h>
@@ -1963,17 +1963,9 @@ persistDiskGuid(stmfGuid *guid, char *filename, boolean_t persist)
 				    STMF_LU_PROVIDER_TYPE, &setToken);
 			}
 			if (stmfRet != STMF_STATUS_SUCCESS) {
-				if (stmfRet == STMF_ERROR_BUSY) {
-					/* get/set failed, try again */
-					retryGetProviderData = B_TRUE;
-					if (retryCnt++ > MAX_PROVIDER_RETRY) {
-						ret = stmfRet;
-						break;
-					}
-					continue;
-				} else if (stmfRet ==
+				if (stmfRet == STMF_ERROR_BUSY || stmfRet ==
 				    STMF_ERROR_PROV_DATA_STALE) {
-					/* update failed, try again */
+					/* operation failed, try again */
 					nvlist_free(nvl);
 					nvl = NULL;
 					retryGetProviderData = B_TRUE;

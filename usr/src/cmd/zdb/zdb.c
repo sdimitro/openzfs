@@ -2638,24 +2638,29 @@ dump_label(const char *dev)
 
 		(void) snprintf(path, sizeof (path), "%s%s", ZFS_RDISK_ROOTD,
 		    dev);
-		if ((s = strrchr(dev, 's')) == NULL || !isdigit(*(s + 1)))
+		if (((s = strrchr(dev, 's')) == NULL &&
+		    (s = strchr(dev, 'p')) == NULL) ||
+		    !isdigit(*(s + 1)))
 			(void) strlcat(path, "s0", sizeof (path));
 	}
 
 	if ((fd = open64(path, O_RDONLY)) < 0) {
-		(void) printf("cannot open '%s': %s\n", path, strerror(errno));
-		exit(1);
-	}
-
-	if (fstat64(fd, &statbuf) != 0) {
-		(void) printf("failed to fstat '%s': %s\n", path,
+		(void) fprintf(stderr, "cannot open '%s': %s\n", path,
 		    strerror(errno));
 		exit(1);
 	}
 
+	if (fstat64(fd, &statbuf) != 0) {
+		(void) fprintf(stderr, "failed to stat '%s': %s\n", path,
+		    strerror(errno));
+		(void) close(fd);
+		exit(1);
+	}
+
 	if (S_ISBLK(statbuf.st_mode)) {
-		(void) printf("cannot use '%s': character device required\n",
-		    path);
+		(void) fprintf(stderr,
+		    "cannot use '%s': character device required\n", path);
+		(void) close(fd);
 		exit(1);
 	}
 

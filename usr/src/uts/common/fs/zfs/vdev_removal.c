@@ -914,7 +914,8 @@ vdev_remove_complete(vdev_t *vd)
 	uint64_t txg;
 	ASSERT3P(vd->vdev_initialize_thread, ==, NULL);
 
-	sysevent_t *ev = spa_event_create(spa, vd, ESC_ZFS_VDEV_REMOVE_DEV);
+	sysevent_t *ev = spa_event_create(spa, vd, NULL,
+	    ESC_ZFS_VDEV_REMOVE_DEV);
 
 	/*
 	 * Wait for any deferred frees to be synced before we call
@@ -1752,7 +1753,8 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 			    "%s vdev (%s) %s", spa_name(spa),
 			    VDEV_TYPE_SPARE, nvstr);
 
-			ev = spa_event_create(spa, vd, ESC_ZFS_VDEV_REMOVE_AUX);
+			ev = spa_event_create(spa, vd, NULL,
+			    ESC_ZFS_VDEV_REMOVE_AUX);
 			spa_vdev_remove_aux(spa->spa_spares.sav_config,
 			    ZPOOL_CONFIG_SPARES, spares, nspares, nv);
 			spa_load_spares(spa);
@@ -1770,14 +1772,14 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 		/*
 		 * Cache devices can always be removed.
 		 */
-		ev = spa_event_create(spa, vd, ESC_ZFS_VDEV_REMOVE_AUX);
+		ev = spa_event_create(spa, vd, NULL, ESC_ZFS_VDEV_REMOVE_AUX);
 		spa_vdev_remove_aux(spa->spa_l2cache.sav_config,
 		    ZPOOL_CONFIG_L2CACHE, l2cache, nl2cache, nv);
 		spa_load_l2cache(spa);
 		spa->spa_l2cache.sav_sync = B_TRUE;
 	} else if (vd != NULL && vd->vdev_islog) {
 		ASSERT(!locked);
-		ev = spa_event_create(spa, vd, ESC_ZFS_VDEV_REMOVE_DEV);
+		ev = spa_event_create(spa, vd, NULL, ESC_ZFS_VDEV_REMOVE_DEV);
 		error = spa_vdev_remove_log(vd, &txg);
 	} else if (vd != NULL) {
 		ASSERT(!locked);

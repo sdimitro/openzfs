@@ -164,6 +164,10 @@ file path=opt/zfs-tests/README mode=0444
 file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
 file path=opt/zfs-tests/bin/devname2devid mode=0555
 file path=opt/zfs-tests/bin/dir_rd_update mode=0555
+$(i386_ONLY)file path=opt/zfs-tests/bin/edonr_test.amd64 mode=0555
+$(i386_ONLY)file path=opt/zfs-tests/bin/edonr_test.i386 mode=0555
+$(sparc_ONLY)file path=opt/zfs-tests/bin/edonr_test.sparc mode=0555
+$(sparc_ONLY)file path=opt/zfs-tests/bin/edonr_test.sparcv9 mode=0555
 file path=opt/zfs-tests/bin/file_check mode=0555
 file path=opt/zfs-tests/bin/file_trunc mode=0555
 file path=opt/zfs-tests/bin/file_write mode=0555
@@ -175,6 +179,7 @@ file path=opt/zfs-tests/bin/mkbusy mode=0555
 file path=opt/zfs-tests/bin/mkfiles mode=0555
 file path=opt/zfs-tests/bin/mkholes mode=0555
 file path=opt/zfs-tests/bin/mktree mode=0555
+file path=opt/zfs-tests/bin/mmap_exec mode=0555
 file path=opt/zfs-tests/bin/mmapwrite mode=0555
 file path=opt/zfs-tests/bin/nvlist_to_lua mode=0555
 file path=opt/zfs-tests/bin/randfree_file mode=0555
@@ -182,6 +187,15 @@ file path=opt/zfs-tests/bin/randwritecomp mode=0555
 file path=opt/zfs-tests/bin/readmmap mode=0555
 file path=opt/zfs-tests/bin/rename_dir mode=0555
 file path=opt/zfs-tests/bin/rm_lnkcnt_zero_file mode=0555
+$(i386_ONLY)file path=opt/zfs-tests/bin/sha2_test.amd64 mode=0555
+$(i386_ONLY)file path=opt/zfs-tests/bin/sha2_test.i386 mode=0555
+$(sparc_ONLY)file path=opt/zfs-tests/bin/sha2_test.sparc mode=0555
+$(sparc_ONLY)file path=opt/zfs-tests/bin/sha2_test.sparcv9 mode=0555
+$(i386_ONLY)file path=opt/zfs-tests/bin/skein_test.amd64 mode=0555
+$(i386_ONLY)file path=opt/zfs-tests/bin/skein_test.i386 mode=0555
+$(sparc_ONLY)file path=opt/zfs-tests/bin/skein_test.sparc mode=0555
+$(sparc_ONLY)file path=opt/zfs-tests/bin/skein_test.sparcv9 mode=0555
+file path=opt/zfs-tests/bin/threadsappend mode=0555
 file path=opt/zfs-tests/bin/zfstest mode=0555
 file path=opt/zfs-tests/callbacks/timeout_cleanup mode=0555
 file path=opt/zfs-tests/callbacks/zfs_dbgmsg mode=0555
@@ -190,10 +204,9 @@ file path=opt/zfs-tests/include/default.cfg mode=0444
 file path=opt/zfs-tests/include/libtest.shlib mode=0444
 file path=opt/zfs-tests/include/math.shlib mode=0444
 file path=opt/zfs-tests/include/properties.shlib mode=0444
+file path=opt/zfs-tests/runfiles/default.run mode=0444
 file path=opt/zfs-tests/runfiles/delphix.run mode=0444
 file path=opt/zfs-tests/runfiles/longevity.run mode=0444
-file path=opt/zfs-tests/runfiles/omnios.run mode=0444
-file path=opt/zfs-tests/runfiles/openindiana.run mode=0444
 file path=opt/zfs-tests/runfiles/perf-regression.run mode=0444
 file path=opt/zfs-tests/runfiles/stress.run mode=0444
 file path=opt/zfs-tests/tests/functional/acl/acl.cfg mode=0444
@@ -605,33 +618,9 @@ file \
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_simple.zcp \
     mode=0444
-$(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/edonr_test.amd64 \
-    mode=0555
-$(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/edonr_test.i386 \
-    mode=0555
-$(sparc_ONLY)file \
-    path=opt/zfs-tests/tests/functional/checksum/edonr_test.sparc mode=0555
-$(sparc_ONLY)file \
-    path=opt/zfs-tests/tests/functional/checksum/edonr_test.sparcv9 mode=0555
 file path=opt/zfs-tests/tests/functional/checksum/run_edonr_test mode=0555
 file path=opt/zfs-tests/tests/functional/checksum/run_sha2_test mode=0555
 file path=opt/zfs-tests/tests/functional/checksum/run_skein_test mode=0555
-$(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/sha2_test.amd64 \
-    mode=0555
-$(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/sha2_test.i386 \
-    mode=0555
-$(sparc_ONLY)file path=opt/zfs-tests/tests/functional/checksum/sha2_test.sparc \
-    mode=0555
-$(sparc_ONLY)file \
-    path=opt/zfs-tests/tests/functional/checksum/sha2_test.sparcv9 mode=0555
-$(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/skein_test.amd64 \
-    mode=0555
-$(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/skein_test.i386 \
-    mode=0555
-$(sparc_ONLY)file \
-    path=opt/zfs-tests/tests/functional/checksum/skein_test.sparc mode=0555
-$(sparc_ONLY)file \
-    path=opt/zfs-tests/tests/functional/checksum/skein_test.sparcv9 mode=0555
 file path=opt/zfs-tests/tests/functional/clean_mirror/clean_mirror_001_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/clean_mirror/clean_mirror_002_pos \
@@ -2078,7 +2067,6 @@ file path=opt/zfs-tests/tests/functional/devices/setup mode=0555
 file path=opt/zfs-tests/tests/functional/exec/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/exec/exec_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/exec/exec_002_neg mode=0555
-file path=opt/zfs-tests/tests/functional/exec/mmap_exec mode=0555
 file path=opt/zfs-tests/tests/functional/exec/setup mode=0555
 file \
     path=opt/zfs-tests/tests/functional/features/async_destroy/async_destroy_001_pos \
@@ -2605,7 +2593,6 @@ file path=opt/zfs-tests/tests/functional/sparse/sparse.cfg mode=0444
 file path=opt/zfs-tests/tests/functional/sparse/sparse_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/threadsappend/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/threadsappend/setup mode=0555
-file path=opt/zfs-tests/tests/functional/threadsappend/threadsappend mode=0555
 file path=opt/zfs-tests/tests/functional/threadsappend/threadsappend_001_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/truncate/cleanup mode=0555

@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/tests/functional/rsend/rsend.kshlib
@@ -33,7 +33,13 @@
 
 verify_runnable "both"
 
-log_onexit cleanup_pool $POOL2
+function cleanup
+{
+	log_must cleanup_pool $POOL
+	log_must cleanup_pool $POOL2
+	log_must setup_test_model $POOL
+}
+log_onexit cleanup
 
 typeset sendfs=$POOL2/sendfs
 typeset recvfs=$POOL2/recvfs

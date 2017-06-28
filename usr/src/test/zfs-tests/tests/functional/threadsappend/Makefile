@@ -10,59 +10,12 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 #
 
 include $(SRC)/Makefile.master
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TESTDIR = $(ROOTOPTPKG)/tests/functional/threadsappend
+TARGETDIR = $(ROOTOPTPKG)/tests/functional/threadsappend
 
-PROG = threadsappend
-
-SCRIPTS = cleanup \
-	setup \
-	threadsappend_001_pos
-
-include $(SRC)/cmd/Makefile.cmd
-include $(SRC)/test/Makefile.com
-
-ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-
-OBJS = $(PROG:%=%.o)
-SRCS = $(OBJS:%.o=%.c)
-
-CMDS = $(PROG:%=$(TESTDIR)/%) $(SCRIPTS:%=$(TESTDIR)/%)
-$(CMDS) := FILEMODE = 0555
-
-CPPFLAGS += -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
-
-all: $(PROG)
-
-$(PROG): $(OBJS)
-	$(LINK.c) $(OBJS) -o $@ $(LDLIBS)
-	$(POST_PROCESS)
-
-%.o: ../%.c
-	$(COMPILE.c) $<
-
-install: all $(CMDS)
-
-lint: lint_SRCS
-
-clobber: clean
-	-$(RM) $(PROG)
-
-clean:
-	-$(RM) $(OBJS)
-
-$(CMDS): $(TESTDIR) $(PROG)
-
-$(TESTDIR):
-	$(INS.dir)
-
-$(TESTDIR)/%: %
-	$(INS.file)
-
-$(TESTDIR)/%: %.ksh
-	$(INS.rename)
+include $(SRC)/test/zfs-tests/Makefile.com

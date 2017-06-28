@@ -52,12 +52,6 @@ post =
 [/opt/zfs-tests/tests/functional/casenorm]
 find_tests = true
 
-[/opt/zfs-tests/tests/functional/channel_program/lua_core]
-find_tests = true
-
-[/opt/zfs-tests/tests/functional/channel_program/synctask_core]
-find_tests = true
-
 [/opt/zfs-tests/tests/functional/checksum]
 find_tests = true
 pre =
@@ -171,10 +165,6 @@ find_tests = true
 
 [/opt/zfs-tests/tests/functional/cli_root/zpool_import]
 find_tests = true
-
-[/opt/zfs-tests/tests/functional/cli_root/zpool_initialize]
-find_tests = true
-pre =
 
 [/opt/zfs-tests/tests/functional/cli_root/zpool_labelclear]
 find_tests = true
@@ -306,11 +296,6 @@ find_tests = true
 [/opt/zfs-tests/tests/functional/online_offline]
 find_tests = true
 
-[/opt/zfs-tests/tests/functional/pool_checkpoint]
-find_tests = true
-pre =
-post =
-
 [/opt/zfs-tests/tests/functional/pool_names]
 find_tests = true
 pre =
@@ -325,9 +310,6 @@ find_tests = true
 [/opt/zfs-tests/tests/functional/quota]
 find_tests = true
 
-[/opt/zfs-tests/tests/functional/redacted_send]
-find_tests = true
-
 [/opt/zfs-tests/tests/functional/redundancy]
 find_tests = true
 
@@ -336,10 +318,6 @@ find_tests = true
 
 [/opt/zfs-tests/tests/functional/refreserv]
 find_tests = true
-
-[/opt/zfs-tests/tests/functional/removal]
-find_tests = true
-pre =
 
 [/opt/zfs-tests/tests/functional/rename_dirs]
 find_tests = true

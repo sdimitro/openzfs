@@ -38,8 +38,6 @@ typeset stream0=$BACKDIR/stream.0
 typeset stream1=$BACKDIR/stream.1
 typeset inc=$BACKDIR/stream.inc
 
-log_must zpool create $POOL3 $DISK3
-log_must zfs create ${BACKDIR#*/}
 log_must zfs create -o compress=lz4 $sendfs
 log_must zfs create -o compress=lz4 -o dedup=verify $recvfs
 typeset dir=$(get_prop mountpoint $sendfs)

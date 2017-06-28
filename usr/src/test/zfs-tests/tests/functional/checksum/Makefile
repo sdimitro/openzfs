@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2017 by Delphix. All rights reserved.
 #
 
 include $(SRC)/Makefile.master
@@ -19,4 +19,3 @@ ROOTOPTPKG = $(ROOT)/opt/zfs-tests
 TARGETDIR = $(ROOTOPTPKG)/tests/functional/checksum
 
 include $(SRC)/test/zfs-tests/Makefile.com
-include $(SRC)/test/Makefile.com

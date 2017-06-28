@@ -1,5 +1,3 @@
-#!/usr/bin/ksh
-
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -15,17 +13,9 @@
 # Copyright (c) 2015, 2017 by Delphix. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
+include $(SRC)/Makefile.master
 
-#
-# Description:
-# Run the tests for the Skein hash algorithm.
-#
+SUBDIRS = $(MACH)
+$(BUILD64) SUBDIRS += $(MACH64)
 
-
-freq=$(get_cpu_freq)
-for isa in $(isainfo); do
-	log_must skein_test.$isa $freq
-done
-
-log_pass "Skein tests passed."
+include $(SRC)/test/Makefile.com

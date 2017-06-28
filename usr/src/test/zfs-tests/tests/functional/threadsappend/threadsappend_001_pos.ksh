@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -50,7 +50,6 @@ verify_runnable "both"
 # size of the file after all the threads have appended to it
 #
 typeset -i FILE_SIZE=1310720
-THREADSAPPEND="$STF_SUITE/tests/functional/threadsappend/threadsappend"
 TESTFILE='testfile-threadsappend'
 
 #
@@ -66,7 +65,7 @@ fi
 # zfs_threadsappend tries to append to $TESTFILE using threads
 # so that the resulting file is $FILE_SIZE bytes in size
 #
-log_must $THREADSAPPEND ${TESTDIR}/${TESTFILE}
+log_must threadsappend ${TESTDIR}/${TESTFILE}
 
 #
 # Check the size of the resulting file

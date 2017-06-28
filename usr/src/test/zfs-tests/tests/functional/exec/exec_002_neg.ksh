@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -45,7 +45,6 @@
 #
 
 verify_runnable "both"
-MMAP_EXEC=$STF_SUITE/tests/functional/exec/mmap_exec
 
 function cleanup
 {
@@ -78,6 +77,6 @@ log_must cp /usr/bin/ls $TESTDIR/myls
 log_must zfs set exec=off $TESTPOOL/$TESTFS
 
 log_must exec_n_check 126 $TESTDIR/myls
-log_must exec_n_check 13 $MMAP_EXEC $TESTDIR/myls
+log_must exec_n_check 13 mmap_exec $TESTDIR/myls
 
 log_pass "Setting exec=off on filesystem testing passed."

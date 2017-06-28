@@ -98,20 +98,17 @@ function edited_prop
 
 function cleanup
 {
-	log_must cleanup_pool $POOL
 	log_must cleanup_pool $POOL2
-
-	log_must edited_prop "set" $POOL
 	log_must edited_prop "set" $POOL2
-
 	log_must rm -f /tmp/edited_prop*
 
 	typeset prop
 	for prop in $(fs_inherit_prop) ; do
-		log_must zfs inherit $prop $POOL
 		log_must zfs inherit $prop $POOL2
 	done
 
+	destroy_pool $POOL
+	log_must zpool create $POOL $DISK1
 	log_must setup_test_model $POOL
 }
 

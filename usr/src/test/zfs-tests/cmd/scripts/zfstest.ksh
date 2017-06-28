@@ -24,7 +24,9 @@ export STF_TOOLS="/opt/test-runner/stf"
 export PATHDIR=""
 export TR_STOP_ON_FAILURE=false
 runner="/opt/test-runner/bin/run"
+search_dir="$STF_SUITE/tests"
 auto_detect=false
+do_runfile=false
 
 if [[ -z "$TESTFAIL_CALLBACKS" ]] ; then
 	export TESTFAIL_CALLBACKS="$STF_SUITE/callbacks/zfs_dbgmsg"
@@ -44,6 +46,7 @@ function usage
 	cat <<EOF 2>/dev/null
 Usage:
     $prog [-aqrs] -c runfile
+    $prog [-aqrs] pathname [pathname...]
     $prog -h
 Options:
     -a         Find free disks on the system, and use them all
@@ -82,20 +85,6 @@ function find_rpool
 {
 	typeset ds=$(mount | awk '/^\/ / {print $3}')
 	echo ${ds%%/*}
-}
-
-function find_runfile
-{
-	typeset distro=
-	if [[ -d /opt/delphix && -h /etc/delphix/version ]]; then
-		distro=delphix
-	elif [[ 0 -ne $(grep -c OpenIndiana /etc/release 2>/dev/null) ]]; then
-		distro=openindiana
-	elif [[ 0 -ne $(grep -c OmniOS /etc/release 2>/dev/null) ]]; then
-		distro=omnios
-	fi
-
-	[[ -n $distro ]] && echo $STF_SUITE/runfiles/$distro.run
 }
 
 function verify_id
@@ -155,7 +144,7 @@ constrain_path
 export PATH=$PATHDIR
 
 verify_id
-while getopts aC:c:n:hqrs c; do
+while getopts aC:c:hn:o:qrs c; do
 	case $c in
 	'a')
 		auto_detect=true
@@ -167,6 +156,8 @@ while getopts aC:c:n:hqrs c; do
 	'c')
 		runfile=$OPTARG
 		[[ -f $runfile ]] || fail "Cannot read file: $runfile"
+		runner_args+=" -c $runfile"
+		do_runfile=true
 		;;
 	'h')
 		usage
@@ -177,6 +168,9 @@ while getopts aC:c:n:hqrs c; do
 		export NFS=1
 		. $nfsfile
                 ;;
+	'o')
+		runner_args+=" -o $OPTARG"
+		;;
 	'q')
 		runner_args+=' -q'
 		;;
@@ -190,6 +184,42 @@ while getopts aC:c:n:hqrs c; do
 	esac
 done
 shift $((OPTIND - 1))
+
+if $do_runfile; then
+	[[ $# -eq 0 ]] || fail "Extra parameters after runfile."
+else
+	[[ $# -ne 0 ]] || fail "No runfile or tests specified."
+fi
+
+# If there are remaining arguments, process each in turn, expanding
+# filenames as needed.
+if [[ $# -ne 0 ]]; then
+	for pathname in "$@"; do
+		# Most tests in the suite run as root, but those in the cli_user
+		# directory must run as the non-root user that launched zfstest.
+		# If we're processing pathnames here, specifying both types of
+		# tests together is an error.
+		# Note that the setup and cleanup tests always run as root.
+		errstr="Cannot specify tests run by root and "
+		errstr+="a regular user in the same run."
+		if [[ $pathname =~ cli_user ]]; then
+			[[ $test_user = "root" ]] && fail "$errstr"
+			test_user="$USER"
+		else
+			[[ $test_user = "$USER" ]] && fail "$errstr"
+			test_user="root"
+		fi
+
+		for expanded in $(eval echo $search_dir/$pathname); do
+			[[ -e $expanded ]] || fail "Couldn't find $expanded"
+			runner_tests+=" $expanded"
+		done
+	done
+
+       # Specify pre and post scripts (to be run as root) with no timeout.
+       runner_args+=" -g -p setup -P cleanup -u $test_user"
+       runner_args+=" -x root -X root -t 0 $runner_tests"
+fi
 
 # If the user specified -a, then use free disks, otherwise use those in $DISKS.
 if $auto_detect; then
@@ -211,9 +241,6 @@ fi
 export __ZFS_POOL_EXCLUDE="$KEEP"
 export KEEP="^$(echo $KEEP | sed 's/ /$|^/g')\$"
 
-[[ -z $runfile ]] && runfile=$(find_runfile)
-[[ -z $runfile ]] && fail "Couldn't determine distro"
-
 . $STF_SUITE/include/default.cfg
 
 num_disks=$(echo $DISKS | awk '{print NF}')
@@ -223,7 +250,7 @@ num_disks=$(echo $DISKS | awk '{print NF}')
 sudo -k coreadm -e process
 
 # Ensure user has only basic privileges.
-ppriv -s EIP=basic -e $runner $runner_args -c $runfile
+ppriv -s EIP=basic -e $runner $runner_args
 ret=$?
 
 rm -rf $PATHDIR || fail "Couldn't remove $PATHDIR"

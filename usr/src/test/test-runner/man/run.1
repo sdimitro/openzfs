@@ -9,9 +9,9 @@
 .\" http://www.illumos.org/license/CDDL.
 .\"
 .\"
-.\" Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+.\" Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 .\"
-.TH run 1 "30 Aug 2016"
+.TH run 1 "30 Apr 2017"
 .SH NAME
 run \- find, execute, and log the results of tests
 .SH SYNOPSIS
@@ -108,6 +108,17 @@ respectively. The legal option names are:
 .sp
 .ne 2
 .na
+\fBfind_tests\fR = \fItrue\fR
+.ad
+.sp .6
+.RS 4n
+In a test group, rather than specifying a list of \fBtests\fR, recursively
+search for executables and add them to the list of \fBtests\fR. This option may
+not be specified with \fBtests\fR.
+.RE
+.sp
+.ne 2
+.na
 \fBoutputdir\fR = \fIpathname\fR
 .ad
 .sp .6
@@ -168,7 +179,8 @@ If set to True, only the results summary is printed to standard out.
 .RS 4n
 Specify a list of \fIfilenames\fR for this test group. Only the basename of the
 absolute path is required. This option is only valid for test groups, and each
-\fIfilename\fR must be single quoted.
+\fIfilename\fR must be single quoted. This option is incompatible with
+\fBfind_tests\fR.
 .RE
 .sp
 .ne 2

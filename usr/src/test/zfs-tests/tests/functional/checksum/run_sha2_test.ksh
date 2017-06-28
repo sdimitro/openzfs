@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -25,7 +25,7 @@
 
 freq=$(get_cpu_freq)
 for isa in $(isainfo); do
-	log_must $STF_SUITE/tests/functional/checksum/sha2_test.$isa $freq
+	log_must sha2_test.$isa $freq
 done
 
 log_pass "SHA-2 tests passed."

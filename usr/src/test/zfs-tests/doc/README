@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 #
 
 ZFS Test Suite README
@@ -54,20 +54,42 @@ The pre-requisites for running the ZFS Test Suite are:
 	- Specify any pools you wish to preserve as a space delimited list in
 	  the $KEEP variable. The root pool is added automatically.
 
-Once the pre-requisites are satisfied, simply run the zfstest script:
+Once the pre-requisites are satisfied, the ZFS Test Suite allows the user to
+specify the tests to be executed in two different ways. A runfile describing
+the tests to run may be specified with the '-c' option. The format of the
+runfile is explained in run(1), and the files that zfstest uses are available
+for reference under /opt/zfs-tests/runfiles.
 
-	test_machine$ /opt/zfs-tests/bin/zfstest [-aq]
+	test_machine$ zfstest -a -c my_tests.run
+
+Alternatively, one may omit the '-c' option and directly specify individual
+tests and test directories. When '-c' is omitted, a base directory of
+'/opt/zfs-tests/tests/' is assumed.
+
+	test_machine$ zfstest -a functional/{atime,rootpool}
+	test_machine$ zfstest -a functional/rootpool/rootpool_003_neg
+
+When the -C <script> option is specified, an external callback script is run to
+help with cleanup after a test is killed due to exceeding its timeout.
+
+When the -n <env_file> option is specified, it is assumed the tests are
+performance tests, and the env file provides the information necessary to run
+those tests over NFS between a client and server.
+
+When the -o <outputdir> option is specified, test output will be placed in the
+specified directory. Unlike the default output directory, this option will not
+cause a subdirectory in the ISO 8601 to be created. Output will be placed
+directly in the requested directory.
 
 When the '-q' option is specified, it is passed to run(1) which causes output
 to be written to the console only for tests that do not pass and the results
 summary.
 
-The ZFS Test Suite allows the user to specify a subset of the tests via a
-runfile. The format of the runfile is explained in run(1), and the files that
-zfstest uses are available for reference under /opt/zfs-tests/runfiles. To
-specify a custom runfile, use the -c option:
+When the -r option is specified, the tests within a test group are run in
+random order.
 
-	test_machine$ /opt/zfs-tests/bin/zfstest [-aq] -c my_tests.run
+When the -s option is specified, the suite immediately stops when a test does
+not pass. No clean up is done, saving state for later diagnosis.
 
 3. Test results
 

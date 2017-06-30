@@ -50,7 +50,6 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 
 	/* this dnode can't be paged out because it's dirty */
 	ASSERT(dn->dn_phys->dn_type != DMU_OT_NONE);
-	ASSERT(RW_WRITE_HELD(&dn->dn_struct_rwlock));
 	ASSERT(new_level > 1 && dn->dn_phys->dn_nlevels > 0);
 
 	db = dbuf_hold_level(dn, dn->dn_phys->dn_nlevels, 0, FTAG);
@@ -62,6 +61,9 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 
 	/* transfer dnode's block pointers to new indirect block */
 	(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED|DB_RF_HAVESTRUCT);
+	if (dn->dn_dbuf != NULL)
+		rw_enter(&dn->dn_dbuf->db_rwlock, RW_WRITER);
+	rw_enter(&db->db_rwlock, RW_WRITER);
 	ASSERT(db->db.db_data);
 	ASSERT(arc_released(db->db_buf));
 	ASSERT3U(sizeof (blkptr_t) * nblkptr, <=, db->db.db_size);
@@ -104,6 +106,9 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	}
 
 	bzero(dn->dn_phys->dn_blkptr, sizeof (blkptr_t) * nblkptr);
+	rw_exit(&db->db_rwlock);
+	if (dn->dn_dbuf != NULL)
+		rw_exit(&dn->dn_dbuf->db_rwlock);
 
 	dbuf_rele(db, FTAG);
 
@@ -187,7 +192,7 @@ free_verify(dmu_buf_impl_t *db, uint64_t start, uint64_t end, dmu_tx_t *tx)
 		ASSERT(db->db_level == 1);
 
 		rw_enter(&dn->dn_struct_rwlock, RW_READER);
-		err = dbuf_hold_impl(dn, db->db_level-1,
+		err = dbuf_hold_impl(dn, db->db_level - 1,
 		    (db->db_blkid << epbs) + i, TRUE, FALSE, FTAG, &child);
 		rw_exit(&dn->dn_struct_rwlock);
 		if (err == ENOENT)
@@ -285,7 +290,9 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	 * ancestor of the first or last block to be freed.  The first and
 	 * last L1 indirect blocks are always dirtied by dnode_free_range().
 	 */
+	db_lock_type_t dblt = dmu_buf_lock_parent(db, RW_READER, FTAG);
 	VERIFY(BP_GET_FILL(db->db_blkptr) == 0 || db->db_dirtycnt > 0);
+	dmu_buf_unlock_parent(db, dblt, FTAG);
 
 	dbuf_release_bp(db);
 	bp = db->db.db_data;
@@ -311,7 +318,9 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 
 	if (db->db_level == 1) {
 		FREE_VERIFY(db, start, end, tx);
-		free_blocks(dn, bp, end-start+1, tx);
+		rw_enter(&db->db_rwlock, RW_WRITER);
+		free_blocks(dn, bp, end - start + 1, tx);
+		rw_exit(&db->db_rwlock);
 	} else {
 		for (uint64_t id = start; id <= end; id++, bp++) {
 			if (BP_IS_HOLE(bp))
@@ -328,10 +337,12 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	}
 
 	if (free_indirects) {
+		rw_enter(&db->db_rwlock, RW_WRITER);
 		for (i = 0, bp = db->db.db_data; i < 1 << epbs; i++, bp++)
 			ASSERT(BP_IS_HOLE(bp));
 		bzero(db->db.db_data, db->db.db_size);
 		free_blocks(dn, db->db_blkptr, 1, tx);
+		rw_exit(&db->db_rwlock);
 	}
 
 	DB_DNODE_EXIT(db);
@@ -383,7 +394,6 @@ dnode_sync_free_range_impl(dnode_t *dn, uint64_t blkid, uint64_t nblks,
 			VERIFY0(dbuf_hold_impl(dn, dnlevel - 1, i,
 			    TRUE, FALSE, FTAG, &db));
 			rw_exit(&dn->dn_struct_rwlock);
-
 			free_children(db, blkid, nblks, free_indirects, tx);
 			dbuf_rele(db, FTAG);
 		}

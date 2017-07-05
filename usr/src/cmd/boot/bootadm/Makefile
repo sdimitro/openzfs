@@ -44,7 +44,7 @@ POFILE= bootadm_cmd.po
 
 LDLIBS_i386= -lfdisk
 LDLIBS += -lficl-sys -lmd -lcryptoutil -lnvpair -lgen -ladm -lefi
-LDLIBS += -lbe -lzfs $(LDLIBS_$(MACH))
+LDLIBS += -lz -lbe -lzfs -lofmt $(LDLIBS_$(MACH))
 
 # There's no lint library for zlib, so only include this when building
 $(PROG) := LDLIBS +=	-lz

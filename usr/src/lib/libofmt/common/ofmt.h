@@ -130,6 +130,8 @@
 extern "C" {
 #endif
 
+#include <sys/types.h>
+
 /*
  * Recommended buffer size for buffers passed, for example, to ofmt_strerror().
  */

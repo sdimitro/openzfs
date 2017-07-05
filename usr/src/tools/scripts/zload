@@ -231,11 +231,13 @@ files+="
 	/lib/libdladm.so.1
 	/lib/libipadm.so.1
 	/lib/libroute.so.1
+	/lib/libofmt.so.1
 	/lib/amd64/libdhcputil.so.1
 	/lib/amd64/libdhcpagent.so.1
 	/lib/amd64/libdladm.so.1
 	/lib/amd64/libipadm.so.1
 	/lib/amd64/libroute.so.1
+	/lib/amd64/libofmt.so.1
 	/sbin/dladm
 	/sbin/ipadm
 	/usr/bin/connstat

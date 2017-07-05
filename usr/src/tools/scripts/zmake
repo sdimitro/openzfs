@@ -45,6 +45,7 @@ directories=(
 	$SRC/lib/libbrand
 	$SRC/lib/libzonecfg
 	$SRC/lib/libinetutil
+	$SRC/lib/libofmt
 	$SRC/lib/libdladm
 	$SRC/lib/libdlpi
 	$SRC/lib/libdiskmgt

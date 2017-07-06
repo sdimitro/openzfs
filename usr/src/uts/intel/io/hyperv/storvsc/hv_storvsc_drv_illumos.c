@@ -1920,6 +1920,7 @@ storvsc_config_one(dev_info_t *pdip, storvsc_softc_t *sc, int target, int lun,
 					HS_DEBUG(sc->hs_dip, 2,
 					    "target %d, lun %d, found guid: %s",
 					    target, lun, guid);
+					ddi_devid_free_guid(guid);
 				}
 				ddi_devid_free(devid);
 			}

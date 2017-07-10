@@ -148,12 +148,12 @@ static off_t	iseekn;	/* number of input records to seek past */
 static off_t	oseekn;	/* number of output records to seek past */
 static unsigned long long	count;	/* number of input records to copy */
 			/* (0 = all) */
+static boolean_t ecount;	/* explicit count given */
 static off_t	ostriden;	/* number of output blocks to skip between */
 				/* records */
 static off_t	istriden;	/* number of input blocks to skip between */
 				/* records */
 
-static boolean_t ecount;	/* explicit count given */
 static int	trantype; /* BSD or SVr4 compatible EBCDIC */
 
 static char		*string;	/* command arg pointer */
@@ -1877,7 +1877,7 @@ static unsigned char
 			term(2);
 		}
 
-		if (ostriden && lseek(obf, (((off_t)ostriden) * ((off_t)obs)),
+		if (ostriden > 0 && lseek(obf, ostriden * ((off_t)obs),
 		    SEEK_CUR) == -1) {
 			perror("lseek");
 			exit(2);

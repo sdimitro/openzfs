@@ -164,6 +164,7 @@ file path=opt/zfs-tests/README mode=0444
 file path=opt/zfs-tests/bin/chg_usr_exec mode=0555
 file path=opt/zfs-tests/bin/devname2devid mode=0555
 file path=opt/zfs-tests/bin/dir_rd_update mode=0555
+file path=opt/zfs-tests/bin/dos_ro mode=0555
 $(i386_ONLY)file path=opt/zfs-tests/bin/edonr_test.amd64 mode=0555
 $(i386_ONLY)file path=opt/zfs-tests/bin/edonr_test.i386 mode=0555
 $(sparc_ONLY)file path=opt/zfs-tests/bin/edonr_test.sparc mode=0555
@@ -215,6 +216,7 @@ file path=opt/zfs-tests/tests/functional/acl/cifs/cifs.kshlib mode=0444
 file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_002_pos mode=0555
 file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_003_pos mode=0555
+file path=opt/zfs-tests/tests/functional/acl/cifs/cifs_attr_004_pos mode=0555
 file path=opt/zfs-tests/tests/functional/acl/cifs/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/acl/cifs/setup mode=0555
 file path=opt/zfs-tests/tests/functional/acl/nontrivial/cleanup mode=0555

@@ -20,7 +20,7 @@
 #
 
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 
 set name=pkg.fmri value=pkg:/developer/opensolaris/osnet@$(PKGVERS)
@@ -50,7 +50,6 @@ depend fmri=runtime/perl/manual@5.10.0-0.133 type=require
 depend fmri=runtime/perl@5.10.0-0.133 type=require
 depend fmri=system/header@0.5.11-0.133 type=require
 depend fmri=system/library/dbus@0.5.11-0.133 type=require
-depend fmri=system/library/install@0.5.11-0.133 type=require
 depend fmri=system/library/libdbus-glib@0.5.11-0.133 type=require
 depend fmri=system/library/libdbus@0.5.11-0.133 type=require
 depend fmri=system/library/math@0.5.11-0.133 type=require

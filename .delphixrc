@@ -3,8 +3,8 @@
 #
 
 [build]
-build_machine=westy
-zmake_machine=scottie
+build_machine=wirefox
+zmake_machine=wirefox
 dcenter_group=dlpx-trunk
 repo_dir=/data/{user}/dlpx-os-gate
 build_dir=/data/{user}/jenkins/{branch}

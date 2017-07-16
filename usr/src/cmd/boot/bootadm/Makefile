@@ -46,9 +46,6 @@ LDLIBS_i386= -lfdisk
 LDLIBS += -lficl-sys -lmd -lcryptoutil -lnvpair -lgen -ladm -lefi
 LDLIBS += -lz -lbe -lzfs -lofmt $(LDLIBS_$(MACH))
 
-# There's no lint library for zlib, so only include this when building
-$(PROG) := LDLIBS +=	-lz
-
 # Writing into string literals is incorrect.  We need to match gcc's
 # behavior, which causes us to take SIGSEGV on such a write.
 CFLAGS +=	$(XSTRCONST)
@@ -60,7 +57,6 @@ C99MODE=	$(C99_ENABLE)
 LINTFLAGS += -erroff=E_INCONS_ARG_DECL2
 LINTFLAGS += -erroff=E_INCONS_VAL_TYPE_DECL2
 LINTFLAGS += -erroff=E_NAME_DEF_NOT_USED2
-LINTFLAGS += -erroff=E_NAME_USED_NOT_DEF2
 
 all: $(PROG)
 

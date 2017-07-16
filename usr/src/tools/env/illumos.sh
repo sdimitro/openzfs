@@ -221,15 +221,10 @@ export ENABLE_SMB_PRINTING='#'
 export GCC_ROOT=/opt/gcc-4.4.4
 export CW_GCC_DIR=${GCC_ROOT}/bin
 export __GNUC=""
-export ONNV_BUILDNUM=151014
-
-# Force usage of python 2.6 until build servers can cope
-export PYTHON_VERSION="2.6"
-export PYTHON_PKGVERS="-26"
+export ONNV_BUILDNUM=151022
 
 # If your distro uses certain versions of Perl, make sure either Makefile.master
 # contains your new defaults OR your .env file sets them.
 # These are how you would override for building on OmniOS r151012, for example.
-#export PERL_VERSION=5.16.1
-#export PERL_ARCH=i86pc-solaris-thread-multi-64int
-#export PERL_PKGVERS=-5161
+#export PERL_VERSION=5.24.1
+#export PERL_PKGVERS=-5241

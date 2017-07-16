@@ -270,7 +270,7 @@ if ! $test_only; then
 fi
 
 dirs="
-	/usr/lib/python2.6/vendor-packages/zfs/
+	/usr/lib/python2.7/vendor-packages/zfs/
 	/opt/test-runner/
 	/opt/zfs-tests/
 "

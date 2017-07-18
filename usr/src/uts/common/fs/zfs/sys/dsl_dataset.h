@@ -279,6 +279,7 @@ typedef struct dsl_dataset_promote_arg {
 
 typedef struct dsl_dataset_rollback_arg {
 	const char *ddra_fsname;
+	const char *ddra_tosnap;
 	void *ddra_owner;
 	nvlist_t *ddra_result;
 } dsl_dataset_rollback_arg_t;
@@ -445,7 +446,8 @@ boolean_t dsl_dataset_has_resume_receive_state(dsl_dataset_t *ds);
 
 int dsl_dataset_rollback_check(void *arg, dmu_tx_t *tx);
 void dsl_dataset_rollback_sync(void *arg, dmu_tx_t *tx);
-int dsl_dataset_rollback(const char *fsname, void *owner, nvlist_t *result);
+int dsl_dataset_rollback(const char *fsname, const char *tosnap, void *owner,
+    nvlist_t *result);
 
 uint64_t dsl_dataset_get_remap_deadlist_object(dsl_dataset_t *ds);
 void dsl_dataset_create_remap_deadlist(dsl_dataset_t *ds, dmu_tx_t *tx);

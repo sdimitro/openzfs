@@ -2807,6 +2807,18 @@ dsl_dataset_rollback_check(void *arg, dmu_tx_t *tx)
 		return (SET_ERROR(EAGAIN));
 	}
 
+	/*
+	 * If the expected target snapshot is specified, then check that
+	 * the latest snapshot is it.
+	 */
+	if (ddra->ddra_tosnap != NULL) {
+		char namebuf[ZFS_MAX_DATASET_NAME_LEN];
+
+		dsl_dataset_name(ds->ds_prev, namebuf);
+		if (strcmp(namebuf, ddra->ddra_tosnap) != 0)
+			return (SET_ERROR(EXDEV));
+	}
+
 	/* must not have any bookmarks after the most recent snapshot */
 	if (dsl_bookmark_latest_txg(ds) >
 	    dsl_dataset_phys(ds)->ds_prev_snap_txg) {
@@ -2893,11 +2905,13 @@ dsl_dataset_rollback_sync(void *arg, dmu_tx_t *tx)
  * notes above zfs_suspend_fs() for further details.
  */
 int
-dsl_dataset_rollback(const char *fsname, void *owner, nvlist_t *result)
+dsl_dataset_rollback(const char *fsname, const char *tosnap, void *owner,
+    nvlist_t *result)
 {
 	dsl_dataset_rollback_arg_t ddra;
 
 	ddra.ddra_fsname = fsname;
+	ddra.ddra_tosnap = tosnap;
 	ddra.ddra_owner = owner;
 	ddra.ddra_result = result;
 

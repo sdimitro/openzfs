@@ -72,6 +72,7 @@ SYMBOL_VERSION ILLUMOS_0.1 {
 	lzc_release;
 	lzc_remap;
 	lzc_rollback;
+	lzc_rollback_to;
 	lzc_send;
 	lzc_send_resume;
 	lzc_send_redacted;

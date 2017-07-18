@@ -533,6 +533,11 @@ zcp_nvpair_value_to_lua(lua_State *state, nvpair_t *pair,
 {
 	int err = 0;
 
+	if (pair == NULL) {
+		lua_pushnil(state);
+		return (0);
+	}
+
 	switch (nvpair_type(pair)) {
 	case DATA_TYPE_BOOLEAN_VALUE:
 		(void) lua_pushboolean(state,
@@ -813,6 +818,12 @@ zcp_eval_impl(dmu_tx_t *tx, boolean_t sync, zcp_eval_arg_t *evalargs)
 	zcp_run_info_t ri;
 	lua_State *state = evalargs->ea_state;
 
+	/*
+	 * Open context should have setup the stack to contain:
+	 * 1: Error handler callback
+	 * 2: Script to run (converted to a Lua function)
+	 * 3: nvlist input to function (converted to Lua table or nil)
+	 */
 	VERIFY3U(3, ==, lua_gettop(state));
 
 	/*

@@ -40,6 +40,13 @@ log_must zfs create $fs
 create_snapshot $fs $TESTSNAP
 log_must zfs create -V $VOLSIZE $TESTPOOL/$TESTVOL
 
+#
+# Set snapshot_limit and filesystem_limit for the filesystem so that the
+# snapshot_count and filesystem_count properties return a value.
+#
+log_must zfs set snapshot_limit=10 filesystem_limit=10 $fs
+log_must zfs set snapshot_limit=10 $vol
+
 log_must_program $TESTPOOL $ZCP_ROOT/synctask_core/tst.get_number_props.zcp $fs $snap $vol
 
 log_pass "Getting number props should work correctly."

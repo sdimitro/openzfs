@@ -1980,6 +1980,7 @@ get_clones_stat(dsl_dataset_t *ds, nvlist_t *nv)
 {
 	nvlist_t *propval = fnvlist_alloc();
 	nvlist_t *val;
+
 	/*
 	 * We use nvlist_alloc() instead of fnvlist_alloc() because the
 	 * latter would allocate the list with NV_UNIQUE_NAME flag.

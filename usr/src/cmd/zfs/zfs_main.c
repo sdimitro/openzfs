@@ -51,6 +51,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <signal.h>
+#include <sys/debug.h>
 #include <sys/list.h>
 #include <sys/filio.h>
 #include <sys/mkdev.h>
@@ -7457,8 +7458,8 @@ zfs_do_channel_program(int argc, char **argv)
 	fnvlist_add_string_array(argnvl, ZCP_ARG_CLIARGV, argv + 2, argc - 2);
 
 	if (sync_flag) {
-		ret = lzc_channel_program(poolname, progbuf,
-		    instrlimit, memlimit, argnvl, &outnvl);
+	ret = lzc_channel_program(poolname, progbuf, instrlimit, memlimit,
+	    argnvl, &outnvl);
 	} else {
 		ret = lzc_channel_program_nosync(poolname, progbuf,
 		    instrlimit, memlimit, argnvl, &outnvl);

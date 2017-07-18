@@ -803,6 +803,7 @@ zcp_get_written_prop(lua_State *state, dsl_pool_t *dp,
 		}
 		error = dsl_dataset_space_written(old, new,
 		    &used, &comp, &uncomp);
+
 		dsl_dataset_rele(old, FTAG);
 	}
 	dsl_dataset_rele(new, FTAG);

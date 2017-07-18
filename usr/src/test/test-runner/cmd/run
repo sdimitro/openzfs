@@ -457,7 +457,7 @@ class TestGroup(Test):
 
         # If one of the tests is invalid, delete it, log it, and drive on.
         self.tests[:] = [f for f in self.tests if
-                         verify_file(os.path.join(self.pathname, f))]
+          verify_file(os.path.join(self.pathname, f))]
 
         return len(self.tests) is not 0
 

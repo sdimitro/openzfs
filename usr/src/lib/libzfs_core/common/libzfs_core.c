@@ -161,7 +161,7 @@ lzc_ioctl(zfs_ioc_t ioc, const char *name,
 		 * If ioctl exited with ENOMEM, we retry the ioctl after
 		 * increasing the size of the destination nvlist.
 		 *
-		 * Channel programs that exit with ENOMEM ran over the
+		 * Channel programs that exit with ENOMEM probably ran over the
 		 * lua memory sandbox; they should not be retried.
 		 */
 		if (errno == ENOMEM && resultp != NULL &&

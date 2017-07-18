@@ -83,7 +83,6 @@ COMMON_SUBDIRS=		\
 	bootcfg		\
 	busstat		\
 	cal		\
-	calendar	\
 	captoinfo	\
 	cat		\
 	cdrw		\

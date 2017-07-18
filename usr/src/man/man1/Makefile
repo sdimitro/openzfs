@@ -49,7 +49,6 @@ MANFILES=	acctcom.1			\
 	 	break.1				\
 	 	builtin.1			\
 	 	cal.1				\
-	 	calendar.1			\
 	 	cancel.1			\
 	 	cat.1				\
 	 	cd.1				\

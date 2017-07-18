@@ -11,6 +11,7 @@
 
 #
 # Copyright 2017 Nexenta Systems, Inc.
+# Copyright 2017 Joyent, Inc.
 #
 
 CMDDIR=		$(SRC)/cmd/mandoc

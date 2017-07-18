@@ -71,6 +71,11 @@ function find_disks
 
 	typeset disk used avail_disks
 	for disk in $all_disks; do
+		# For Delphix, explicitly exclude IDE disks like `c3d0`
+		# because in our Azure environment the disks are of a
+		# different size, and have much worse performance.
+		[[ $disk =~ 't' ]] || continue
+
 		for used in $used_disks; do
 			[[ "$disk" = "$used" ]] && continue 2
 		done

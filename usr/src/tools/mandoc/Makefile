@@ -19,8 +19,13 @@ LCDIR=		$(SRC)/lib/libc/port
 include		$(SRC)/tools/Makefile.tools
 include		$(CMDDIR)/Makefile.common
 
-OBJS +=		reallocarray.o \
+OBJS +=		fts.o \
+		reallocarray.o \
 		strtonum.o
+
+CPPFLAGS +=	-I. -include config.h -include fts.h
+CPPFLAGS +=	-I$(NATIVE_ADJUNCT)/include
+LDFLAGS +=	-L$(NATIVE_ADJUNCT)/lib -R$(NATIVE_ADJUNCT)/lib
 
 .KEEP_STATE:
 

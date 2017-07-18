@@ -835,10 +835,12 @@ commands:
 and
 .Cm reguid .
 In addition, it may break reservation boundaries if the pool lacks free
-space. The
+space.
+The
 .Nm zpool Cm status
 command indicates the existence of a checkpoint or the progress of discarding a
-checkpoint from a pool. The
+checkpoint from a pool.
+The
 .Nm zpool Cm list
 command reports how much space the checkpoint takes from the pool.
 .Bl -tag -width Ds
@@ -1323,13 +1325,14 @@ and the
 property to
 .Ar root .
 .It Fl -rewind-to-checkpoint
-Rewinds pool to the checkpointed state. Once the pool is imported with this flag
-there is no way to undo the rewind. All changes and data that were written
-after the checkpoint are lost! The only exception is when the
+Rewinds pool to the checkpointed state.
+Once the pool is imported with this flag there is no way to undo the rewind.
+All changes and data that were written after the checkpoint are lost!
+The only exception is when the
 .Sy readonly
-mounting option is enabled. In this case, the checkpointed state of the pool is
-opened and an administrator can see how the pool would look like if they were
-to fully rewind.
+mounting option is enabled.
+In this case, the checkpointed state of the pool is opened and an
+administrator can see how the pool would look like if they were to fully rewind.
 .El
 .It Xo
 .Nm
@@ -1340,18 +1343,19 @@ to fully rewind.
 .Xc
 Begins initializing by writing to all unallocated regions on the specified
 devices, or all eligible devices in the pool if no individual devices are
-specified. Only leaf data or log devices may be initialized.
+specified.
+Only leaf data or log devices may be initialized.
 .Bl -tag -width Ds
 .It Fl c, -cancel
 Cancel initializing on the specified devices, or all eligible devices if none
-are specified. If one or more target devices are invalid or are not currently
-being initialized, the command will fail and no cancellation will occur on any
-device.
+are specified.
+If one or more target devices are invalid or are not currently being
+initialized, the command will fail and no cancellation will occur on any device.
 .It Fl s -suspend
 Suspend initializing on the specified devices, or all eligible devices if none
-are specified. If one or more target devices are invalid or are not currently
-being initialized, the command will fail and no suspension will occur on any
-device.
+are specified.
+If one or more target devices are invalid or are not currently being
+initialized, the command will fail and no suspension will occur on any device.
 Initializing can then be resumed by running
 .Nm zpool Cm initialize
 with no flags on the relevant target devices.

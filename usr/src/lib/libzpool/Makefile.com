@@ -21,6 +21,7 @@
 #
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright 2017 Joyent, Inc.
 #
 
 LIBRARY= libzpool.a
@@ -47,7 +48,7 @@ SRCDIR=		../common
 # There should be a mapfile here
 MAPFILES =
 
-LIBS +=		$(LINTLIB)
+LIBS +=		$(LINTLIB) $(DYNLIB)
 
 INCS += -I../common
 INCS += -I../../../uts/common/fs/zfs

@@ -484,6 +484,7 @@ i386_SUBDIRS=		\
 	biosdev		\
 	diskscan	\
 	hyperv		\
+	nvmeadm		\
 	rtc		\
 	ucodeadm	\
 	xvm

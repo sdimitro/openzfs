@@ -33,8 +33,9 @@
 .Sh DESCRIPTION
 The
 .Nm
-command reports TCP connection statistics in tabular form. Each row of the table
-represents the activity of one connection. The
+command reports TCP connection statistics in tabular form.
+Each row of the table represents the activity of one connection.
+The
 .Nm
 command adds virtually no overhead to run as it is aggregating statistics that
 are always collected in the kernel.
@@ -43,7 +44,8 @@ With no arguments,
 .Nm
 prints a single report containing all TCP connections, and includes a basic
 set of fields representing IP address and port information, as well as connection
-state. The
+state.
+The
 .Fl o
 flag can be used to specify which fields to display, and other arguments to
 filter the set of connections included in the output.
@@ -55,44 +57,47 @@ Only displays IPv4 connections.
 .It Fl 6 Ns , Fl -ipv6
 Only displays IPv6 connections
 .It Fl c Ar count Ns , Fl -count Ns = Ns Ar count
-Print a specified number of reports before exiting. This is used in conjuction
-with
+Print a specified number of reports before exiting.
+This is used in conjuction with
 .Fl i Ns .
 .It Fl e Ns , Fl -established
-Only display connections that are in state ESTABLISHED. This is equivalent to
-including
+Only display connections that are in state ESTABLISHED.
+This is equivalent to including
 .Sy state=ESTABLISHED
 in the filter argument to the
 .Fl F
 option.
 .It Fl F Ar filter Ns , Fl -filter Ns = Ns Ar filter
-Only display connections that match the filter argument provided. The format
-of the filter is:
+Only display connections that match the filter argument provided.
+The format of the filter is:
 .Pp
 .Ar field Ns = Ns Ar value Ns Oo , Ns Ar field Ns = Ns Ar value Oc Ns ...
 .Pp
 Fields that can currently be filtered are
-.Ar laddr Ns , Ar lport Ns , Ar raddr Ns , Ar rport Ns , and Ar state Ns . See
-the
+.Ar laddr Ns , Ar lport Ns , Ar raddr Ns , Ar rport Ns , and Ar state Ns .
+See the
 .Sx Fields
-section for a description of these fields. The filter matches a connection if
-all of the filter elements match, and a field must only appears once in the
-filter.
+section for a description of these fields.
+The filter matches a connection if all of the filter elements match, and a
+field must only appears once in the filter.
 .It Fl i Ar interval Ns , Fl -interval Ns = Ns Ar interval
-Specify an output interval in seconds. For each interval, a report containing
-all connections appropriate given other command-line options is printed.
+Specify an output interval in seconds.
+For each interval, a report containing all connections appropriate given other
+command-line options is printed.
 .It Fl L Ns , Fl -no-loopback
 Exclude connections to the loopback address.
 .It Fl o Ar fields Ns , Fl -output Ns = Ns Ar fields
-Restrict the output to the specified comma-delimited list of field names. See the
+Restrict the output to the specified comma-delimited list of field names.
+See the
 .Sx Fields
 section for information about possible fields.
 .It Fl P Ns , Fl -parsable
-Display using a stable machine-parsable output format. With this option, each
-line of output consists of comma (,) delimited fields, and the fields displayed
-are specified using the
+Display using a stable machine-parsable output format.
+With this option, each line of output consists of comma (,) delimited fields,
+and the fields displayed are specified using the
 .Fl o
-option. See
+option.
+See
 .Sx Example 4
 for an example of how to process parsable output.
 .It Fl T Sy d Ns | Ns Sy u Ns , Fl -timestamp Ns = Ns Sy d Ns | Ns Sy u
@@ -101,25 +106,29 @@ Print a timestamp before each block of output.
 Specify
 .Sy u
 for a printed representation of the internal representation of time (see
-.Xr time 2 Ns ). Specify
+.Xr time 2 Ns ).
+Specify
 .Sy d
 for standard date format (see
 .Xr date 1 Ns ).
 .El
 .Ss Fields
-The following fields are supported. Field names are case insensitive. Unless
-otherwise indicated, the values of fields that represent a count (e.g. bytes or
-segments) are cumulative since the connection was established. Some of these
-fields refer to data segments, which are segments that contain non-zero amount
-of data. All sizes are in bytes.
+The following fields are supported.
+Field names are case insensitive.
+Unless otherwise indicated, the values of fields that represent a count (e.g.
+bytes or segments) are cumulative since the connection was established.
+Some of these fields refer to data segments, which are segments that contain
+non-zero amount of data.
+All sizes are in bytes.
 .Bl -tag -width "inunorderbytes"
 .It Sy cwnd
 The size of the local TCP congestion window at this instant.
 .It Sy inbytes
-The number of data bytes received. This does not include duplicate bytes received.
+The number of data bytes received.
+This does not include duplicate bytes received.
 .It Sy insegs
-The number of data segments received. This does not include duplicate segments
-received.
+The number of data segments received.
+This does not include duplicate segments received.
 .It Sy inunorderbytes
 The number of data bytes that were received out of order.
 .It Sy inunordersegs
@@ -131,12 +140,12 @@ The local TCP port.
 .It Sy mss
 The maximum TCP segment size for this connection.
 .It Sy outbytes
-The number of data bytes sent. This does not include retransmitted bytes counted
-by
+The number of data bytes sent.
+This does not include retransmitted bytes counted by
 .Sy retransbytes Ns .
 .It Sy outsegs
-The number of data segments sent. This does not include segments containing
-retransmitted bytes counted by
+The number of data segments sent.
+This does not include segments containing retransmitted bytes counted by
 .Sy retranssegs Ns .
 .It Sy raddr
 The remote IP address.
@@ -149,8 +158,8 @@ The remote TCP port.
 .It Sy rto
 The current retransmission timeout in milliseconds.
 .It Sy rtt
-The current smoothed round-trip time to the peer in microseconds. The smoothed
-RTT average algorithm used is as described in RFC 6298.
+The current smoothed round-trip time to the peer in microseconds.
+The smoothed RTT average algorithm used is as described in RFC 6298.
 .It Sy rttc
 The number of times that a round-trip sample was added to
 .Sy rtts Ns .
@@ -160,7 +169,8 @@ for a description of how these two fields can be used together to calculate the
 average round-trip over a given period.
 .It Sy rtts
 The sum of all round-trip samples taken over the lifetime of the connection in
-microseconds. Each time TCP updates the value of
+microseconds.
+Each time TCP updates the value of
 .Sy rtt
 with a new sample, that sample's value is added to
 .Sy rtts Ns .
@@ -187,12 +197,14 @@ for an example of how this can be done programatically from a shell script.
 .It Sy rwnd
 The size of the local TCP receive window at this instant.
 .It Sy state
-The TCP connection state. Possible values are:
+The TCP connection state.
+Possible values are:
 .Bl -tag -width "SYN_RECEIVED"
 .It Sy BOUND
 Bound, ready to connect or listen.
 .It Sy CLOSED
-Closed. The local endpoint (e.g. socket) is not being used.
+Closed.
+The local endpoint (e.g. socket) is not being used.
 .It Sy CLOSING
 Closed, but still waiting for a termination acknowledgment from the peer.
 .It Sy CLOSE_WAIT
@@ -208,7 +220,8 @@ Local endpoint is closed, but waiting for a termination request from the peer.
 The local endpoint (e.g. socket) has been opened, but is not bound.
 .It Sy LAST_ACK
 The remote endpoint has terminated, and the local endpoint has sent a termination
-request. The acknowledgment for this request has not been received.
+request.
+The acknowledgment for this request has not been received.
 .It Sy LISTEN
 Listening for incoming connections.
 .It Sy SYN_RECEIVED
@@ -238,7 +251,8 @@ utility exits 0 on success, or 1 if an error occurs.
 .Sh EXAMPLES
 .Bl -tag -width ""
 .It Sy Example 1 List established connections.
-By default, connstat lists basic connection details. Using the
+By default, connstat lists basic connection details.
+Using the
 .Fl e
 option allows the user to get a quick glance of established connections.
 .Bd -literal
@@ -275,15 +289,18 @@ $ connstat -F lport=22,rport=49675,raddr=172.16.168.30 \e
 .It Sy Example 3 Understanding the bottleneck for a given connection
 Understanding the transmit bottleneck for a connection requires knowing the
 size of the congestion window, whether the window is full, and the round-trip
-time to the peer. The congestion window is full when
+time to the peer.
+The congestion window is full when
 .Sy suna
 is equal to
 .Sy cwnd Ns .
 If the window is full, then the throughput is limited by the size of the window
-and the round-trip time. In that case, knowing these two values is critical.
+and the round-trip time.
+In that case, knowing these two values is critical.
 Either the window is small because of retransmissions, or the the round-trip
-latency is high, or both. In the example below, the window is small due to high
-congestion or an unreliable network.
+latency is high, or both.
+In the example below, the window is small due to high congestion or an
+unreliable network.
 .Bd -literal
 $ connstat -F lport=41934,rport=50001 \e
   -o outbytes,suna,cwnd,unsent,retransbytes,rtt -T d -i 1
@@ -311,9 +328,10 @@ section, the
 .Sy rtts
 and
 .Sy rttc
-fields can be used to calculate average RTT over a period of time. The following
-example combines machine parsable output with these fields to do this
-programatically. The script:
+fields can be used to calculate average RTT over a period of time.
+The following example combines machine parsable output with these fields to do
+this programatically.
+The script:
 .Bd -literal
 #!/bin/bash
 

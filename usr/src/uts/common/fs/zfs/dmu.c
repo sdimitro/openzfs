@@ -1090,7 +1090,9 @@ dmu_object_remap_indirects(objset_t *os, uint64_t object,
 		return (err);
 	}
 
-	if (dn->dn_nlevels <= 1) {
+	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
+	if (dn->dn_phys->dn_nlevels <= 1) {
+		rw_exit(&dn->dn_struct_rwlock);
 		if (issig(JUSTLOOKING) && issig(FORREAL)) {
 			err = SET_ERROR(EINTR);
 		}
@@ -1121,7 +1123,6 @@ dmu_object_remap_indirects(objset_t *os, uint64_t object,
 	/*
 	 * Find the next L1 indirect that is not a hole.
 	 */
-	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 	while (dnode_next_offset(dn, DNODE_FIND_HAVELOCK, &offset, 2, 1,
 	    0) == 0) {
 		if (issig(JUSTLOOKING) && issig(FORREAL)) {

@@ -2347,10 +2347,28 @@ zil_commit_waiter(zilog_t *zilog, zil_commit_waiter_t *zcw)
 		ASSERT(MUTEX_HELD(&zcw->zcw_lock));
 
 		lwb_t *lwb = zcw->zcw_lwb;
-		ASSERT3P(lwb, !=, NULL);
-		ASSERT3S(lwb->lwb_state, !=, LWB_STATE_CLOSED);
 
-		if (lwb->lwb_state == LWB_STATE_OPENED) {
+		/*
+		 * Usually, the waiter will have a non-NULL lwb field here,
+		 * but it's possible for it to be NULL as a result of
+		 * zil_commit() racing with spa_sync().
+		 *
+		 * When zil_clean() is called, it's possible for the itxg
+		 * list (which may be cleaned via a taskq) to contain
+		 * commit itxs. When this occurs, the commit waiters linked
+		 * off of these commit itxs will not be committed to an
+		 * lwb.  Additionally, these commit waiters will not be
+		 * marked done until zil_commit_waiter_skip() is called via
+		 * zil_itxg_clean().
+		 *
+		 * Thus, it's possible for this commit waiter (i.e. the
+		 * "zcw" variable) to be found in this "in between" state;
+		 * where it's "zcw_lwb" field is NULL, and it hasn't yet
+		 * been skipped, so it's "zcw_done" field is still B_FALSE.
+		 */
+		IMPLY(lwb != NULL, lwb->lwb_state != LWB_STATE_CLOSED);
+
+		if (lwb != NULL && lwb->lwb_state == LWB_STATE_OPENED) {
 			ASSERT3B(timedout, ==, B_FALSE);
 
 			/*
@@ -2384,12 +2402,19 @@ zil_commit_waiter(zilog_t *zilog, zil_commit_waiter_t *zcw)
 			}
 		} else {
 			/*
-			 * If the lwb isn't open, then it must have
-			 * already been issued. In that case, there's no
-			 * need to use a timeout when waiting for the
-			 * lwb to complete.
+			 * If the lwb isn't open, then it must have already
+			 * been issued. In that case, there's no need to
+			 * use a timeout when waiting for the lwb to
+			 * complete.
+			 *
+			 * Additionally, if the lwb is NULL, the waiter
+			 * will soon be signalled and marked done via
+			 * zil_clean() and zil_itxg_clean(), so no timeout
+			 * is required.
 			 */
-			ASSERT(lwb->lwb_state == LWB_STATE_ISSUED ||
+
+			IMPLY(lwb != NULL,
+			    lwb->lwb_state == LWB_STATE_ISSUED ||
 			    lwb->lwb_state == LWB_STATE_DONE);
 			cv_wait(&zcw->zcw_cv, &zcw->zcw_lock);
 		}

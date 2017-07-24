@@ -59,6 +59,19 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	dprintf("os=%p obj=%llu, increase to %d\n", dn->dn_objset,
 	    dn->dn_object, dn->dn_phys->dn_nlevels);
 
+	/*
+	 * Lock ordering requires that we hold the children's db_mutexes (by
+	 * calling dbuf_find()) before holding the parent's db_rwlock.  The lock
+	 * order is imposed by dbuf_read's steps of "grab the lock to protect
+	 * db_parent, get db_parent, hold db_parent's db_rwlock".
+	 */
+	dmu_buf_impl_t *children[3];
+	ASSERT3U(nblkptr, <=, 3);
+	for (i = 0; i < nblkptr; i++) {
+		children[i] =
+		    dbuf_find(dn->dn_objset, dn->dn_object, old_toplvl, i);
+	}
+
 	/* transfer dnode's block pointers to new indirect block */
 	(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED|DB_RF_HAVESTRUCT);
 	if (dn->dn_dbuf != NULL)
@@ -74,7 +87,7 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	/* set dbuf's parent pointers to new indirect buf */
 	for (i = 0; i < nblkptr; i++) {
 		dmu_buf_impl_t *child =
-		    dbuf_find(dn->dn_objset, dn->dn_object, old_toplvl, i);
+		    children[i];
 
 		if (child == NULL)
 			continue;
@@ -106,6 +119,7 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	}
 
 	bzero(dn->dn_phys->dn_blkptr, sizeof (blkptr_t) * nblkptr);
+
 	rw_exit(&db->db_rwlock);
 	if (dn->dn_dbuf != NULL)
 		rw_exit(&dn->dn_dbuf->db_rwlock);

@@ -36,8 +36,8 @@ typedef struct spa_checkpoint_info {
 int spa_checkpoint(const char *);
 int spa_checkpoint_discard(const char *);
 
-boolean_t spa_checkpoint_discard_thread_check(void *, zthr_t *);
-int spa_checkpoint_discard_thread(void *, zthr_t *);
+boolean_t spa_checkpoint_discard_cb_check(void *, zthr_t *);
+int spa_checkpoint_discard_cb(void *, zthr_t *);
 
 int spa_checkpoint_get_stats(spa_t *, pool_checkpoint_stat_t *);
 

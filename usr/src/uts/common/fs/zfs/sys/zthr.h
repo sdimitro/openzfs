@@ -29,6 +29,7 @@ struct zthr {
 	kmutex_t	zthr_lock;
 	kcondvar_t	zthr_cv;
 	boolean_t	zthr_cancel;
+	hrtime_t	zthr_wait_time;
 
 	zthr_checkfunc_t	*zthr_checkfunc;
 	zthr_func_t	*zthr_func;
@@ -36,8 +37,11 @@ struct zthr {
 	int		zthr_rc;
 };
 
-extern zthr_t *zthr_create(zthr_checkfunc_t checkfunc,
+extern zthr_t *zthr_create(zthr_checkfunc_t *checkfunc,
     zthr_func_t *func, void *arg);
+extern zthr_t *zthr_create_timer(zthr_checkfunc_t *checkfunc,
+    zthr_func_t *func, void *arg, hrtime_t nano_wait);
+
 extern void zthr_exit(zthr_t *t, int rc);
 extern void zthr_destroy(zthr_t *t);
 

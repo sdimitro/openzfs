@@ -2150,8 +2150,8 @@ spa_spawn_aux_threads(spa_t *spa)
 
 	ASSERT3P(spa->spa_checkpoint_discard_zthr, ==, NULL);
 	spa->spa_checkpoint_discard_zthr =
-	    zthr_create(spa_checkpoint_discard_thread_check,
-	    spa_checkpoint_discard_thread, spa);
+	    zthr_create(spa_checkpoint_discard_cb_check,
+	    spa_checkpoint_discard_cb, spa);
 }
 
 /*

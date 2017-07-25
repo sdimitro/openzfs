@@ -133,7 +133,7 @@
  * We condense a vdev when we expect the mapping to shrink (see
  * vdev_indirect_should_condense()), but only perform one condense at a
  * time to limit the memory usage.  In addition, we use a separate
- * open-context thread (spa_condense_indirect_thread) to incrementally
+ * open-context thread (spa->spa_condense_zthr) to incrementally
  * create the new mapping object in a way that minimizes the impact on
  * the rest of the system.
  *
@@ -521,7 +521,7 @@ spa_condense_indirect_generate_new_mapping(vdev_t *vd,
 
 /* ARGSUSED */
 static boolean_t
-spa_condense_indirect_thread_check(void *arg, zthr_t *zthr)
+spa_condense_indirect_cb_check(void *arg, zthr_t *zthr)
 {
 	spa_t *spa = arg;
 
@@ -530,7 +530,7 @@ spa_condense_indirect_thread_check(void *arg, zthr_t *zthr)
 
 /* ARGSUSED */
 static int
-spa_condense_indirect_thread(void *arg, zthr_t *zthr)
+spa_condense_indirect_cb(void *arg, zthr_t *zthr)
 {
 	spa_t *spa = arg;
 	vdev_t *vd;
@@ -767,8 +767,8 @@ void
 spa_start_indirect_condensing_thread(spa_t *spa)
 {
 	ASSERT3P(spa->spa_condense_zthr, ==, NULL);
-	spa->spa_condense_zthr = zthr_create(spa_condense_indirect_thread_check,
-	    spa_condense_indirect_thread, spa);
+	spa->spa_condense_zthr = zthr_create(spa_condense_indirect_cb_check,
+	    spa_condense_indirect_cb, spa);
 }
 
 /*

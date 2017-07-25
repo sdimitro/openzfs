@@ -104,7 +104,7 @@
  *   entries from vdev_checkpoint_sm and then starting a synctask that places
  *   them as free blocks in to their respective ms_allocatable and ms_sm
  *   structures.
- *   [see spa_checkpoint_discard_thread()]
+ *   [see spa_checkpoint_discard_cb()]
  *
  *   When there are no entries left in the vdev_checkpoint_sm of all
  *   top-level vdevs, a final synctask runs that decrements the feature flag.
@@ -376,7 +376,7 @@ spa_checkpoint_discard_is_done(spa_t *spa)
 
 /* ARGSUSED */
 boolean_t
-spa_checkpoint_discard_thread_check(void *arg, zthr_t *zthr)
+spa_checkpoint_discard_cb_check(void *arg, zthr_t *zthr)
 {
 	spa_t *spa = arg;
 
@@ -390,7 +390,7 @@ spa_checkpoint_discard_thread_check(void *arg, zthr_t *zthr)
 }
 
 int
-spa_checkpoint_discard_thread(void *arg, zthr_t *zthr)
+spa_checkpoint_discard_cb(void *arg, zthr_t *zthr)
 {
 	spa_t *spa = arg;
 	vdev_t *rvd = spa->spa_root_vdev;

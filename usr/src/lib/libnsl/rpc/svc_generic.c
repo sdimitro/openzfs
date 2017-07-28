@@ -111,16 +111,6 @@ __svc_free_xprtlist(void)
 	__svc_free_xlist(&_svc_xprtlist, &xprtlist_lock);
 }
 
-static void
-error(char *errmsg, int sv_errno)
-{
-	if (t_errno != TSYSERR) {
-		(void) syslog(LOG_ERR, "%s: %s\n", errmsg, t_strerror(t_errno));
-	} else {
-		(void) syslog(LOG_ERR, "%s: %s\n", errmsg, strerror(sv_errno));
-	}
-}
-
 int
 svc_create(void (*dispatch)(), const rpcprog_t prognum, const rpcvers_t versnum,
 							const char *nettype)

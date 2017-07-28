@@ -56,6 +56,11 @@ struct uberblock {
 	/* highest SPA_VERSION supported by software that wrote this txg */
 	uint64_t	ub_software_version;
 
+	/* These fields are reserved for features that are under development: */
+	uint64_t	ub_mmp_magic;
+	uint64_t	ub_mmp_delay;
+	uint64_t	ub_mmp_seq;
+
 	/*
 	 * ub_checkpoint_txg indicates two things about the current uberblock:
 	 *

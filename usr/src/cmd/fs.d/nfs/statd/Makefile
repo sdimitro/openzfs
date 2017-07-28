@@ -45,7 +45,8 @@ CERRWARN +=	-_gcc=-Wno-uninitialized
 LOCAL=		sm_svc.o sm_proc.o sm_statd.o
 OBJS=		$(LOCAL) selfcheck.o daemon.o smfcfg.o
 
-SRCS=		$(LOCAL:%.o=%.c) ../lib/selfcheck.c ../lib/daemon.c ../lib/smfcfg.c
+SRCS=		$(LOCAL:%.o=%.c) ../lib/selfcheck.c ../lib/daemon.c \
+		../lib/smfcfg.c
 
 LDLIBS +=	-lsocket -lrpcsvc -lnsl -lscf
 CPPFLAGS +=     -I../lib

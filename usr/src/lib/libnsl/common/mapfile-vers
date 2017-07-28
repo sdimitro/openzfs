@@ -43,7 +43,6 @@ $mapfile_version 2
 SYMBOL_VERSION ILLUMOS_0.1 {    # Illumos additions
     global:
 	svc_tp_create_addr;
-	svc_create_port;
 } SUNW_1.10;
 
 SYMBOL_VERSION SUNW_1.10 {	# SunOS 5.11 (Solaris 11)

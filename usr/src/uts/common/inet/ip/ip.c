@@ -95,6 +95,7 @@
 #include <netinet/igmp.h>
 #include <netinet/ip_mroute.h>
 #include <inet/ipp_common.h>
+#include <inet/cc.h>
 
 #include <net/pfkeyv2.h>
 #include <inet/sadb.h>
@@ -4568,6 +4569,8 @@ ip_ddi_init(void)
 	}
 #endif
 	ip_poll_normal_ticks = MSEC_TO_TICK_ROUNDUP(ip_poll_normal_ms);
+
+	cc_init();
 
 	ipcl_g_init();
 	ip_ire_g_init();

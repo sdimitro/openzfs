@@ -10,7 +10,7 @@
 .\"
 .\"
 .\" Copyright (c) 2012, Joyent, Inc. All Rights Reserved
-.\" Copyright (c) 2013 by Delphix. All rights reserved.
+.\" Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 .\" Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
 .\"
 .Dd April 9, 2016
@@ -734,6 +734,9 @@ syntax can be used to add/remove values from the current list of values on the
 property.
 The property name can be one of the following:
 .Bl -tag -compact -width "smallest_nonpriv_port"
+.It Cm congestion_control
+The default congestion-control algorithm to be used for new connections
+.Pq TCP .
 .It Cm ecn
 Explicit congestion control
 .Pq Cm never Ns / Ns Cm passive Ns / Ns Cm active

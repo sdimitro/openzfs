@@ -1780,8 +1780,7 @@ zil_clean(zilog_t *zilog, uint64_t synced_txg)
 		return;
 	}
 	ASSERT3U(itxg->itxg_txg, <=, synced_txg);
-	ASSERT(itxg->itxg_txg != 0);
-	ASSERT(zilog->zl_clean_taskq != NULL);
+	ASSERT3U(itxg->itxg_txg, !=, 0);
 	clean_me = itxg->itxg_itxs;
 	itxg->itxg_itxs = NULL;
 	itxg->itxg_txg = 0;
@@ -1792,7 +1791,9 @@ zil_clean(zilog_t *zilog, uint64_t synced_txg)
 	 * free it in-line. This should be rare. Note, using TQ_SLEEP
 	 * created a bad performance problem.
 	 */
-	if (taskq_dispatch(zilog->zl_clean_taskq,
+	ASSERT3P(zilog->zl_dmu_pool, !=, NULL);
+	ASSERT3P(zilog->zl_dmu_pool->dp_zil_clean_taskq, !=, NULL);
+	if (taskq_dispatch(zilog->zl_dmu_pool->dp_zil_clean_taskq,
 	    (void (*)(void *))zil_itxg_clean, clean_me, TQ_NOSLEEP) == NULL)
 		zil_itxg_clean(clean_me);
 }
@@ -2870,14 +2871,11 @@ zil_open(objset_t *os, zil_get_data_t *get_data)
 {
 	zilog_t *zilog = dmu_objset_zil(os);
 
-	ASSERT3P(zilog->zl_clean_taskq, ==, NULL);
 	ASSERT3P(zilog->zl_get_data, ==, NULL);
 	ASSERT3P(zilog->zl_last_lwb_opened, ==, NULL);
 	ASSERT(list_is_empty(&zilog->zl_lwb_list));
 
 	zilog->zl_get_data = get_data;
-	zilog->zl_clean_taskq = taskq_create("zil_clean", 1, minclsyspri,
-	    2, 2, TASKQ_PREPOPULATE);
 
 	return (zilog);
 }
@@ -2913,8 +2911,6 @@ zil_close(zilog_t *zilog)
 		zfs_dbgmsg("zil (%p) is dirty, txg %llu", zilog, txg);
 	VERIFY(!zilog_is_dirty(zilog));
 
-	taskq_destroy(zilog->zl_clean_taskq);
-	zilog->zl_clean_taskq = NULL;
 	zilog->zl_get_data = NULL;
 
 	/*

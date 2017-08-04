@@ -264,6 +264,12 @@ zpool_feature_init(void)
 	    "Pool state can be checkpointed, allowing rewind later.",
 	    ZFEATURE_FLAG_READONLY_COMPAT, ZFEATURE_TYPE_BOOLEAN, NULL);
 
+	zfeature_register(SPA_FEATURE_SPACEMAP_V2,
+	    "com.delphix:spacemap_v2", "spacemap_v2",
+	    "Space maps representing large segments are more efficient.",
+	    ZFEATURE_FLAG_READONLY_COMPAT | ZFEATURE_FLAG_ACTIVATE_ON_ENABLE,
+	    ZFEATURE_TYPE_BOOLEAN, NULL);
+
 	static const spa_feature_t large_blocks_deps[] = {
 		SPA_FEATURE_EXTENSIBLE_DATASET,
 		SPA_FEATURE_NONE

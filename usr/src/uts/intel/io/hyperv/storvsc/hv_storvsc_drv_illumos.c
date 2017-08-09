@@ -124,12 +124,17 @@
 #define	STORVSC_DATA_SIZE_MAX		\
 	(STORVSC_DATA_SEGCNT_MAX * STORVSC_DATA_SEGSZ_MAX)
 
+#define	STORVSC_POLL_DELAY_USECS	1000
+#define	STORVSC_POLL_CYCLES(wait_secs) \
+	((wait_secs * MICROSEC) / STORVSC_POLL_DELAY_USECS)
+
 enum storvsc_request_type {
 	WRITE_TYPE,
 	READ_TYPE,
 	UNKNOWN_TYPE
 };
 
+extern int do_polled_io;
 int hv_storvsc_chan_cnt = 0;
 uint_t hv_storvsc_use_win8ext_flags = 1;
 static uint_t hv_storvsc_ringbuffer_size;
@@ -371,6 +376,7 @@ static void storvsc_destroy_pkt(struct scsi_address *, struct scsi_pkt *);
 static void storvsc_dmafree(struct scsi_address *, struct scsi_pkt *);
 static void storvsc_timeout(void *arg);
 static void storvsc_init_kstat(storvsc_softc_t *sc);
+static void storvsc_poll(storvsc_cmd_t *cmd);
 
 static struct cb_ops storvsc_cb_ops = {
 	.cb_open = scsi_hba_open,
@@ -1197,9 +1203,9 @@ storvsc_set_command_status(storvsc_cmd_t *cmd)
 
 	if (cmd->cmd_flags & STORVSC_FLAG_TIMED_OUT) {
 		cmd->cmd_pkt->pkt_reason = CMD_TIMEOUT;
-		cmd->cmd_pkt->pkt_statistics |= (STAT_TIMEOUT|STAT_ABORTED);
-		cmd->cmd_pkt->pkt_state |= (STATE_GOT_BUS | STATE_GOT_TARGET |
-		    STATE_SENT_CMD | STATE_GOT_STATUS);
+		cmd->cmd_pkt->pkt_statistics |= (STAT_TIMEOUT);
+		cmd->cmd_pkt->pkt_state |= (STATE_GOT_BUS |
+		    STATE_GOT_TARGET | STATE_SENT_CMD);
 	} else if (cmd->cmd_flags & STORVSC_FLAG_ABORTED) {
 		cmd->cmd_pkt->pkt_reason = CMD_ABORTED;
 		cmd->cmd_pkt->pkt_statistics |= (STAT_TIMEOUT|STAT_ABORTED);
@@ -1289,6 +1295,7 @@ storvsc_start(struct scsi_address *ap, struct scsi_pkt *pkt)
 	storvsc_softc_t  *sc = ap->a_hba_tran->tran_hba_private;
 	storvsc_cmd_t    *cmd = PKT2CMD(pkt);
 	struct hv_storvsc_request	*reqp = PKT2REQ(pkt);
+	boolean_t poll = ((pkt->pkt_flags & FLAG_NOINTR) != 0);
 	int rc;
 
 	ASSERT3P(cmd->cmd_pkt, ==, pkt);
@@ -1308,7 +1315,7 @@ storvsc_start(struct scsi_address *ap, struct scsi_pkt *pkt)
 	}
 
 	/* Setup timeout before submitting actual I/O */
-	if (pkt->pkt_time > 0) {
+	if (!poll && pkt->pkt_time > 0) {
 		reqp->timeout_id = timeout(storvsc_timeout, reqp,
 		    SEC_TO_TICK(pkt->pkt_time));
 	} else {
@@ -1327,6 +1334,9 @@ storvsc_start(struct scsi_address *ap, struct scsi_pkt *pkt)
 	}
 
 	pkt->pkt_state |= STATE_SENT_CMD;
+
+	if (poll)
+		storvsc_poll(cmd);
 
 	HS_DEBUG(sc->hs_dip, 3,
 	    "%s: submitted cmd: 0x%x, pkt: %p, "
@@ -1352,6 +1362,13 @@ storvsc_reset(struct scsi_address *ap, int level)
 #else
 	HS_WARN(sc->hs_dip, "%s reset not supported.",
 	    (level == RESET_TARGET) ? "dev" : "bus");
+
+	/*
+	 * In order to allow a storvsc dump device, return success
+	 * when in the middle of a crash dump.
+	 */
+	if (do_polled_io || panicstr != NULL)
+		return (1);
 	return (0);
 #endif	/* HVS_HOST_RESET */
 }
@@ -2402,10 +2419,11 @@ storvsc_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
 	 * only allow inbound traffic (responses) to proceed so that
 	 * outstanding requests can be completed.
 	 */
-
-	sc->hs_drain_notify = B_TRUE;
-	sema_p(&sc->hs_drain_sema);
-	sc->hs_drain_notify = B_FALSE;
+	if (sc->hs_num_out_reqs > 0) {
+		sc->hs_drain_notify = B_TRUE;
+		sema_p(&sc->hs_drain_sema);
+		sc->hs_drain_notify = B_FALSE;
+	}
 
 	/*
 	 * Since we have already drained, we don't need to busy wait.
@@ -2439,11 +2457,50 @@ storvsc_timeout(void *arg)
 	struct storvsc_softc *sc = cmd->cmd_sc;
 	struct scsi_pkt *pkt = reqp->pkt;
 
+	cmd->cmd_flags |= STORVSC_FLAG_TIMED_OUT;
+	storvsc_complete_command(cmd);
+
 	HS_WARN(sc->hs_dip,
 	    "IO (reqp = 0x%p) did not return for %u seconds.",
 	    (void *)reqp, pkt->pkt_time);
 	VSC_INCR_STAT(sc, vscstat_timeouts);
 }
+
+/*
+ * @brief StorVSC device poll function
+ *
+ * This function is responsible for servicing requests when
+ * interrupts are disabled (i.e when we are dumping core.)
+ *
+ * @param cmd the storvsc command that needs servicing
+ */
+static void
+storvsc_poll(storvsc_cmd_t *cmd)
+{
+	struct scsi_pkt *pkt = CMD2PKT(cmd);
+	int cycles = (pkt->pkt_time != 0) ?
+	    STORVSC_POLL_CYCLES(pkt->pkt_time) :
+	    STORVSC_POLL_CYCLES(SCSI_POLL_TIMEOUT);
+	storvsc_softc_t *sc = cmd->cmd_sc;
+
+	for (int i = 0; i < cycles; i++) {
+		hv_storvsc_on_channel_callback(sc->hs_chan, sc);
+		if ((cmd->cmd_flags & STORVSC_FLAG_DONE) != 0)
+			return;
+
+		if (((curthread->t_flag & T_INTR_THREAD) == 0) &&
+		    !do_polled_io) {
+			delay(drv_usectohz(STORVSC_POLL_DELAY_USECS));
+		} else {
+			/* busy wait */
+			drv_usecwait(STORVSC_POLL_DELAY_USECS);
+		}
+	}
+
+	/* Return error back to sd if the request times out */
+	storvsc_timeout(PKT2REQ(pkt));
+}
+
 
 static void
 storvsc_scsi_good_cmd(storvsc_cmd_t *cmd, uint8_t status)

@@ -36,6 +36,12 @@
 
 verify_runnable "global"
 
+function callback
+{
+	log_mustnot zpool checkpoint $TESTPOOL
+	return 0
+}
+
 #
 # Create pool
 #
@@ -60,8 +66,7 @@ log_must zpool add $TESTPOOL $EXTRATESTDISK
 #
 # Remove disk and attempt to take checkpoint
 #
-log_must zpool remove $TESTPOOL $TESTDISK
-log_mustnot zpool checkpoint $TESTPOOL
+log_must attempt_during_removal $TESTPOOL $TESTDISK callback
 log_must zpool status $TESTPOOL
 
 log_pass "Attempting to checkpoint during removal fails as expected."

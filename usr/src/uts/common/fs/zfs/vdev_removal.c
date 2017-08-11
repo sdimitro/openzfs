@@ -102,13 +102,19 @@ int zfs_remove_max_copy_bytes = 8 * 1024 * 1024;
  * there is a performance problem with attempting to allocate large blocks,
  * consider decreasing this.
  *
- * Note: we will issue i/os of up to this size.  The mpt driver does not
- * respond well to i/os larger than 1MB, so we set this to 1MB.  (When
- * mpt processes an i/o larger than 1MB, it needs to do an allocation of
+ * Note: we will issue I/Os of up to this size.  The mpt driver does not
+ * respond well to I/Os larger than 1MB, so we set this to 1MB.  (When
+ * mpt processes an I/O larger than 1MB, it needs to do an allocation of
  * 2 physically contiguous pages; if this allocation fails, mpt will drop
- * the i/o and hang the device.)
+ * the I/O and hang the device.)
  */
 int zfs_remove_max_segment = 1024 * 1024;
+
+/*
+ * This is used by the test suite so that it can ensure that certain
+ * actions happen while in the middle of a removal.
+ */
+uint64_t zfs_remove_max_bytes_pause = UINT64_MAX;
 
 static void spa_vdev_remove_thread(void *arg);
 
@@ -1170,6 +1176,19 @@ spa_vdev_remove_thread(void *arg)
 		    !range_tree_is_empty(svr->svr_allocd_segs)) {
 
 			mutex_exit(&svr->svr_lock);
+
+			/*
+			 * This delay will pause the removal around the point
+			 * specified by zfs_remove_max_bytes_pause. We do this
+			 * solely from the test suite or during debugging.
+			 */
+			uint64_t bytes_copied =
+			    spa->spa_removing_phys.sr_copied;
+			for (int i = 0; i < TXG_SIZE; i++)
+				bytes_copied += svr->svr_bytes_done[i];
+			while (zfs_remove_max_bytes_pause <= bytes_copied &&
+			    !svr->svr_thread_exit)
+				delay(hz);
 
 			mutex_enter(&vca.vca_lock);
 			while (vca.vca_outstanding_bytes >

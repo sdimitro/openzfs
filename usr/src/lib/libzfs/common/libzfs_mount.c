@@ -412,6 +412,12 @@ zfs_mount(zfs_handle_t *zhp, const char *options, int flags)
 		} else {
 			zfs_error_aux(hdl, strerror(errno));
 		}
+
+		/*
+		 * Temporarily dump zfs debug messages on a failed mount
+		 * in order to root cause DLPX-50033.
+		 */
+		system("sudo mdb -kwe ::zfs_dbgmsg");
 		return (zfs_error_fmt(hdl, EZFS_MOUNTFAILED,
 		    dgettext(TEXT_DOMAIN, "cannot mount '%s'"),
 		    zhp->zfs_name));

@@ -1327,6 +1327,7 @@ zfs_parse_bootfs(char *bpath, char *outpath)
 int
 zfs_check_global_label(const char *dsname, const char *hexsl)
 {
+	int err;
 	if (strcasecmp(hexsl, ZFS_MLSLABEL_DEFAULT) == 0)
 		return (0);
 	if (strcasecmp(hexsl, ADMIN_HIGH) == 0)
@@ -1335,11 +1336,18 @@ zfs_check_global_label(const char *dsname, const char *hexsl)
 		/* must be readonly */
 		uint64_t rdonly;
 
-		if (dsl_prop_get_integer(dsname,
-		    zfs_prop_to_name(ZFS_PROP_READONLY), &rdonly, NULL))
+		if (err = dsl_prop_get_integer(dsname,
+		    zfs_prop_to_name(ZFS_PROP_READONLY), &rdonly, NULL)) {
+			zfs_dbgmsg("%s fail readonly prop get %s, error = %d",
+			    __func__, hexsl, err);
 			return (SET_ERROR(EACCES));
+		}
+		if (!rdonly)
+			zfs_dbgmsg("%s admin_low label not readonly %s",
+			    __func__, hexsl);
 		return (rdonly ? 0 : EACCES);
 	}
+	zfs_dbgmsg("%s glb_lbl unknown label %s", __func__, hexsl);
 	return (SET_ERROR(EACCES));
 }
 
@@ -1368,8 +1376,11 @@ zfs_mount_label_policy(vfs_t *vfsp, char *osname)
 	 */
 	error = dsl_prop_get(osname, zfs_prop_to_name(ZFS_PROP_MLSLABEL),
 	    1, sizeof (ds_hexsl), &ds_hexsl, NULL);
-	if (error)
+	if (error) {
+		zfs_dbgmsg("%s failed label prop get %s, error = %d",
+		    __func__, osname, error);
 		return (SET_ERROR(EACCES));
+	}
 
 	/*
 	 * If labeling is NOT enabled, then disallow the mount of datasets
@@ -1379,6 +1390,7 @@ zfs_mount_label_policy(vfs_t *vfsp, char *osname)
 	if (!is_system_labeled()) {
 		if (strcasecmp(ds_hexsl, ZFS_MLSLABEL_DEFAULT) == 0)
 			return (0);
+		zfs_dbgmsg("%s disabled label not default ", __func__);
 		return (SET_ERROR(EACCES));
 	}
 
@@ -1391,12 +1403,16 @@ zfs_mount_label_policy(vfs_t *vfsp, char *osname)
 	mntzone = zone_find_by_any_path(refstr_value(vfsp->vfs_mntpt), B_FALSE);
 	if (mntzone->zone_id == GLOBAL_ZONEID) {
 		uint64_t zoned;
+		int err;
 
 		zone_rele(mntzone);
 
-		if (dsl_prop_get_integer(osname,
-		    zfs_prop_to_name(ZFS_PROP_ZONED), &zoned, NULL))
+		if (err = dsl_prop_get_integer(osname,
+		    zfs_prop_to_name(ZFS_PROP_ZONED), &zoned, NULL)) {
+			zfs_dbgmsg("%s failed zone prop get %s, error = %d",
+			    __func__, osname, err);
 			return (SET_ERROR(EACCES));
+		}
 		if (!zoned)
 			return (zfs_check_global_label(osname, ds_hexsl));
 		else
@@ -1422,8 +1438,11 @@ zfs_mount_label_policy(vfs_t *vfsp, char *osname)
 		if (l_to_str_internal(mnt_sl, &str) == 0 &&
 		    dsl_prop_set_string(osname,
 		    zfs_prop_to_name(ZFS_PROP_MLSLABEL),
-		    ZPROP_SRC_LOCAL, str) == 0)
+		    ZPROP_SRC_LOCAL, str) == 0) {
 			retv = 0;
+		} else {
+			zfs_dbgmsg("%s failed label prop set", __func__);
+		}
 		if (str != NULL)
 			kmem_free(str, strlen(str) + 1);
 	} else if (hexstr_to_label(ds_hexsl, &ds_sl) == 0) {
@@ -1438,6 +1457,8 @@ zfs_mount_label_policy(vfs_t *vfsp, char *osname)
 		else if (bldominates(mnt_sl, &ds_sl)) {
 			vfs_setmntopt(vfsp, MNTOPT_RO, NULL, 0);
 			retv = 0;
+		} else {
+			zfs_dbgmsg("%s dataset label dominates", __func__);
 		}
 	}
 

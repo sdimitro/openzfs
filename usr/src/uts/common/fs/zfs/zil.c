@@ -2589,6 +2589,21 @@ zil_commit_itx_assign(zilog_t *zilog, zil_commit_waiter_t *zcw)
 void
 zil_commit(zilog_t *zilog, uint64_t foid)
 {
+	/*
+	 * We should never attempt to call zil_commit on a snapshot for
+	 * a couple of reasons:
+	 *
+	 * 1. A snapshot may never be modified, thus it cannot have any
+	 *    in-flight itxs that would have modified the dataset.
+	 *
+	 * 2. By design, when zil_commit() is called, a commit itx will
+	 *    be assigned to this zilog; as a result, the zilog will be
+	 *    dirtied. We must not dirty the zilog of a snapshot; there's
+	 *    checks in the code that enforce this invariant, and will
+	 *    cause a panic if it's not upheld.
+	 */
+	ASSERT3B(dmu_objset_is_snapshot(zilog->zl_os), ==, B_FALSE);
+
 	if (zilog->zl_sync == ZFS_SYNC_DISABLED)
 		return;
 
@@ -2889,7 +2904,13 @@ zil_close(zilog_t *zilog)
 	lwb_t *lwb;
 	uint64_t txg;
 
-	zil_commit(zilog, 0); /* commit all itx */
+	if (!dmu_objset_is_snapshot(zilog->zl_os)) {
+		zil_commit(zilog, 0);
+	} else {
+		ASSERT3P(list_tail(&zilog->zl_lwb_list), ==, NULL);
+		ASSERT0(zilog->zl_dirty_max_txg);
+		ASSERT3B(zilog_is_dirty(zilog), ==, B_FALSE);
+	}
 
 	mutex_enter(&zilog->zl_lock);
 	lwb = list_tail(&zilog->zl_lwb_list);

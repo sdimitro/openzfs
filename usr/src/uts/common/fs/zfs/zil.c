@@ -2612,7 +2612,7 @@ zil_commit(zilog_t *zilog, uint64_t foid)
 		 * If the SPA is not writable, there should never be any
 		 * pending itxs waiting to be committed to disk. If that
 		 * weren't true, we'd skip writing those itxs out, and
-		 * would break the sematics of zil_commit(); thus, we're
+		 * would break the semantics of zil_commit(); thus, we're
 		 * verifying that truth before we return to the caller.
 		 */
 		ASSERT(list_is_empty(&zilog->zl_lwb_list));

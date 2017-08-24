@@ -1004,22 +1004,6 @@ dmu_write(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 	dmu_buf_rele_array(dbp, numbufs, FTAG);
 }
 
-void
-dmu_write_by_dnode(dnode_t *dn, uint64_t offset, uint64_t size,
-    const void *buf, dmu_tx_t *tx)
-{
-	dmu_buf_t **dbp;
-	int numbufs;
-
-	if (size == 0)
-		return;
-
-	VERIFY0(dmu_buf_hold_array_by_dnode(dn, offset, size,
-	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH));
-	dmu_write_impl(dbp, numbufs, offset, size, buf, tx);
-	dmu_buf_rele_array(dbp, numbufs, FTAG);
-}
-
 static int
 dmu_object_remap_one_indirect(objset_t *os, dnode_t *dn,
     uint64_t last_removal_txg, uint64_t offset)

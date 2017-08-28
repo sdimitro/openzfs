@@ -126,6 +126,27 @@ directories+=(
 	$SRC/cmd/fs.d/nfs/lockd
 )
 
+# Replace directories with a shortened list if we're only building tests
+if [[ $1 = "-t" ]]; then
+	directories=(
+		$SRC/lib/libc
+		$SRC/lib/libm
+		$SRC/lib/libsaveargs
+		$SRC/lib/libproc
+		$SRC/lib/libavl
+		$SRC/lib/libnvpair
+		$SRC/lib/libzfs_core
+		$SRC/lib/libcmdutils
+		$SRC/lib/libsocket
+		$SRC/lib/libnsl
+		$SRC/test/libc-tests
+		$SRC/test/os-tests
+		$SRC/test/test-runner
+		$SRC/test/util-tests
+		$SRC/test/zfs-tests
+	)
+fi
+
 for i in "${directories[@]}"; do
 	if [[ -d $i ]]; then
 		(cd $i; dmake install) || exit 1

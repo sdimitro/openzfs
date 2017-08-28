@@ -258,8 +258,8 @@ files+="
 	/usr/lib/nfs/lockd
 "
 
+echo -n "Copying files from $proto ... "
 if ! $test_only; then
-	echo -n "Copying files from $proto ... "
 	for f in $files; do
 		if [[ ! -e $f ]]; then
 			pdir=$(dirname $f)
@@ -271,7 +271,10 @@ fi
 
 dirs="
 	/usr/lib/python2.7/vendor-packages/zfs/
+	/opt/libc-tests
+	/opt/os-tests
 	/opt/test-runner/
+	/opt/util-tests
 	/opt/zfs-tests/
 "
 

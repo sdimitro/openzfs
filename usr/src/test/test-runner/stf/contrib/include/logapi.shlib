@@ -23,7 +23,7 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 #
 
 STF_PASS=0
@@ -277,6 +277,7 @@ function _endlog
 {
 	typeset exitcode=$1
 	shift
+	typeset callback_output=$(mktemp)
 
 	if $TR_STOP_ON_FAILURE; then
 		if [[ $exitcode -ne $STF_PASS ]]; then
@@ -286,7 +287,7 @@ function _endlog
 	fi
 
 	if [[ $exitcode -eq $STF_FAIL ]]; then
-		_execute_testfail_callbacks
+		_execute_testfail_callbacks >$callback_output 2>&1
 	fi
 
 	if [[ -n $_CLEANUP ]]; then
@@ -297,5 +298,9 @@ function _endlog
 	fi
 
 	(( ${#@} > 0 )) && echo "$@"
+
+	[[ -s $callback_output ]] && cat $callback_output
+	rm -f $callback_output
+
 	exit $exitcode
 }

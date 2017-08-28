@@ -891,7 +891,6 @@ dmu_tx_try_assign(dmu_tx_t *tx, txg_how_t txg_how)
 		if (spa_get_failmode(spa) == ZIO_FAILURE_MODE_CONTINUE &&
 		    txg_how != TXG_WAIT)
 			return (SET_ERROR(EIO));
-
 		return (SET_ERROR(ERESTART));
 	}
 

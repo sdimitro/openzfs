@@ -11,10 +11,12 @@
 
 #
 # Copyright (c) 2012, 2017 by Delphix. All rights reserved.
+# Copyright 2017 Joyent, Inc.
 #
 
 SUBDIRS = \
 	file-locking	\
+	pf_key		\
 	poll		\
 	sdevfs		\
 	secflags	\

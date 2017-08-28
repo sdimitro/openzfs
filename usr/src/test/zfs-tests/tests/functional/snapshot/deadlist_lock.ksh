@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2016 by Delphix. All rights reserved.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -86,7 +86,7 @@ log_onexit cleanup
 setup
 log_must sync
 
-log_must dtrace -qwn "fbt::bpobj_decr_empty:entry { chill(500000000); }" &
+dtrace -qwn "fbt::bpobj_decr_empty:entry { chill(500000000); }" &
 DTRACE_PID="$!"
 sleep 1
 

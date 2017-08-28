@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2014, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -67,8 +67,8 @@ log_onexit cleanup
 log_must mdb_set_uint32 zfs_remove_max_segment 32768
 
 log_must dd if=/dev/urandom of=$TESTDIR/$TESTFILE0 bs=128k count=1
-FILE_CONTENTS=`cat $TESTDIR/$TESTFILE0`
-log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+FILE_MD5=`md5sum $TESTDIR/$TESTFILE0`
+log_must [ "x$(md5sum $TESTDIR/$TESTFILE0)" = "x$FILE_MD5" ]
 
 for i in {1..100}; do
 	log_must zpool remove $TESTPOOL $TMPDIR/dsk1
@@ -78,7 +78,7 @@ for i in {1..100}; do
 
 	log_must zinject -a
 	log_must dd if=$TESTDIR/$TESTFILE0 of=/dev/null
-	log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+	log_must [ "x$(md5sum $TESTDIR/$TESTFILE0)" = "x$FILE_MD5" ]
 
 	log_must zpool remove $TESTPOOL $TMPDIR/dsk2
 	log_must wait_for_removal $TESTPOOL
@@ -87,7 +87,7 @@ for i in {1..100}; do
 
 	log_must zinject -a
 	log_must dd if=$TESTDIR/$TESTFILE0 of=/dev/null
-	log_must [ "x$(cat $TESTDIR/$TESTFILE0)" = "x$FILE_CONTENTS" ]
+	log_must [ "x$(md5sum $TESTDIR/$TESTFILE0)" = "x$FILE_MD5" ]
 done
 
 log_pass "File contents transfered completely from one disk to another."

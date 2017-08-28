@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@PYTHON@ -u
 
 #
 # This file and its contents are supplied under the terms of the
@@ -192,24 +192,59 @@ class Cmd(object):
         ret = '%s -E -u %s %s' % (SUDO, user, cmd)
         return ret.split(' ')
 
-    def collect_output(self, proc):
+    def write_output(self, out, err):
+        # Sort all lines in stdout and stderr by timestamp
+        sorted_lines = sorted(out.lines + err.lines,
+                              cmp=lambda x, y: cmp(x[0], y[0]))
+
+        # Update the timestamped logfile that contains all results
+        if self.logger:
+            for dt, line in sorted_lines:
+                self.logger.debug('%s %s' % (dt.strftime("%H:%M:%S.%f ")[:11],
+                                             line))
+
+        # Write the current output to the unmodified output files
+        with open(os.path.join(self.outputdir, 'stdout'), 'a+') as output:
+            for _, line in out.lines:
+                os.write(output.fileno(), '%s\n' % line)
+
+        with open(os.path.join(self.outputdir, 'stderr'), 'a+') as output:
+            for _, line in err.lines:
+                os.write(output.fileno(), '%s\n' % line)
+
+        with open(os.path.join(self.outputdir, 'merged'), 'a+') as output:
+            for _, line in sorted_lines:
+                os.write(output.fileno(), '%s\n' % line)
+
+        # Remove the data we've written to disk
+        del out.lines[:]
+        del err.lines[:]
+
+    def process_output(self, proc):
         """
         Read from stdout/stderr as data becomes available, until the
-        process is no longer running. Return the lines from the stdout and
-        stderr Output objects.
+        process is no longer running. Print to stdout/stderr/merged
+        files for the running test.
         """
         out = Output(proc.stdout)
         err = Output(proc.stderr)
         res = []
+
         while proc.returncode is None:
             proc.poll()
             res = select([out, err], [], [], .1)
             for fd in res[0]:
                 fd.read()
+            self.write_output(out, err)
+
         for fd in res[0]:
             fd.read(drain=1)
+            self.write_output(out, err)
 
-        return out.lines, err.lines
+        # If stderr is empty, we don't need that or the merged file
+        if not os.stat(os.path.join(self.outputdir, 'stderr')).st_size:
+            os.unlink(os.path.join(self.outputdir, 'stderr'))
+            os.unlink(os.path.join(self.outputdir, 'merged'))
 
     def post_process(self, options):
         """
@@ -256,9 +291,15 @@ class Cmd(object):
             # Allow a special timeout value of 0 to mean infinity
             if int(self.timeout) == 0:
                 self.timeout = maxint
+
+            logname = getpwuid(os.getuid()).pw_name
+            user = ' (run as %s)' % (self.user if len(self.user) else logname)
+            msga = 'Test: %s%s ' % (self.pathname, user)
+            print msga,
+
             t = Timer(int(self.timeout), self.kill_cmd, [proc])
             t.start()
-            self.result.stdout, self.result.stderr = self.collect_output(proc)
+            self.process_output(proc)
         except KeyboardInterrupt:
             self.kill_cmd(proc)
             fail('\nRun terminated at user request.')
@@ -266,7 +307,11 @@ class Cmd(object):
             t.cancel()
 
         self.result.done(proc, self.killed)
-        self.log(options)
+        msgb = '[%s] [%s]' % (self.result.runtime, self.result.result)
+        pad = ' ' * (80 - (len(msga) + len(msgb)))
+        print '%s%s' % (pad, msgb)
+        if self.logger:
+            self.logger.debug('%s%s%s' % (msga, pad, msgb))
         self.post_process(options)
 
     def skip(self, options):
@@ -282,53 +327,13 @@ class Cmd(object):
         self.result.runtime = '%02d:%02d' % (m, s)
         self.result.result = 'SKIP'
 
-        self.log(options)
-
-    def log(self, options):
-        """
-        This function is responsible for writing all output. This includes
-        the console output, the logfile of all results (with timestamped
-        merged stdout and stderr), and for each test, the unmodified
-        stdout/stderr/merged in it's own file.
-        """
-        if self.logger is None:
-            return
-
-        logname = getpwuid(os.getuid()).pw_name
-        user = ' (run as %s)' % (self.user if len(self.user) else logname)
-        msga = 'Test: %s%s ' % (self.pathname, user)
-        msgb = '[%s] [%s]' % (self.result.runtime, self.result.result)
-        pad = ' ' * (80 - (len(msga) + len(msgb)))
-
-        # If -q is specified, only print a line for tests that didn't pass.
-        # This means passing tests need to be logged as DEBUG, or the one
-        # line summary will only be printed in the logfile for failures.
-        if not options.quiet:
+        if self.logger:
+            logname = getpwuid(os.getuid()).pw_name
+            user = ' (run as %s)' % (self.user if len(self.user) else logname)
+            msga = 'Test: %s%s ' % (self.pathname, user)
+            msgb = '[%s] [%s]' % (self.result.runtime, self.result.result)
+            pad = ' ' * (80 - (len(msga) + len(msgb)))
             self.logger.info('%s%s%s' % (msga, pad, msgb))
-        elif self.result.result is not 'PASS':
-            self.logger.info('%s%s%s' % (msga, pad, msgb))
-        else:
-            self.logger.debug('%s%s%s' % (msga, pad, msgb))
-
-        lines = sorted(self.result.stdout + self.result.stderr,
-                       cmp=lambda x, y: cmp(x[0], y[0]))
-
-        for dt, line in lines:
-            self.logger.debug('%s %s' % (dt.strftime("%H:%M:%S.%f ")[:11],
-                                         line))
-
-        if len(self.result.stdout):
-            with open(os.path.join(self.outputdir, 'stdout'), 'w') as out:
-                for _, line in self.result.stdout:
-                    os.write(out.fileno(), '%s\n' % line)
-        if len(self.result.stderr):
-            with open(os.path.join(self.outputdir, 'stderr'), 'w') as err:
-                for _, line in self.result.stderr:
-                    os.write(err.fileno(), '%s\n' % line)
-        if len(self.result.stdout) and len(self.result.stderr):
-            with open(os.path.join(self.outputdir, 'merged'), 'w') as merged:
-                for _, line in lines:
-                    os.write(merged.fileno(), '%s\n' % line)
 
 
 class Test(Cmd):

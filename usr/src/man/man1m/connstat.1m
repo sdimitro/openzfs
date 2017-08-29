@@ -52,46 +52,46 @@ filter the set of connections included in the output.
 .Pp
 The arguments are as folows:
 .Bl -tag -width ""
-.It Fl 4 Ns , Fl -ipv4
+.It Fl 4 , Fl -ipv4
 Only displays IPv4 connections.
-.It Fl 6 Ns , Fl -ipv6
+.It Fl 6 , Fl -ipv6
 Only displays IPv6 connections
-.It Fl c Ar count Ns , Fl -count Ns = Ns Ar count
+.It Fl c Ar count , Fl -count Ns = Ns Ar count
 Print a specified number of reports before exiting.
 This is used in conjuction with
-.Fl i Ns .
-.It Fl e Ns , Fl -established
+.Fl i .
+.It Fl e , Fl -established
 Only display connections that are in state ESTABLISHED.
 This is equivalent to including
 .Sy state=ESTABLISHED
 in the filter argument to the
 .Fl F
 option.
-.It Fl F Ar filter Ns , Fl -filter Ns = Ns Ar filter
+.It Fl F Ar filter , Fl -filter Ns = Ns Ar filter
 Only display connections that match the filter argument provided.
 The format of the filter is:
 .Pp
 .Ar field Ns = Ns Ar value Ns Oo , Ns Ar field Ns = Ns Ar value Oc Ns ...
 .Pp
 Fields that can currently be filtered are
-.Ar laddr Ns , Ar lport Ns , Ar raddr Ns , Ar rport Ns , and Ar state Ns .
+.Ar laddr , Ar lport , Ar raddr , Ar rport , and Ar state .
 See the
 .Sx Fields
 section for a description of these fields.
 The filter matches a connection if all of the filter elements match, and a
 field must only appears once in the filter.
-.It Fl i Ar interval Ns , Fl -interval Ns = Ns Ar interval
+.It Fl i Ar interval , Fl -interval Ns = Ns Ar interval
 Specify an output interval in seconds.
 For each interval, a report containing all connections appropriate given other
 command-line options is printed.
-.It Fl L Ns , Fl -no-loopback
+.It Fl L , Fl -no-loopback
 Exclude connections to the loopback address.
-.It Fl o Ar fields Ns , Fl -output Ns = Ns Ar fields
+.It Fl o Ar fields , Fl -output Ns = Ns Ar fields
 Restrict the output to the specified comma-delimited list of field names.
 See the
 .Sx Fields
 section for information about possible fields.
-.It Fl P Ns , Fl -parsable
+.It Fl P , Fl -parsable
 Display using a stable machine-parsable output format.
 With this option, each line of output consists of comma (,) delimited fields,
 and the fields displayed are specified using the
@@ -100,7 +100,7 @@ option.
 See
 .Sx Example 4
 for an example of how to process parsable output.
-.It Fl T Sy d Ns | Ns Sy u Ns , Fl -timestamp Ns = Ns Sy d Ns | Ns Sy u
+.It Fl T Sy d Ns | Ns Sy u , Fl -timestamp Ns = Ns Sy d Ns | Ns Sy u
 Print a timestamp before each block of output.
 .Pp
 Specify
@@ -142,11 +142,11 @@ The maximum TCP segment size for this connection.
 .It Sy outbytes
 The number of data bytes sent.
 This does not include retransmitted bytes counted by
-.Sy retransbytes Ns .
+.Sy retransbytes .
 .It Sy outsegs
 The number of data segments sent.
 This does not include segments containing retransmitted bytes counted by
-.Sy retranssegs Ns .
+.Sy retranssegs .
 .It Sy raddr
 The remote IP address.
 .It Sy retransbytes
@@ -162,7 +162,7 @@ The current smoothed round-trip time to the peer in microseconds.
 The smoothed RTT average algorithm used is as described in RFC 6298.
 .It Sy rttc
 The number of times that a round-trip sample was added to
-.Sy rtts Ns .
+.Sy rtts .
 See
 .Sy rtts
 for a description of how these two fields can be used together to calculate the
@@ -173,7 +173,7 @@ microseconds.
 Each time TCP updates the value of
 .Sy rtt
 with a new sample, that sample's value is added to
-.Sy rtts Ns .
+.Sy rtts .
 To calculate the average round-trip over a given period (e.g. between T1 and T2),
 take samples of
 .Sy rtts
@@ -293,7 +293,7 @@ time to the peer.
 The congestion window is full when
 .Sy suna
 is equal to
-.Sy cwnd Ns .
+.Sy cwnd .
 If the window is full, then the throughput is limited by the size of the window
 and the round-trip time.
 In that case, knowing these two values is critical.

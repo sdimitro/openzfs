@@ -53,6 +53,8 @@ Options:
     -C script  Upon test failure (due to timeout only) run this script
     -c runfile Use the runfile to determine what tests to run
     -n nfsfile Use the nfsfile to determine the NFS configuration
+    -o outdir  Place test logs in the specified directory
+               (this option overrides 'outputdir' in a specified runfile)
     -h         This usage message
     -q         Print no output to the console during testing
     -r         Randomize the order of tests in each test group
@@ -174,7 +176,8 @@ while getopts aC:c:hn:o:qrs c; do
 		. $nfsfile
                 ;;
 	'o')
-		runner_args+=" -o $OPTARG"
+		# If -o is specified assume the ISO date directory is unwanted (-D)
+		runner_args+=" -D -o $OPTARG"
 		;;
 	'q')
 		runner_args+=' -q'

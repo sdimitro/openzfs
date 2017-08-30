@@ -145,7 +145,7 @@ class Cmd(object):
     def __init__(self, pathname, outputdir=None, timeout=None, user=None,
                  logger=None):
         self.pathname = pathname
-        self.outputdir = outputdir or 'BASEDIR'
+        self.outputdir = outputdir
         self.timeout = timeout
         self.user = user or ''
         self.killed = False
@@ -590,11 +590,11 @@ class TestRun(object):
 
         for opt in TestRun.props:
             if config.has_option('DEFAULT', opt):
+                # The output directory is set via determine_outputdir()
+                # before logging is setup so skip it here.
+                if opt == 'outputdir':
+                    continue
                 setattr(self, opt, config.get('DEFAULT', opt))
-
-        # Allow user to override default output directory from command line
-        if not options.outputdir.startswith(BASEDIR):
-            self.outputdir = options.outputdir
 
         for section in config.sections():
             if 'tests' in config.options(section):
@@ -911,10 +911,13 @@ def parse_args():
                       'killed due to exceeding its timeout.')
     parser.add_option('-d', action='store_true', default=False, dest='dryrun',
                       help='Dry run. Print tests, but take no other action.')
+    parser.add_option('-D', action='store_false', default=True,
+                      dest='iso_date', help='Do not append ISO 8601 date to '
+                      'output directory')
     parser.add_option('-g', action='store_true', default=False,
                       dest='do_groups', help='Make directories TestGroups.')
     parser.add_option('-o', action='callback', callback=options_cb,
-                      default=BASEDIR, dest='outputdir', type='string',
+                      default='', dest='outputdir', type='string',
                       metavar='outputdir', help='Specify an output directory.')
     parser.add_option('-p', action='callback', callback=options_cb,
                       default='', dest='pre', metavar='script',
@@ -954,15 +957,44 @@ def parse_args():
 
     options.pathnames = [os.path.abspath(path) for path in pathnames]
 
-    if options.outputdir.startswith(BASEDIR):
+    return options
+
+
+def determine_outputdir(options):
+    # Leave timestamp empty if '-D' was specified
+    timestamp = ''
+    if options.iso_date:
         timestamp = datetime.now().strftime('%Y%m%dT%H%M%S')
+
+    # Prefer a -o option provided on the command line, even allowing it
+    # to override the outputdir in a runfile if specified
+    if options.outputdir:
+        if timestamp:
+            options.outputdir = os.path.join(options.outputdir, timestamp)
+        return options.outputdir
+
+    # If no -o option was given, and a runfile was, look there
+    if options.cmd == 'rdconfig':
+        config = ConfigParser.RawConfigParser()
+        if not config.read(options.runfile):
+            fail("Couldn't read config file %s" % options.runfile)
+
+        if config.has_option('DEFAULT', 'outputdir'):
+            options.outputdir = config.get('DEFAULT', 'outputdir')
+
+    # Use a sensible default if neither -o nor -c are specified
+    if not options.outputdir:
+        options.outputdir = BASEDIR
+
+    if timestamp:
         options.outputdir = os.path.join(options.outputdir, timestamp)
 
-    return options
+    return options.outputdir
 
 
 def main():
     options = parse_args()
+    options.outputdir = determine_outputdir(options)
     testrun = TestRun(options)
 
     if options.cmd is 'runtests':

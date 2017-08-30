@@ -76,7 +76,10 @@ directories=(
 	$SRC/cmd/ztest
 	$SRC/cmd/terminfo
 	$SRC/cmd/mdb
+	$SRC/test/libc-tests
+	$SRC/test/os-tests
 	$SRC/test/test-runner
+	$SRC/test/util-tests
 	$SRC/test/zfs-tests
 	$SRC/boot/sys/boot
 )

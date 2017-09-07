@@ -21,7 +21,7 @@
 
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/dtrace/tests@$(PKGVERS)
@@ -1351,6 +1351,14 @@ file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_ARG_TYPE.aggarg.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_ARG_TYPE.recursive.d \
     mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_ARG_TYPE_q_1.badtype.d \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_ARG_TYPE_q_2.badtype.d \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_ARG_TYPE_t_1.badtype.d \
+    mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_ARG_TYPE_t_2.badtype.d \
+    mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_DYN_PROTO.noprec.d \
     mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/err.D_PRINTF_DYN_PROTO.nowidth.d \
@@ -1385,6 +1393,10 @@ file path=opt/SUNWdtrt/tst/common/printf/tst.printeE.d mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.printeE.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.printgG.d mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.printgG.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/tst.printq.d mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/tst.printq.d.out mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/tst.printt.d mode=0444
+file path=opt/SUNWdtrt/tst/common/printf/tst.printt.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.rawfmt.d mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.rawfmt.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/printf/tst.signs.d mode=0444

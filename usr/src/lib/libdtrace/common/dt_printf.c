@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/sysmacros.h>
@@ -217,6 +217,16 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	}
 
 	return (0);
+}
+
+/*ARGSUSED*/
+/*
+ * The function accepts any integer, [unsigned] long long and [u]int64_t.
+ */
+static int
+pfcheck_nicenum(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
+{
+	return (dt_node_is_integer(dnp));
 }
 
 /*ARGSUSED*/
@@ -496,6 +506,114 @@ pfprint_time822(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	return (dt_printf(dtp, fp, format, buf));
 }
 
+
+uint64_t
+get_uint64_t(dtrace_hdl_t *dtp, const void *addr, size_t size)
+{
+	uint64_t n;
+	switch (size) {
+	case sizeof (uint8_t):
+		n = (u_longlong_t)*((uint8_t *)addr);
+		break;
+	case sizeof (uint16_t):
+		n = (u_longlong_t)*((uint16_t *)addr);
+		break;
+	case sizeof (uint32_t):
+		n = (u_longlong_t)*((uint32_t *)addr);
+		break;
+	case sizeof (uint64_t):
+		n = (u_longlong_t)*((uint64_t *)addr);
+		break;
+	default:
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+	}
+	return (n);
+}
+
+
+
+/*
+ * The function accepts an integer and prints it as time duration
+ * in a human readable format.
+ */
+/*ARGSUSED*/
+static int
+pfprint_duration(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+{
+	const char *u[] = {"ns", "us", "ms", "s", "m", "h", "d", "y"};
+	uint64_t div[] = {1, 1000, 1000, 1000, 60, 60, 24, 365};
+	uint64_t time = get_uint64_t(dtp, addr, size);
+	uint64_t t = time;
+	uint64_t div_total = 1;
+	char buf[15];
+
+	int index = 0;
+	while (t > div[index + 1]) {
+		t /= div[index + 1];
+		div_total *= div[index + 1];
+		index++;
+	}
+
+	if ((time % div_total) == 0) {
+		(void) snprintf(buf, sizeof (buf), "%llu%s", t, u[index]);
+	} else {
+		(void) snprintf(buf, sizeof (buf), "%.3f%s",
+		    (double)time / div_total, u[index]);
+	}
+
+	return (dt_printf(dtp, fp, format, buf));
+}
+
+/*
+ * The function accepts an integer and prints it as space consumed
+ * in a human readable format.
+ */
+/*ARGSUSED*/
+static int
+pfprint_space(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+{
+	uint64_t n = get_uint64_t(dtp, addr, size);
+	uint64_t num = n;
+	char u;
+	char buf[15];
+
+	int index = 0;
+	while (n >= 1024) {
+		n /= 1024;
+		index++;
+	}
+	u = " KMGTPE"[index];
+
+	if (index == 0) {
+		(void) snprintf(buf, sizeof (buf), "%llu", n);
+	} else if ((num & ((1ULL << 10 * index) - 1)) == 0) {
+		/*
+		 * If this is an even multiple of the base, always display
+		 * without any decimal precision.
+		 */
+		(void) snprintf(buf, sizeof (buf), "%llu%c", n, u);
+	} else {
+		/*
+		 * We want to choose a precision that reflects the best choice
+		 * for fitting in 5 characters.  This can get rather tricky when
+		 * we have numbers that are very close to an order of magnitude.
+		 * For example, when displaying 10239 (which is really 9.999K),
+		 * we want only a single place of precision for 10.0K.  We could
+		 * develop some complex heuristics for this, but it's much
+		 * easier just to try each combination in turn.
+		 */
+		int i;
+		for (i = 2; i >= 0; i--) {
+			if (snprintf(buf, sizeof (buf), "%.*f%c", i,
+			    (double)num / (1ULL << 10 * index), u) <= 5)
+				break;
+		}
+	}
+	return (dt_printf(dtp, fp, format, buf));
+}
+
 /*ARGSUSED*/
 static int
 pfprint_port(dtrace_hdl_t *dtp, FILE *fp, const char *format,
@@ -668,8 +786,10 @@ static const dt_pfconv_t _dtrace_conversions[] = {
 { "o", "o", pfproto_xint, pfcheck_xint, pfprint_uint },
 { "p", "x", pfproto_addr, pfcheck_addr, pfprint_uint },
 { "P", "s", "uint16_t", pfcheck_type, pfprint_port },
+{ "q", "s", "uint64_t", pfcheck_nicenum, pfprint_space },
 { "s", "s", "char [] or string (or use stringof)", pfcheck_str, pfprint_cstr },
 { "S", "s", pfproto_cstr, pfcheck_str, pfprint_estr },
+{ "t", "s", "uint64_t", pfcheck_nicenum, pfprint_duration },
 { "T", "s", "int64_t", pfcheck_time, pfprint_time822 },
 { "u", "u", pfproto_xint, pfcheck_xint, pfprint_uint },
 { "wc",	"wc", "int", pfcheck_type, pfprint_sint }, /* a.k.a. wchar_t */

@@ -620,6 +620,9 @@ file \
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_simple.zcp \
     mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.terminate_by_signal \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/checksum/run_edonr_test mode=0555
 file path=opt/zfs-tests/tests/functional/checksum/run_sha2_test mode=0555
 file path=opt/zfs-tests/tests/functional/checksum/run_skein_test mode=0555

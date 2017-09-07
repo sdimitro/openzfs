@@ -27,6 +27,7 @@
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Nexenta Systems, Inc.
+ * Copyright (c) 2017 Datto Inc.
  */
 
 #ifndef	_LIBZFS_H
@@ -137,6 +138,7 @@ typedef enum zfs_error {
 	EZFS_NO_CHECKPOINT,	/* pool has no checkpoint */
 	EZFS_DEVRM_IN_PROGRESS,	/* a device is currently being removed */
 	EZFS_VDEV_TOO_BIG,	/* a device is too big to be used */
+	EZFS_SCRUB_PAUSED,	/* scrub currently paused */
 	EZFS_UNKNOWN
 } zfs_error_t;
 
@@ -260,7 +262,7 @@ typedef struct splitflags {
 /*
  * Functions to manipulate pool and vdev state
  */
-extern int zpool_scan(zpool_handle_t *, pool_scan_func_t);
+extern int zpool_scan(zpool_handle_t *, pool_scan_func_t, pool_scrub_cmd_t);
 extern int zpool_initialize(zpool_handle_t *, pool_initialize_func_t,
     nvlist_t *);
 extern int zpool_clear(zpool_handle_t *, const char *, nvlist_t *);

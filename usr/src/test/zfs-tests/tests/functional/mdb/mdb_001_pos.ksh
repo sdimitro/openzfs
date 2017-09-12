@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -85,16 +85,15 @@ set -A dcmds "::abuf_find 1 2" \
 	"$spa ::print -a spa_t spa_uberblock.ub_rootbp | ::blkptr" \
 	"$spa ::walk metaslab" \
 	"$spa ::walk metaslab | ::head -1 | ::metaslab_weight" \
-	"$spa ::walk metaslab | ::head -1 | ::metaslab_trace" \
+	"metaslab_alloc_trace_cache::metaslab_trace" \
 	"$spa ::walk zio_root | ::zio -c" \
 	"$spa ::walk zio_root | ::zio -r" \
-	"$spa ::walk zms_freelist"
 	"$spa ::zfs_blkstats -v" \
 	"::dbufs" \
 	"::dbufs -n mos -o mdn -l 0 -b 0" \
 	"::dbufs | ::dbuf" \
 	"::dbuf_stats" \
-	"dbuf_cache ::walk multilist"
+	"dbuf_caches::print dbuf_cache_t cache | ::walk multilist"
 #
 # The commands above were supplied by the ZFS development team. The idea is to
 # do as much checking as possible without the need to hardcode addresses.

@@ -1756,14 +1756,17 @@ metaslab_print_weight(uint64_t weight)
 static int
 metaslab_weight(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
+	mdb_metaslab_t ms;
 	uint64_t weight = 0;
 	char active;
 
 	if (argc == 0 && (flags & DCMD_ADDRSPEC)) {
-		if (mdb_vread(&weight, sizeof (uint64_t), addr) == -1) {
-			mdb_warn("failed to read weight at %p\n", addr);
+		if (mdb_ctf_vread(&ms, "metaslab_t", "mdb_metaslab_t",
+		    addr, 0) == -1) {
+			mdb_warn("failed to read metaslab at %p\n", addr);
 			return (DCMD_ERR);
 		}
+		weight = ms.ms_weight;
 	} else if (argc == 1 && !(flags & DCMD_ADDRSPEC)) {
 		weight = (argv[0].a_type == MDB_TYPE_IMMEDIATE) ?
 		    argv[0].a_un.a_val : mdb_strtoull(argv[0].a_un.a_str);
@@ -4067,10 +4070,12 @@ static const mdb_dcmd_t dcmds[] = {
 	    "print zfs debug log", dbgmsg},
 	{ "rrwlock", ":",
 	    "print rrwlock_t, including readers", rrwlock},
-	{ "metaslab_weight", "weight",
-	    "print metaslab weight", metaslab_weight},
+	{ "metaslab_weight", ":[weight]",
+	    "print weight of given metaslab_t or print argument as a weight",
+	    metaslab_weight},
 	{ "metaslab_trace", ":",
-	    "print metaslab allocation trace records", metaslab_trace},
+	    "print allocation trace records of given metaslab_alloc_trace_t",
+	    metaslab_trace},
 	{ "arc_compression_stats", ":[-vabrf]\n"
 	    "\t-v verbose, display a linearly scaled histogram\n"
 	    "\t-a display ARC_anon state statistics individually\n"

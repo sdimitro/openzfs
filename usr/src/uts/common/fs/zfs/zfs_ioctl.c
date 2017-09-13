@@ -2116,6 +2116,46 @@ zfs_ioc_objset_stats_impl(zfs_cmd_t *zc, objset_t *os)
 }
 
 /*
+ * Used to get stats for special directories (i.e. $MOS, %recv, ..etc).
+ *
+ * The process is different than normal datasets because special
+ * directories are just plain dsl_dirs.
+ */
+static int
+zfs_ioc_objset_stats_special_dir(zfs_cmd_t *zc)
+{
+	dsl_pool_t *dp;
+	int error = dsl_pool_hold(zc->zc_name, FTAG, &dp);
+	if (error != 0)
+		return (error);
+
+	dsl_dir_t *dd;
+	error = dsl_dir_hold(dp, zc->zc_name, FTAG, &dd, NULL);
+	if (error != 0) {
+		dsl_pool_rele(dp, FTAG);
+		return (error);
+	}
+
+	/*
+	 * The dataset's type needs to be set explicitly since
+	 * this is a special directory and we can not call
+	 * dmu_objset_fast_stat() on it. This way the userland
+	 * can make sense of it.
+	 */
+	zc->zc_objset_stats.dds_type = DMU_OST_NONE;
+
+	nvlist_t *nv = fnvlist_alloc();
+	dsl_dir_stats(dd, nv);
+
+	dsl_dir_rele(dd, FTAG);
+	dsl_pool_rele(dp, FTAG);
+
+	error = put_nvlist(zc, nv);
+	nvlist_free(nv);
+	return (error);
+}
+
+/*
  * inputs:
  * zc_name		name of filesystem
  * zc_nvlist_dst_size	size of buffer for property nvlist
@@ -2129,7 +2169,12 @@ static int
 zfs_ioc_objset_stats(zfs_cmd_t *zc)
 {
 	objset_t *os;
-	int error;
+	int error = 0;
+
+	if (strchr(zc->zc_name, '$') != NULL ||
+	    strchr(zc->zc_name, '%' != NULL)) {
+		return (zfs_ioc_objset_stats_special_dir(zc));
+	}
 
 	error = dmu_objset_hold(zc->zc_name, FTAG, &os);
 	if (error == 0) {
@@ -2241,14 +2286,8 @@ static boolean_t
 dataset_name_hidden(const char *name)
 {
 	/*
-	 * Skip over datasets that are not visible in this zone,
-	 * internal datasets (which have a $ in their name), and
-	 * temporary datasets (which have a % in their name).
+	 * Skip over datasets that are not visible in this zone
 	 */
-	if (strchr(name, '$') != NULL)
-		return (B_TRUE);
-	if (strchr(name, '%') != NULL)
-		return (B_TRUE);
 	if (!INGLOBALZONE(curproc) && !zone_dataset_visible(name, NULL))
 		return (B_TRUE);
 	return (B_FALSE);
@@ -2271,7 +2310,7 @@ static int
 zfs_ioc_dataset_list_next(zfs_cmd_t *zc)
 {
 	objset_t *os;
-	int error;
+	int error = 0;
 	char *p;
 	size_t orig_len = strlen(zc->zc_name);
 
@@ -2296,11 +2335,11 @@ top:
 	} while (error == 0 && dataset_name_hidden(zc->zc_name));
 	dmu_objset_rele(os, FTAG);
 
+
 	/*
-	 * If it's an internal dataset (ie. with a '$' in its name),
-	 * don't try to get stats for it, otherwise we'll return ENOENT.
+	 * Get stats for all the datasets
 	 */
-	if (error == 0 && strchr(zc->zc_name, '$') == NULL) {
+	if (error == 0) {
 		error = zfs_ioc_objset_stats(zc); /* fill in the stats */
 		if (error == ENOENT) {
 			/* We lost a race with destroy, get the next one. */
@@ -3194,6 +3233,11 @@ zfs_ioc_create(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 	dmu_objset_type_t type;
 	boolean_t is_insensitive = B_FALSE;
 
+	if (strchr(fsname, '@') != NULL ||
+	    strchr(fsname, '%') != NULL ||
+	    strchr(fsname, '$') != NULL)
+		return (SET_ERROR(EINVAL));
+
 	if (nvlist_lookup_int32(innvl, "type", &type32) != 0)
 		return (SET_ERROR(EINVAL));
 	type = type32;
@@ -3212,9 +3256,6 @@ zfs_ioc_create(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 		cbfunc = NULL;
 		break;
 	}
-	if (strchr(fsname, '@') ||
-	    strchr(fsname, '%'))
-		return (SET_ERROR(EINVAL));
 
 	zct.zct_props = nvprops;
 
@@ -3787,7 +3828,7 @@ zfs_ioc_pool_discard_checkpoint(const char *poolname, nvlist_t *innvl,
 static int
 zfs_ioc_destroy(zfs_cmd_t *zc)
 {
-	int err;
+	int err = 0;
 
 	if (zc->zc_objset_type == DMU_OST_ZFS)
 		zfs_unmount_snap(zc->zc_name);

@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -225,7 +225,7 @@ entity_namecheck(const char *path, namecheck_err_t *why, char *what)
 
 		/* Validate the contents of this component */
 		for (const char *loc = start; loc != end; loc++) {
-			if (!valid_char(*loc) && *loc != '%') {
+			if (!valid_char(*loc) && *loc != '%' && *loc != '$') {
 				if (why) {
 					*why = NAME_ERR_INVALCHAR;
 					*what = *loc;

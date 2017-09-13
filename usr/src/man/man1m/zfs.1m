@@ -99,7 +99,7 @@
 .Oo Fl s Ar property Oc Ns ...
 .Oo Fl S Ar property Oc Ns ...
 .Oo Fl t Ar type Ns Oo , Ns Ar type Oc Ns ... Oc
-.Oo Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Oc Ns ...
+.Oo Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Ns | Ns Ar internal Oc Ns ...
 .Nm
 .Cm remap
 .Ar filesystem Ns | Ns Ar volume
@@ -115,7 +115,7 @@
 .Oo Fl s Ar source Ns Oo , Ns Ar source Oc Ns ... Oc
 .Oo Fl t Ar type Ns Oo , Ns Ar type Oc Ns ... Oc
 .Cm all | Ar property Ns Oo , Ns Ar property Oc Ns ...
-.Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Ns | Ns Ar bookmark Ns ...
+.Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Ns | Ns Ar bookmark Ns | Ns Ar internal Ns ...
 .Nm
 .Cm inherit
 .Op Fl rS
@@ -327,6 +327,10 @@ It is specified as
 .Ar filesystem Ns @ Ns Ar name
 or
 .Ar volume Ns @ Ns Ar name .
+.It Sy internal
+Special directories starting with '$' which are used to store the metadata and
+also the temporary directories starting with '%'. For example: $MOS, $FREE,
+$ORIGIN, %recv.
 .El
 .Ss ZFS File System Hierarchy
 A ZFS storage pool is a logical collection of devices that provide space for
@@ -2189,7 +2193,7 @@ Snapshots are the only dataset that can be renamed recursively.
 .Oo Fl s Ar property Oc Ns ...
 .Oo Fl S Ar property Oc Ns ...
 .Oo Fl t Ar type Ns Oo , Ns Ar type Oc Ns ... Oc
-.Oo Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Oc Ns ...
+.Oo Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Ns | Ns Ar internal Oc Ns ...
 .Xc
 Lists the property information for the given datasets in tabular form.
 If specified, you can list property information by the absolute pathname or the
@@ -2288,6 +2292,7 @@ is one of
 .Sy snapshot ,
 .Sy volume ,
 .Sy bookmark ,
+.Sy internal ,
 or
 .Sy all .
 For example, specifying
@@ -2325,7 +2330,7 @@ section.
 .Oo Fl s Ar source Ns Oo , Ns Ar source Oc Ns ... Oc
 .Oo Fl t Ar type Ns Oo , Ns Ar type Oc Ns ... Oc
 .Cm all | Ar property Ns Oo , Ns Ar property Oc Ns ...
-.Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Ns | Ns Ar bookmark Ns ...
+.Ar filesystem Ns | Ns Ar volume Ns | Ns Ar snapshot Ns | Ns Ar bookmark Ns | Ns Ar internal Ns ...
 .Xc
 Displays properties for the given datasets.
 If no datasets are specified, then the command displays properties for all
@@ -2351,7 +2356,7 @@ sections.
 The special value
 .Sy all
 can be used to display all properties that apply to the given dataset's type
-.Pq filesystem, volume, snapshot, or bookmark .
+.Pq filesystem, volume, snapshot, bookmark, or internal.
 .Bl -tag -width "-H"
 .It Fl H
 Display output in a form more easily parsed by scripts.
@@ -2393,6 +2398,7 @@ is one of
 .Sy snapshot ,
 .Sy volume ,
 .Sy bookmark ,
+.Sy internal ,
 or
 .Sy all .
 .El

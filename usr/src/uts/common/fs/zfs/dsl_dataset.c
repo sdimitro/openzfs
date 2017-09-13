@@ -1495,6 +1495,7 @@ dsl_dataset_snapshot_check(void *arg, dmu_tx_t *tx)
 			if (error == 0)
 				(void) strlcpy(dsname, name, atp - name + 1);
 		}
+
 		if (error == 0)
 			error = dsl_dataset_hold(dp, dsname, FTAG, &ds);
 		if (error == 0) {
@@ -2442,11 +2443,11 @@ dsl_dataset_stats(dsl_dataset_t *ds, nvlist_t *nv)
 	    dsl_get_logicalreferenced(ds));
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_COMPRESSRATIO,
 	    dsl_get_compressratio(ds));
-	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_USED,
-	    dsl_get_used(ds));
 
 	if (ds->ds_is_snapshot) {
 		get_clones_stat(ds, nv);
+		dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_USED,
+		    (dsl_dataset_phys(ds)->ds_unique_bytes));
 	} else {
 		char buf[ZFS_MAX_DATASET_NAME_LEN];
 		if (dsl_get_prev_snap(ds, buf) == 0)

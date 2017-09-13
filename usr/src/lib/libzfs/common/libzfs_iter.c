@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2012 Pawel Jakub Dawidek. All rights reserved.
  * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  */
@@ -98,11 +98,13 @@ top:
 	return (rc);
 }
 
+
 /*
- * Iterate over all child filesystems
+ * Iterate over all child filesystems and optionally any internal directories
  */
-int
-zfs_iter_filesystems(zfs_handle_t *zhp, zfs_iter_f func, void *data)
+static int
+zfs_iter_filesystems_impl(zfs_handle_t *zhp, zfs_iter_f func,
+    void *data, boolean_t allow_internal)
 {
 	zfs_cmd_t zc = { 0 };
 	zfs_handle_t *nzhp;
@@ -120,10 +122,12 @@ zfs_iter_filesystems(zfs_handle_t *zhp, zfs_iter_f func, void *data)
 		 * Silently ignore errors, as the only plausible explanation is
 		 * that the pool has since been removed.
 		 */
-		if ((nzhp = make_dataset_handle_zc(zhp->zfs_hdl,
-		    &zc)) == NULL) {
+		if ((nzhp = make_dataset_handle_zc(zhp->zfs_hdl, &zc)) == NULL)
 			continue;
-		}
+
+		if (!allow_internal &&
+		    (strchr(zc.zc_name, '$') || strchr(zc.zc_name, '%')))
+			continue;
 
 		if ((ret = func(nzhp, data)) != 0) {
 			zcmd_free_nvlists(&zc);
@@ -132,6 +136,25 @@ zfs_iter_filesystems(zfs_handle_t *zhp, zfs_iter_f func, void *data)
 	}
 	zcmd_free_nvlists(&zc);
 	return ((ret < 0) ? ret : 0);
+}
+
+/*
+ * Iterate over all child filesystems
+ */
+int
+zfs_iter_filesystems(zfs_handle_t *zhp, zfs_iter_f func, void *data)
+{
+	return (zfs_iter_filesystems_impl(zhp, func, data, B_FALSE));
+}
+
+/*
+ * Iterate over all child filesystems, including internal directories
+ */
+int
+zfs_iter_filesystems_and_internal(zfs_handle_t *zhp, zfs_iter_f func,
+    void *data)
+{
+	return (zfs_iter_filesystems_impl(zhp, func, data, B_TRUE));
 }
 
 /*
@@ -145,21 +168,22 @@ zfs_iter_snapshots(zfs_handle_t *zhp, boolean_t simple, zfs_iter_f func,
 	zfs_handle_t *nzhp;
 	int ret;
 
-	if (zhp->zfs_type == ZFS_TYPE_SNAPSHOT ||
-	    zhp->zfs_type == ZFS_TYPE_BOOKMARK)
+	if ((zfs_get_type(zhp) & (ZFS_TYPE_SNAPSHOT | ZFS_TYPE_BOOKMARK |
+	    ZFS_TYPE_INTERNAL)) != 0)
 		return (0);
 
 	zc.zc_simple = simple;
 
 	if (zcmd_alloc_dst_nvlist(zhp->zfs_hdl, &zc, 0) != 0)
 		return (-1);
+
 	while ((ret = zfs_do_list_ioctl(zhp, ZFS_IOC_SNAPSHOT_LIST_NEXT,
 	    &zc)) == 0) {
-
 		if (simple)
 			nzhp = make_dataset_simple_handle_zc(zhp, &zc);
 		else
 			nzhp = make_dataset_handle_zc(zhp->zfs_hdl, &zc);
+
 		if (nzhp == NULL)
 			continue;
 
@@ -183,7 +207,8 @@ zfs_iter_bookmarks(zfs_handle_t *zhp, zfs_iter_f func, void *data)
 	nvlist_t *bmarks = NULL;
 	int err;
 
-	if ((zfs_get_type(zhp) & (ZFS_TYPE_SNAPSHOT | ZFS_TYPE_BOOKMARK)) != 0)
+	if ((zfs_get_type(zhp) & (ZFS_TYPE_SNAPSHOT | ZFS_TYPE_BOOKMARK |
+	    ZFS_TYPE_INTERNAL)) != 0)
 		return (0);
 
 	/* Setup the requested properties nvlist. */
@@ -432,9 +457,8 @@ zfs_iter_snapspec(zfs_handle_t *fs_zhp, const char *spec_orig,
 int
 zfs_iter_children(zfs_handle_t *zhp, zfs_iter_f func, void *data)
 {
-	int ret;
-
-	if ((ret = zfs_iter_filesystems(zhp, func, data)) != 0)
+	int ret = zfs_iter_filesystems(zhp, func, data);
+	if (ret != 0)
 		return (ret);
 
 	return (zfs_iter_snapshots(zhp, B_FALSE, func, data));

@@ -1563,7 +1563,7 @@ get_callback(zfs_handle_t *zhp, void *data)
 				if (pl->pl_all)
 					continue;
 				if (!zfs_prop_valid_for_type(pl->pl_prop,
-				    ZFS_TYPE_DATASET)) {
+				    ZFS_TYPE_DATASET | ZFS_TYPE_INTERNAL)) {
 					(void) fprintf(stderr,
 					    gettext("No such property '%s'\n"),
 					    zfs_prop_to_name(pl->pl_prop));
@@ -1648,7 +1648,7 @@ zfs_do_get(int argc, char **argv)
 {
 	zprop_get_cbdata_t cb = { 0 };
 	int i, c, flags = ZFS_ITER_ARGS_CAN_BE_PATHS;
-	int types = ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK;
+	int types = ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK | ZFS_TYPE_INTERNAL;
 	char *value, *fields;
 	int ret = 0;
 	int limit = 0;
@@ -1789,7 +1789,7 @@ zfs_do_get(int argc, char **argv)
 			while (*optarg != '\0') {
 				static char *type_subopts[] = { "filesystem",
 				    "volume", "snapshot", "bookmark",
-				    "all", NULL };
+				    "internal", "all", NULL};
 
 				switch (getsubopt(&optarg, type_subopts,
 				    &value)) {
@@ -1806,10 +1806,13 @@ zfs_do_get(int argc, char **argv)
 					types |= ZFS_TYPE_BOOKMARK;
 					break;
 				case 4:
-					types = ZFS_TYPE_DATASET |
-					    ZFS_TYPE_BOOKMARK;
+					types |= ZFS_TYPE_INTERNAL;
 					break;
-
+				case 5:
+					types = ZFS_TYPE_DATASET |
+					    ZFS_TYPE_BOOKMARK |
+					    ZFS_TYPE_INTERNAL;
+					break;
 				default:
 					(void) fprintf(stderr,
 					    gettext("invalid type '%s'\n"),
@@ -1837,8 +1840,8 @@ zfs_do_get(int argc, char **argv)
 
 	fields = argv[0];
 
-	if (zprop_get_list(g_zfs, fields, &cb.cb_proplist, ZFS_TYPE_DATASET)
-	    != 0)
+	if (zprop_get_list(g_zfs, fields, &cb.cb_proplist,
+	    ZFS_TYPE_DATASET) != 0)
 		usage(B_FALSE);
 
 	argc--;
@@ -3153,7 +3156,7 @@ zfs_do_list(int argc, char **argv)
 			while (*optarg != '\0') {
 				static char *type_subopts[] = { "filesystem",
 				    "volume", "snapshot", "snap", "bookmark",
-				    "all", NULL };
+				    "internal", "all", NULL };
 
 				switch (getsubopt(&optarg, type_subopts,
 				    &value)) {
@@ -3171,8 +3174,12 @@ zfs_do_list(int argc, char **argv)
 					types |= ZFS_TYPE_BOOKMARK;
 					break;
 				case 5:
+					types |= ZFS_TYPE_INTERNAL;
+					break;
+				case 6:
 					types = ZFS_TYPE_DATASET |
-					    ZFS_TYPE_BOOKMARK;
+					    ZFS_TYPE_BOOKMARK |
+					    ZFS_TYPE_INTERNAL;
 					break;
 				default:
 					(void) fprintf(stderr,

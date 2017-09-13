@@ -96,6 +96,7 @@
 #include <sys/dsl_prop.h>
 #include <sys/dsl_synctask.h>
 #include <sys/dsl_dataset.h>
+#include <sys/dsl_dir.h>
 #include <sys/zcp.h>
 #include <sys/zcp_iter.h>
 #include <sys/zcp_prop.h>
@@ -624,6 +625,24 @@ zcp_dataset_hold(lua_State *state, dsl_pool_t *dp, const char *dsname,
 	int error = dsl_dataset_hold(dp, dsname, tag, &ds);
 	(void) zcp_dataset_hold_error(state, dp, dsname, error);
 	return (ds);
+}
+
+/*
+ * Note: will longjmp (via lua_error()) on error.
+ * Assumes that the ddname is argument #1 (for error reporting purposes).
+ */
+dsl_dir_t *
+zcp_special_dir_hold(lua_State *state, dsl_pool_t *dp, const char *ddname,
+    void *tag)
+{
+	dsl_dir_t *dd;
+	int error = dsl_dir_hold(dp, ddname, tag, &dd, NULL);
+	/*
+	 * Even though a special dir is not a dataset, the error
+	 * reporting of the call below should be fine.
+	 */
+	(void) zcp_dataset_hold_error(state, dp, ddname, error);
+	return (dd);
 }
 
 static int zcp_debug(lua_State *);

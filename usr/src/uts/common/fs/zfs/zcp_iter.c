@@ -252,6 +252,7 @@ zcp_children_iter(lua_State *state)
 	char childname[ZFS_MAX_DATASET_NAME_LEN];
 	uint64_t dsobj = lua_tonumber(state, lua_upvalueindex(1));
 	uint64_t cursor = lua_tonumber(state, lua_upvalueindex(2));
+	boolean_t hidden = lua_toboolean(state, lua_upvalueindex(3));
 	zcp_run_info_t *ri = zcp_run_info(state);
 	dsl_pool_t *dp = ri->zri_pool;
 	dsl_dataset_t *ds;
@@ -274,7 +275,7 @@ zcp_children_iter(lua_State *state)
 	do {
 		err = dmu_dir_list_next(os,
 		    sizeof (childname) - (p - childname), p, NULL, &cursor);
-	} while (err == 0 && dataset_name_hidden(childname));
+	} while (err == 0 && dataset_name_hidden(childname) && !hidden);
 	dsl_dataset_rele(ds, FTAG);
 
 	if (err == ENOENT) {
@@ -302,7 +303,8 @@ static zcp_list_info_t zcp_children_list_info = {
 	    {NULL, NULL}
 	},
 	.kwargs = {
-	    {NULL, NULL}
+	    { .za_name = "hidden", .za_lua_type = LUA_TBOOLEAN},
+		{NULL, NULL}
 	}
 };
 
@@ -310,6 +312,7 @@ static int
 zcp_children_list(lua_State *state)
 {
 	const char *fsname = lua_tostring(state, 1);
+	boolean_t hidden = lua_toboolean(state, 2);
 	dsl_pool_t *dp = zcp_run_info(state)->zri_pool;
 	boolean_t issnap;
 	uint64_t dsobj;
@@ -329,7 +332,8 @@ zcp_children_list(lua_State *state)
 
 	lua_pushnumber(state, dsobj);
 	lua_pushnumber(state, 0);
-	lua_pushcclosure(state, &zcp_children_iter, 2);
+	lua_pushboolean(state, hidden);
+	lua_pushcclosure(state, &zcp_children_iter, 3);
 	return (1);
 }
 
@@ -433,6 +437,20 @@ zcp_dataset_system_props(dsl_dataset_t *ds, nvlist_t *nv)
 	}
 }
 
+static void
+zcp_dataset_system_props_special_dir(nvlist_t *nv)
+{
+	for (int prop = 0; prop < ZFS_NUM_PROPS; prop++) {
+		/* Do not display hidden props */
+		if (!zfs_prop_visible(prop))
+			continue;
+		/* Do not display props not valid for special directories */
+		if (!zfs_prop_valid_for_type(prop, ZFS_TYPE_INTERNAL))
+			continue;
+		fnvlist_add_boolean(nv, zfs_prop_to_name(prop));
+	}
+}
+
 static int zcp_system_props_list(lua_State *);
 static zcp_list_info_t zcp_system_props_list_info = {
 	.name = "system_properties",
@@ -462,14 +480,40 @@ zcp_system_props_list(lua_State *state)
 	dataset_name = lua_tostring(state, 1);
 	nvlist_t *nv = fnvlist_alloc();
 
-	dsl_dataset_t *ds = zcp_dataset_hold(state, dp, dataset_name, FTAG);
-	if (ds == NULL)
-		return (1); /* not reached; zcp_dataset_hold() longjmp'd */
+	if (strchr(dataset_name, '$') != NULL ||
+	    strchr(dataset_name, '%') != NULL) {
+		/*
+		 * Even though we are not going to use the actual dir
+		 * (since all special dirs have the same properties),
+		 * we attempt to put a hold on it for the case that
+		 * it doesn't exist.
+		 */
+		dsl_dir_t *dd = zcp_special_dir_hold(state, dp, dataset_name,
+		    FTAG);
+		/* not reached; zcp_special_dir_hold() longjmp'd */
+		if (dd == NULL)
+			return (1);
 
-	/* Get the names of all valid system properties for this dataset */
-	zcp_dataset_system_props(ds, nv);
-	dsl_dataset_rele(ds, FTAG);
+		/*
+		 * Get the names of all valid system properties for this
+		 * special dir.
+		 */
+		zcp_dataset_system_props_special_dir(nv);
+		dsl_dir_rele(dd, FTAG);
+	} else {
+		dsl_dataset_t *ds = zcp_dataset_hold(state, dp, dataset_name,
+		    FTAG);
+		/* not reached; zcp_dataset_hold() longjmp'd */
+		if (ds == NULL)
+			return (1);
 
+		/*
+		 * Get the names of all valid system properties for this
+		 * dataset.
+		 */
+		zcp_dataset_system_props(ds, nv);
+		dsl_dataset_rele(ds, FTAG);
+	}
 	/* push list as lua table */
 	error = zcp_nvlist_to_lua(state, nv, errbuf, sizeof (errbuf));
 	nvlist_free(nv);

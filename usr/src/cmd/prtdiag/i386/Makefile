@@ -23,6 +23,7 @@
 # Use is subject to license terms.
 #
 # Copyright 2015 Joyent, Inc.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 SRCDIR		= ..
@@ -30,7 +31,10 @@ SRCDIR		= ..
 include $(SRCDIR)/Makefile.com
 
 OBJS += smbios.o
-LDLIBS += -lsmbios -lnvpair -lpcidb -L$(ROOT)/usr/lib/fm -ltopo
+LDLIBS += -lsmbios -lnvpair -lpcidb -L$(ROOT)/usr/lib/fm
+NOTLAZYLIBS = $(ZNOLAZYLOAD) -ltopo
+lint := NOTLAZYLIBS = -ltopo
+LDLIBS += $(NOTLAZYLIBS)
 LDFLAGS += -R/usr/lib/fm
 
 .KEEP_STATE:

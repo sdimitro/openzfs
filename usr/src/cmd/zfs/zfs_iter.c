@@ -23,7 +23,7 @@
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012 Pawel Jakub Dawidek. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2013, 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 #include <libintl.h>
@@ -133,27 +133,16 @@ zfs_callback(zfs_handle_t *zhp, void *data)
 	    ((cb->cb_flags & ZFS_ITER_DEPTH_LIMIT) == 0 ||
 	    cb->cb_depth < cb->cb_depth_limit)) {
 		cb->cb_depth++;
-
-		if (zfs_get_type(zhp) == ZFS_TYPE_FILESYSTEM) {
-			if (cb->cb_types & ZFS_TYPE_INTERNAL) {
-				(void) zfs_iter_filesystems_and_internal(zhp,
-				    zfs_callback, data);
-			} else {
-				(void) zfs_iter_filesystems(zhp, zfs_callback,
-				    data);
-			}
-		}
-
-		if (include_snaps) {
+		if (zfs_get_type(zhp) == ZFS_TYPE_FILESYSTEM)
+			(void) zfs_iter_filesystems(zhp, zfs_callback, data);
+		if (((zfs_get_type(zhp) & (ZFS_TYPE_SNAPSHOT |
+		    ZFS_TYPE_BOOKMARK)) == 0) && include_snaps)
 			(void) zfs_iter_snapshots(zhp,
 			    (cb->cb_flags & ZFS_ITER_SIMPLE) != 0, zfs_callback,
 			    data);
-		}
-
-		if (include_bmarks) {
+		if (((zfs_get_type(zhp) & (ZFS_TYPE_SNAPSHOT |
+		    ZFS_TYPE_BOOKMARK)) == 0) && include_bmarks)
 			(void) zfs_iter_bookmarks(zhp, zfs_callback, data);
-		}
-
 		cb->cb_depth--;
 	}
 

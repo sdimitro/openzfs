@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2016, 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 #include "lua.h"
@@ -554,39 +554,6 @@ get_zap_prop(lua_State *state, dsl_dataset_t *ds, zfs_prop_t zfs_prop)
 	return (error);
 }
 
-static int
-get_prop_special_dir(lua_State *state, dsl_dir_t *dd, zfs_prop_t zfs_prop)
-{
-	int error = 0;
-	char setpoint[ZFS_MAX_DATASET_NAME_LEN];
-	char buf[ZFS_MAX_DATASET_NAME_LEN];
-	uint64_t numval;
-
-	mutex_enter(&dd->dd_lock);
-	switch (zfs_prop) {
-	case ZFS_PROP_USED:
-		numval = dsl_dir_get_used(dd);
-		(void) lua_pushnumber(state, numval);
-		break;
-	case ZFS_PROP_TYPE:
-		(void) lua_pushstring(state, "internal");
-		break;
-	case ZFS_PROP_NAME:
-		(void) dsl_dir_name(dd, buf);
-		(void) lua_pushstring(state, buf);
-		break;
-	default:
-		error = ENOENT;
-		break;
-	}
-	mutex_exit(&dd->dd_lock);
-
-	if (error == 0)
-		get_prop_src(state, setpoint, zfs_prop);
-	return (0);
-}
-
-
 /*
  * Determine whether property is valid for a given dataset
  */
@@ -621,33 +588,6 @@ zcp_get_system_prop(lua_State *state, dsl_pool_t *dp, const char *dataset_name,
     zfs_prop_t zfs_prop)
 {
 	int error;
-	const char *prop_name = zfs_prop_to_name(zfs_prop);
-
-	if (strchr(dataset_name, '$') != NULL ||
-	    strchr(dataset_name, '%') != NULL) {
-		dsl_dir_t *dd;
-		error = dsl_dir_hold(dp, dataset_name, FTAG, &dd, NULL);
-		if (error != 0)
-			return (error);
-
-		/* Check if the property is valid for the special directories */
-		if (!zfs_prop_valid_for_type(zfs_prop, ZFS_TYPE_INTERNAL)) {
-			dsl_dir_rele(dd, FTAG);
-			return (0);
-		}
-
-		error = get_prop_special_dir(state, dd, zfs_prop);
-		dsl_dir_rele(dd, FTAG);
-
-		if (error != 0) {
-			return (zcp_handle_error(state, dataset_name,
-			    prop_name, error));
-		}
-
-		/* The value and source have been pushed by get_zap_prop */
-		return (2);
-	}
-
 	/*
 	 * zcp_dataset_hold will either successfully return the requested
 	 * dataset or throw a lua error and longjmp out of the zfs.get_prop call
@@ -658,6 +598,7 @@ zcp_get_system_prop(lua_State *state, dsl_pool_t *dp, const char *dataset_name,
 		return (1); /* not reached; zcp_dataset_hold() longjmp'd */
 
 	/* Check that the property is valid for the given dataset */
+	const char *prop_name = zfs_prop_to_name(zfs_prop);
 	if (!prop_valid_for_ds(ds, zfs_prop)) {
 		dsl_dataset_rele(ds, FTAG);
 		return (0);

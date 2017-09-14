@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016, Joyent, Inc.
@@ -338,8 +338,8 @@ zfs_prop_init(void)
 	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "on | off | share(1M) options",
 	    "SHARENFS");
 	zprop_register_string(ZFS_PROP_TYPE, "type", NULL, PROP_READONLY,
-	    ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK | ZFS_TYPE_INTERNAL,
-	    "filesystem | volume | snapshot | bookmark | internal", "TYPE");
+	    ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK,
+	    "filesystem | volume | snapshot | bookmark", "TYPE");
 	zprop_register_string(ZFS_PROP_SHARESMB, "sharesmb", "off",
 	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM,
 	    "on | off | sharemgr(1M) options", "SHARESMB");
@@ -357,7 +357,7 @@ zfs_prop_init(void)
 
 	/* readonly number properties */
 	zprop_register_number(ZFS_PROP_USED, "used", 0, PROP_READONLY,
-	    ZFS_TYPE_DATASET | ZFS_TYPE_INTERNAL, "<size>", "USED");
+	    ZFS_TYPE_DATASET, "<size>", "USED");
 	zprop_register_number(ZFS_PROP_AVAILABLE, "available", 0, PROP_READONLY,
 	    ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME, "<size>", "AVAIL");
 	zprop_register_number(ZFS_PROP_REFERENCED, "referenced", 0,
@@ -434,8 +434,7 @@ zfs_prop_init(void)
 	zprop_register_hidden(ZFS_PROP_NUMCLONES, "numclones", PROP_TYPE_NUMBER,
 	    PROP_READONLY, ZFS_TYPE_SNAPSHOT, "NUMCLONES");
 	zprop_register_hidden(ZFS_PROP_NAME, "name", PROP_TYPE_STRING,
-	    PROP_READONLY, ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK |
-	    ZFS_TYPE_INTERNAL, "NAME");
+	    PROP_READONLY, ZFS_TYPE_DATASET | ZFS_TYPE_BOOKMARK, "NAME");
 	zprop_register_hidden(ZFS_PROP_ISCSIOPTIONS, "iscsioptions",
 	    PROP_TYPE_STRING, PROP_INHERIT, ZFS_TYPE_VOLUME, "ISCSIOPTIONS");
 	zprop_register_hidden(ZFS_PROP_STMF_SHAREINFO, "stmf_sbd_lu",

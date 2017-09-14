@@ -98,7 +98,6 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_iter_children;
 	zfs_iter_dependents;
 	zfs_iter_filesystems;
-	zfs_iter_filesystems_and_internal;
 	zfs_iter_root;
 	zfs_iter_snapshots;
 	zfs_iter_snapshots_sorted;

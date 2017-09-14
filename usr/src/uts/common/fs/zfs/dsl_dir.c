@@ -1077,8 +1077,6 @@ void
 dsl_dir_stats(dsl_dir_t *dd, nvlist_t *nv)
 {
 	mutex_enter(&dd->dd_lock);
-	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_USED,
-	    dsl_dir_get_used(dd));
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_QUOTA,
 	    dsl_dir_get_quota(dd));
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_RESERVATION,

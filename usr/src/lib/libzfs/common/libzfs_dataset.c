@@ -86,8 +86,6 @@ zfs_type_to_name(zfs_type_t type)
 		return (dgettext(TEXT_DOMAIN, "pool"));
 	case ZFS_TYPE_BOOKMARK:
 		return (dgettext(TEXT_DOMAIN, "bookmark"));
-	case ZFS_TYPE_INTERNAL:
-		return (dgettext(TEXT_DOMAIN, "internal"));
 	default:
 		assert(!"unhandled zfs_type_t");
 	}
@@ -199,13 +197,6 @@ zfs_validate_name(libzfs_handle_t *hdl, const char *path, int type,
 		if (hdl != NULL)
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "invalid character %c in name"), '%');
-		return (0);
-	}
-
-	if (modifying && strchr(path, '$') != NULL) {
-		if (hdl != NULL)
-			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-			    "invalid character %c in name"), '$');
 		return (0);
 	}
 
@@ -430,13 +421,6 @@ zfs_refresh_properties(zfs_handle_t *zhp)
 	(void) get_stats(zhp);
 }
 
-static boolean_t
-zfs_is_internal(zfs_handle_t *zhp)
-{
-	return (strchr(zhp->zfs_name, '$') != NULL ||
-	    strchr(zhp->zfs_name, '%') != NULL);
-}
-
 /*
  * Makes a handle from the given dataset name.  Used by zfs_open() and
  * zfs_iter_* to create child handles on the fly.
@@ -453,16 +437,13 @@ make_dataset_handle_common(zfs_handle_t *zhp, zfs_cmd_t *zc)
 	 */
 	if (zhp->zfs_dmustats.dds_type == DMU_OST_ZVOL)
 		zhp->zfs_head_type = ZFS_TYPE_VOLUME;
-	else if (zhp->zfs_dmustats.dds_type == DMU_OST_ZFS ||
-	    zfs_is_internal(zhp))
+	else if (zhp->zfs_dmustats.dds_type == DMU_OST_ZFS)
 		zhp->zfs_head_type = ZFS_TYPE_FILESYSTEM;
 	else
 		abort();
 
 	if (zhp->zfs_dmustats.dds_is_snapshot)
 		zhp->zfs_type = ZFS_TYPE_SNAPSHOT;
-	else if (zfs_is_internal(zhp))
-		zhp->zfs_type = ZFS_TYPE_INTERNAL;
 	else if (zhp->zfs_dmustats.dds_type == DMU_OST_ZVOL)
 		zhp->zfs_type = ZFS_TYPE_VOLUME;
 	else if (zhp->zfs_dmustats.dds_type == DMU_OST_ZFS)
@@ -2669,9 +2650,6 @@ zfs_prop_get(zfs_handle_t *zhp, zfs_prop_t prop, char *propbuf, size_t proplen,
 			break;
 		case ZFS_TYPE_BOOKMARK:
 			str = "bookmark";
-			break;
-		case ZFS_TYPE_INTERNAL:
-			str = "internal";
 			break;
 		default:
 			abort();

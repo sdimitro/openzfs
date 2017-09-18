@@ -27,7 +27,7 @@
 LIBRARY=	libcmdutils.a
 VERS=		.1
 CMD_OBJS=	avltree.o sysattrs.o writefile.o process_xattrs.o uid.o gid.o \
-		custr.o utaskq.o
+		custr.o utaskq.o nicenum.o
 COM_OBJS=	list.o
 OBJECTS=	$(CMD_OBJS) $(COM_OBJS)
 

@@ -75,6 +75,8 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	list_remove_tail;
 	list_tail;
 	mv_xattrs;
+	nicenum;
+	nicenum_scale;
 	sysattr_list;
 	sysattr_type;
 	sysattr_support;

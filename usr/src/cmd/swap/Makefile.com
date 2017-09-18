@@ -45,7 +45,7 @@ CLEANFILES += $(OBJS)
 
 all: $(PROG)
 
-LDLIBS	+=	-ldiskmgt -lkstat -lzfs
+LDLIBS	+=	-ldiskmgt -lkstat -lzfs -lcmdutils
 $(PROG): $(OBJS)
 	$(LINK.c) $(OBJS) -o $@ $(LDLIBS)
 	$(POST_PROCESS)

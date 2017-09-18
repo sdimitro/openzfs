@@ -1299,6 +1299,7 @@ zil_lwb_write_issue(zilog_t *zilog, lwb_t *lwb)
 	 * We dirty the dataset to ensure that zil_sync() will be called
 	 * to clean up in the event of allocation failure or I/O failure.
 	 */
+
 	tx = dmu_tx_create(zilog->zl_os);
 
 	/*

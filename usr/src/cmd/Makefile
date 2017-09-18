@@ -446,6 +446,7 @@ COMMON_SUBDIRS=		\
 	vrrpadm		\
 	vscan		\
 	vt		\
+	vtfontcvt	\
 	w		\
 	wall		\
 	which		\

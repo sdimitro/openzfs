@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -1626,19 +1627,21 @@ fmd_xprt_recv(fmd_xprt_t *xp, nvlist_t *nvl, hrtime_t hrt, boolean_t logonly)
 		fmd_log_t *lp;
 
 		if (isereport == FMD_B_TRUE) {
-			lp = fmd.d_errlog;
 			lockp = &fmd.d_log_lock;
+			(void) pthread_rwlock_rdlock(lockp);
+			lp = fmd.d_errlog;
 		} else {
 			if (ishvireport || issysevent) {
-				lp = fmd.d_hvilog;
 				lockp = &fmd.d_hvilog_lock;
+				(void) pthread_rwlock_rdlock(lockp);
+				lp = fmd.d_hvilog;
 			} else {
-				lp = fmd.d_ilog;
 				lockp = &fmd.d_ilog_lock;
+				(void) pthread_rwlock_rdlock(lockp);
+				lp = fmd.d_ilog;
 			}
 		}
 
-		(void) pthread_rwlock_rdlock(lockp);
 		fmd_log_append(lp, e, NULL);
 		(void) pthread_rwlock_unlock(lockp);
 	}
@@ -1807,7 +1810,7 @@ fmd_xprt_uuresolved(fmd_xprt_t *xp, const char *uuid)
  */
 void
 fmd_xprt_updated(fmd_xprt_t *xp, const char *uuid, uint8_t *statusp,
-	uint8_t *has_asrup, uint_t nelem)
+    uint8_t *has_asrup, uint_t nelem)
 {
 	fmd_xprt_impl_t *xip = (fmd_xprt_impl_t *)xp;
 

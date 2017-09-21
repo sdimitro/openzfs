@@ -11,6 +11,7 @@
 
 #
 # Copyright 2016 Nexenta Systems, Inc.
+# Copyright (c) 2017 by Delphix. All rights reserved.
 #
 
 PROG=		diskinfo
@@ -24,7 +25,7 @@ C99MODE=	$(C99_ENABLE)
 
 CPPFLAGS +=	-I$(SRC)/lib/fm/topo
 
-LDLIBS +=	-L$(ROOT)/usr/lib/fm -R/usr/lib/fm -ldiskmgt -lnvpair -ltopo
+LDLIBS +=	-L$(ROOT)/usr/lib/fm -R/usr/lib/fm -lumem -ldiskmgt -lnvpair -ltopo
 
 .KEEP_STATE:
 

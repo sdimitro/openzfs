@@ -299,8 +299,7 @@ Debug message to be printed.
 .Ed
 .It Em zfs.exists(dataset)
 Returns true if the given dataset exists, or false if it doesn't.
-A fatal error will be thrown if the dataset is not in the target
-pool.
+A fatal error will be thrown if the dataset is not in the target pool.
 That is, in a channel program running on rpool,
 zfs.exists("rpool/nonexistent_fs") returns false, but
 zfs.exists("somepool/fs_that_may_exist") will error.

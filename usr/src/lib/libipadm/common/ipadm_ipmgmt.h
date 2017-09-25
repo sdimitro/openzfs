@@ -1,5 +1,4 @@
-  
-0;95;0c/*
+/*
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the

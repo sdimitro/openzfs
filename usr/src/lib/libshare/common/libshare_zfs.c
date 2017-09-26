@@ -1018,8 +1018,7 @@ sa_get_one_zfs_share(sa_handle_t handle, char *groupname,
 		    zfsgroup);
 	}
 
-	return (0);
-
+	return (err);
 }
 
 /*

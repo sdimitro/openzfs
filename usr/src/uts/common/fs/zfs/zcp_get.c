@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2016, 2017 by Delphix. All rights reserved.
  */
 
 #include "lua.h"
@@ -429,16 +429,21 @@ get_special_prop(lua_State *state, dsl_dataset_t *ds, const char *dsname,
 	case ZFS_PROP_REDACTED:
 		numval = dsl_get_redacted(ds);
 		break;
-	case ZFS_PROP_RECEIVE_RESUME_TOKEN:
-		VERIFY3U(strlcpy(strval, get_receive_resume_stats_impl(ds),
-		    ZAP_MAXVALUELEN), <, ZAP_MAXVALUELEN);
+	case ZFS_PROP_RECEIVE_RESUME_TOKEN: {
+		char *token = get_receive_resume_stats_impl(ds);
+		VERIFY3U(strlcpy(strval, token, ZAP_MAXVALUELEN), <,
+		    ZAP_MAXVALUELEN);
+		strfree(token);
 		if (strcmp(strval, "") == 0) {
-			VERIFY3U(strlcpy(strval, get_child_receive_stats(ds),
-			    ZAP_MAXVALUELEN), <, ZAP_MAXVALUELEN);
+			token = get_child_receive_stats(ds);
+			VERIFY3U(strlcpy(strval, token, ZAP_MAXVALUELEN), <,
+			    ZAP_MAXVALUELEN);
+			strfree(token);
 			if (strcmp(strval, "") == 0)
 				error = ENOENT;
 		}
 		break;
+	}
 	case ZFS_PROP_REDACT_SNAPS: {
 		nvlist_t *snaps = fnvlist_alloc();
 		dsl_get_redact_snaps(ds, snaps);

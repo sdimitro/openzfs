@@ -381,8 +381,8 @@ Filesystem to rollback.
 .Ed
 .It Em zfs.sync.snapshot(dataset)
 Create a snapshot of a filesystem.
-Returns 0 if the snapshot was successfully created, and a nonzero error code
-otherwise.
+Returns 0 if the snapshot was successfully created,
+and a nonzero error code otherwise.
 .Pp
 Note: Taking a snapshot will fail on any pool older than legacy version 27.
 To enable taking snapshots from ZCP scripts, the pool must be upgraded.

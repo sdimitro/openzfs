@@ -42,9 +42,6 @@ typedef struct hyperv_state {
 } hv_state_t;
 
 
-#define	__packed	__attribute__((packed))
-#define	__aligned(x)	__attribute__((__aligned__(x)))
-
 #define	CACHE_LINE_SIZE	64
 
 /*

@@ -25,7 +25,6 @@
 extern "C" {
 #endif
 
-#define	__aligned(x)	__attribute__((__aligned__(x)))
 #define	CACHE_LINE_SIZE	64
 
 typedef struct aggsum_bucket {

@@ -371,8 +371,8 @@ Clone to be promoted.
 .It Em zfs.sync.rollback(filesystem)
 Rollback to the previous snapshot for a dataset.
 Returns 0 on successful rollback, or a nonzero error code otherwise.
-Rollbacks can be performed on filesystems or zvols, but not on snapshots or
-mounted datasets.
+Rollbacks can be performed on filesystems or zvols, but not on snapshots
+or mounted datasets.
 EBUSY is returned in the case where the filesystem is mounted.
 .Pp
 filesystem (string)

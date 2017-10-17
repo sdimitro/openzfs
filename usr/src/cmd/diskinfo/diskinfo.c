@@ -11,6 +11,7 @@
 
 /*
  * Copyright (c) 2013 Joyent Inc., All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -226,7 +227,7 @@ enumerate_disks(di_opts_t *opts)
 	char slotname[32];
 	char statestr[8];
 
-	char *vid, *pid, *opath, *c, *ctype = NULL;
+	char *vid, *pid, *opath, *c;
 	boolean_t removable;
 	boolean_t ssd;
 	char device[MAXPATHLEN];
@@ -254,6 +255,8 @@ enumerate_disks(di_opts_t *opts)
 	}
 
 	for (i = 0; media != NULL && media[i] != NULL; i++) {
+		char *ctype = NULL;
+
 		if ((disk = dm_get_associated_descriptors(media[i],
 		    DM_DRIVE, &err)) == NULL) {
 			continue;

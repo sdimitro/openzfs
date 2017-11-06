@@ -31,3 +31,5 @@ CPPFLAGS += -I../../../../common
 CPPFLAGS += -I$(SRC)/uts/common
 CPPFLAGS += -I$(SRC)/uts/i86pc
 CPPFLAGS += -I$(SRC)/uts/intel
+
+LDLIBS = -lz

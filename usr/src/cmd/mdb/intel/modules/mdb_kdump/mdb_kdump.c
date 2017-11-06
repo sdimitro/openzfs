@@ -22,6 +22,10 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
+#include <zlib.h>
+
+#define	DEBUG_PRINTF	0
 
 #define	divideup(x, y)	(((x) + ((y) - 1)) / (y))
 #define	round(x, y)	(((x) / (y)) * (y))
@@ -75,6 +79,19 @@ struct kdump_sub_header {
 	unsigned long long max_mapnr_64;
 };
 
+#define DUMP_DH_COMPRESSED_ZLIB		0x1
+#define DUMP_DH_COMPRESSED_LZO		0x2
+#define DUMP_DH_COMPRESSED_SNAPPY	0x4
+#define DUMP_DH_COMPRESSED_INCOMPLETE	0x8
+#define DUMP_DH_EXCLUDED_VMEMMAP	0x10
+
+typedef struct page_desc {
+	off_t			offset;
+	unsigned int		size;
+	unsigned int		flags;
+	unsigned long long	page_flags;
+} page_desc_t;
+
 typedef struct kdump_header {
 	struct disk_dump_header	kh_main_header;
 	struct kdump_sub_header	kh_sub_header;
@@ -89,6 +106,8 @@ typedef struct kdump_data {
 	size_t			kd_hdr_bitmap_size;
 	unsigned long long	kd_max_mapnr;
 	off_t			kd_data_offset;
+	unsigned long		*kd_valid_pages;
+	size_t			kd_valid_pages_size;
 } kdump_data_t;
 
 static inline int
@@ -124,6 +143,10 @@ kdump_free(kdump_data_t *kdump)
 		    kdump->kd_hdr.kh_bitmap_size);
 	}
 
+	if (kdump->kd_valid_pages != NULL) {
+		mdb_free(kdump->kd_valid_pages, kdump->kd_valid_pages_size);
+	}
+
 	mdb_free(kdump, sizeof (*kdump));
 }
 
@@ -151,6 +174,13 @@ kdump_identify(const char *file, int *longmode)
 
 	(void) close(fd);
 	return (-1);
+}
+
+static boolean_t
+kdump_page_is_dumpable(kdump_data_t *kdump, unsigned long nr)
+{
+	char *bitmap = kdump->kd_hdr.kh_second_bitmap;
+	return (bitmap[nr >> 3] & (1 << (nr & 7)));
 }
 
 static void *
@@ -214,7 +244,7 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 
 	off_t bitmap_offset = (1 + main_hdr->sub_hdr_size) * blksz;
 	size_t bitmap_size = main_hdr->bitmap_blocks * blksz;
-	first_bitmap = mdb_alloc(bitmap_size, UM_SLEEP);
+	first_bitmap = mdb_zalloc(bitmap_size, UM_SLEEP);
 	kdump->kd_hdr.kh_bitmap_size = bitmap_size;
 	kdump->kd_hdr.kh_first_bitmap = first_bitmap;
 
@@ -228,7 +258,7 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 		goto error;
 	}
 
-	second_bitmap = mdb_alloc(bitmap_size, UM_SLEEP);
+	second_bitmap = mdb_zalloc(bitmap_size, UM_SLEEP);
 	kdump->kd_hdr.kh_second_bitmap = second_bitmap;
 
 	if (kdump_is_partial(kdump)) {
@@ -240,6 +270,25 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 
 	kdump->kd_data_offset =
 	    (1 + main_hdr->sub_hdr_size + main_hdr->bitmap_blocks) * blksz;
+
+	unsigned long pfn = 0;
+	unsigned long max_sect_len = divideup(kdump->kd_max_mapnr, blksz);
+	kdump->kd_valid_pages_size = sizeof (unsigned long) * max_sect_len;
+	kdump->kd_valid_pages = mdb_zalloc(kdump->kd_valid_pages_size, UM_SLEEP);
+
+#if DEBUG_PRINTF
+	printf("%s: max_sect_len: %lx\n", __FUNCTION__, max_sect_len);
+	printf("%s: kd_valid_pages_size: %lx\n", __FUNCTION__,
+	    kdump->kd_valid_pages_size);
+#endif
+
+	for (unsigned int i = 1; i < max_sect_len + 1; i++) {
+		kdump->kd_valid_pages[i] = kdump->kd_valid_pages[i - 1];
+		for (unsigned int j = 0; j < blksz; j++, pfn++) {
+			if (kdump_page_is_dumpable(kdump, pfn))
+				kdump->kd_valid_pages[i]++;
+		}
+	}
 
 	return (kdump);
 
@@ -266,15 +315,153 @@ kdump_sym_io(void *data, const char *symfile)
 	return (io);
 }
 
+static unsigned long
+kdump_paddr_to_pfn(kdump_data_t *kdump, uintptr_t addr)
+{
+	return (addr >> (ffs(kdump->kd_hdr.kh_main_header.block_size) - 1));
+}
+
+static unsigned long
+kdump_pfn_to_pdi(kdump_data_t *kdump, unsigned long pfn)
+{
+	unsigned long p1 = pfn;
+	unsigned long p2 = round(pfn, kdump->kd_hdr.kh_main_header.block_size);
+	unsigned long valid =
+	    kdump->kd_valid_pages[p1 / kdump->kd_hdr.kh_main_header.block_size];
+	unsigned long pdi = valid;
+
+#if DEBUG_PRINTF
+	printf("%s: p1: %lx\n", __FUNCTION__, p1);
+	printf("%s: p2: %lx\n", __FUNCTION__, p2);
+	printf("%s: valid: %lx\n", __FUNCTION__, valid);
+	printf("%s: pdi: %lx\n", __FUNCTION__, pdi);
+#endif
+
+	for (int j = p2; j <= pfn; j++) {
+		if (kdump_page_is_dumpable(kdump, j))
+			pdi++;
+	}
+
+	return (pdi);
+}
+
+static ssize_t
+kdump_pread(void *data, uintptr_t addr, void *buf, size_t size)
+{
+	kdump_data_t *kdump = data;
+	unsigned long block_size = kdump->kd_hdr.kh_main_header.block_size;
+	uintptr_t page_addr = addr & ~(block_size - 1);
+	unsigned long page_offset = addr & (block_size - 1);
+	unsigned long pfn = kdump_paddr_to_pfn(kdump, page_addr);
+	unsigned long pdi = kdump_pfn_to_pdi(kdump, pfn);
+	off_t offset = kdump->kd_data_offset +
+	    ((off_t)(pdi - 1) * sizeof (page_desc_t));
+	page_desc_t pd;
+
+#if DEBUG_PRINTF
+	printf("%s: addr: %lx\n", __FUNCTION__, addr);
+	printf("%s: page addr: %lx\n", __FUNCTION__, page_addr);
+	printf("%s: page offset: %lx\n", __FUNCTION__, page_offset);
+	printf("%s: size: %lx\n", __FUNCTION__, size);
+	printf("%s: pfn: %lx\n", __FUNCTION__, pfn);
+	printf("%s: pdi: %lx\n", __FUNCTION__, pdi);
+	printf("%s: offset: %lx\n", __FUNCTION__, offset);
+	printf("%s: data: %lx\n", __FUNCTION__, kdump->kd_data_offset);
+#endif
+
+	if (lseek(kdump->kd_fd, offset, SEEK_SET) == -1) {
+		mdb_warn("Failed to seek to page descriptor\n");
+		return (-1);
+	}
+
+	if (read(kdump->kd_fd, &pd, sizeof (pd)) != sizeof (pd)) {
+		mdb_warn("Failed to read page descriptor\n");
+		return (-1);
+	}
+
+#if DEBUG_PRINTF
+	printf("%s: pd offset: %lx\n", __FUNCTION__, pd.offset);
+	printf("%s: pd size: %lx\n", __FUNCTION__, pd.size);
+	printf("%s: pd flags: %lx\n", __FUNCTION__, pd.flags);
+	printf("%s: pd page flags: %lx\n", __FUNCTION__, pd.page_flags);
+#endif
+
+	if (pd.size > block_size) {
+		mdb_warn("Failed to read page descriptor (incorrect size)\n");
+		return (-1);
+	}
+
+	if (lseek(kdump->kd_fd, pd.offset, SEEK_SET) == -1) {
+		mdb_warn("Failed to seek to compressed page\n");
+		return (-1);
+	}
+
+	void *cpage = mdb_zalloc(pd.size, UM_SLEEP);
+	void *upage = mdb_zalloc(block_size, UM_SLEEP);
+
+	if (read(kdump->kd_fd, cpage, pd.size) != pd.size) {
+		mdb_warn("Failed to read compressed page\n");
+		goto error;
+	}
+
+	if (pd.flags & (DUMP_DH_COMPRESSED_LZO | DUMP_DH_COMPRESSED_SNAPPY)) {
+		mdb_warn("Compression format not supported\n");
+		goto error;
+	} else if (pd.flags & DUMP_DH_COMPRESSED_ZLIB) {
+		unsigned long retlen = block_size;
+		int ret = uncompress(upage, &retlen, cpage, pd.size);
+		if ((ret != Z_OK) || (retlen != block_size)) {
+			mdb_warn("Failed to decompress page\n");
+			goto error;
+		}
+	} else {
+		if (pd.size != block_size) {
+			mdb_warn("Page size not equal to block size\n");
+			goto error;
+		}
+
+		memcpy(upage, cpage, block_size);
+	}
+
+	size = MIN(size, pd.size);
+	memcpy(buf, upage + page_offset, size);
+	mdb_free(cpage, pd.size);
+	mdb_free(upage, block_size);
+	return (size);
+
+error:
+	mdb_free(cpage, pd.size);
+	mdb_free(upage, block_size);
+	return (-1);
+}
+
+static ssize_t
+kdump_kread(void *data, uintptr_t addr, void *buf, size_t size)
+{
+	kdump_data_t *kdump = data;
+	const unsigned long start_kernel_map = 0xffffffff80000000UL;
+	const unsigned long phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
+
+	uintptr_t paddr = addr - start_kernel_map + phys_base;
+
+#if DEBUG_PRINTF
+	printf("%s: vaddr: %lx\n", __FUNCTION__, addr);
+	printf("%s: paddr: %lx\n", __FUNCTION__, paddr);
+	printf("%s: size: %lx\n", __FUNCTION__, size);
+#endif
+
+	return (kdump_pread(kdump, paddr, buf, size));
+}
+
 static mdb_kb_ops_t kdump_kb_ops = {
 	.kb_open	= kdump_open,
 	.kb_close	= kdump_close,
 	.kb_sym_io	= kdump_sym_io,
-	.kb_kread	= (ssize_t (*)())mdb_tgt_notsup,
+	.kb_kread	= kdump_kread,
 	.kb_kwrite	= (ssize_t (*)())mdb_tgt_notsup,
 	.kb_aread	= (ssize_t (*)())mdb_tgt_notsup,
 	.kb_awrite	= (ssize_t (*)())mdb_tgt_notsup,
-	.kb_pread	= (ssize_t (*)())mdb_tgt_notsup,
+	.kb_pread	= kdump_pread,
 	.kb_pwrite	= (ssize_t (*)())mdb_tgt_notsup,
 	.kb_vtop	= (uint64_t (*)())mdb_tgt_notsup,
 	.kb_getmregs	= (int (*)())mdb_tgt_notsup,

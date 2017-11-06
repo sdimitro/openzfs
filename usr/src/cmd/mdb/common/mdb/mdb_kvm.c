@@ -1403,11 +1403,12 @@ mdb_kvm_tgt_create(mdb_tgt_t *t, int argc, const char *argv[])
 		return (set_errno(EINVAL));
 #else
 		mdb_kb_ops_t *(*getops)(void);
-		const char *mod_name = argv[1];
-		const char *ops_name = argv[2];
+		const char *mod_name = argv[argc-2];
+		const char *ops_name = argv[argc-1];
 
-		kt->k_symfile = NULL;
-		kt->k_kvmfile = strdup(argv[0]);
+		/* TODO: What if "argc" is less than 4? Who free's this? */
+		kt->k_symfile = strdup(argv[argc-4]);
+		kt->k_kvmfile = strdup(argv[argc-3]);
 
 		getops = (mdb_kb_ops_t *(*)())dlsym(RTLD_NEXT, ops_name);
 
@@ -1427,8 +1428,8 @@ mdb_kvm_tgt_create(mdb_tgt_t *t, int argc, const char *argv[])
 			goto err;
 		}
 
-		kt->k_cookie = kt->k_kb_ops->kb_open(NULL, kt->k_kvmfile, NULL,
-		    oflag, (char *)mdb.m_pname);
+		kt->k_cookie = kt->k_kb_ops->kb_open(kt->k_symfile,
+		    kt->k_kvmfile, NULL, oflag, (char *)mdb.m_pname);
 
 		if (kt->k_cookie == NULL)
 			goto err;

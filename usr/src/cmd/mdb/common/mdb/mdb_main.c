@@ -116,6 +116,7 @@ typedef struct mdb_kb_desc {
 mdb_kb_desc_t mkb_descs[] = {
 	MDB_KB_DESC("mdb_kb", "xkb_identify", "mdb_kb_ops"),
 	MDB_KB_DESC("mdb_vmss", "vmss_identify", "mdb_vmss_ops"),
+	MDB_KB_DESC("mdb_kdump", "kdump_identify", "mdb_kdump_ops"),
 	MDB_KB_DESC(NULL, NULL, NULL)
 };
 
@@ -941,8 +942,11 @@ main(int argc, char *argv[], char *envp[])
 		mdb_io_destroy(io);
 
 		for (mkb = &mkb_descs[0]; mkb->mkb_mod != NULL; mkb++) {
+			if (tgt_argc < 1)
+				break;
+
 			if (identify_file(mkb->mkb_mod, mkb->mkb_identify,
-			    tgt_argv[0], &longmode) == 1) {
+			    tgt_argv[tgt_argc - 1], &longmode) == 1) {
 #ifdef _LP64
 				if (!longmode)
 					goto reexec;
@@ -955,9 +959,9 @@ main(int argc, char *argv[], char *envp[])
 				 * two extra arguments.
 				 */
 				tgt_ctor = mdb_kvm_tgt_create;
-				tgt_argv[1] = mkb->mkb_mod;
-				tgt_argv[2] = mkb->mkb_ops;
-				tgt_argc = 3;
+				tgt_argv[tgt_argc] = mkb->mkb_mod;
+				tgt_argv[tgt_argc + 1] = mkb->mkb_ops;
+				tgt_argc = tgt_argc + 2;
 				goto tcreate;
 			}
 		}

@@ -144,6 +144,8 @@ files="
 	/usr/include/sys/fs/zfs.h
 	/usr/lib/mdb/kvm/zfs.so
 	/usr/lib/mdb/kvm/amd64/zfs.so
+	/usr/lib/mdb/kvm/amd64/mdb_vmss.so
+	/usr/lib/mdb/kvm/amd64/mdb_kdump.so
 	/kernel/kmdb/zfs
 	/kernel/kmdb/amd64/zfs
 	/usr/lib/mdb/proc/libzpool.so

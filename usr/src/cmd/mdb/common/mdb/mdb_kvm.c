@@ -1369,11 +1369,13 @@ kt_destroy(mdb_tgt_t *t)
 	mdb_free(kt, sizeof (kt_data_t));
 }
 
+#if 0
 static int
 kt_data_stub(void)
 {
 	return (-1);
 }
+#endif
 
 int
 mdb_kvm_tgt_create(mdb_tgt_t *t, int argc, const char *argv[])
@@ -1454,6 +1456,7 @@ mdb_kvm_tgt_create(mdb_tgt_t *t, int argc, const char *argv[])
 	kt->k_dynsym =
 	    mdb_gelf_symtab_create_file(kt->k_file, SHT_DYNSYM, MDB_TGT_DYNSYM);
 
+#if 0
 	if (mdb_gelf_symtab_lookup_by_name(kt->k_symtab, "kas",
 	    &sym, NULL) == -1) {
 		warn("'kas' symbol is missing from kernel\n");
@@ -1497,6 +1500,7 @@ mdb_kvm_tgt_create(mdb_tgt_t *t, int argc, const char *argv[])
 	if (mdb_gelf_symtab_lookup_by_name(kt->k_symtab, "ctf_arena", &sym,
 	    NULL) == 0 && !(mdb.m_flags & MDB_FL_NOCTF))
 		kt->k_ctfvalid = 1;
+#endif
 
 	(void) mdb_nv_create(&kt->k_modules, UM_SLEEP);
 	t->t_pshandle = kt->k_cookie;

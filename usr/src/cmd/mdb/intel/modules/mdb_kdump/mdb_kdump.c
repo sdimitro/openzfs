@@ -258,7 +258,12 @@ kdump_close(void *data)
 static mdb_io_t *
 kdump_sym_io(void *data, const char *symfile)
 {
-	return (NULL);
+	mdb_io_t *io = NULL;
+
+	if ((io = mdb_fdio_create_path(NULL, symfile, O_RDONLY, 0)) == NULL)
+		mdb_warn("Failed to open '%s'\n", symfile);
+
+	return (io);
 }
 
 static mdb_kb_ops_t kdump_kb_ops = {

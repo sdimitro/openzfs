@@ -22,6 +22,9 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
 
 #include <sys/isa_defs.h>
 #include <sys/link.h>
@@ -769,6 +772,7 @@ mdb_gelf_create(mdb_io_t *io, GElf_Half etype, int mode)
 
 	ASSERT(mode == GF_FILE || mode == GF_PROGRAM);
 	gf->gf_mode = mode;
+	gf->gf_kerneloffset = io->io_kerneloffset;
 
 	/*
 	 * Assign the i/o backend now, but don't hold it until we're sure
@@ -1151,6 +1155,7 @@ mdb_gelf_symtab_create_file_by_name(mdb_gelf_file_t *gf,
 	gst->gst_ssect = NULL;
 	gst->gst_id = 0;
 	gst->gst_tabid = tabid;
+	gst->gst_kerneloffset = gf->gf_kerneloffset;
 
 	for (gsp = gf->gf_sects, i = 0; i < gf->gf_shnum; i++, gsp++) {
 		if (strcmp(gsp->gs_name, dsname) == 0) {
@@ -1437,25 +1442,6 @@ gelf32_to_sym(const Elf32_Sym *src, GElf_Sym *dst)
 		dst->st_shndx = src->st_shndx;
 		dst->st_value = src->st_value;
 		dst->st_size = src->st_size;
-
-		/*
-		 * TODO: I have no clue why this is needed, but it
-		 * appears as though we need to add this to the value
-		 * contained in the ELF vmlinux. This was determined by
-		 * comparing the value returned for a symbol by the
-		 * crash command, which was this value larger than what
-		 * was being returned by MDB. When looking at the symbol
-		 * values contained in the vmlinux file with readelf,
-		 * the values match what was being returned by MDB.
-		 * Thus, I'm not sure why crash is returning a different
-		 * value, but to be consistent with crash and allow
-		 * proper symbol to address translation, we add this
-		 * hardcoded value to what was found in the ELF file. I
-		 * which I knew why this is needed, and/or where this
-		 * value was coming from.
-		 */
-		dst->st_value += 0x10800000ULL;
-
 		return (dst);
 	}
 
@@ -1467,25 +1453,6 @@ gelf64_to_sym(const Elf64_Sym *src, GElf_Sym *dst)
 {
 	if (src != NULL) {
 		bcopy(src, dst, sizeof (GElf_Sym));
-
-		/*
-		 * TODO: I have no clue why this is needed, but it
-		 * appears as though we need to add this to the value
-		 * contained in the ELF vmlinux. This was determined by
-		 * comparing the value returned for a symbol by the
-		 * crash command, which was this value larger than what
-		 * was being returned by MDB. When looking at the symbol
-		 * values contained in the vmlinux file with readelf,
-		 * the values match what was being returned by MDB.
-		 * Thus, I'm not sure why crash is returning a different
-		 * value, but to be consistent with crash and allow
-		 * proper symbol to address translation, we add this
-		 * hardcoded value to what was found in the ELF file. I
-		 * which I knew why this is needed, and/or where this
-		 * value was coming from.
-		 */
-		dst->st_value += 0x10800000ULL;
-
 		return (dst);
 	}
 
@@ -1635,6 +1602,15 @@ mdb_gelf_symtab_lookup_by_addr(mdb_gelf_symtab_t *gst, uintptr_t addr,
 
 	const char *name;
 
+	/*
+	 * TODO: This is a hack, but the linux kernel's memory may be
+	 * offset due to KASLR, and the value from which it is offset is
+	 * defined in the "vmcoreinfo" portion of the kernel dump file,
+	 * specified as KERNELOFFSET.  Thus, we must subtract this
+	 * offset when searching through the ELF file based on address.
+	 */
+	addr -= gst->gst_kerneloffset;
+
 	if (gst == NULL)
 		return (set_errno(EMDB_NOSYMADDR));
 
@@ -1647,6 +1623,18 @@ mdb_gelf_symtab_lookup_by_addr(mdb_gelf_symtab_t *gst, uintptr_t addr,
 		if (gelf64_to_sym(u.s64, sym) == NULL)
 			return (set_errno(EMDB_NOSYMADDR));
 	}
+
+	/*
+	 * TODO: This is a hack, but the linux kernel's memory
+	 * may be offset due to KASLR, and the value from which
+	 * it is offset is defined in the "vmcoreinfo" portion
+	 * of the kernel dump file, specified as KERNELOFFSET.
+	 * Thus, we must add this offset to the symbol values
+	 * that we obtain via the ELF file information, in order
+	 * to obtain the symbol's actual address in memory.
+	 */
+	addr += gst->gst_kerneloffset;
+	sym->st_value += gst->gst_kerneloffset;
 
 	if ((flags & GST_EXACT) && (sym->st_value != addr))
 		return (set_errno(EMDB_NOSYMADDR));
@@ -1692,6 +1680,17 @@ mdb_gelf_symtab_lookup_by_name(mdb_gelf_symtab_t *gst, const char *name,
 				    gst->gst_dsect->gs_shdr.sh_entsize;
 			}
 		}
+
+		/*
+		 * TODO: This is a hack, but the linux kernel's memory
+		 * may be offset due to KASLR, and the value from which
+		 * it is offset is defined in the "vmcoreinfo" portion
+		 * of the kernel dump file, specified as KERNELOFFSET.
+		 * Thus, we must add this offset to the symbol values
+		 * that we obtain via the ELF file information, in order
+		 * to obtain the symbol's actual address in memory.
+		 */
+		sym->st_value += gst->gst_kerneloffset;
 
 		return (0);
 	}

@@ -16,6 +16,7 @@
 #include <mdb/mdb_io.h>
 #include <mdb/mdb_kb.h>
 #include <mdb/mdb_target_impl.h>
+#include <mdb/mdb_io_impl.h>
 #include <mdb/mdb_ctf.h>
 
 #include <sys/stat.h>
@@ -24,6 +25,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <zlib.h>
+#include <stdlib.h>
 
 #define	DEBUG_PRINTF	0
 
@@ -79,11 +81,11 @@ struct kdump_sub_header {
 	unsigned long long max_mapnr_64;
 };
 
-#define DUMP_DH_COMPRESSED_ZLIB		0x1
-#define DUMP_DH_COMPRESSED_LZO		0x2
-#define DUMP_DH_COMPRESSED_SNAPPY	0x4
-#define DUMP_DH_COMPRESSED_INCOMPLETE	0x8
-#define DUMP_DH_EXCLUDED_VMEMMAP	0x10
+#define	DUMP_DH_COMPRESSED_ZLIB		0x1
+#define	DUMP_DH_COMPRESSED_LZO		0x2
+#define	DUMP_DH_COMPRESSED_SNAPPY	0x4
+#define	DUMP_DH_COMPRESSED_INCOMPLETE	0x8
+#define	DUMP_DH_EXCLUDED_VMEMMAP	0x10
 
 typedef struct page_desc {
 	off_t			offset;
@@ -108,6 +110,8 @@ typedef struct kdump_data {
 	off_t			kd_data_offset;
 	unsigned long		*kd_valid_pages;
 	size_t			kd_valid_pages_size;
+	char			*kd_vmcoreinfo;
+	size_t			kd_vmcoreinfo_size;
 } kdump_data_t;
 
 static inline int
@@ -145,6 +149,10 @@ kdump_free(kdump_data_t *kdump)
 
 	if (kdump->kd_valid_pages != NULL) {
 		mdb_free(kdump->kd_valid_pages, kdump->kd_valid_pages_size);
+	}
+
+	if (kdump->kd_vmcoreinfo != NULL) {
+		mdb_free(kdump->kd_vmcoreinfo, kdump->kd_vmcoreinfo_size);
 	}
 
 	mdb_free(kdump, sizeof (*kdump));
@@ -233,6 +241,26 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 	else
 		kdump->kd_max_mapnr = main_hdr->max_mapnr;
 
+
+	off_t vmcoreinfo_offset = kdump->kd_hdr.kh_sub_header.offset_vmcoreinfo;
+	kdump->kd_vmcoreinfo_size =
+	    kdump->kd_hdr.kh_sub_header.size_vmcoreinfo + 1;
+
+	if (lseek(kdump->kd_fd, vmcoreinfo_offset, SEEK_SET) == -1) {
+		mdb_warn("Failed to seek to vmcoreinfo\n");
+		goto error;
+	}
+
+	kdump->kd_vmcoreinfo = mdb_alloc(kdump->kd_vmcoreinfo_size, UM_SLEEP);
+
+	if (read(kdump->kd_fd, kdump->kd_vmcoreinfo,
+	    kdump->kd_vmcoreinfo_size - 1) != kdump->kd_vmcoreinfo_size -1) {
+		mdb_warn("Failed to read vmcoreinfo\n");
+		goto error;
+	}
+
+	kdump->kd_vmcoreinfo[kdump->kd_vmcoreinfo_size] = '\0';
+
 	/*
 	 * TODO: What is the format used to store these bitmaps? The
 	 * logic below was mostly cribbed from the "crash" sources.
@@ -274,7 +302,8 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 	unsigned long pfn = 0;
 	unsigned long max_sect_len = divideup(kdump->kd_max_mapnr, blksz);
 	kdump->kd_valid_pages_size = sizeof (unsigned long) * max_sect_len;
-	kdump->kd_valid_pages = mdb_zalloc(kdump->kd_valid_pages_size, UM_SLEEP);
+	kdump->kd_valid_pages =
+	    mdb_zalloc(kdump->kd_valid_pages_size, UM_SLEEP);
 
 #if DEBUG_PRINTF
 	printf("%s: max_sect_len: %lx\n", __FUNCTION__, max_sect_len);
@@ -304,13 +333,60 @@ kdump_close(void *data)
 	return (0);
 }
 
+static char *
+kdump_vmcoreinfo_lookup(kdump_data_t *kdump, const char *key, size_t *size)
+{
+	size_t keylen = strlen(key);
+	char *lookup = NULL;
+	char *value = NULL;
+	char *p1, *p2;
+
+	lookup = mdb_alloc(keylen + 2, UM_SLEEP);
+	snprintf(lookup, keylen + 2, "%s=", key);
+	lookup[keylen + 2] = '\0';
+
+	if ((p1 = strstr(kdump->kd_vmcoreinfo, lookup)) != NULL) {
+		p2 = p1 + strlen(lookup);
+		p1 = strstr(p2, "\n");
+
+		*size = p1 - p2;
+		value = mdb_alloc(*size, UM_SLEEP);
+		strncpy(value, p2, *size);
+		value[*size] = '\0';
+	}
+
+	mdb_free(lookup, keylen + 2);
+	return (value);
+}
+
 static mdb_io_t *
 kdump_sym_io(void *data, const char *symfile)
 {
+	kdump_data_t *kdump = data;
 	mdb_io_t *io = NULL;
+	char *kerneloffset;
+	size_t size;
 
-	if ((io = mdb_fdio_create_path(NULL, symfile, O_RDONLY, 0)) == NULL)
+	kerneloffset = kdump_vmcoreinfo_lookup(kdump, "KERNELOFFSET", &size);
+	if (kerneloffset == NULL) {
+		mdb_warn("Failed to lookup KERNELOFFSET\n");
+		return (NULL);
+	}
+
+	if ((io = mdb_fdio_create_path(NULL, symfile, O_RDONLY, 0)) == NULL) {
 		mdb_warn("Failed to open '%s'\n", symfile);
+		mdb_free(kerneloffset, size);
+		return (NULL);
+	}
+
+	io->io_kerneloffset = strtoull(kerneloffset, NULL, 16);
+
+#if DEBUG_PRINTF
+	printf("kerneloffset string: %s\n", kerneloffset);
+	printf("kerneloffset number: %lx\n", io->io_kerneloffset);
+#endif
+
+	mdb_free(kerneloffset, size);
 
 	return (io);
 }

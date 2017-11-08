@@ -22,6 +22,9 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
 
 #ifndef	_MDB_GELF_H
 #define	_MDB_GELF_H
@@ -66,6 +69,7 @@ typedef struct mdb_gelf_file {
 	mdb_gelf_sect_t *gf_sects;	/* Array of section structs */
 	mdb_io_t *gf_io;		/* I/o backend for ELF file */
 	int gf_mode;			/* Mode flag (see above) */
+	off64_t gf_kerneloffset;	/* TODO: This shouldn't be here */
 } mdb_gelf_file_t;
 
 typedef struct mdb_gelf_symtab {
@@ -79,6 +83,7 @@ typedef struct mdb_gelf_symtab {
 	mdb_gelf_sect_t *gst_ssect;	/* Associated ELF string section */
 	uint_t gst_id;			/* Next symbol ID to use if mutable */
 	uint_t gst_tabid;		/* ID for symbol table */
+	off64_t gst_kerneloffset;	/* TODO: This shouldn't be here */
 } mdb_gelf_symtab_t;
 
 typedef struct mdb_gelf_dsym {

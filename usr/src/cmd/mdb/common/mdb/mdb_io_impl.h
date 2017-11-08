@@ -23,6 +23,9 @@
  * Copyright (c) 1999-2001 by Sun Microsystems, Inc.
  * All rights reserved.
  */
+/*
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ */
 
 #ifndef	_MDB_IO_IMPL_H
 #define	_MDB_IO_IMPL_H
@@ -86,6 +89,7 @@ struct mdb_io {
 	void *io_data;			/* I/O type-specific data pointer */
 	mdb_io_t *io_next;		/* Link to next i/o object on stack */
 	size_t io_refcnt;		/* Reference count */
+	off64_t io_kerneloffset;	/* TODO: This shouldn't be here */
 };
 
 struct mdb_iob {

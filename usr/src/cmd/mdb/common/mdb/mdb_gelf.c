@@ -1437,6 +1437,25 @@ gelf32_to_sym(const Elf32_Sym *src, GElf_Sym *dst)
 		dst->st_shndx = src->st_shndx;
 		dst->st_value = src->st_value;
 		dst->st_size = src->st_size;
+
+		/*
+		 * TODO: I have no clue why this is needed, but it
+		 * appears as though we need to add this to the value
+		 * contained in the ELF vmlinux. This was determined by
+		 * comparing the value returned for a symbol by the
+		 * crash command, which was this value larger than what
+		 * was being returned by MDB. When looking at the symbol
+		 * values contained in the vmlinux file with readelf,
+		 * the values match what was being returned by MDB.
+		 * Thus, I'm not sure why crash is returning a different
+		 * value, but to be consistent with crash and allow
+		 * proper symbol to address translation, we add this
+		 * hardcoded value to what was found in the ELF file. I
+		 * which I knew why this is needed, and/or where this
+		 * value was coming from.
+		 */
+		dst->st_value += 0x10800000ULL;
+
 		return (dst);
 	}
 
@@ -1448,6 +1467,25 @@ gelf64_to_sym(const Elf64_Sym *src, GElf_Sym *dst)
 {
 	if (src != NULL) {
 		bcopy(src, dst, sizeof (GElf_Sym));
+
+		/*
+		 * TODO: I have no clue why this is needed, but it
+		 * appears as though we need to add this to the value
+		 * contained in the ELF vmlinux. This was determined by
+		 * comparing the value returned for a symbol by the
+		 * crash command, which was this value larger than what
+		 * was being returned by MDB. When looking at the symbol
+		 * values contained in the vmlinux file with readelf,
+		 * the values match what was being returned by MDB.
+		 * Thus, I'm not sure why crash is returning a different
+		 * value, but to be consistent with crash and allow
+		 * proper symbol to address translation, we add this
+		 * hardcoded value to what was found in the ELF file. I
+		 * which I knew why this is needed, and/or where this
+		 * value was coming from.
+		 */
+		dst->st_value += 0x10800000ULL;
+
 		return (dst);
 	}
 

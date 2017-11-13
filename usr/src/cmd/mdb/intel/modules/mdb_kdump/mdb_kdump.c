@@ -27,13 +27,19 @@
 #include <zlib.h>
 #include <stdlib.h>
 
+#include <sys/ucontext.h>
+#include <sys/privmregs.h>
+
 #define	DEBUG_PRINTF	0
+
+#define	NR_CPUS		8192
 
 #define	divideup(x, y)	(((x) + ((y) - 1)) / (y))
 #define	round(x, y)	(((x) / (y)) * (y))
+#define	roundup(x, y)	((((x) + ((y) - 1)) / (y)) * (y))
 
 #define	DUMP_PARTITION_SIGNATURE	"diskdump"
-#define	SIG_LEN (sizeof (DUMP_PARTITION_SIGNATURE) - 1)
+#define	SIG_LEN				(sizeof (DUMP_PARTITION_SIGNATURE) - 1)
 #define	DISK_DUMP_SIGNATURE		"DISKDUMP"
 #define	KDUMP_SIGNATURE			"KDUMP   "
 
@@ -94,6 +100,14 @@ typedef struct page_desc {
 	unsigned long long	page_flags;
 } page_desc_t;
 
+typedef struct x86_64_user_regs_struct {
+	unsigned long r15, r14, r13, r12, bp, bx;
+	unsigned long r11, r10, r9, r8, ax, cx, dx;
+	unsigned long si, di, orig_ax, ip, cs;
+	unsigned long flags, sp, ss, fs_base;
+	unsigned long gs_base, ds, es, fs, gs;
+} user_regs_t;
+
 typedef struct kdump_header {
 	struct disk_dump_header	kh_main_header;
 	struct kdump_sub_header	kh_sub_header;
@@ -112,6 +126,9 @@ typedef struct kdump_data {
 	size_t			kd_valid_pages_size;
 	char			*kd_vmcoreinfo;
 	size_t			kd_vmcoreinfo_size;
+	void			*kd_elfnotes;
+	size_t			kd_elfnotes_size;
+	void			**kd_nt_prstatus;
 } kdump_data_t;
 
 static inline int
@@ -153,6 +170,14 @@ kdump_free(kdump_data_t *kdump)
 
 	if (kdump->kd_vmcoreinfo != NULL) {
 		mdb_free(kdump->kd_vmcoreinfo, kdump->kd_vmcoreinfo_size);
+	}
+
+	if (kdump->kd_elfnotes != NULL) {
+		mdb_free(kdump->kd_elfnotes, kdump->kd_elfnotes_size);
+	}
+
+	if (kdump->kd_nt_prstatus != NULL) {
+		mdb_free(kdump->kd_nt_prstatus, NR_CPUS * sizeof (void *));
 	}
 
 	mdb_free(kdump, sizeof (*kdump));
@@ -254,12 +279,44 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 	kdump->kd_vmcoreinfo = mdb_alloc(kdump->kd_vmcoreinfo_size, UM_SLEEP);
 
 	if (read(kdump->kd_fd, kdump->kd_vmcoreinfo,
-	    kdump->kd_vmcoreinfo_size - 1) != kdump->kd_vmcoreinfo_size -1) {
+	    kdump->kd_vmcoreinfo_size - 1) != kdump->kd_vmcoreinfo_size - 1) {
 		mdb_warn("Failed to read vmcoreinfo\n");
 		goto error;
 	}
 
 	kdump->kd_vmcoreinfo[kdump->kd_vmcoreinfo_size] = '\0';
+
+	off_t elfnotes_offset = kdump->kd_hdr.kh_sub_header.offset_note;
+	kdump->kd_elfnotes_size = kdump->kd_hdr.kh_sub_header.size_note;
+
+	if (lseek(kdump->kd_fd, elfnotes_offset, SEEK_SET) == -1) {
+		mdb_warn("Failed to seek to ELF notes\n");
+		goto error;
+	}
+
+	kdump->kd_elfnotes = mdb_alloc(kdump->kd_elfnotes_size, UM_SLEEP);
+
+	if (read(kdump->kd_fd, kdump->kd_elfnotes,
+	    kdump->kd_elfnotes_size) != kdump->kd_elfnotes_size) {
+		mdb_warn("Failed to read ELF notes\n");
+		goto error;
+	}
+
+	kdump->kd_nt_prstatus = mdb_zalloc(NR_CPUS * sizeof (void *), UM_SLEEP);
+
+	unsigned int cpu = 0;
+	for (size_t i = 0, len = 0; i < kdump->kd_elfnotes_size; i += len) {
+		Elf64_Nhdr *nt = kdump->kd_elfnotes + i;
+
+		if (nt->n_type == NT_PRSTATUS) {
+			kdump->kd_nt_prstatus[cpu] = nt;
+			cpu += 1;
+		}
+
+		len = sizeof (*nt);
+		len = roundup(len + nt->n_namesz, 4);
+		len = roundup(len + nt->n_descsz, 4);
+	}
 
 	/*
 	 * TODO: What is the format used to store these bitmaps? The
@@ -422,7 +479,7 @@ kdump_pfn_to_pdi(kdump_data_t *kdump, unsigned long pfn)
 }
 
 static ssize_t
-kdump_pread(void *data, uintptr_t addr, void *buf, size_t size)
+kdump_pread(void *data, uint64_t  addr, void *buf, size_t size)
 {
 	kdump_data_t *kdump = data;
 	unsigned long block_size = kdump->kd_hdr.kh_main_header.block_size;
@@ -529,6 +586,67 @@ kdump_kread(void *data, uintptr_t addr, void *buf, size_t size)
 	return (kdump_pread(kdump, paddr, buf, size));
 }
 
+static int
+kdump_getmregs(void *data, uint_t cpu, struct privmregs *mregs)
+{
+	kdump_data_t *kdump = data;
+
+#if DEBUG_PRINTF
+	printf("%s: cpu: %lx\n", __FUNCTION__, cpu);
+#endif
+
+	Elf64_Nhdr *nt = kdump->kd_nt_prstatus[cpu];
+	size_t len = sizeof (*nt);
+	len = roundup(len + nt->n_namesz, 4);
+	len = roundup(len + nt->n_descsz, 4);
+
+	if ((char *)nt + len >
+	    (char *)kdump->kd_elfnotes + kdump->kd_elfnotes_size) {
+		mdb_warn("Failed to get mregs for cpu: %lu\n", cpu);
+		return (-1);
+	}
+
+	bzero(mregs, sizeof (*mregs));
+	struct regs *regs = &mregs->pm_gregs;
+	char *user_regs = (char *)nt + len -
+	    sizeof (user_regs_t) - sizeof (long);
+
+	regs->r_ss = *((long *)(user_regs + offsetof(user_regs_t, ss)));
+	regs->r_cs = *((long *)(user_regs + offsetof(user_regs_t, cs)));
+	regs->r_ds = *((long *)(user_regs + offsetof(user_regs_t, ds)));
+	regs->r_es = *((long *)(user_regs + offsetof(user_regs_t, es)));
+	regs->r_fs = *((long *)(user_regs + offsetof(user_regs_t, fs)));
+	regs->r_gs = *((long *)(user_regs + offsetof(user_regs_t, gs)));
+
+	regs->r_savfp = *((long *)(user_regs + offsetof(user_regs_t, bp)));
+	regs->r_savpc = *((long *)(user_regs + offsetof(user_regs_t, ip)));
+
+	regs->r_rdi = *((long *)(user_regs + offsetof(user_regs_t, di)));
+	regs->r_rsi = *((long *)(user_regs + offsetof(user_regs_t, si)));
+	regs->r_rdx = *((long *)(user_regs + offsetof(user_regs_t, dx)));
+	regs->r_rcx = *((long *)(user_regs + offsetof(user_regs_t, cx)));
+	regs->r_r8 = *((long *)(user_regs + offsetof(user_regs_t, r8)));
+	regs->r_r9 = *((long *)(user_regs + offsetof(user_regs_t, r9)));
+	regs->r_rax = *((long *)(user_regs + offsetof(user_regs_t, ax)));
+	regs->r_rbx = *((long *)(user_regs + offsetof(user_regs_t, bx)));
+	regs->r_rbp = *((long *)(user_regs + offsetof(user_regs_t, bp)));
+	regs->r_r10 = *((long *)(user_regs + offsetof(user_regs_t, r10)));
+	regs->r_r11 = *((long *)(user_regs + offsetof(user_regs_t, r11)));
+	regs->r_r12 = *((long *)(user_regs + offsetof(user_regs_t, r12)));
+	regs->r_r13 = *((long *)(user_regs + offsetof(user_regs_t, r13)));
+	regs->r_r14 = *((long *)(user_regs + offsetof(user_regs_t, r14)));
+	regs->r_r15 = *((long *)(user_regs + offsetof(user_regs_t, r15)));
+	regs->r_rip = *((long *)(user_regs + offsetof(user_regs_t, ip)));
+	regs->r_rfl = *((long *)(user_regs + offsetof(user_regs_t, flags)));
+	regs->r_rsp = *((long *)(user_regs + offsetof(user_regs_t, sp)));
+
+	/*
+	 * TODO: What about "r_trapno" and "r_err"?
+	 */
+
+	return (0);
+}
+
 static mdb_kb_ops_t kdump_kb_ops = {
 	.kb_open	= kdump_open,
 	.kb_close	= kdump_close,
@@ -540,7 +658,7 @@ static mdb_kb_ops_t kdump_kb_ops = {
 	.kb_pread	= kdump_pread,
 	.kb_pwrite	= (ssize_t (*)())mdb_tgt_notsup,
 	.kb_vtop	= (uint64_t (*)())mdb_tgt_notsup,
-	.kb_getmregs	= (int (*)())mdb_tgt_notsup,
+	.kb_getmregs	= kdump_getmregs,
 };
 
 mdb_kb_ops_t *

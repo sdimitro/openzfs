@@ -499,7 +499,7 @@ kdump_pread(void *data, uintptr_t addr, void *buf, size_t size)
 		memcpy(upage, cpage, block_size);
 	}
 
-	size = MIN(size, pd.size);
+	size = MIN(size, block_size);
 	memcpy(buf, upage + page_offset, size);
 	mdb_free(cpage, pd.size);
 	mdb_free(upage, block_size);
@@ -511,14 +511,24 @@ error:
 	return (-1);
 }
 
+static uint64_t kdump_vtop(void *, struct as *, uintptr_t);
+
 static ssize_t
 kdump_kread(void *data, uintptr_t addr, void *buf, size_t size)
 {
 	kdump_data_t *kdump = data;
+	uintptr_t paddr;
+
+	paddr = kdump_vtop(data, data, addr);
+#if 0
+	kdump_data_t *kdump = data;
 	const unsigned long start_kernel_map = 0xffffffff80000000UL;
 	const unsigned long phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
-
 	uintptr_t paddr = addr - start_kernel_map + phys_base;
+#endif
+
+	if (paddr == (uintptr_t)-1LLU)
+		return (-1);
 
 #if DEBUG_PRINTF
 	printf("%s: vaddr: %lx\n", __FUNCTION__, addr);
@@ -527,6 +537,450 @@ kdump_kread(void *data, uintptr_t addr, void *buf, size_t size)
 #endif
 
 	return (kdump_pread(kdump, paddr, buf, size));
+}
+
+/*
+ * Virtual to Physical Mapping
+ */
+#if 0
+ESX VM:
+	KERNEL VIRTUAL BASE: ffff952d40000000
+	KERNEL VMALLOC BASE: ffffa724c0000000
+	KERNEL VMEMMAP BASE: ffffe3df80000000
+	KERNEL START MAP: ffffffff80000000
+	KERNEL MODULES BASE: ffffffffc0000000
+
+REAL:
+	KERNEL VIRTUAL BASE: ffff880000000000
+	KERNEL VMALLOC BASE: ffffc90000000000
+	KERNEL VMEMMAP BASE: ffffea0000000000
+	KERNEL START MAP: ffffffff80000000
+	KERNEL MODULES BASE: ffffffffa0000000
+#endif
+
+#define	START_KERNEL_MAP	0xffffffff80000000ULL
+#define	PAGE_OFFSET		0xffff880000000000ULL
+
+#define	VMALLOC_START		0xffffc90000000000ULL
+#define	VMALLOC_END		0xffffe8ffffffffffULL
+
+static int
+is_vmalloc_addr(uintptr_t vaddr)
+{
+//	(void) printf("is_vmalloc_addr(0x%lx) = %d\n", vaddr,
+//	    (int)(vaddr >= VMALLOC_START && vaddr <= VMALLOC_END));
+
+	return (vaddr >= VMALLOC_START && vaddr <= VMALLOC_END);
+}
+
+static int
+is_kladdr(uintptr_t addr)
+{
+//	(void) printf("is_kladdr(0x%lx) %d\n", addr,
+//	    (int)(addr >= START_KERNEL_MAP));
+
+	return (addr >= START_KERNEL_MAP /* && addr < PAGE_OFFSET */);
+}
+
+/*
+ * Translates a kernel logical address to its physical address.
+ */
+static ulong_t
+kltop(kdump_data_t *kdump, uintptr_t vaddr, boolean_t verbose)
+{
+	ulong_t phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
+
+	return (vaddr - (START_KERNEL_MAP + phys_base));
+}
+
+#define IS_LAST_PGD_READ(pgd)     ((ulong)(pgd) == machdep->last_pgd_read)
+#define IS_LAST_PMD_READ(pmd)     ((ulong)(pmd) == machdep->last_pmd_read)
+#define IS_LAST_PTBL_READ(ptbl)   ((ulong)(ptbl) == machdep->last_ptbl_read)
+
+#define FILL_PGD(PGD, TYPE, SIZE)					   \
+    if (!IS_LAST_PGD_READ(PGD)) {					   \
+	    readmem(kdump, (uint64_t)((ulong)(PGD)), TYPE, machdep->pgd,	  \
+		    SIZE, "pgd page");		      \
+	    machdep->last_pgd_read = (ulong)(PGD);			  \
+    }
+
+#define FILL_PMD(PMD, TYPE, SIZE)					   \
+    if (!IS_LAST_PMD_READ(PMD)) {					   \
+	    readmem(kdump, (uint64_t)(PMD), TYPE, machdep->pmd,		   \
+		    SIZE, "pmd page");		      \
+	    machdep->last_pmd_read = (ulong)(PMD);			  \
+    }
+
+#define FILL_PTBL(PTBL, TYPE, SIZE)					 \
+    if (!IS_LAST_PTBL_READ(PTBL)) {					 \
+	    readmem(kdump, (uint64_t)(PTBL), TYPE, machdep->ptbl,		 \
+		    SIZE, "page table");		    \
+	    machdep->last_ptbl_read = (ulong)(PTBL);			\
+    }
+
+
+#define KVADDR	     (0x1)
+#define UVADDR	     (0x2)
+#define PHYSADDR	   (0x4)
+
+
+#define PTOV(X)	    ((unsigned long)(X)+(machdep->kvbase))
+#define VTOP(X)	    ((unsigned long)(X)-(machdep->kvbase))
+#define IS_VMALLOC_ADDR(X) (vt->vmalloc_start && (ulong)(X) >= vt->vmalloc_start)
+#define KVBASE_MASK	(0x1ffffff)
+
+#define PGDIR_SHIFT_2LEVEL   (22)
+#define PTRS_PER_PTE_2LEVEL  (1024)
+#define PTRS_PER_PGD_2LEVEL  (1024)
+
+#define PGDIR_SHIFT_3LEVEL   (30)
+#define PTRS_PER_PTE_3LEVEL  (512)
+#define PTRS_PER_PGD_3LEVEL  (4)
+
+
+#define PML4_SHIFT      39
+#define PTRS_PER_PML4   512
+#define PGDIR_SHIFT     30
+#define PTRS_PER_PGD    512
+#define PMD_SHIFT       21
+#define PTRS_PER_PMD    512
+#define PTRS_PER_PTE    512
+
+#define P4D_SHIFT	     39
+#define PTRS_PER_P4D	 512
+
+#define __PGDIR_SHIFT	PGDIR_SHIFT
+
+#define pml4_index(address) (((address) >> PML4_SHIFT) & (PTRS_PER_PML4-1))
+#define p4d_index(address)  (((address) >> P4D_SHIFT) & (PTRS_PER_P4D - 1))
+#define pgd_index(address)  (((address) >> __PGDIR_SHIFT) & (PTRS_PER_PGD-1))
+#define pmd_index(address)  (((address) >> PMD_SHIFT) & (PTRS_PER_PMD-1))
+#define pte_index(address)  (((address) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
+
+#define IS_LAST_PML4_READ(pml4) ((ulong)(pml4) == machdep->machspec->last_pml4_read)
+
+#define FILL_PML4() { \
+	if (!IS_LAST_PML4_READ(vt->kernel_pgd[0])) { \
+		readmem(kdump, vt->kernel_pgd[0], KVADDR, machdep->machspec->pml4, \
+		    PAGESIZE, "init_level4_pgt"); \
+		    machdep->machspec->last_pml4_read = \
+		    (ulong)(vt->kernel_pgd[0]); \
+	} \
+}
+
+#define FILL_PML4_HYPER() { \
+	if (!machdep->machspec->last_pml4_read) { \
+		unsigned long idle_pg_table = \
+		    symbol_exists("idle_pg_table_4") ? symbol_value("idle_pg_table_4") : \
+			symbol_value("idle_pg_table"); \
+		readmem(kdump, idle_pg_table, KVADDR, \
+			machdep->machspec->pml4, PAGESIZE, "idle_pg_table"); \
+		machdep->machspec->last_pml4_read = idle_pg_table; \
+	}\
+}
+
+#define IS_LAST_UPML_READ(pml) ((ulong)(pml) == machdep->machspec->last_upml_read)
+
+#define FILL_UPML(PML, TYPE, SIZE)					    \
+    if (!IS_LAST_UPML_READ(PML)) {					     \
+	    readmem(kdump, (uint64_t)((ulong)(PML)), TYPE, machdep->machspec->upml, \
+		    SIZE, "pml page");			\
+	    machdep->machspec->last_upml_read = (ulong)(PML);		 \
+    }								       
+
+#define IS_LAST_P4D_READ(p4d) ((ulong)(p4d) == machdep->machspec->last_p4d_read)
+
+#define FILL_P4D(P4D, TYPE, SIZE)					     \
+    if (!IS_LAST_P4D_READ(P4D)) {					     \
+	    readmem(kdump, (uint64_t)((ulong)(P4D)), TYPE, machdep->machspec->p4d,  \
+		    SIZE, "p4d page");			\
+	    machdep->machspec->last_p4d_read = (ulong)(P4D);		  \
+    }
+
+
+
+#define	__PHYSICAL_MASK_SHIFT_2_6	46
+#define	__PHYSICAL_MASK_SHIFT	__PHYSICAL_MASK_SHIFT_2_6
+#define __PHYSICAL_MASK	((1UL << __PHYSICAL_MASK_SHIFT) - 1)
+#define __VIRTUAL_MASK_SHIFT   48
+#define __VIRTUAL_MASK	 ((1UL << __VIRTUAL_MASK_SHIFT) - 1)
+#define PAGE_SHIFT	     12
+#define PAGE_SIZE	      (1UL << PAGE_SHIFT)
+#define PHYSICAL_PAGE_MASK    (~(PAGE_SIZE-1) & (__PHYSICAL_MASK << PAGE_SHIFT))
+
+#define _PAGE_BIT_NX    63
+#define _PAGE_PRESENT   0x001
+#define _PAGE_RW	0x002
+#define _PAGE_USER      0x004
+#define _PAGE_PWT       0x008
+#define _PAGE_PCD       0x010
+#define _PAGE_ACCESSED  0x020
+#define _PAGE_DIRTY     0x040
+#define _PAGE_4M	0x080   /* 4 MB page, Pentium+, if present.. */
+#define _PAGE_PSE       0x080   /* 4 MB (or 2MB) page, Pentium+, if present.. */
+#define _PAGE_GLOBAL    0x100   /* Global TLB entry PPro+ */
+#define _PAGE_PROTNONE  (machdep->machspec->page_protnone)
+#define _PAGE_NX	(0x8000000000000000ULL)
+
+#define	PAGEOFFSET	(PAGESIZE - 1)
+// #define	PAGEMASK	~((uint64_t)PAGEOFFSET)
+#define PAGEBASE(X)	   (((ulong)(X)) & (ulong)PAGEMASK)
+
+
+#define PAGEOFFSETMASK(X) (((ulong)(X)) & PAGEOFFSET)
+
+#define ULONG(ADDR)     *((ulong *)((char *)(ADDR)))
+
+#define KILOBYTES(x)  ((x) * (1024))
+#define MEGABYTES(x)  ((x) * (1048576))
+#define GIGABYTES(x)  ((x) * (1073741824))
+
+#define _2MB_PAGE_MASK (~((MEGABYTES(2))-1))
+
+#define	NR_CPUS	(8)
+
+
+
+struct vm_table {
+	ulong	kernel_pgd[NR_CPUS];
+};
+
+struct machine_specific {
+	ulong vmalloc_start_addr;
+	ulong vmalloc_end;
+	char	*pml4;
+	ulong last_pml4_read;
+	ulong	last_p4d_read;
+};
+
+struct machdep_table {
+	ulong last_pgd_read;
+	ulong last_pmd_read;
+	ulong last_ptbl_read;
+
+	char	*pgd;
+	char	*pmd;
+	char	*ptbl;
+	struct	machine_specific *machspec;
+};
+
+struct machine_specific x86_64_machine_specific = { 0 };
+
+struct vm_table vm_table = { 0 };
+struct vm_table *vt = &vm_table;
+
+struct machdep_table machdep_table = { 0 };
+struct machdep_table *machdep = &machdep_table;
+
+/*
+ * read memory from the dumpfile
+ *
+ * Input:
+ *	addr:		a user, kernel or physical memory address
+ *	memtype:	addr type of UVADDR, KVADDR, or PHYSADDR
+ *	buffer  supplied buffer to read the data into
+ *	size  number of bytes to read
+ *	type  string describing the request
+ *	error_handle  what to do if the read fails
+ */
+static void
+readmem(kdump_data_t *kdump, uint64_t addr, int memtype, void *buffer,
+    long size, char *type)
+{
+	long cnt;
+	char *bufptr;
+
+	(void) printf("<readmem: %llx, %s, \"%s\", %ld, %lx>\n",
+	    addr, memtype == PHYSADDR ? "PHYSADDR" : "KVADDR", type, size,
+	    (ulong)buffer);
+
+	bufptr = (char *)buffer;
+
+	while (size > 0) {
+		ssize_t bytes = 0;
+		/*
+		 * Compute bytes till end of page.
+		 */
+		cnt = PAGESIZE - PAGEOFFSETMASK(addr);
+		if (cnt > size)
+			cnt = size;			
+
+		if (memtype == PHYSADDR)
+			bytes = kdump_pread(kdump, addr, bufptr, cnt);
+		else if (memtype == KVADDR)
+			bytes = kdump_kread(kdump, addr, bufptr, cnt);
+
+		if (bytes != cnt) {
+			mdb_warn("Failed to read page\n");
+			exit (123);
+		}
+
+		addr += cnt;
+		bufptr += cnt;
+		size -= cnt;
+	}
+}
+
+static int
+x86_64_translate_pte(ulong pte, void *physaddr, uint64_t unused)
+{
+	return (0);
+}
+
+/*
+ * Translates a kernel virtual address to its physical address.
+ *
+ * Currently this supports kmalloc virtual pages 
+ */
+static ulong_t
+kvtop(kdump_data_t *kdump, uintptr_t kvaddr, boolean_t verbose)
+{
+	ulong *pml4;
+	ulong *pgd;
+	ulong pgd_paddr;
+	ulong pgd_pte;
+	ulong *pmd;
+	ulong pmd_paddr;
+	ulong pmd_pte;
+	ulong *ptep;
+	ulong pte_paddr;
+	ulong pte;
+	physaddr_t paddr;
+
+//	(void) printf("kvtop(0x%lx, %d)\n", (int)verbose);
+
+	/*
+	 * Linear address bits for page table mapping
+	 *
+	 * +---------+---------+---------+---------+------------+
+	 * | PGD off | PUD off | PMD off | PTE off |  Page off  |
+	 * +---------+---------+---------+---------+------------+
+	 *  47     39 38     30 29     21 20     12 11         0
+	 */
+
+	/* normally part of x86_64_init() */
+	if (machdep->machspec == NULL) {
+		machdep->machspec = &x86_64_machine_specific;
+		machdep->machspec->pml4 = (char *)malloc(PAGESIZE*2);
+		machdep->pgd = (char *)malloc(PAGESIZE);
+		machdep->pmd = (char *)malloc(PAGESIZE);
+		machdep->ptbl = (char *)malloc(PAGESIZE);
+	}
+
+	/* normally part of x86_64_init_kernel_pgd() */
+	if (vt->kernel_pgd[0] == 0) {
+		vt->kernel_pgd[0] = 0xffffffff81e0a000ULL; /* init_level4_pgt */
+	}
+
+//	(void) printf("PML4 DIRECTORY: %lx\n", vt->kernel_pgd[0]);
+
+	FILL_PML4();
+	pml4 = ((ulong *)machdep->machspec->pml4) + pml4_index(kvaddr);
+	if (verbose) {
+		(void) printf("PML4 DIRECTORY: %lx\n", vt->kernel_pgd[0]);
+		(void) printf("PAGE DIRECTORY: %lx\n", *pml4);
+	}
+
+	if (!(*pml4 & _PAGE_PRESENT)) {
+		(void) printf("  ! x86_64_kvtop(0x%lx) pml4 NO PAGE\n", kvaddr);
+		return (-1ULL);
+	}
+
+	/*
+	 * find page global directory (PGD)
+	 */
+	pgd_paddr = (*pml4) & PHYSICAL_PAGE_MASK;
+	FILL_PGD(pgd_paddr, PHYSADDR, PAGESIZE);
+	pgd = ((ulong *)pgd_paddr) + pgd_index(kvaddr);
+	pgd_pte = ULONG(machdep->pgd + PAGEOFFSETMASK(pgd));
+	if (verbose)
+		(void) printf("   PUD: %lx => %lx\n", (ulong)pgd, pgd_pte);
+
+	if (!(pgd_pte & _PAGE_PRESENT)) {
+		(void) printf("  ! x86_64_kvtop(0x%lx) pgd_pte NO PAGE\n", kvaddr);
+		return (-1ULL);
+	}
+
+	/*
+	 * find page middle directory (PMD)
+	 *
+	 * pmd = pmd_offset(pgd, addr);
+	 */
+	pmd_paddr = pgd_pte & PHYSICAL_PAGE_MASK;
+	FILL_PMD(pmd_paddr, PHYSADDR, PAGESIZE);
+	pmd = ((ulong *)pmd_paddr) + pmd_index(kvaddr);
+	pmd_pte = ULONG(machdep->pmd + PAGEOFFSETMASK(pmd));
+	if (verbose)
+		(void) printf("   PMD: %lx => %lx\n", (ulong)pmd, pmd_pte);
+	if (!(pmd_pte & _PAGE_PRESENT)) {
+		(void) printf("  ! x86_64_kvtop(0x%lx) pmd_pte NO PAGE\n", kvaddr);
+		return (-1ULL);
+	}
+	if (pmd_pte & _PAGE_PSE) {
+		if (verbose) {
+			(void) printf("  PAGE: %lx  (2MB)\n\n",
+			    PAGEBASE(pmd_pte) & PHYSICAL_PAGE_MASK);
+			x86_64_translate_pte(pmd_pte, 0, 0);
+		}
+
+		paddr = (PAGEBASE(pmd_pte) & PHYSICAL_PAGE_MASK) +
+		    (kvaddr & ~_2MB_PAGE_MASK);
+
+		(void) printf("  ! x86_64_kvtop(0x%lx) --> 0x%lx _PAGE_PSE\n",
+		    kvaddr, paddr);
+
+		return (paddr);
+	}
+
+	/*
+	 * find page table entry (PTE)
+	 *
+	 * ptep = pte_offset_map(pmd, addr);
+	 * pte = *ptep;
+	 */
+	pte_paddr = pmd_pte & PHYSICAL_PAGE_MASK;
+	FILL_PTBL(pte_paddr, PHYSADDR, PAGESIZE);
+	ptep = ((ulong *)pte_paddr) + pte_index(kvaddr);
+	pte = ULONG(machdep->ptbl + PAGEOFFSETMASK(ptep));
+	if (verbose)
+		(void) printf("   PTE: %lx => %lx\n", (ulong)ptep, pte);
+
+	if (!(pte & (_PAGE_PRESENT))) {
+		if (pte && verbose) {
+			(void) printf("\n");
+			x86_64_translate_pte(pte, 0, 0);
+		}
+		(void) printf("  ! x86_64_kvtop(0x%lx) pte NO PAGE\n", kvaddr);
+		return (-1ULL);
+	}
+
+	paddr = (PAGEBASE(pte) & PHYSICAL_PAGE_MASK) + PAGEOFFSETMASK(kvaddr);
+
+	if (verbose) {
+		(void) printf("  PAGE: %lx\n\n",
+		    PAGEBASE(paddr) & PHYSICAL_PAGE_MASK);
+		x86_64_translate_pte(pte, 0, 0);
+	}
+
+//	(void) printf("  ! x86_64_kvtop(0x%lx) --> 0x%lx\n", kvaddr, paddr);
+
+	return (paddr);
+}
+
+static uint64_t
+kdump_vtop(void *data, struct as *as, uintptr_t addr)
+{
+	kdump_data_t *kdump = data;
+	boolean_t verbose = (as == NULL);
+
+	if (is_vmalloc_addr(addr))
+		return (kvtop(kdump, (ulong_t)addr, verbose));
+	else if (is_kladdr(addr))
+		return (kltop(kdump, (ulong_t)addr, verbose));
+
+	mdb_warn("virtual address translation missing!");
+
+	return (-1ULL);
 }
 
 static mdb_kb_ops_t kdump_kb_ops = {
@@ -539,7 +993,7 @@ static mdb_kb_ops_t kdump_kb_ops = {
 	.kb_awrite	= (ssize_t (*)())mdb_tgt_notsup,
 	.kb_pread	= kdump_pread,
 	.kb_pwrite	= (ssize_t (*)())mdb_tgt_notsup,
-	.kb_vtop	= (uint64_t (*)())mdb_tgt_notsup,
+	.kb_vtop	= kdump_vtop,
 	.kb_getmregs	= (int (*)())mdb_tgt_notsup,
 };
 

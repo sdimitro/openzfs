@@ -216,6 +216,8 @@ kdump_page_is_dumpable(kdump_data_t *kdump, unsigned long nr)
 	return (bitmap[nr >> 3] & (1 << (nr & 7)));
 }
 
+static void init_kernel_vm(kdump_data_t *);
+
 static void *
 kdump_open(const char *symfile, const char *corefile, const char *swapfile,
     int flags, const char *err)
@@ -376,6 +378,8 @@ kdump_open(const char *symfile, const char *corefile, const char *swapfile,
 		}
 	}
 
+	init_kernel_vm(kdump);
+
 	return (kdump);
 
 error:
@@ -383,10 +387,13 @@ error:
 	return (NULL);
 }
 
+static void fini_kernel_vm(kdump_data_t *);
+
 static int
 kdump_close(void *data)
 {
 	kdump_free(data);
+	fini_kernel_vm(data);
 	return (0);
 }
 
@@ -596,31 +603,8 @@ kdump_kread(void *data, uintptr_t addr, void *buf, size_t size)
 #define	START_KERNEL_MAP	0xffffffff80000000ULL
 #define	PAGE_OFFSET		0xffff880000000000ULL
 
-#define	VMALLOC_START		0xffffc90000000000ULL
-#define	VMALLOC_END		0xffffe8ffffffffffULL
-
-static int
-is_vmalloc_addr(uintptr_t vaddr)
-{
-	return (vaddr >= VMALLOC_START && vaddr <= VMALLOC_END);
-}
-
-static int
-is_kladdr(uintptr_t addr)
-{
-	return (addr >= START_KERNEL_MAP /* && addr < PAGE_OFFSET */);
-}
-
-/*
- * Translates a kernel logical address to its physical address.
- */
-static ulong_t
-kltop(kdump_data_t *kdump, uintptr_t vaddr, boolean_t verbose)
-{
-	ulong_t phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
-
-	return (vaddr - (START_KERNEL_MAP + phys_base));
-}
+#define	VMALLOC_START   (machdep->machspec->vmalloc_start_addr)
+#define	VMALLOC_END     (machdep->machspec->vmalloc_end)
 
 #define	IS_LAST_PGD_READ(pgd)	((ulong_t)(pgd) == machdep->last_pgd_read)
 #define	IS_LAST_PMD_READ(pmd)	((ulong_t)(pmd) == machdep->last_pmd_read)
@@ -767,6 +751,8 @@ kltop(kdump_data_t *kdump, uintptr_t vaddr, boolean_t verbose)
 #define	KILOBYTES(x)	((x) * (1024))
 #define	MEGABYTES(x)	((x) * (1048576))
 #define	GIGABYTES(x)	((x) * (1073741824))
+#define	TB_SHIFT	(40)
+#define	TERABYTES(x)	((x) * (1UL << TB_SHIFT))
 
 #define	_2MB_PAGE_MASK	(~((MEGABYTES(2))-1))
 
@@ -802,6 +788,78 @@ struct vm_table *vt = &vm_table;
 struct machdep_table machdep_table = { 0 };
 struct machdep_table *machdep = &machdep_table;
 
+static void
+init_kernel_vm(kdump_data_t *kdump)
+{
+	/* normally part of x86_64_init() */
+	if (machdep->machspec == NULL) {
+		machdep->machspec = &x86_64_machine_specific;
+		machdep->machspec->pml4 = (char *)malloc(PAGESIZE*2);
+
+		machdep->pgd = (char *)malloc(PAGESIZE);
+		machdep->pmd = (char *)malloc(PAGESIZE);
+		machdep->ptbl = (char *)malloc(PAGESIZE);
+	}
+
+	/* normally part of x86_64_init_kernel_pgd() */
+	if (vt->kernel_pgd[0] == 0) {
+		char *init_level4_pgt;
+		size_t size;
+
+		init_level4_pgt = kdump_vmcoreinfo_lookup(kdump,
+		    "SYMBOL(init_level4_pgt)", &size);
+		if (init_level4_pgt == NULL) {
+			mdb_warn("Failed to lookup init_level4_pgt\n");
+			return;
+		}
+		vt->kernel_pgd[0] = strtoull(init_level4_pgt, NULL, 16);
+#if DEBUG_PRINTF
+		(void) printf("init_level4_pgt was 0x%lx\n", vt->kernel_pgd[0]);
+#endif
+	}
+	/*
+	 * TODO: once we can locate kernel symbols, read 'vmalloc_base' here
+	 */
+	if (vt->kernel_pgd[0] == 0xffffffff92609000ULL)
+		machdep->machspec->vmalloc_start_addr = 0xffffa724c0000000ULL;
+	else
+		machdep->machspec->vmalloc_start_addr = 0xffffc90000000000ULL;
+	machdep->machspec->vmalloc_end =
+	machdep->machspec->vmalloc_start_addr + TERABYTES(32) - 1;
+}
+
+static void
+fini_kernel_vm(kdump_data_t *kdump)
+{
+	free(machdep->machspec->pml4);
+	free(machdep->pgd);
+	free(machdep->pmd);
+	free(machdep->ptbl);
+}
+
+static int
+is_vmalloc_addr(uintptr_t vaddr)
+{
+	return (vaddr >= VMALLOC_START && vaddr <= VMALLOC_END);
+}
+
+static int
+is_kladdr(uintptr_t addr)
+{
+	return (addr >= START_KERNEL_MAP /* && addr < PAGE_OFFSET */);
+}
+
+/*
+ * Translates a kernel logical address to its physical address.
+ */
+static ulong_t
+kltop(kdump_data_t *kdump, uintptr_t vaddr, boolean_t verbose)
+{
+	ulong_t phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
+
+	return (vaddr - (START_KERNEL_MAP + phys_base));
+}
+
 /*
  * read memory from the dumpfile
  *
@@ -820,10 +878,11 @@ readmem(kdump_data_t *kdump, uint64_t addr, int memtype, void *buffer,
 	long cnt;
 	char *bufptr;
 
+#if DEBUG_PRINTF
 	(void) printf("<readmem: %llx, %s, \"%s\", %ld, %lx>\n",
 	    addr, memtype == PHYSADDR ? "PHYSADDR" : "KVADDR", type, size,
 	    (ulong_t)buffer);
-
+#endif
 	bufptr = (char *)buffer;
 
 	while (size > 0) {
@@ -884,20 +943,6 @@ kvtop(kdump_data_t *kdump, uintptr_t kvaddr, boolean_t verbose)
 	 * | PGD off | PUD off | PMD off | PTE off |  Page off  |
 	 * +---------+---------+---------+---------+------------+
 	 */
-
-	/* normally part of x86_64_init() */
-	if (machdep->machspec == NULL) {
-		machdep->machspec = &x86_64_machine_specific;
-		machdep->machspec->pml4 = (char *)malloc(PAGESIZE*2);
-		machdep->pgd = (char *)malloc(PAGESIZE);
-		machdep->pmd = (char *)malloc(PAGESIZE);
-		machdep->ptbl = (char *)malloc(PAGESIZE);
-	}
-
-	/* normally part of x86_64_init_kernel_pgd() */
-	if (vt->kernel_pgd[0] == 0) {
-		vt->kernel_pgd[0] = 0xffffffff81e0a000ULL; /* init_level4_pgt */
-	}
 
 	FILL_PML4();
 	pml4 = ((ulong_t *)machdep->machspec->pml4) + pml4_index(kvaddr);

@@ -794,10 +794,10 @@ init_kernel_vm(kdump_data_t *kdump)
 	/* normally part of x86_64_init() */
 	if (machdep->machspec == NULL) {
 		machdep->machspec = &x86_64_machine_specific;
-		machdep->machspec->pml4 = (char *)malloc(PAGESIZE*2);
-		machdep->pgd = (char *)malloc(PAGESIZE);
-		machdep->pmd = (char *)malloc(PAGESIZE);
-		machdep->ptbl = (char *)malloc(PAGESIZE);
+		machdep->machspec->pml4 = mdb_zalloc(PAGESIZE*2, UM_SLEEP);
+		machdep->pgd = mdb_zalloc(PAGESIZE, UM_SLEEP);
+		machdep->pmd = mdb_zalloc(PAGESIZE, UM_SLEEP);
+		machdep->ptbl = mdb_zalloc(PAGESIZE, UM_SLEEP);
 	}
 
 	/* normally part of x86_64_init_kernel_pgd() */
@@ -830,10 +830,10 @@ init_kernel_vm(kdump_data_t *kdump)
 static void
 fini_kernel_vm(kdump_data_t *kdump)
 {
-	free(machdep->machspec->pml4);
-	free(machdep->pgd);
-	free(machdep->pmd);
-	free(machdep->ptbl);
+	mdb_free(machdep->machspec->pml4, PAGESIZE*2);
+	mdb_free(machdep->pgd, PAGESIZE);
+	mdb_free(machdep->pmd, PAGESIZE);
+	mdb_free(machdep->ptbl, PAGESIZE);
 }
 
 static int
@@ -854,9 +854,10 @@ is_kladdr(uintptr_t addr)
 static ulong_t
 kltop(kdump_data_t *kdump, uintptr_t vaddr, boolean_t verbose)
 {
-	ulong_t phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
+	const unsigned long start_kernel_map = START_KERNEL_MAP;
+	const unsigned long phys_base = kdump->kd_hdr.kh_sub_header.phys_base;
 
-	return (vaddr - (START_KERNEL_MAP + phys_base));
+	return (vaddr - start_kernel_map + phys_base);
 }
 
 /*

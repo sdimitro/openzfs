@@ -603,8 +603,8 @@ kdump_kread(void *data, uintptr_t addr, void *buf, size_t size)
 #define	START_KERNEL_MAP	0xffffffff80000000ULL
 #define	PAGE_OFFSET		0xffff880000000000ULL
 
-#define	VMALLOC_START   (machdep->machspec->vmalloc_start_addr)
-#define	VMALLOC_END     (machdep->machspec->vmalloc_end)
+#define	VMALLOC_START	(machdep->machspec->vmalloc_start_addr)
+#define	VMALLOC_END	(machdep->machspec->vmalloc_end)
 
 #define	IS_LAST_PGD_READ(pgd)	((ulong_t)(pgd) == machdep->last_pgd_read)
 #define	IS_LAST_PMD_READ(pmd)	((ulong_t)(pmd) == machdep->last_pmd_read)
@@ -795,7 +795,6 @@ init_kernel_vm(kdump_data_t *kdump)
 	if (machdep->machspec == NULL) {
 		machdep->machspec = &x86_64_machine_specific;
 		machdep->machspec->pml4 = (char *)malloc(PAGESIZE*2);
-
 		machdep->pgd = (char *)malloc(PAGESIZE);
 		machdep->pmd = (char *)malloc(PAGESIZE);
 		machdep->ptbl = (char *)malloc(PAGESIZE);
@@ -825,7 +824,7 @@ init_kernel_vm(kdump_data_t *kdump)
 	else
 		machdep->machspec->vmalloc_start_addr = 0xffffc90000000000ULL;
 	machdep->machspec->vmalloc_end =
-	machdep->machspec->vmalloc_start_addr + TERABYTES(32) - 1;
+	    machdep->machspec->vmalloc_start_addr + TERABYTES(32) - 1;
 }
 
 static void

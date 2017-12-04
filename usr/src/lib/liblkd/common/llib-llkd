@@ -1,0 +1,25 @@
+/*
+ *  This file and its contents are supplied under the terms of the
+ *  Common Development and Distribution License ("CDDL"), version 1.0.
+ *  You may only use this file in accordance with the terms of version
+ *  1.0 of the CDDL.
+ *
+ *  A full copy of the text of the CDDL should have accompanied this
+ *  source.  A copy of the CDDL is also available via the Internet at
+ *  http://www.illumos.org/license/CDDL.
+ *
+ *  Copyright (c) 2017 by Delphix. All rights reserved.
+ */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/proc.h>
+#include <sys/user.h>
+#include <lkd.h>
+
+lkd_t *lkd_open(const char *, const char *, const char *, int, const char *);
+int lkd_close(lkd_t *);
+
+ssize_t kvm_kread(lkd_t *, uintptr_t, void *, size_t);
+ssize_t kvm_pread(lkd_t *, uint64_t, void *, size_t);

@@ -56,6 +56,7 @@ directories=(
 	$SRC/lib/libzfs_core
 	$SRC/lib/libzpool
 	$SRC/lib/libzfs
+	$SRC/lib/liblkd
 	$SRC/lib/pyzfs
 	$SRC/lib/libzfs_jni
 	$SRC/lib/libsaveargs

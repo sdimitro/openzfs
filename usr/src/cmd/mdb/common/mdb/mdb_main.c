@@ -534,7 +534,7 @@ main(int argc, char *argv[], char *envp[])
 
 	while (optind < argc) {
 		while ((c = getopt(argc, argv,
-		    "e:fkmo:p:s:uwyACD:FI:KL:MOP:R:SUV:W")) != (int)EOF) {
+		    "e:fklmo:p:s:uwyACD:FI:KL:MOP:R:SUV:W")) != (int)EOF) {
 			switch (c) {
 			case 'e':
 				if (eflag != NULL) {
@@ -549,6 +549,10 @@ main(int argc, char *argv[], char *envp[])
 				break;
 			case 'k':
 				tgt_ctor = mdb_kvm_tgt_create;
+				break;
+			case 'l':
+				fflag++;
+				tgt_ctor = mdb_lkd_tgt_create;
 				break;
 			case 'm':
 				mdb.m_tgtflags |= MDB_TGT_F_NOLOAD;

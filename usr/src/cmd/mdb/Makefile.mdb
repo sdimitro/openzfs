@@ -60,6 +60,7 @@ SRCS += \
 	mdb_kb_kvm.c \
 	mdb_kproc.c \
 	mdb_kvm.c \
+	mdb_lkd.c \
 	mdb_logio.c \
 	mdb_list.c \
 	mdb_macalias.c \
@@ -98,7 +99,7 @@ CPPFLAGS += -D_MDB -I. -I../.. -I../../../common
 C99MODE=	-xc99=%all
 C99LMODE=	-Xc99=%all
 
-LDLIBS += -lcurses -lkvm -lproc -lrtld_db -lctf -lumem -ldisasm -lscf
+LDLIBS += -lcurses -lkvm -llkd -lproc -lrtld_db -lctf -lumem -ldisasm -lscf
 
 CERRWARN += -_gcc=-Wno-uninitialized
 CERRWARN += -_gcc=-Wno-char-subscripts

@@ -142,6 +142,8 @@ files="
 	/usr/include/libzfs.h
 	/usr/include/libzfs_core.h
 	/usr/include/sys/fs/zfs.h
+	/usr/lib/liblkd.so.1
+	/usr/lib/64/liblkd.so.1
 	/usr/lib/mdb/kvm/zfs.so
 	/usr/lib/mdb/kvm/amd64/zfs.so
 	/usr/lib/mdb/kvm/amd64/mdb_vmss.so

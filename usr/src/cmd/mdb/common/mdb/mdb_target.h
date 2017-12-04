@@ -59,6 +59,7 @@ extern void mdb_create_loadable_disasms(void);
 extern int mdb_value_tgt_create(mdb_tgt_t *, int, const char *[]);
 #ifndef _KMDB
 extern int mdb_kvm_tgt_create(mdb_tgt_t *, int, const char *[]);
+extern int mdb_lkd_tgt_create(mdb_tgt_t *, int, const char *[]);
 extern int mdb_proc_tgt_create(mdb_tgt_t *, int, const char *[]);
 extern int mdb_kproc_tgt_create(mdb_tgt_t *, int, const char *[]);
 extern int mdb_rawfile_tgt_create(mdb_tgt_t *, int, const char *[]);

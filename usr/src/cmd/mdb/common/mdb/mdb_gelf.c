@@ -1602,6 +1602,7 @@ mdb_gelf_symtab_lookup_by_addr(mdb_gelf_symtab_t *gst, uintptr_t addr,
 
 	const char *name;
 
+#if 0
 	/*
 	 * TODO: This is a hack, but the linux kernel's memory may be
 	 * offset due to KASLR, and the value from which it is offset is
@@ -1610,6 +1611,7 @@ mdb_gelf_symtab_lookup_by_addr(mdb_gelf_symtab_t *gst, uintptr_t addr,
 	 * offset when searching through the ELF file based on address.
 	 */
 	addr -= gst->gst_kerneloffset;
+#endif
 
 	if (gst == NULL)
 		return (set_errno(EMDB_NOSYMADDR));
@@ -1624,6 +1626,7 @@ mdb_gelf_symtab_lookup_by_addr(mdb_gelf_symtab_t *gst, uintptr_t addr,
 			return (set_errno(EMDB_NOSYMADDR));
 	}
 
+#if 0
 	/*
 	 * TODO: This is a hack, but the linux kernel's memory
 	 * may be offset due to KASLR, and the value from which
@@ -1635,6 +1638,7 @@ mdb_gelf_symtab_lookup_by_addr(mdb_gelf_symtab_t *gst, uintptr_t addr,
 	 */
 	addr += gst->gst_kerneloffset;
 	sym->st_value += gst->gst_kerneloffset;
+#endif
 
 	if ((flags & GST_EXACT) && (sym->st_value != addr))
 		return (set_errno(EMDB_NOSYMADDR));
@@ -1681,6 +1685,7 @@ mdb_gelf_symtab_lookup_by_name(mdb_gelf_symtab_t *gst, const char *name,
 			}
 		}
 
+#if 0
 		/*
 		 * TODO: This is a hack, but the linux kernel's memory
 		 * may be offset due to KASLR, and the value from which
@@ -1691,6 +1696,7 @@ mdb_gelf_symtab_lookup_by_name(mdb_gelf_symtab_t *gst, const char *name,
 		 * to obtain the symbol's actual address in memory.
 		 */
 		sym->st_value += gst->gst_kerneloffset;
+#endif
 
 		return (0);
 	}

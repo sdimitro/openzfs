@@ -153,6 +153,7 @@ SUBDIRS +=				\
 	libkrb5		\
 	libkstat	\
 	libkvm		\
+	liblkd		\
 	libldap5	\
 	liblgrp		\
 	liblm		\
@@ -421,6 +422,7 @@ HDRSUBDIRS=				\
 	libkrb5		\
 	libkstat	\
 	libkvm		\
+	liblkd		\
 	libmail		\
 	libmapid	\
 	libmd		\

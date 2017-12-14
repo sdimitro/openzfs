@@ -29,11 +29,12 @@ $mapfile_version 2
 
 SYMBOL_VERSION SUNWprivate_1.1 {
     global:
-	lkd_open;
 	lkd_close;
-	lkd_kread;
+	lkd_open;
 	lkd_pread;
 	lkd_vmcoreinfo_lookup;
+	lkd_vtop;
+	lkd_vread;
     local:
 	*;
 };

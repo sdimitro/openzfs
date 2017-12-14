@@ -43,6 +43,9 @@ struct lkd {
 	char			*lkd_vmcoreinfo;
 	void			*lkd_elfnote;
 	void			**lkd_nt_prstatus;
+	uint64_t		lkd_init_level4_pgt;
+	uint64_t		lkd_vmalloc_start;
+	uint64_t		lkd_vmalloc_end;
 };
 
 static void
@@ -121,6 +124,12 @@ lkd_open(const char *namelist, const char *corefile, const char *swapfile,
 	    sizeof (lkd->lkd_hdr), 0) != sizeof (lkd->lkd_hdr))
 		return (fail(lkd, err, "cannot read kdump header"));
 
+	dprintf(lkd, "hdr: signature: %s", lkd->lkd_hdr.signature);
+	dprintf(lkd, "hdr: version: 0x%llx", lkd->lkd_hdr.header_version);
+	dprintf(lkd, "hdr: status: 0x%llx", lkd->lkd_hdr.status);
+	dprintf(lkd, "hdr: current_cpu: 0x%llx", lkd->lkd_hdr.current_cpu);
+	dprintf(lkd, "hdr: nr_cpus: 0x%llx", lkd->lkd_hdr.nr_cpus);
+
 	if (memcmp(lkd->lkd_hdr.signature, KDUMP_SIGNATURE,
 	    sizeof (lkd->lkd_hdr.signature)) != 0) {
 		return (fail(lkd, err, "%s is not a kdump core file "
@@ -132,6 +141,10 @@ lkd_open(const char *namelist, const char *corefile, const char *swapfile,
 	if (pread64(lkd->lkd_corefd, &lkd->lkd_subhdr,
 	    sizeof (lkd->lkd_subhdr), blksz) != sizeof (lkd->lkd_subhdr))
 		return (fail(lkd, err, "cannot read kdump sub header"));
+
+	dprintf(lkd, "subhdr: phys_base: 0x%llx", lkd->lkd_subhdr.phys_base);
+	dprintf(lkd, "subhdr: dump_level: 0x%llx", lkd->lkd_subhdr.dump_level);
+	dprintf(lkd, "subhdr: split: 0x%llx", lkd->lkd_subhdr.split);
 
 	if (lkd->lkd_hdr.header_version >= 6)
 		lkd->lkd_max_mapnr = lkd->lkd_subhdr.max_mapnr_64;
@@ -211,6 +224,35 @@ lkd_open(const char *namelist, const char *corefile, const char *swapfile,
 		}
 	}
 
+	/*
+	 * We must do this _after_ we read in the vmcoreinfo data from
+	 * the Kdump file, which we did earlier in this function.
+	 */
+	char *init_level4_pgt = lkd_vmcoreinfo_lookup(lkd,
+	    "SYMBOL(init_level4_pgt)");
+	if (init_level4_pgt == NULL)
+		return (fail(lkd, err, "cannot lookup init_level4_pgt"));
+
+	lkd->lkd_init_level4_pgt = strtoull(init_level4_pgt, NULL, 16);
+	free(init_level4_pgt);
+
+	/*
+	 * TODO: once we can locate kernel symbols, I think we need to
+	 * read 'vmalloc_base' here, or something. This is hardcoded
+	 * based on the value of "KERNEL_VIRTUAL_BASE" when running the
+	 * "mach" crash command on the dump file.
+	 */
+	lkd->lkd_vmalloc_start = 0xffff952d40000000ULL;
+
+	/*
+	 * There appears to be 32TB of address space for vmalloc,
+	 * starting at the "start address" determined above.
+	 */
+	lkd->lkd_vmalloc_end = lkd->lkd_vmalloc_start + (32 * (1ULL << 40)) - 1;
+
+	dprintf(lkd, "vmalloc start: 0x%llx", lkd->lkd_vmalloc_start);
+	dprintf(lkd, "vmalloc end: 0x%llx", lkd->lkd_vmalloc_end);
+
 	dprintf(lkd, "successfully opened Linux Kdump library");
 
 	return (lkd);
@@ -238,9 +280,9 @@ lkd_close(lkd_t *lkd)
 }
 
 static unsigned long
-lkd_addr_to_pfn(lkd_t *lkd, uintptr_t addr)
+lkd_addr_to_pfn(lkd_t *lkd, uint64_t addr)
 {
-	uintptr_t page_addr = addr & ~(lkd->lkd_hdr.block_size - 1);
+	uint64_t page_addr = addr & ~(lkd->lkd_hdr.block_size - 1);
 	return (page_addr >> (ffs(lkd->lkd_hdr.block_size) - 1));
 }
 
@@ -289,7 +331,7 @@ lkd_pread(lkd_t *lkd, uint64_t addr, void *buf, size_t size)
 		goto out_cpage;
 	}
 
-	dprintf(lkd, "compressed page offset 0x%llx, size 0x%llx, flags 0x%llx",
+	dprintf(lkd, "compressed page offset 0x%lx, size 0x%lx, flags 0x%lx",
 	    pd.offset, pd.size, pd.flags);
 
 	if ((upage = calloc(1, blksz)) == NULL) {
@@ -323,15 +365,150 @@ out:
 	return (rc);
 }
 
-ssize_t
-lkd_kread(lkd_t *lkd, uint64_t addr, void *buf, size_t size)
+uint64_t
+lkd_vtop_vmalloc(lkd_t *lkd, uint64_t addr)
 {
-	const unsigned long long phys_base = lkd->lkd_subhdr.phys_base;
-	const unsigned long long start_kernel_map = 0xffffffff80000000ULL;
+	uint64_t *pml4 = NULL, *pdpt = NULL, *pdt = NULL, *pt = NULL;
+	uint64_t paddr = -1ULL;
 
-	uintptr_t paddr = addr - start_kernel_map + phys_base;
+	uint64_t pml4idx = pml4_index(addr);
+	uint64_t pdptidx = pdpt_index(addr);
+	uint64_t pdtidx = pdt_index(addr);
+	uint64_t ptidx = pt_index(addr);
+	uint64_t pageidx = page_index(addr);
 
-	dprintf(lkd, "kread of address: 0x%llx", addr);
+	dprintf(lkd, "pml4 index: 0x%llx", pml4idx);
+	dprintf(lkd, "pdpt index: 0x%llx", pdptidx);
+	dprintf(lkd, "pdt index: 0x%llx", pdtidx);
+	dprintf(lkd, "pt index: 0x%llx", ptidx);
+	dprintf(lkd, "page index: 0x%llx", pageidx);
+
+	if ((pml4 = malloc(PAGE_SIZE)) == NULL) {
+		dprintf(lkd, "cannot allocate pml4");
+		goto out;
+	}
+
+	dprintf(lkd, "pml4 vaddr: 0x%llx", lkd->lkd_init_level4_pgt);
+
+	if (lkd_vread(lkd,
+	    lkd->lkd_init_level4_pgt, pml4, PAGE_SIZE) != PAGE_SIZE) {
+		dprintf(lkd, "cannot read pml4");
+		goto out;
+	}
+
+	if (!(pml4[pml4idx] & PRESENT_MASK)) {
+		dprintf(lkd, "pml4 entry absent");
+		goto out;
+	}
+
+	dprintf(lkd, "pdpt paddr: 0x%llx", pml4[pml4idx] & ADDRESS_MASK);
+
+	if ((pdpt = malloc(PAGE_SIZE)) == NULL) {
+		dprintf(lkd, "cannot allocate pdpt");
+		goto out;
+	}
+
+	if (lkd_pread(lkd,
+	    pml4[pml4idx] & ADDRESS_MASK, pdpt, PAGE_SIZE) != PAGE_SIZE) {
+		dprintf(lkd, "cannot read pdpt");
+		goto out;
+	}
+
+	if (!(pdpt[pdptidx] & PRESENT_MASK)) {
+		dprintf(lkd, "pdpt entry absent");
+		goto out;
+	}
+
+	if (pdpt[pdptidx] & BIGPAGE_MASK) {
+		/*
+		 * We don't yet support 1GB pages.
+		 */
+		dprintf(lkd, "pdpt entry 1GB page set");
+		goto out;
+	}
+
+	dprintf(lkd, "pdt paddr: 0x%llx", pdpt[pdptidx] & ADDRESS_MASK);
+
+	if ((pdt = malloc(PAGE_SIZE)) == NULL) {
+		dprintf(lkd, "cannot allocate pdt");
+		goto out;
+	}
+
+	if (lkd_pread(lkd,
+	    pdpt[pdptidx] & ADDRESS_MASK, pdt, PAGE_SIZE) != PAGE_SIZE) {
+		dprintf(lkd, "cannot read pdt");
+		goto out;
+	}
+
+	if (!(pdt[pdtidx] & PRESENT_MASK)) {
+		dprintf(lkd, "pdt entry absent");
+		goto out;
+	}
+
+	if (pdt[pdtidx] & BIGPAGE_MASK) {
+		/*
+		 * We don't yet support 2MB pages.
+		 */
+		dprintf(lkd, "pdt entry 2MB page set");
+		goto out;
+	}
+
+	dprintf(lkd, "pt paddr: 0x%llx", pdt[pdtidx] & ADDRESS_MASK);
+
+	if ((pt = malloc(PAGE_SIZE)) == NULL) {
+		dprintf(lkd, "cannot allocate pt");
+		goto out;
+	}
+
+	if (lkd_pread(lkd,
+	    pdt[pdtidx] & ADDRESS_MASK, pt, PAGE_SIZE) != PAGE_SIZE) {
+		dprintf(lkd, "cannot read pt");
+		goto out;
+	}
+
+	if (!(pt[ptidx] & PRESENT_MASK)) {
+		dprintf(lkd, "pt entry absent");
+		goto out;
+	}
+
+	dprintf(lkd, "page paddr: 0x%llx", pt[ptidx] & ADDRESS_MASK);
+
+	paddr = (pt[ptidx] & ADDRESS_MASK) + pageidx;
+	dprintf(lkd, "final paddr: 0x%llx", paddr);
+
+out:
+	free(pt);
+	free(pdt);
+	free(pdpt);
+	free(pml4);
+
+	return (paddr);
+}
+
+uint64_t
+lkd_vtop(lkd_t *lkd, uint64_t addr)
+{
+	dprintf(lkd, "vtop of address: 0x%llx", addr);
+
+	if (lkd->lkd_vmalloc_start <= addr && addr <= lkd->lkd_vmalloc_end)
+		return (lkd_vtop_vmalloc(lkd, addr));
+	else if (START_KERNEL_MAP <= addr)
+		return (addr - START_KERNEL_MAP + lkd->lkd_subhdr.phys_base);
+	else
+		return (addr - PAGE_OFFSET);
+
+	return (-1ULL);
+}
+
+ssize_t
+lkd_vread(lkd_t *lkd, uint64_t addr, void *buf, size_t size)
+{
+	uint64_t paddr;
+
+	dprintf(lkd, "vread of address: 0x%llx", addr);
+
+	if ((paddr = lkd_vtop(lkd, addr)) == (uint64_t)-1ULL)
+		return (-1);
 
 	return (lkd_pread(lkd, paddr, buf, size));
 }

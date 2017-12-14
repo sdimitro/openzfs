@@ -31,20 +31,22 @@ typedef struct lkd lkd_t;
 
 #ifdef __STDC__
 
+extern int	lkd_close(lkd_t *);
 extern lkd_t	*lkd_open(const char *, const char *, const char *,
 		int, const char *);
-extern int	lkd_close(lkd_t *);
 extern ssize_t	lkd_pread(lkd_t *, uint64_t, void *, size_t);
-extern ssize_t	lkd_kread(lkd_t *, uint64_t, void *, size_t);
 extern char	*lkd_vmcoreinfo_lookup(lkd_t *, const char *);
+extern ssize_t	lkd_vread(lkd_t *, uint64_t, void *, size_t);
+extern uint64_t	lkd_vtop(lkd_t *lkd, uint64_t addr);
 
 #else
 
-extern lkd_t	*lkd_open();
 extern int	lkd_close();
+extern lkd_t	*lkd_open();
 extern ssize_t	lkd_pread();
-extern ssize_t	lkd_kread();
 extern char	*lkd_vmcoreinfo_lookup();
+extern ssize_t	lkd_vread();
+extern uint64_t	lkd_vtop();
 
 #endif	/* __STDC__ */
 

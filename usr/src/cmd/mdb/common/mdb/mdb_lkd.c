@@ -81,7 +81,7 @@ lt_vread(mdb_tgt_t *t, void *buf, size_t nbytes, uintptr_t addr)
 	lt_data_t *lt = t->t_data;
 	ssize_t rval;
 
-	if ((rval = lkd_kread(lt->l_cookie, addr, buf, nbytes)) == -1)
+	if ((rval = lkd_vread(lt->l_cookie, addr, buf, nbytes)) == -1)
 		return (set_errno(EMDB_NOMAP));
 
 	return (rval);
@@ -152,6 +152,29 @@ lt_lookup_by_addr(mdb_tgt_t *t, uintptr_t addr, uint_t flags,
 	return (set_errno(EMDB_NOSYMADDR));
 }
 
+int
+lt_vtop(mdb_tgt_t *t, mdb_tgt_as_t as, uintptr_t va, physaddr_t *pap)
+{
+	lt_data_t *lt = t->t_data;
+	uint64_t paddr;
+
+	switch ((uintptr_t)as) {
+	case (uintptr_t)MDB_TGT_AS_PHYS:
+	case (uintptr_t)MDB_TGT_AS_FILE:
+	case (uintptr_t)MDB_TGT_AS_IO:
+		return (set_errno(EINVAL));
+	case (uintptr_t)MDB_TGT_AS_VIRT:
+	default:
+		break;
+	}
+
+	if ((paddr = lkd_vtop(lt->l_cookie, va)) == -1ULL)
+		return (set_errno(EMDB_NOMAP));
+
+	*pap = paddr;
+	return (0);
+}
+
 static const mdb_tgt_ops_t lt_ops = {
 	(int (*)()) mdb_tgt_notsup,			/* t_setflags */
 	(int (*)()) mdb_tgt_notsup,			/* t_setcontext */
@@ -174,7 +197,7 @@ static const mdb_tgt_ops_t lt_ops = {
 	(ssize_t (*)()) mdb_tgt_notsup,			/* t_fwrite */
 	(ssize_t (*)()) mdb_tgt_notsup,			/* t_ioread */
 	(ssize_t (*)()) mdb_tgt_notsup,			/* t_iowrite */
-	(int (*)()) mdb_tgt_notsup,			/* t_vtop */
+	lt_vtop,					/* t_vtop */
 	lt_lookup_by_name,				/* t_lookup_by_name */
 	lt_lookup_by_addr,				/* t_lookup_by_addr */
 	(int (*)()) mdb_tgt_notsup,			/* t_symbol_iter */

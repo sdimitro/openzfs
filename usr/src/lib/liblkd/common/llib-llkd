@@ -20,6 +20,3 @@
 
 lkd_t *lkd_open(const char *, const char *, const char *, int, const char *);
 int lkd_close(lkd_t *);
-
-ssize_t kvm_kread(lkd_t *, uintptr_t, void *, size_t);
-ssize_t kvm_pread(lkd_t *, uint64_t, void *, size_t);

@@ -18,7 +18,37 @@
 
 #include <elf.h>
 
+#define PAGE_SHIFT			12
+#define PAGE_SIZE			(1UL << PAGE_SHIFT)
+
+/*
+ *       47      39 38      30 29      21 20     12 11        0
+ * -----+----------+----------+----------+---------+-----------+
+ *  ... | PML4 idx | PDPT idx |  PDT idx |  PT idx |  Page idx |
+ * -----+----------+----------+----------+---------+-----------+
+ *         9 bits     9 bits     9 bits     9 bits    12 bits
+ *
+ * See Intel's Software Developer's Manual for more details.
+ */
+#define pml4_index(vaddr)		(((vaddr) >> 39) & ((1ULL << 9) - 1))
+#define pdpt_index(vaddr)		(((vaddr) >> 30) & ((1ULL << 9) - 1))
+#define pdt_index(vaddr)		(((vaddr) >> 21) & ((1ULL << 9) - 1))
+#define pt_index(vaddr)			(((vaddr) >> 12) & ((1ULL << 9) - 1))
+#define page_index(vaddr)		((vaddr) & ((1ULL << 12) - 1))
+
+#define __PHYSICAL_MASK_SHIFT		46
+#define __PHYSICAL_MASK			((1ULL << __PHYSICAL_MASK_SHIFT) - 1)
+
+#define ADDRESS_MASK			(~(PAGE_SIZE - 1) & __PHYSICAL_MASK)
+#define PRESENT_MASK			(1ULL << 0)
+#define BIGPAGE_MASK			(1ULL << 7)
+
+#define PML4E_PRESENT_MASK		(1ULL << 0)
+#define PML4E_PRESENT_MASK		(1ULL << 0)
+
 #define NR_CPUS				8192
+#define START_KERNEL_MAP		0xffffffff80000000ULL
+#define PAGE_OFFSET			0xffff880000000000ULL
 
 #define divideup(x, y)			(((x) + ((y) - 1)) / (y))
 #define round(x, y)			(((x) / (y)) * (y))

@@ -26,7 +26,7 @@
 /*
  * Copyright (c) 2012, Joyent, Inc.  All rights reserved.
  * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2018 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -271,6 +271,7 @@ mdb_amd64_kvm_stack_iter(mdb_tgt_t *t, const mdb_tgt_gregset_t *gsp,
 
 		advance_tortoise = !advance_tortoise;
 
+#if 0
 		if ((mdb_tgt_lookup_by_addr(t, pc, MDB_TGT_SYM_FUZZY,
 		    NULL, 0, &s, &sip) == 0) &&
 		    (mdb_ctf_func_info(&s, &sip, &mfp) == 0)) {
@@ -314,6 +315,17 @@ mdb_amd64_kvm_stack_iter(mdb_tgt_t *t, const mdb_tgt_gregset_t *gsp,
 		} else {
 			argc = 0;
 		}
+#else
+		/*
+		 * TODO: This is a complete hack, but until we have CTF
+		 * information available to us with Linux, let's avoid
+		 * calling the CTF specific functions (plus, calling
+		 * mdb_ctf_func_info() above was causing a seg. fault).
+		 */
+		mdb_tgt_lookup_by_addr(
+		    t, pc, MDB_TGT_SYM_FUZZY, NULL, 0, &s, &sip);
+		argc = 0;
+#endif
 
 		/*
 		 * The number of instructions to search for argument saving is

@@ -207,9 +207,32 @@ lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	return (DCMD_OK);
 }
 
+static int
+lt_stack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+	mdb_tgt_t *t = mdb.m_target;
+	lt_data_t *lt = t->t_data;
+	mdb_tgt_gregset_t gregs;
+	privmregs_t mregs;
+
+	if (lkd_getmregs(lt->l_cookie, 0, &mregs) != 0)
+		return (DCMD_ERR);
+
+	kt_regs_to_kregs(&mregs.pm_gregs, &gregs);
+
+#if defined(__amd64)
+	(void) mdb_amd64_kvm_stack_iter(
+	    t, &gregs, mdb_amd64_kvm_frame, (void *)(uintptr_t)mdb.m_nargs);
+#endif
+
+	return (DCMD_OK);
+}
+
 static const mdb_dcmd_t lt_dcmds[] = {
+	{ "$c", NULL, "print stack backtrace", lt_stack },
 	{ "$r", NULL, "print general-purpose registers", lt_regs },
 	{ "regs", NULL, "print general-purpose registers", lt_regs },
+	{ "stack", NULL, "print stack backtrace", lt_stack },
 	{ NULL }
 };
 

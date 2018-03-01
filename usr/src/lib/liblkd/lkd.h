@@ -8,12 +8,14 @@
  * source.  A copy of the CDDL is also available via the Internet at
  * http://www.illumos.org/license/CDDL.
  *
- * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2017, 2018 by Delphix. All rights reserved.
  */
 
 #ifndef	_LKD_H
 #define	_LKD_H
 
+#include <sys/ucontext.h>
+#include <sys/privmregs.h>
 #include <sys/types.h>
 #include <nlist.h>
 #include <sys/user.h>
@@ -37,7 +39,8 @@ extern lkd_t	*lkd_open(const char *, const char *, const char *,
 extern ssize_t	lkd_pread(lkd_t *, uint64_t, void *, size_t);
 extern char	*lkd_vmcoreinfo_lookup(lkd_t *, const char *);
 extern ssize_t	lkd_vread(lkd_t *, uint64_t, void *, size_t);
-extern uint64_t	lkd_vtop(lkd_t *lkd, uint64_t addr);
+extern uint64_t	lkd_vtop(lkd_t *, uint64_t);
+extern int	lkd_getmregs(lkd_t *, uint_t, struct privmregs *);
 
 #else
 
@@ -47,6 +50,7 @@ extern ssize_t	lkd_pread();
 extern char	*lkd_vmcoreinfo_lookup();
 extern ssize_t	lkd_vread();
 extern uint64_t	lkd_vtop();
+extern int	lkd_getmregs();
 
 #endif	/* __STDC__ */
 

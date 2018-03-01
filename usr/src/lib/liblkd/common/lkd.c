@@ -8,7 +8,7 @@
  * source.  A copy of the CDDL is also available via the Internet at
  * http://www.illumos.org/license/CDDL.
  *
- * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2017, 2018 by Delphix. All rights reserved.
  */
 
 #include <lkd.h>
@@ -29,6 +29,14 @@
 #define	dprintf(lkd, ...) \
 	lkd_dprintf(lkd, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
+typedef struct x86_64_user_regs_struct {
+	unsigned long r15, r14, r13, r12, bp, bx;
+	unsigned long r11, r10, r9, r8, ax, cx, dx;
+	unsigned long si, di, orig_ax, ip, cs;
+	unsigned long flags, sp, ss, fs_base;
+	unsigned long gs_base, ds, es, fs, gs;
+} user_regs_t;
+
 struct lkd {
 	struct disk_dump_header	lkd_hdr;
 	struct kdump_sub_header	lkd_subhdr;
@@ -42,6 +50,7 @@ struct lkd {
 	unsigned long		*lkd_valid_pages;
 	char			*lkd_vmcoreinfo;
 	void			*lkd_elfnote;
+	size_t			lkd_elfnotesz;
 	void			**lkd_nt_prstatus;
 	uint64_t		lkd_init_level4_pgt;
 	uint64_t		lkd_vmalloc_start;
@@ -161,19 +170,19 @@ lkd_open(const char *namelist, const char *corefile, const char *swapfile,
 
 	lkd->lkd_vmcoreinfo[vmcoreinfosz] = '\0';
 
-	size_t elfnotesz = lkd->lkd_subhdr.size_note;
-	if ((lkd->lkd_elfnote = malloc(elfnotesz)) == NULL)
+	lkd->lkd_elfnotesz = lkd->lkd_subhdr.size_note;
+	if ((lkd->lkd_elfnote = malloc(lkd->lkd_elfnotesz)) == NULL)
 		return (fail(lkd, err, "cannot allocate ELF note"));
 
-	if (pread64(lkd->lkd_corefd, lkd->lkd_elfnote,
-	    elfnotesz, lkd->lkd_subhdr.offset_note) != elfnotesz)
+	if (pread64(lkd->lkd_corefd, lkd->lkd_elfnote, lkd->lkd_elfnotesz,
+	    lkd->lkd_subhdr.offset_note) != lkd->lkd_elfnotesz)
 		return (fail(lkd, err, "cannot read kdump ELF note"));
 
 	if ((lkd->lkd_nt_prstatus = calloc(NR_CPUS, sizeof (void *))) == NULL)
 		return (fail(lkd, err, "cannot allocate prstatus"));
 
 	unsigned int cpu = 0;
-	for (size_t i = 0, len = 0; i < elfnotesz; i += len) {
+	for (size_t i = 0, len = 0; i < lkd->lkd_elfnotesz; i += len) {
 		Elf64_Nhdr *nt = lkd->lkd_elfnote + i;
 
 		if (nt->n_type == NT_PRSTATUS) {
@@ -552,4 +561,61 @@ lkd_vmcoreinfo_lookup(lkd_t *lkd, const char *key)
 out:
 	free(lookup);
 	return (value);
+}
+
+int
+lkd_getmregs(lkd_t *lkd, uint_t cpu, struct privmregs *mregs)
+{
+	Elf64_Nhdr *nt = lkd->lkd_nt_prstatus[cpu];
+	size_t len = sizeof (*nt);
+	len = roundup(len + nt->n_namesz, 4);
+	len = roundup(len + nt->n_descsz, 4);
+
+	if ((char *)nt + len >
+	    (char *)lkd->lkd_elfnote + lkd->lkd_elfnotesz) {
+		dprintf(lkd, "failed to get mregs for cpu: %lu\n", cpu);
+		return (-1);
+	}
+
+	bzero(mregs, sizeof (*mregs));
+	struct regs *regs = &mregs->pm_gregs;
+	char *user_regs = (char *)nt + len -
+	    sizeof (user_regs_t) - sizeof (long);
+
+	regs->r_ss = *((long *)(user_regs + offsetof(user_regs_t, ss)));
+	regs->r_cs = *((long *)(user_regs + offsetof(user_regs_t, cs)));
+	regs->r_ds = *((long *)(user_regs + offsetof(user_regs_t, ds)));
+	regs->r_es = *((long *)(user_regs + offsetof(user_regs_t, es)));
+	regs->r_fs = *((long *)(user_regs + offsetof(user_regs_t, fs)));
+	regs->r_gs = *((long *)(user_regs + offsetof(user_regs_t, gs)));
+
+	regs->r_savfp = *((long *)(user_regs + offsetof(user_regs_t, bp)));
+	regs->r_savpc = *((long *)(user_regs + offsetof(user_regs_t, ip)));
+
+#if defined(__amd64)
+	regs->r_rdi = *((long *)(user_regs + offsetof(user_regs_t, di)));
+	regs->r_rsi = *((long *)(user_regs + offsetof(user_regs_t, si)));
+	regs->r_rdx = *((long *)(user_regs + offsetof(user_regs_t, dx)));
+	regs->r_rcx = *((long *)(user_regs + offsetof(user_regs_t, cx)));
+	regs->r_r8 = *((long *)(user_regs + offsetof(user_regs_t, r8)));
+	regs->r_r9 = *((long *)(user_regs + offsetof(user_regs_t, r9)));
+	regs->r_rax = *((long *)(user_regs + offsetof(user_regs_t, ax)));
+	regs->r_rbx = *((long *)(user_regs + offsetof(user_regs_t, bx)));
+	regs->r_rbp = *((long *)(user_regs + offsetof(user_regs_t, bp)));
+	regs->r_r10 = *((long *)(user_regs + offsetof(user_regs_t, r10)));
+	regs->r_r11 = *((long *)(user_regs + offsetof(user_regs_t, r11)));
+	regs->r_r12 = *((long *)(user_regs + offsetof(user_regs_t, r12)));
+	regs->r_r13 = *((long *)(user_regs + offsetof(user_regs_t, r13)));
+	regs->r_r14 = *((long *)(user_regs + offsetof(user_regs_t, r14)));
+	regs->r_r15 = *((long *)(user_regs + offsetof(user_regs_t, r15)));
+	regs->r_rip = *((long *)(user_regs + offsetof(user_regs_t, ip)));
+	regs->r_rfl = *((long *)(user_regs + offsetof(user_regs_t, flags)));
+	regs->r_rsp = *((long *)(user_regs + offsetof(user_regs_t, sp)));
+#endif
+
+	/*
+	 * TODO: What about "r_trapno" and "r_err"?
+	 */
+
+	return (0);
 }

@@ -20,6 +20,7 @@
 #include <fcntl.h>
 
 #include <mdb/mdb_target_impl.h>
+#include <mdb/mdb_kreg_impl.h>
 #include <mdb/mdb_io_impl.h>
 #include <mdb/mdb_string.h>
 #include <mdb/mdb_modapi.h>
@@ -27,6 +28,10 @@
 #include <mdb/mdb_conf.h>
 #include <mdb/mdb_err.h>
 #include <mdb/mdb.h>
+
+#if defined(__amd64)
+#include <mdb/mdb_amd64util.h>
+#endif
 
 #include <lkd.h>
 
@@ -176,9 +181,29 @@ lt_vtop(mdb_tgt_t *t, mdb_tgt_as_t as, uintptr_t va, physaddr_t *pap)
 	return (0);
 }
 
+/*
+ * TODO: We probably should not be using "kt" functions here, which are
+ * intended to be specific to the illumos kernel target.
+ */
+extern void kt_regs_to_kregs(struct regs *regs, mdb_tgt_gregset_t *gregs);
+
 static int
 lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
+	mdb_tgt_t *t = mdb.m_target;
+	lt_data_t *lt = t->t_data;
+	mdb_tgt_gregset_t gregs;
+	privmregs_t mregs;
+
+	if (lkd_getmregs(lt->l_cookie, 0, &mregs) != 0)
+		return (DCMD_ERR);
+
+	kt_regs_to_kregs(&mregs.pm_gregs, &gregs);
+
+#if defined(__amd64)
+	mdb_amd64_printregs(&gregs);
+#endif
+
 	return (DCMD_OK);
 }
 

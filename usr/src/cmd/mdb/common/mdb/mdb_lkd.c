@@ -207,8 +207,10 @@ lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	return (DCMD_OK);
 }
 
+#if defined(__amd64)
 static int
-lt_stack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+lt_stack_common(uintptr_t addr, uint_t flags, int argc,
+    const mdb_arg_t *argv, mdb_tgt_stack_f *func)
 {
 	mdb_tgt_t *t = mdb.m_target;
 	lt_data_t *lt = t->t_data;
@@ -220,16 +222,36 @@ lt_stack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 
 	kt_regs_to_kregs(&mregs.pm_gregs, &gregs);
 
-#if defined(__amd64)
 	(void) mdb_amd64_kvm_stack_iter(
-	    t, &gregs, mdb_amd64_kvm_frame, (void *)(uintptr_t)mdb.m_nargs);
-#endif
+	    t, &gregs, func, (void *)(uintptr_t)mdb.m_nargs);
 
 	return (DCMD_OK);
+}
+#endif
+
+static int
+lt_stack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+#if defined(__amd64)
+	return (lt_stack_common(addr, flags, argc, argv, mdb_amd64_kvm_frame));
+#else
+	return (DCMD_ERR);
+#endif
+}
+
+static int
+lt_stackv(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+#if defined(__amd64)
+	return (lt_stack_common(addr, flags, argc, argv, mdb_amd64_kvm_framev));
+#else
+	return (DCMD_ERR);
+#endif
 }
 
 static const mdb_dcmd_t lt_dcmds[] = {
 	{ "$c", NULL, "print stack backtrace", lt_stack },
+	{ "$C", NULL, "print stack backtrace", lt_stackv },
 	{ "$r", NULL, "print general-purpose registers", lt_regs },
 	{ "regs", NULL, "print general-purpose registers", lt_regs },
 	{ "stack", NULL, "print stack backtrace", lt_stack },

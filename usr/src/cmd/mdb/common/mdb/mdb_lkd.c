@@ -188,14 +188,14 @@ lt_vtop(mdb_tgt_t *t, mdb_tgt_as_t as, uintptr_t va, physaddr_t *pap)
 extern void kt_regs_to_kregs(struct regs *regs, mdb_tgt_gregset_t *gregs);
 
 static int
-lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+lt_regs_common(uint_t cpuid)
 {
 	mdb_tgt_t *t = mdb.m_target;
 	lt_data_t *lt = t->t_data;
 	mdb_tgt_gregset_t gregs;
 	privmregs_t mregs;
 
-	if (lkd_getmregs(lt->l_cookie, 0, &mregs) != 0)
+	if (lkd_getmregs(lt->l_cookie, cpuid, &mregs) != 0)
 		return (DCMD_ERR);
 
 	kt_regs_to_kregs(&mregs.pm_gregs, &gregs);
@@ -207,17 +207,22 @@ lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	return (DCMD_OK);
 }
 
+static int
+lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+	return (lt_regs_common(0));
+}
+
 #if defined(__amd64)
 static int
-lt_stack_common(uintptr_t addr, uint_t flags, int argc,
-    const mdb_arg_t *argv, mdb_tgt_stack_f *func)
+lt_stack_common(uint_t cpuid, mdb_tgt_stack_f *func)
 {
 	mdb_tgt_t *t = mdb.m_target;
 	lt_data_t *lt = t->t_data;
 	mdb_tgt_gregset_t gregs;
 	privmregs_t mregs;
 
-	if (lkd_getmregs(lt->l_cookie, 0, &mregs) != 0)
+	if (lkd_getmregs(lt->l_cookie, cpuid, &mregs) != 0)
 		return (DCMD_ERR);
 
 	kt_regs_to_kregs(&mregs.pm_gregs, &gregs);
@@ -233,7 +238,7 @@ static int
 lt_stack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 #if defined(__amd64)
-	return (lt_stack_common(addr, flags, argc, argv, mdb_amd64_kvm_frame));
+	return (lt_stack_common(0, mdb_amd64_kvm_frame));
 #else
 	return (DCMD_ERR);
 #endif
@@ -243,10 +248,43 @@ static int
 lt_stackv(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 #if defined(__amd64)
-	return (lt_stack_common(addr, flags, argc, argv, mdb_amd64_kvm_framev));
+	return (lt_stack_common(0, mdb_amd64_kvm_framev));
 #else
 	return (DCMD_ERR);
 #endif
+}
+
+static int
+lt_cpustack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+	uint_t verbose = 0;
+	intptr_t cpuid = 0;
+
+	(void) mdb_getopts(argc, argv,
+	    'c', MDB_OPT_UINTPTR, &cpuid,
+	    'v', MDB_OPT_SETBITS, 1, &verbose,
+	    NULL);
+
+#if defined(__amd64)
+	if (verbose)
+		return (lt_stack_common(cpuid, mdb_amd64_kvm_framev));
+	else
+		return (lt_stack_common(cpuid, mdb_amd64_kvm_frame));
+#else
+	return (DCMD_ERR);
+#endif
+}
+
+static int
+lt_cpuregs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+	intptr_t cpuid = 0;
+
+	(void) mdb_getopts(argc, argv,
+	    'c', MDB_OPT_UINTPTR, &cpuid,
+	    NULL);
+
+	return (lt_regs_common(cpuid));
 }
 
 static const mdb_dcmd_t lt_dcmds[] = {
@@ -255,6 +293,10 @@ static const mdb_dcmd_t lt_dcmds[] = {
 	{ "$r", NULL, "print general-purpose registers", lt_regs },
 	{ "regs", NULL, "print general-purpose registers", lt_regs },
 	{ "stack", NULL, "print stack backtrace", lt_stack },
+	{ "cpustack", "?[-v] [-c cpuid]", "print stack backtrace for a "
+	    "specific CPU", lt_cpustack },
+	{ "cpuregs", "?[-c cpuid]", "print general-purpose registers for a "
+	    "specific CPU", lt_cpuregs },
 	{ NULL }
 };
 

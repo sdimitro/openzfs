@@ -8,7 +8,7 @@
  * source.  A copy of the CDDL is also available via the Internet at
  * http://www.illumos.org/license/CDDL.
  *
- * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2017, 2018 by Delphix. All rights reserved.
  */
 
 /*
@@ -23,6 +23,7 @@
 #include <mdb/mdb_io_impl.h>
 #include <mdb/mdb_string.h>
 #include <mdb/mdb_modapi.h>
+#include <mdb/mdb_debug.h>
 #include <mdb/mdb_conf.h>
 #include <mdb/mdb_err.h>
 #include <mdb/mdb.h>
@@ -175,11 +176,51 @@ lt_vtop(mdb_tgt_t *t, mdb_tgt_as_t as, uintptr_t va, physaddr_t *pap)
 	return (0);
 }
 
+static int
+lt_regs(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
+{
+	return (DCMD_OK);
+}
+
+static const mdb_dcmd_t lt_dcmds[] = {
+	{ "$r", NULL, "print general-purpose registers", lt_regs },
+	{ "regs", NULL, "print general-purpose registers", lt_regs },
+	{ NULL }
+};
+
+static void
+lt_activate(mdb_tgt_t *t)
+{
+	lt_data_t *lt = t->t_data;
+
+	mdb_prop_postmortem = TRUE;
+	mdb_prop_kernel = FALSE;
+	mdb_prop_datamodel = MDB_TGT_MODEL_NATIVE;
+
+	(void) mdb_tgt_register_dcmds(t, &lt_dcmds[0], MDB_MOD_FORCE);
+}
+
+static void
+lt_deactivate(mdb_tgt_t *t)
+{
+	lt_data_t *lt = t->t_data;
+	const mdb_dcmd_t *dcp;
+
+	for (dcp = &lt_dcmds[0]; dcp->dc_name != NULL; dcp++) {
+		if (mdb_module_remove_dcmd(t->t_module, dcp->dc_name) == -1)
+			warn("failed to remove dcmd %s", dcp->dc_name);
+	}
+
+	mdb_prop_postmortem = FALSE;
+	mdb_prop_kernel = FALSE;
+	mdb_prop_datamodel = MDB_TGT_MODEL_UNKNOWN;
+}
+
 static const mdb_tgt_ops_t lt_ops = {
 	(int (*)()) mdb_tgt_notsup,			/* t_setflags */
 	(int (*)()) mdb_tgt_notsup,			/* t_setcontext */
-	(void (*)()) mdb_tgt_notsup,			/* t_activate */
-	(void (*)()) mdb_tgt_notsup,			/* t_deactivate */
+	lt_activate,					/* t_activate */
+	lt_deactivate,					/* t_deactivate */
 	(void (*)()) mdb_tgt_notsup,			/* t_periodic */
 	lt_destroy,					/* t_destroy */
 	lt_name,					/* t_name */

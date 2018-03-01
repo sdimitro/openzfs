@@ -23,6 +23,9 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/*
+ * Copyright (c) 2018 by Delphix. All rights reserved.
+ */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -39,6 +42,9 @@ void
 mdb_create_builtin_tgts(void)
 {
 	mdb_module_t *mp;
+
+	if ((mp = mdb_module_load_builtin("mdb_lkd")) != NULL)
+		mp->mod_tgt_ctor = mdb_lkd_tgt_create;
 
 	if ((mp = mdb_module_load_builtin("mdb_kvm")) != NULL)
 		mp->mod_tgt_ctor = mdb_kvm_tgt_create;

@@ -53,6 +53,7 @@ struct lkd {
 	size_t			lkd_elfnotesz;
 	void			**lkd_nt_prstatus;
 	uint64_t		lkd_init_level4_pgt;
+	char			lkd_namelist[MAXNAMELEN + 1];
 	uint64_t		lkd_vmalloc_start;
 	uint64_t		lkd_vmalloc_end;
 };
@@ -241,17 +242,75 @@ lkd_open(const char *namelist, const char *corefile, const char *swapfile,
 	    "SYMBOL(init_level4_pgt)");
 	if (init_level4_pgt == NULL)
 		return (fail(lkd, err, "cannot lookup init_level4_pgt"));
-
 	lkd->lkd_init_level4_pgt = strtoull(init_level4_pgt, NULL, 16);
 	free(init_level4_pgt);
 
+	if (namelist == NULL) {
+		/*
+		 * FUTURE NOTE:
+		 * if mdb is to be ported in Linux and we were to enhance it
+		 * for live-debugging this is where we would reach out for
+		 * something like /proc/kallsyms instead of failing.
+		 */
+		return (fail(lkd, err, "the current version of the library "
+		    "requires that a namelist is supplied"));
+	}
+	(void) strncpy(lkd->lkd_namelist, namelist, MAXNAMELEN);
+
 	/*
-	 * TODO: once we can locate kernel symbols, I think we need to
-	 * read 'vmalloc_base' here, or something. This is hardcoded
-	 * based on the value of "KERNEL_VIRTUAL_BASE" when running the
-	 * "mach" crash command on the dump file.
+	 * XXX - Explain that whatever we do from now on is to extracting
+	 * the KERNEL_VIRTUAL_BASE. Also explaining why this works would
+	 * be great, and adding some references. The rest of the code in
+	 * this function locates KERNEL_VIRTUAL_BASE.
+	 *
+	 * TODO: I think it is necessary to spend some time to
+	 * [1] get our terminology right vmalloc_start, KERNEL_VIRTUAL_BASE,
+	 * page_offset_base, and give a small explanation on how are all
+	 * these related and used to locate the area when will be doing our
+	 * vtop translations (or at least point to a definitive source as a
+	 * reference).
+	 * [2] list our assumptions on what the targets look like in the
+	 * current version of this code (e.g. kdump compressed and not ELF
+	 * dumps, kernel versions 4.8 and up or whatever with KASLR enabled
+	 * that are x86_64).
 	 */
-	lkd->lkd_vmalloc_start = 0xffff952d40000000ULL;
+	struct nlist nl[2] = { { "page_offset_base"}, { "" } };
+	if (nlist(lkd->lkd_namelist, nl) == -1) {
+		return (fail(lkd, err, "nlist() returned %d: %s; ensure that "
+		    "namelist %s and symbol %s are valid",
+		    errno, strerror(errno),
+		    lkd->lkd_namelist, nl[0].n_name));
+	}
+	uint64_t page_offset_base = nl[0].n_value;
+	dprintf(lkd, "page_offset_base: %p", page_offset_base);
+
+	/*
+	 * XXX - See where this part should go/be factored as we read the
+	 * same variable from vmcore info through the mdb parts.
+	 */
+	char *offset = lkd_vmcoreinfo_lookup(lkd, "KERNELOFFSET");
+	if (offset == NULL)
+		return (fail(lkd, err, "cannot lookup KERNELOFFSET"));
+	uint64_t kernel_offset = strtoull(offset, NULL, 16);
+	free(offset);
+	dprintf(lkd, "namelist:    kernel_offset: %llx", kernel_offset);
+
+	/*
+	 * We can't use lkd_vtop() yet for the traslation below as we
+	 * have not initialized lkd_vmalloc_start yet. Thus we do the
+	 * translation on the spot.
+	 */
+	uint64_t vmalloc_start_ptr_vaddr = kernel_offset + page_offset_base;
+	uint64_t vmalloc_start_ptr_paddr = vmalloc_start_ptr_vaddr -
+	    START_KERNEL_MAP + lkd->lkd_subhdr.phys_base;
+
+	uint64_t vmalloc_start = 0;
+	if (lkd_pread(lkd, vmalloc_start_ptr_paddr, &vmalloc_start,
+	    sizeof (vmalloc_start)) != sizeof (vmalloc_start)) {
+		return (fail(lkd, err,
+		    "failed to read vmalloc base from dump"));
+	}
+	lkd->lkd_vmalloc_start = vmalloc_start;
 
 	/*
 	 * There appears to be 32TB of address space for vmalloc,

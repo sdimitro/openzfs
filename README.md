@@ -15,6 +15,8 @@ CDDL HEADER END
 Copyright (c) 2017 by Delphix. All rights reserved.
 -->
 
+WARNING: SAMPLE REPO ONLY
+
 Delphix OS
 ==========
 
